@@ -23,5 +23,8 @@
   "missing_for_ray_reconstruction_streamline_profile": [
     "sl.dlss_d.dll",
     "nvngx_dlssd.dll"
+  ],
+  "missing_for_vulkan_reflex_profile": [
+    "NvLowLatencyVk.dll"
   ]
 }
