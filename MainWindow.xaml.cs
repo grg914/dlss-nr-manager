@@ -16,6 +16,8 @@ public partial class MainWindow : Window
     private readonly DiagnosticService _diagnostics = new();
     private readonly GameArtworkService _artwork = new();
     private readonly MediaService _media = new();
+    private readonly ReShadeService _reshade = new();
+    private readonly ComponentUpdateService _components = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
@@ -72,6 +74,19 @@ public partial class MainWindow : Window
             CheckManagerUpdateAsync());
 
         await RefreshStateAsync();
+
+        if (AutoUpdateComponentsCheck.IsChecked == true)
+        {
+            try
+            {
+                var progress = new Progress<string>(message => MediaStatusText.Text = message);
+                await _components.EnsureMediaToolsLatestAsync(_media, progress);
+            }
+            catch (Exception ex)
+            {
+                MediaStatusText.Text = $"Automatic component update check failed: {ex.Message}";
+            }
+        }
     }
 
     private async Task ScanGamesAsync(bool forceRefresh)
@@ -229,6 +244,14 @@ public partial class MainWindow : Window
 
     private async void ScanGames_Click(object sender, RoutedEventArgs e)
     {
+        await ScanGamesAsync(forceRefresh: true);
+        await RefreshStateAsync();
+    }
+
+    private async void ClearArtworkCache_Click(object sender, RoutedEventArgs e)
+    {
+        _artwork.ClearCache();
+        StatusText.Text = "Cover cache cleared. Reloading artwork…";
         await ScanGamesAsync(forceRefresh: true);
         await RefreshStateAsync();
     }
@@ -392,6 +415,27 @@ public partial class MainWindow : Window
 
             var gameDir = GamePathBox.Text;
             await Task.Run(() => ApplyAdvancedSettings(gameDir, advanced));
+
+            if (InstallReShadeAddonCheck.IsChecked == true)
+            {
+                try
+                {
+                    var executable = InstallerService.FindMainExecutable(gameDir);
+                    if (executable != null)
+                    {
+                        var progress = new Progress<string>(message => DiagnosticText.Text = message);
+                        await _reshade.LaunchAddonInstallerAsync(executable, progress);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        $"OptiScaler was installed, but the ReShade add-on installer could not be started.\n\n{ex.Message}",
+                        "ReShade add-on",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+            }
 
             MessageBox.Show(
                 $"Installation completed.\nBackup: {backup}",
@@ -711,6 +755,63 @@ public partial class MainWindow : Window
     {
         if (MediaIntensityText != null)
             MediaIntensityText.Text = e.NewValue.ToString("0.00");
+    }
+
+    private async void InstallReShadeAddon_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(GamePathBox.Text) || !Directory.Exists(GamePathBox.Text))
+        {
+            MessageBox.Show("Select a game first.");
+            return;
+        }
+
+        var executable = InstallerService.FindMainExecutable(GamePathBox.Text);
+        if (executable == null)
+        {
+            MessageBox.Show("No game executable was found in the selected target folder.");
+            return;
+        }
+
+        var warning = MessageBox.Show(
+            "This downloads the latest ReShade build with full add-on support and opens its official installer for the selected game.\n\nFull add-on support is unsigned and some anti-cheat protected games may reject it. Continue?",
+            "Install ReShade add-on support",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (warning != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            var progress = new Progress<string>(message => DiagnosticText.Text = message);
+            await _reshade.LaunchAddonInstallerAsync(executable, progress);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "ReShade add-on setup failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void CheckComponentUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var progress = new Progress<string>(message => MediaStatusText.Text = message);
+            var changed = await _components.EnsureMediaToolsLatestAsync(_media, progress);
+            await RefreshReleaseAsync();
+            await CheckManagerUpdateAsync();
+
+            if (!changed)
+                MediaStatusText.Text = "GitHub media components are already up to date.";
+        }
+        catch (Exception ex)
+        {
+            MediaStatusText.Text = $"Component update failed: {ex.Message}";
+        }
     }
 
     private void ManagerUpdate_Click(object sender, RoutedEventArgs e)
