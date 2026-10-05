@@ -45,17 +45,34 @@ public sealed class InstallerService
         var optiFolder = Path.Combine(gameDir, "OptiScaler");
         var log = Path.Combine(gameDir, "OptiScaler.log");
         var versionMarker = Path.Combine(gameDir, ".dlssnr-manager-version");
+        var proxyMarker = Path.Combine(gameDir, ".dlssnr-manager-proxy");
+        var manifestPath = Path.Combine(gameDir, ManifestFile);
 
-        var corePresent = File.Exists(ini) &&
-                          File.Exists(runtime) &&
-                          File.Exists(forwarder);
+        var iniPresent = File.Exists(ini);
+        var runtimePresent = File.Exists(runtime);
+        var forwarderPresent = File.Exists(forwarder);
 
-        var legacyEvidence = Directory.Exists(optiFolder) ||
-                             File.Exists(log) ||
-                             File.Exists(versionMarker) ||
-                             File.Exists(Path.Combine(gameDir, ManifestFile));
+        var managerEvidence = File.Exists(versionMarker) ||
+                              File.Exists(proxyMarker) ||
+                              File.Exists(manifestPath);
 
-        var installed = corePresent && (proxy != null || legacyEvidence);
+        var optiEvidence = Directory.Exists(optiFolder) ||
+                           File.Exists(log) ||
+                           proxy != null;
+
+        // Current installs normally contain the forwarder. Older manager builds did not
+        // always deploy/write every current marker/file, so a manager marker + INI +
+        // validated runtime is sufficient to recognize a legacy install.
+        var currentInstall = iniPresent &&
+                             runtimePresent &&
+                             forwarderPresent &&
+                             (proxy != null || managerEvidence || optiEvidence);
+
+        var legacyManagerInstall = iniPresent &&
+                                   runtimePresent &&
+                                   managerEvidence;
+
+        var installed = currentInstall || legacyManagerInstall;
 
         return new(
             installed,
