@@ -117,7 +117,8 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - **Install DLSS / RTX** one-click workflow:
   - creates a restore point before changing the instance
   - sets `preferredGraphicsBackend:"vulkan"`
-  - verifies a Java 25 x64 runtime before Fabric/Caustica setup
+  - verifies Java 25 x64 before Fabric/Caustica setup
+  - installs Eclipse Temurin 25 automatically with WinGet when Java 25 is missing
   - installs Fabric Loader automatically when missing
   - downloads Fabric API from FabricMC
   - downloads the latest compatible Caustica RTX release
