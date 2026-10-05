@@ -17,10 +17,17 @@ public sealed class GameArtworkService
     private readonly HttpClient _http = new();
     private readonly ConcurrentDictionary<string, ArtworkCacheEntry> _cache;
 
-    private static readonly string CachePath = Path.Combine(
+    private static readonly string AppDataRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "DlssNrManager",
+        "DlssNrManager");
+
+    private static readonly string CachePath = Path.Combine(
+        AppDataRoot,
         "artwork-cache.json");
+
+    public static string ArtworkDirectory { get; } = Path.Combine(
+        AppDataRoot,
+        "artwork");
 
     public GameArtworkService()
     {
@@ -29,6 +36,25 @@ public sealed class GameArtworkService
             new ProductInfoHeaderValue("DlssNrManager", "0.6"));
 
         _cache = LoadCache();
+    }
+
+    public void ClearCache()
+    {
+        _cache.Clear();
+
+        try
+        {
+            if (File.Exists(CachePath))
+                File.Delete(CachePath);
+        }
+        catch { }
+
+        try
+        {
+            if (Directory.Exists(ArtworkDirectory))
+                Directory.Delete(ArtworkDirectory, true);
+        }
+        catch { }
     }
 
     public async Task<IReadOnlyList<DetectedGame>> ResolveAsync(
@@ -79,9 +105,20 @@ public sealed class GameArtworkService
             if (cached.Version == ArtworkCacheVersion &&
                 DateTimeOffset.UtcNow - cached.CreatedAt < lifetime)
             {
-                return string.IsNullOrWhiteSpace(cached.Url)
+                if (string.IsNullOrWhiteSpace(cached.Url))
+                    return game;
+
+                if (File.Exists(cached.Url))
+                    return game with { ArtworkUrl = cached.Url };
+
+                var restored = await CacheRemoteArtworkAsync(
+                    key,
+                    cached.Url,
+                    cancellationToken);
+
+                return restored == null
                     ? game
-                    : game with { ArtworkUrl = cached.Url };
+                    : game with { ArtworkUrl = restored };
             }
         }
 
@@ -95,9 +132,16 @@ public sealed class GameArtworkService
             var lookupName = GetArtworkLookupName(game.Name);
             url = await FindBestSteamArtworkAsync(lookupName, cancellationToken);
         }
-        _cache[key] = new ArtworkCacheEntry(url, DateTimeOffset.UtcNow, ArtworkCacheVersion);
+        var localUrl = url == null
+            ? null
+            : await CacheRemoteArtworkAsync(key, url, cancellationToken);
 
-        return url == null ? game : game with { ArtworkUrl = url };
+        _cache[key] = new ArtworkCacheEntry(
+            localUrl ?? url,
+            DateTimeOffset.UtcNow,
+            ArtworkCacheVersion);
+
+        return localUrl == null ? game : game with { ArtworkUrl = localUrl };
     }
 
     private async Task<string?> GetSteamArtworkByAppIdAsync(
@@ -179,6 +223,64 @@ public sealed class GameArtworkService
         }
 
         return null;
+    }
+
+    private async Task<string?> CacheRemoteArtworkAsync(
+        string key,
+        string url,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            Directory.CreateDirectory(ArtworkDirectory);
+
+            using var response = await _http.GetAsync(
+                url,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode ||
+                response.Content.Headers.ContentType?.MediaType?.StartsWith(
+                    "image/",
+                    StringComparison.OrdinalIgnoreCase) != true)
+                return null;
+
+            var extension = response.Content.Headers.ContentType?.MediaType?.ToLowerInvariant() switch
+            {
+                "image/png" => ".png",
+                "image/webp" => ".webp",
+                _ => ".jpg"
+            };
+
+            var safeKey = Regex.Replace(key, @"[^a-z0-9]+", "_");
+            var destination = Path.Combine(ArtworkDirectory, safeKey + extension);
+            var temporary = destination + ".tmp";
+
+            await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var output = new FileStream(
+                             temporary,
+                             FileMode.Create,
+                             FileAccess.Write,
+                             FileShare.None,
+                             128 * 1024,
+                             useAsync: true))
+            {
+                await input.CopyToAsync(output, cancellationToken);
+            }
+
+            if (new FileInfo(temporary).Length < 1024)
+            {
+                File.Delete(temporary);
+                return null;
+            }
+
+            File.Move(temporary, destination, true);
+            return destination;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task<bool> UrlExistsAsync(string url, CancellationToken cancellationToken)
