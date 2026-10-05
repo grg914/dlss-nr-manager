@@ -1,16 +1,26 @@
 <Window x:Class="DlssNrManager.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="DLSS NR Manager" Width="1180" Height="900" MinWidth="980" MinHeight="720"
+        Title="DLSS NR Manager" Icon="assets/branding/logo.jpg"
+        Width="1180" Height="900" MinWidth="980" MinHeight="720"
         WindowStartupLocation="CenterScreen">
   <Grid Margin="32" Background="{StaticResource Bg}">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
 
-    <StackPanel Margin="0,0,0,22">
-      <TextBlock Text="DLSS NR Manager" FontSize="34" FontWeight="SemiBold"/>
-      <TextBlock Text="OptiScaler Neural Rendering manager for compatible installed games"
-                 Foreground="{StaticResource Muted}" Margin="0,5,0,0"/>
-    </StackPanel>
+    <DockPanel Margin="0,0,0,22">
+      <Border Width="72" Height="72" CornerRadius="16" Margin="0,0,18,0"
+              Background="{StaticResource Card}" ClipToBounds="True">
+        <Image Source="assets/branding/logo.jpg" Stretch="UniformToFill"/>
+      </Border>
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock Text="DLSS NR Manager" FontSize="34" FontWeight="SemiBold"/>
+        <TextBlock Text="OptiScaler Neural Rendering manager for compatible installed games"
+                   Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+        <TextBlock x:Name="AppVersionText" Text="Version"
+                   Foreground="{StaticResource Accent}" FontSize="13"
+                   Margin="0,5,0,0"/>
+      </StackPanel>
+    </DockPanel>
 
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
       <StackPanel>
