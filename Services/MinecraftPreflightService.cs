@@ -169,8 +169,8 @@ public sealed class MinecraftPreflightService
             : minecraftVersion == VersionDetection.OtherDetected
                 ? new MinecraftPreflightCheck(
                     "Minecraft 26.2",
-                    MinecraftPreflightSeverity.Unsupported,
-                    "The selected instance contains Minecraft version metadata, but 26.2 was not detected.")
+                    MinecraftPreflightSeverity.Warning,
+                    "Other Minecraft versions are present, but 26.2 was not detected locally. For the official launcher the installer can create the 26.2 Fabric profile; for custom launchers confirm the selected instance targets 26.2.")
                 : new MinecraftPreflightCheck(
                     "Minecraft 26.2",
                     MinecraftPreflightSeverity.Warning,
