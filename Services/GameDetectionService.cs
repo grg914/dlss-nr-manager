@@ -54,7 +54,7 @@ public sealed class GameDetectionService
             new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentScans },
             app =>
             {
-                var detected = TryDetectGame(app.Name, app.Platform, app.Root);
+                var detected = TryDetectGame(app.Name, app.Platform, app.Root, app.ArtworkUrl);
                 if (detected != null)
                     games.Add(detected);
             });
@@ -90,9 +90,9 @@ public sealed class GameDetectionService
         return FindBestTargetDirectory(root);
     }
 
-    private static DetectedGame? TryDetectGame(string name, string platform, string root)
+    private static DetectedGame? TryDetectGame(string name, string platform, string root, string? artworkUrl)
     {
-        var known = DetectKnownGame(name, platform, root);
+        var known = DetectKnownGame(name, platform, root, artworkUrl);
         if (known != null)
             return known;
 
@@ -131,16 +131,17 @@ public sealed class GameDetectionService
             target,
             confidence,
             string.Join(", ", evidence),
-            "dxgi.dll");
+            "dxgi.dll",
+            artworkUrl);
     }
 
-    private static DetectedGame? DetectKnownGame(string name, string platform, string root)
+    private static DetectedGame? DetectKnownGame(string name, string platform, string root, string? artworkUrl)
     {
         if (name.Contains("Cyberpunk 2077", StringComparison.OrdinalIgnoreCase))
         {
             var target = Path.Combine(root, "bin", "x64");
             if (File.Exists(Path.Combine(target, "Cyberpunk2077.exe")))
-                return new(name, platform, root, target, "Validated", "Upstream validated path: bin\\x64", "dbghelp.dll");
+                return new(name, platform, root, target, "Validated", "Upstream validated path: bin\\x64", "dbghelp.dll", artworkUrl);
         }
 
         if (name.Contains("Baldur", StringComparison.OrdinalIgnoreCase) &&
@@ -149,14 +150,14 @@ public sealed class GameDetectionService
             var target = Path.Combine(root, "bin");
             if (File.Exists(Path.Combine(target, "bg3.exe")) ||
                 File.Exists(Path.Combine(target, "bg3_dx11.exe")))
-                return new(name, platform, root, target, "Validated", "Upstream validated path: bin", "dxgi.dll");
+                return new(name, platform, root, target, "Validated", "Upstream validated path: bin", "dxgi.dll", artworkUrl);
         }
 
         if (name.Contains("Hogwarts Legacy", StringComparison.OrdinalIgnoreCase))
         {
             var target = Path.Combine(root, "Phoenix", "Binaries", "Win64");
             if (Directory.Exists(target) && SafeEnumerateFiles(target, "*.exe").Any())
-                return new(name, platform, root, target, "Validated", "Upstream validated path: Phoenix\\Binaries\\Win64", "dxgi.dll");
+                return new(name, platform, root, target, "Validated", "Upstream validated path: Phoenix\\Binaries\\Win64", "dxgi.dll", artworkUrl);
         }
 
         return null;
@@ -439,7 +440,7 @@ public sealed class GameDetectionService
 
     private sealed record ScanCache(DateTimeOffset CreatedAt, List<DetectedGame> Games);
 
-    private static IEnumerable<(string Name, string Platform, string Root)> DetectSteamApps()
+    private static IEnumerable<(string Name, string Platform, string Root, string? ArtworkUrl)> DetectSteamApps()
     {
         foreach (var library in GetSteamLibraries())
         {
@@ -451,6 +452,8 @@ public sealed class GameDetectionService
             {
                 string? name = null;
                 string? installDir = null;
+                var appId = Path.GetFileNameWithoutExtension(manifest)
+                    .Replace("appmanifest_", "", StringComparison.OrdinalIgnoreCase);
                 try
                 {
                     foreach (var line in File.ReadLines(manifest))
@@ -468,7 +471,11 @@ public sealed class GameDetectionService
                 catch { }
 
                 if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(installDir))
-                    yield return (name, "Steam", Path.Combine(steamApps, "common", installDir));
+                    yield return (
+                        name,
+                        "Steam",
+                        Path.Combine(steamApps, "common", installDir),
+                        $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900_2x.jpg");
             }
         }
     }
@@ -517,7 +524,7 @@ public sealed class GameDetectionService
         return roots;
     }
 
-    private static IEnumerable<(string Name, string Platform, string Root)> DetectEpicApps()
+    private static IEnumerable<(string Name, string Platform, string Root, string? ArtworkUrl)> DetectEpicApps()
     {
         var manifestDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
@@ -545,7 +552,7 @@ public sealed class GameDetectionService
                     ? displayName.GetString()!
                     : Path.GetFileName(path);
 
-                yield return (name, "Epic", path);
+                yield return (name, "Epic", path, null);
             }
             finally
             {
@@ -554,7 +561,7 @@ public sealed class GameDetectionService
         }
     }
 
-    private static IEnumerable<(string Name, string Platform, string Root)> DetectGogApps()
+    private static IEnumerable<(string Name, string Platform, string Root, string? ArtworkUrl)> DetectGogApps()
     {
         foreach (var hive in new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
         foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
@@ -576,12 +583,12 @@ public sealed class GameDetectionService
                            ?? game?.GetValue("name") as string
                            ?? $"GOG {subName}";
 
-                yield return (name, "GOG", path);
+                yield return (name, "GOG", path, null);
             }
         }
     }
 
-    private static IEnumerable<(string Name, string Platform, string Root)> DetectUbisoftApps()
+    private static IEnumerable<(string Name, string Platform, string Root, string? ArtworkUrl)> DetectUbisoftApps()
     {
         using var hklm = SafeOpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
         using var installs = hklm?.OpenSubKey(@"SOFTWARE\Ubisoft\Launcher\Installs");
@@ -595,11 +602,11 @@ public sealed class GameDetectionService
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
                 continue;
 
-            yield return (Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)), "Ubisoft Connect", path);
+            yield return (Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar)), "Ubisoft Connect", path, null);
         }
     }
 
-    private static IEnumerable<(string Name, string Platform, string Root)> DetectEaApps()
+    private static IEnumerable<(string Name, string Platform, string Root, string? ArtworkUrl)> DetectEaApps()
     {
         foreach (var hive in new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
         foreach (var view in new[] { RegistryView.Registry32, RegistryView.Registry64 })
@@ -622,12 +629,12 @@ public sealed class GameDetectionService
                     continue;
 
                 var name = item?.GetValue("DisplayName")?.ToString() ?? Path.GetFileName(path);
-                yield return (name, "EA App", path);
+                yield return (name, "EA App", path, null);
             }
         }
     }
 
-    private static IEnumerable<(string Name, string Platform, string Root)> DetectXboxApps()
+    private static IEnumerable<(string Name, string Platform, string Root, string? ArtworkUrl)> DetectXboxApps()
     {
         foreach (var drive in DriveInfo.GetDrives())
         {
@@ -676,12 +683,12 @@ public sealed class GameDetectionService
                 }
                 catch { }
 
-                yield return (name, "Xbox App", content);
+                yield return (name, "Xbox App", content, null);
             }
         }
     }
 
-    private static IEnumerable<(string Name, string Platform, string Root)> DetectBattleNetApps()
+    private static IEnumerable<(string Name, string Platform, string Root, string? ArtworkUrl)> DetectBattleNetApps()
     {
         foreach (var hive in new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
         foreach (var view in new[] { RegistryView.Registry32, RegistryView.Registry64 })
@@ -704,7 +711,7 @@ public sealed class GameDetectionService
                 if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
                     continue;
 
-                yield return (string.IsNullOrWhiteSpace(name) ? Path.GetFileName(path) : name, "Battle.net", path);
+                yield return (string.IsNullOrWhiteSpace(name) ? Path.GetFileName(path) : name, "Battle.net", path, null);
             }
         }
     }
