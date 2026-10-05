@@ -15,6 +15,7 @@ public partial class MainWindow : Window
     private readonly InstallerService _installer = new();
     private readonly DiagnosticService _diagnostics = new();
     private readonly GameArtworkService _artwork = new();
+    private readonly MediaService _media = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
@@ -48,6 +49,10 @@ public partial class MainWindow : Window
         };
 
         Activated += (_, _) => ResetPointerState();
+
+        MediaStatusText.Text = _media.IsReady
+            ? "Media engine ready."
+            : "Media engine not installed yet.";
 
         Closed += (_, _) =>
         {
@@ -556,6 +561,156 @@ public partial class MainWindow : Window
     {
         if (IsLoaded)
             await RefreshReleaseAsync();
+    }
+
+    private void SelectMedia_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select an image or video",
+            Filter =
+                "Supported media|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.webp;*.mp4;*.mkv;*.mov;*.avi;*.webm;*.m4v|" +
+                "Images|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.webp|" +
+                "Videos|*.mp4;*.mkv;*.mov;*.avi;*.webm;*.m4v|" +
+                "All files|*.*"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        MediaSourceBox.Text = dialog.FileName;
+
+        if (string.IsNullOrWhiteSpace(MediaOutputBox.Text))
+        {
+            var parent = Path.GetDirectoryName(dialog.FileName)
+                         ?? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+            MediaOutputBox.Text = Path.Combine(parent, "DLSS-NR");
+        }
+
+        MediaStatusText.Text = _media.IsReady
+            ? "Ready to process selected media."
+            : "Media selected. Set up the media engine first.";
+    }
+
+    private void SelectMediaOutput_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Select output folder"
+        };
+
+        if (dialog.ShowDialog() == true)
+            MediaOutputBox.Text = dialog.FolderName;
+    }
+
+    private async void SetupMedia_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            MediaSetupButton.IsEnabled = false;
+            MediaProcessButton.IsEnabled = false;
+            var progress = new Progress<string>(message => MediaStatusText.Text = message);
+
+            await _media.SetupAsync(progress);
+            MediaStatusText.Text =
+                "Media engine ready • video2dlssnr + FFmpeg installed in LocalAppData.";
+        }
+        catch (Exception ex)
+        {
+            MediaStatusText.Text = $"Media engine setup failed: {ex.Message}";
+            MessageBox.Show(
+                ex.Message,
+                "Media setup failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            MediaSetupButton.IsEnabled = true;
+            MediaProcessButton.IsEnabled = true;
+        }
+    }
+
+    private async void ProcessMedia_Click(object sender, RoutedEventArgs e)
+    {
+        var source = MediaSourceBox.Text;
+        if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
+        {
+            MessageBox.Show(
+                "Select an image or video first.",
+                "DLSS NR Manager",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var output = MediaOutputBox.Text;
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            output = Path.Combine(
+                Path.GetDirectoryName(source)
+                ?? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),
+                "DLSS-NR");
+            MediaOutputBox.Text = output;
+        }
+
+        try
+        {
+            MediaSetupButton.IsEnabled = false;
+            MediaProcessButton.IsEnabled = false;
+
+            var scale = MediaScaleBox.SelectedIndex switch
+            {
+                1 => "2x",
+                2 => "4K",
+                _ => "Native"
+            };
+
+            var style = Math.Max(0, MediaStyleBox.SelectedIndex);
+            var intensity = MediaIntensitySlider.Value;
+            var progress = new Progress<string>(message => MediaStatusText.Text = message);
+
+            var result = await _media.ProcessAsync(
+                source,
+                new MediaProcessOptions(scale, style, intensity, output),
+                progress);
+
+            MediaStatusText.Text = $"Complete • {result}";
+
+            if (MessageBox.Show(
+                    $"Processing complete.\n\n{result}\n\nOpen output folder?",
+                    "DLSS NR Manager",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information) == MessageBoxResult.Yes)
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    ArgumentList = { $"/select,{result}" },
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            MediaStatusText.Text = $"Processing failed: {ex.Message}";
+            MessageBox.Show(
+                ex.Message,
+                "Media processing failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            MediaSetupButton.IsEnabled = true;
+            MediaProcessButton.IsEnabled = true;
+        }
+    }
+
+    private void MediaIntensitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (MediaIntensityText != null)
+            MediaIntensityText.Text = e.NewValue.ToString("0.00");
     }
 
     private void ManagerUpdate_Click(object sender, RoutedEventArgs e)
