@@ -43,9 +43,12 @@
       "sl.common.dll",
       "sl.dlss.dll",
       "nvngx_dlss.dll",
+      "sl.dlss_d.dll",
+      "nvngx_dlssd.dll",
       "sl.dlss_g.dll",
       "nvngx_dlssg.dll",
       "sl.reflex.dll",
+      "NvLowLatencyVk.dll",
       "sl.dlss_nr.dll",
       "nvngx_dlssnr.dll"
     ]
