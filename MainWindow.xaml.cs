@@ -1253,6 +1253,10 @@ public partial class MainWindow : Window
                 instance,
                 installFabricApi: true,
                 allowPrereleaseCaustica: true,
+                installRtxPerformancePack:
+                    MinecraftPerformancePackCheck.IsChecked == true,
+                installLabPbrResourcePack:
+                    MinecraftSpbrCheck.IsChecked == true,
                 progress);
 
             MinecraftStatusText.Text =
