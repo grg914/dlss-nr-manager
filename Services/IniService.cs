@@ -21,6 +21,8 @@ public static class IniService
         {
             SetIfPresent(lines, menuSection, "OverlayMenu", "true");
             SetIfPresent(lines, menuSection, "ShortcutKey", "0x79"); // VK_F10
+            SetIfPresent(lines, menuSection, "ShowFps", "true");
+            SetIfPresent(lines, menuSection, "FpsOverlayType", "1"); // Simple FPS overlay
         }
 
         File.WriteAllLines(iniPath, lines);
