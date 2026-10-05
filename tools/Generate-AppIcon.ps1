@@ -28,6 +28,16 @@ $bitmap.UriSource = New-Object System.Uri($sourcePath)
 $bitmap.EndInit()
 $bitmap.Freeze()
 
+# Windows Explorer/taskbar icons are square. Crop the source to a centered square
+# before resampling instead of letterboxing the whole logo into a square. Letterboxing
+# makes the visible mark unnecessarily small at 16-48 px and appears blurry.
+$cropSize = [Math]::Min($bitmap.PixelWidth, $bitmap.PixelHeight)
+$cropX = [int](($bitmap.PixelWidth - $cropSize) / 2)
+$cropY = [int](($bitmap.PixelHeight - $cropSize) / 2)
+$cropRect = New-Object System.Windows.Int32Rect($cropX, $cropY, $cropSize, $cropSize)
+$squareBitmap = New-Object System.Windows.Media.Imaging.CroppedBitmap($bitmap, $cropRect)
+$squareBitmap.Freeze()
+
 $sizes = @(16, 20, 24, 32, 40, 48, 64, 96, 128, 192, 256)
 $frames = New-Object System.Collections.Generic.List[object]
 
@@ -51,23 +61,9 @@ foreach ($size in $sizes) {
     )
     $context = $visual.RenderOpen()
 
-    $sourceRatio = $bitmap.PixelWidth / [double]$bitmap.PixelHeight
-    if ($sourceRatio -ge 1.0) {
-        $drawWidth = [double]$size
-        $drawHeight = [double]$size / $sourceRatio
-        $x = 0.0
-        $y = ([double]$size - $drawHeight) / 2.0
-    }
-    else {
-        $drawHeight = [double]$size
-        $drawWidth = [double]$size * $sourceRatio
-        $x = ([double]$size - $drawWidth) / 2.0
-        $y = 0.0
-    }
-
     $context.DrawImage(
-        $bitmap,
-        (New-Object System.Windows.Rect($x, $y, $drawWidth, $drawHeight))
+        $squareBitmap,
+        (New-Object System.Windows.Rect(0.0, 0.0, [double]$size, [double]$size))
     )
     $context.Close()
 
