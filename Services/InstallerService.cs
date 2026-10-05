@@ -101,6 +101,18 @@ public sealed class InstallerService
         var temp = Path.Combine(Path.GetTempPath(), "DlssNrManager", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temp);
 
+        var archiveRelativeFiles = new List<string>();
+        var existingArchiveDestinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var proxyExistedBefore = File.Exists(proxyPath);
+        var runtimeDestination = Path.Combine(gameDir, "nvngx_dlssnr.dll");
+        var runtimeExistedBefore = File.Exists(runtimeDestination);
+        var versionMarkerPath = Path.Combine(gameDir, ".dlssnr-manager-version");
+        var proxyMarkerPath = Path.Combine(gameDir, ".dlssnr-manager-proxy");
+        var manifestPath = Path.Combine(gameDir, ManifestFile);
+        var versionMarkerExistedBefore = File.Exists(versionMarkerPath);
+        var proxyMarkerExistedBefore = File.Exists(proxyMarkerPath);
+        var manifestExistedBefore = File.Exists(manifestPath);
+
         try
         {
             var zip = Path.Combine(temp, "optiscaler.zip");
@@ -116,6 +128,17 @@ public sealed class InstallerService
             if (sourceRoot == null)
                 throw new InvalidDataException("Release archive does not contain OptiScaler.dll.");
 
+            archiveRelativeFiles = Directory
+                .EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories)
+                .Select(path => Path.GetRelativePath(sourceRoot, path))
+                .ToList();
+
+            foreach (var relative in archiveRelativeFiles)
+            {
+                if (File.Exists(Path.Combine(gameDir, relative)))
+                    existingArchiveDestinations.Add(relative);
+            }
+
             BackupDestinationCollisions(sourceRoot, gameDir, backup);
             CopyTree(sourceRoot, gameDir, overwrite: true);
 
@@ -129,19 +152,49 @@ public sealed class InstallerService
             File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-version"), release.Tag);
             File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-proxy"), proxy);
 
+            var managedFiles = archiveRelativeFiles
+                .Where(x => !x.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase))
+                .Concat(new[]
+                {
+                    proxy,
+                    "nvngx_dlssnr.dll",
+                    ".dlssnr-manager-version",
+                    ".dlssnr-manager-proxy",
+                    ManifestFile
+                })
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             var manifest = new InstallManifest(
                 release.Tag,
                 proxy,
                 Path.GetFileName(gameExe),
                 await HashService.Sha256Async(gameExe),
                 validation.Hash,
-                DateTimeOffset.UtcNow);
+                DateTimeOffset.UtcNow,
+                managedFiles);
 
             File.WriteAllText(
-                Path.Combine(gameDir, ManifestFile),
+                manifestPath,
                 JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
 
             return backup;
+        }
+        catch
+        {
+            RollbackFailedInstall(
+                gameDir,
+                backup,
+                archiveRelativeFiles,
+                existingArchiveDestinations,
+                proxy,
+                proxyExistedBefore,
+                runtimeExistedBefore,
+                versionMarkerExistedBefore,
+                proxyMarkerExistedBefore,
+                manifestExistedBefore);
+            throw;
         }
         finally
         {
@@ -232,6 +285,31 @@ public sealed class InstallerService
 
     public void Uninstall(string gameDir, bool preserveBackups = true)
     {
+        var manifest = ReadManifest(gameDir);
+        if (manifest?.ManagedFiles is { Count: > 0 })
+        {
+            foreach (var relative in manifest.ManagedFiles)
+            {
+                if (!IsSafeRelativePath(relative))
+                    continue;
+
+                var file = Path.Combine(gameDir, relative);
+                if (File.Exists(file))
+                    File.Delete(file);
+            }
+
+            RemoveEmptyManagedDirectories(gameDir, manifest.ManagedFiles);
+
+            if (!preserveBackups)
+            {
+                var backups = Path.Combine(gameDir, ".dlssnr-manager-backups");
+                if (Directory.Exists(backups))
+                    Directory.Delete(backups, true);
+            }
+
+            return;
+        }
+
         var managedProxy = ReadManagedProxy(gameDir);
 
         foreach (var p in ProxyNames)
@@ -339,6 +417,93 @@ public sealed class InstallerService
             : gpuGeneration is "RTX 20" or "RTX 30" or "RTX 40"
                 ? Rtx2040Hash
                 : null;
+
+    private static void RollbackFailedInstall(
+        string gameDir,
+        string backup,
+        IReadOnlyList<string> archiveRelativeFiles,
+        ISet<string> existingArchiveDestinations,
+        string proxy,
+        bool proxyExistedBefore,
+        bool runtimeExistedBefore,
+        bool versionMarkerExistedBefore,
+        bool proxyMarkerExistedBefore,
+        bool manifestExistedBefore)
+    {
+        foreach (var relative in archiveRelativeFiles)
+        {
+            if (!IsSafeRelativePath(relative))
+                continue;
+
+            var destination = Path.Combine(gameDir, relative);
+            var backupFile = Path.Combine(backup, relative);
+
+            try
+            {
+                if (existingArchiveDestinations.Contains(relative) && File.Exists(backupFile))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    File.Copy(backupFile, destination, true);
+                }
+                else if (File.Exists(destination))
+                {
+                    File.Delete(destination);
+                }
+            }
+            catch { }
+        }
+
+        RestoreOrDeleteKnownFile(gameDir, backup, proxy, proxyExistedBefore);
+        RestoreOrDeleteKnownFile(gameDir, backup, "nvngx_dlssnr.dll", runtimeExistedBefore);
+        RestoreOrDeleteKnownFile(gameDir, backup, ".dlssnr-manager-version", versionMarkerExistedBefore);
+        RestoreOrDeleteKnownFile(gameDir, backup, ".dlssnr-manager-proxy", proxyMarkerExistedBefore);
+        RestoreOrDeleteKnownFile(gameDir, backup, ManifestFile, manifestExistedBefore);
+    }
+
+    private static void RestoreOrDeleteKnownFile(string gameDir, string backup, string relative, bool existedBefore)
+    {
+        var destination = Path.Combine(gameDir, relative);
+        var backupFile = Path.Combine(backup, relative);
+
+        try
+        {
+            if (existedBefore && File.Exists(backupFile))
+                File.Copy(backupFile, destination, true);
+            else if (!existedBefore && File.Exists(destination))
+                File.Delete(destination);
+        }
+        catch { }
+    }
+
+    private static bool IsSafeRelativePath(string relative)
+        => !string.IsNullOrWhiteSpace(relative)
+           && !Path.IsPathRooted(relative)
+           && !relative.StartsWith("..", StringComparison.Ordinal)
+           && !relative.Contains($"{Path.DirectorySeparatorChar}..{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+
+    private static void RemoveEmptyManagedDirectories(string gameDir, IEnumerable<string> managedFiles)
+    {
+        var directories = managedFiles
+            .Where(IsSafeRelativePath)
+            .Select(relative => Path.GetDirectoryName(Path.Combine(gameDir, relative)))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(path => path!.Length)
+            .ToList();
+
+        foreach (var directory in directories)
+        {
+            if (directory == null || directory.Equals(gameDir, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            try
+            {
+                if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
+                    Directory.Delete(directory);
+            }
+            catch { }
+        }
+    }
 
     private static void BackupDestinationCollisions(string sourceRoot, string gameDir, string backup)
     {
