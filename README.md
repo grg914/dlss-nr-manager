@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/logo.jpg" alt="DLSS NR Manager logo" width="128" />
+  <img src="assets/branding/logo.png" alt="DLSS NR Manager logo" width="128" />
 </p>
 
 # DLSS NR Manager
