@@ -490,7 +490,8 @@
                 </Grid.ColumnDefinitions>
 
                 <ComboBox x:Name="MinecraftInstanceBox"
-                          DisplayMemberPath="Name"/>
+                          DisplayMemberPath="Name"
+                          SelectionChanged="MinecraftInstanceBox_SelectionChanged"/>
 
                 <Button Grid.Column="2"
                         Content="Scan"
@@ -500,6 +501,43 @@
                         Content="Choose folder"
                         Click="ChooseMinecraftFolder_Click"/>
               </Grid>
+
+              <Border Background="#0B121A"
+                      BorderBrush="#1D2A39"
+                      BorderThickness="1"
+                      CornerRadius="9"
+                      Padding="11"
+                      Margin="0,0,0,12">
+                <StackPanel>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="RTX preflight"
+                                 FontWeight="SemiBold"/>
+                      <TextBlock x:Name="MinecraftPreflightSummaryText"
+                                 Text="Select an instance to run compatibility checks."
+                                 Foreground="{StaticResource Muted}"
+                                 FontSize="11"
+                                 Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            x:Name="MinecraftPreflightButton"
+                            Content="Run preflight"
+                            Click="RunMinecraftPreflight_Click"
+                            Margin="12,0,0,0"/>
+                  </Grid>
+
+                  <TextBlock x:Name="MinecraftPreflightDetailsText"
+                             Text="Checks: NVIDIA RTX GPU, driver, Vulkan RT, Java 25, Minecraft 26.2, Fabric Loader 0.19.3+, renderer conflicts and write access."
+                             Foreground="{StaticResource Muted}"
+                             TextWrapping="Wrap"
+                             FontSize="10"
+                             Margin="0,9,0,0"/>
+                </StackPanel>
+              </Border>
 
               <Border Background="#0B121A"
                       BorderBrush="#1D2A39"
@@ -554,7 +592,7 @@
                              FontSize="10"
                              TextWrapping="Wrap"
                              Margin="0,9,0,0"
-                             Text="One-click install: backs up the instance, forces Minecraft 26.2 to prefer Vulkan, installs Fabric if needed, installs Fabric API + Caustica RTX, disables conflicting renderer mods into the backup, and patches the Fabric launcher profile for native access. Restore original reverses the tracked changes."/>
+                             Text="One-click install runs the RTX preflight first, then backs up the instance, forces Minecraft 26.2 to prefer Vulkan, installs/updates Fabric Loader when needed, installs Fabric API + Caustica RTX, disables conflicting renderer mods into the backup, and patches the Fabric launcher profile for native access. Unsupported preflight results block installation; warnings require explicit confirmation."/>
                 </StackPanel>
               </Border>
 
