@@ -102,6 +102,7 @@ public partial class MainWindow : Window
             RuntimeText.Text = "";
             InstallButton.IsEnabled = false;
             UpdateButton.IsEnabled = false;
+            ApplyPresetButton.IsEnabled = false;
             LogBox.Text = "";
             return;
         }
@@ -119,6 +120,7 @@ public partial class MainWindow : Window
 
         InstallButton.IsEnabled = !state.Installed;
         UpdateButton.IsEnabled = state.Installed;
+        ApplyPresetButton.IsEnabled = state.Installed;
         LogBox.Text = _installer.ReadLog(game);
     }
 
@@ -258,6 +260,7 @@ public partial class MainWindow : Window
                 _gpu,
                 _release,
                 proxy,
+                GetSelectedWorkingScale(),
                 _releases);
 
             MessageBox.Show(
@@ -275,6 +278,27 @@ public partial class MainWindow : Window
         finally
         {
             SetBusy(false);
+        }
+    }
+
+    private void ApplyPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(GamePathBox.Text))
+            return;
+
+        try
+        {
+            _installer.ApplyPreset(GamePathBox.Text, GetSelectedWorkingScale());
+            MessageBox.Show(
+                "Preset applied. Restart the game if it is currently running.",
+                "DLSS NR Manager",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            RefreshState();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Preset failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -332,10 +356,19 @@ public partial class MainWindow : Window
 
     private bool IsPrereleaseSelected() => ChannelBox.SelectedIndex == 1;
 
+    private string GetSelectedWorkingScale()
+        => PresetBox.SelectedIndex switch
+        {
+            1 => "0.75",
+            2 => "0.50",
+            _ => "1.0"
+        };
+
     private void SetBusy(bool busy)
     {
         InstallButton.IsEnabled = !busy;
         UpdateButton.IsEnabled = !busy;
+        ApplyPresetButton.IsEnabled = !busy;
         Cursor = busy ? System.Windows.Input.Cursors.Wait : null;
     }
 }
