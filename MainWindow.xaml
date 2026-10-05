@@ -595,6 +595,125 @@
             </Grid>
           </Border>
 
+          <!-- PC Update Center -->
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                  <TextBlock Text="PC Update Center"
+                             Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="Read-only detection for software, Windows, drivers, connected devices, firmware and BIOS"
+                             Style="{StaticResource SectionSubtitle}"
+                             Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                  <Button x:Name="PcUpdateScanButton"
+                          Style="{StaticResource CyanButton}"
+                          Content="Scan PC updates"
+                          Click="ScanPcUpdates_Click"/>
+                  <Button Content="Clear scan cache"
+                          Margin="8,0,0,0"
+                          Click="ClearPcUpdateCache_Click"/>
+                </StackPanel>
+              </Grid>
+
+              <TextBlock x:Name="PcUpdateStatusText"
+                         Text="Not scanned yet."
+                         Foreground="{StaticResource Muted}"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Margin="0,12,0,8"/>
+
+              <Border Background="#0A1017"
+                      BorderBrush="#1D2A39"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      Padding="7">
+                <ListBox x:Name="PcUpdateList"
+                         MinHeight="180"
+                         MaxHeight="340"
+                         SelectionChanged="PcUpdateList_SelectionChanged">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Grid Margin="2">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="100"/>
+                          <ColumnDefinition Width="*"/>
+                          <ColumnDefinition Width="185"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding Kind}"
+                                   Foreground="{StaticResource Accent2}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+
+                        <StackPanel Grid.Column="1" Margin="8,0,12,0">
+                          <TextBlock Text="{Binding Name}"
+                                     FontWeight="SemiBold"
+                                     TextWrapping="Wrap"/>
+                          <TextBlock Foreground="{StaticResource Muted}"
+                                     FontSize="11"
+                                     TextWrapping="Wrap">
+                            <Run Text="{Binding CurrentVersion}"/>
+                            <Run Text="  →  "/>
+                            <Run Text="{Binding AvailableVersion}"/>
+                            <Run Text="  •  "/>
+                            <Run Text="{Binding Source}"/>
+                          </TextBlock>
+                          <TextBlock Text="{Binding Details}"
+                                     Foreground="{StaticResource Muted}"
+                                     FontSize="10"
+                                     TextWrapping="Wrap"
+                                     Margin="0,3,0,0"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding ActionLabel}"
+                                   Foreground="{StaticResource Accent}"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Border>
+
+              <Grid Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="PcUpdateSelectionText"
+                           Foreground="{StaticResource Muted}"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"/>
+
+                <Button Grid.Column="1"
+                        x:Name="PcUpdateActionButton"
+                        Style="{StaticResource PrimaryButton}"
+                        Content="Open official page"
+                        IsEnabled="False"
+                        Click="OpenPcUpdateAction_Click"/>
+              </Grid>
+
+              <TextBlock Foreground="{StaticResource Muted}"
+                         FontSize="10"
+                         TextWrapping="Wrap"
+                         Margin="0,9,0,0"
+                         Text="Safety: detection only. DLSS NR Manager never installs software, drivers, Windows updates or firmware from this panel. Actions only open official vendor, Microsoft Store, Windows Update or Microsoft WinGet source pages."/>
+            </StackPanel>
+          </Border>
+
           <!-- Diagnostics -->
           <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
             <Grid>
