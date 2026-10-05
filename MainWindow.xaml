@@ -58,7 +58,7 @@
         <Border Background="{StaticResource Card}" CornerRadius="14" Padding="20" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Text="Release channel" FontSize="16" FontWeight="SemiBold"/>
-            <StackPanel Orientation="Horizontal" Margin="0,10,0,18">
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,14">
               <ComboBox x:Name="ChannelBox" Width="170" SelectionChanged="ChannelBox_SelectionChanged">
                 <ComboBoxItem Content="Stable" IsSelected="True"/>
                 <ComboBoxItem Content="Prerelease"/>
@@ -67,9 +67,22 @@
                          Margin="14,0,0,0" Foreground="{StaticResource Muted}"/>
             </StackPanel>
 
+            <TextBlock Text="Neural Rendering preset" FontSize="16" FontWeight="SemiBold"/>
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,18">
+              <ComboBox x:Name="PresetBox" Width="220">
+                <ComboBoxItem Content="Quality — 100%" IsSelected="True"/>
+                <ComboBoxItem Content="Balanced — 75%"/>
+                <ComboBoxItem Content="Performance — 50%"/>
+              </ComboBox>
+              <TextBlock Text="1 pass • Natural style • applied to any compatible game"
+                         VerticalAlignment="Center" Margin="14,0,0,0"
+                         Foreground="{StaticResource Muted}"/>
+            </StackPanel>
+
             <WrapPanel>
               <Button x:Name="InstallButton" Content="Install" Click="Install_Click"/>
               <Button x:Name="UpdateButton" Content="Update" Click="Install_Click"/>
+              <Button x:Name="ApplyPresetButton" Content="Apply preset" Click="ApplyPreset_Click"/>
               <Button Content="Restore backup" Click="Restore_Click"/>
               <Button Content="Uninstall" Click="Uninstall_Click"/>
               <Button Content="Refresh" Click="Refresh_Click"/>
