@@ -1248,6 +1248,12 @@ public partial class MainWindow : Window
             "• verify Java 25 x64 and install Eclipse Temurin 25 with WinGet automatically if needed\n" +
             "• install Fabric automatically if it is missing\n" +
             "• install/update Fabric API and Caustica RTX\n" +
+            (MinecraftPerformancePackCheck.IsChecked == true
+                ? "• install Lithium, FerriteCore, Krypton and Dynamic FPS from Modrinth\n"
+                : "") +
+            (MinecraftSpbrCheck.IsChecked == true
+                ? "• install the SPBR LabPBR resource pack from Modrinth\n"
+                : "") +
             "• temporarily move known conflicting renderer mods (Sodium, Iris, VulkanMod, Nvidium, Canvas, OptiFine/OptiFabric) into the backup\n" +
             "• add the Fabric launcher Java arguments required/recommended for the native renderer path\n\n" +
             "Caustica RTX provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and NVIDIA Reflex. " +
