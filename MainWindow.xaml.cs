@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftDlssPackageService _minecraftDlss = new();
+    private readonly StreamlineRuntimeService _streamline = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
@@ -430,14 +431,40 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath))
-        {
-            MessageBox.Show("Select your nvngx_dlssnr.dll first.");
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(GamePathBox.Text))
             return;
+
+        if (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath))
+        {
+            if (AutoNvidiaRuntimeCheck.IsChecked != true)
+            {
+                MessageBox.Show(
+                    "Select nvngx_dlssnr.dll or enable automatic NVIDIA Streamline runtime download.");
+                return;
+            }
+
+            try
+            {
+                RuntimePathText.Text = "Downloading official NVIDIA Streamline runtime…";
+                var progress = new Progress<string>(message => RuntimePathText.Text = message);
+                var runtime = await _streamline.EnsureLatestDlssNrAsync(
+                    _gpu.Generation,
+                    progress);
+
+                _runtimePath = runtime.RuntimePath;
+                RuntimePathText.Text =
+                    $"{Path.GetFileName(runtime.RuntimePath)} • NVIDIA Streamline {runtime.Version} • official GitHub release";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Unable to prepare the official NVIDIA runtime.\n\n{ex.Message}",
+                    "NVIDIA Streamline runtime",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return;
+            }
+        }
 
         if (_selectedGame is { Confidence: not "Validated" })
         {
@@ -612,6 +639,60 @@ public partial class MainWindow : Window
         }
         finally
         {
+            PcUpdateScanButton.IsEnabled = true;
+        }
+    }
+
+    private async void WingetUpdateAll_Click(object sender, RoutedEventArgs e)
+    {
+        var answer = MessageBox.Show(
+            "Update all applications currently matched by WinGet?\n\n" +
+            "This runs winget upgrade --all. Third-party installers may open, request administrator rights, " +
+            "or restart applications. Drivers, Windows Update, BIOS and firmware are not installed by this action.",
+            "WinGet update all",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            WingetUpdateButton.IsEnabled = false;
+            PcUpdateScanButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => PcUpdateStatusText.Text = message);
+
+            var result = await _pcUpdates.UpdateAllWingetAsync(progress);
+            PcUpdateStatusText.Text = "WinGet update completed. Rescanning…";
+
+            var scan = await _pcUpdates.ScanAsync(
+                forceRefresh: true,
+                progress);
+
+            PcUpdateList.ItemsSource = scan.Items;
+            PcUpdateStatusText.Text =
+                $"WinGet update completed • rescanned {scan.ScannedAt.LocalDateTime:g} • {scan.Items.Count} entries";
+
+            MessageBox.Show(
+                result,
+                "WinGet update result",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            PcUpdateStatusText.Text = $"WinGet update failed: {ex.Message}";
+            MessageBox.Show(
+                ex.Message,
+                "WinGet update failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            WingetUpdateButton.IsEnabled = true;
             PcUpdateScanButton.IsEnabled = true;
         }
     }
