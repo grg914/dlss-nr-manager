@@ -87,8 +87,6 @@ public partial class MainWindow : Window
 
     private async Task InitializeAsync()
     {
-        _appUpdater.CleanupSuccessfulUpdateBackup();
-
         _gpu = _gpus.Detect();
         GpuText.Text = $"{_gpu.Name}  •  {_gpu.Generation}";
 
@@ -111,6 +109,10 @@ public partial class MainWindow : Window
                 MediaStatusText.Text = $"Automatic component update check failed: {ex.Message}";
             }
         }
+
+        // Reaching this point means the updated application completed its
+        // normal startup path. Only now discard the previous executable.
+        _appUpdater.CleanupSuccessfulUpdateBackup();
     }
 
     private async Task ScanGamesAsync(bool forceRefresh)
