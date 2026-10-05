@@ -1052,11 +1052,13 @@ public partial class MainWindow : Window
             "One-click installation will:\n\n" +
             "• back up the current Minecraft instance state\n" +
             "• force Minecraft 26.2 to prefer Vulkan\n" +
+            "• require and verify a Java 25 x64 runtime before Fabric/Caustica setup\n" +
             "• install Fabric automatically if it is missing\n" +
             "• install/update Fabric API and Caustica RTX\n" +
             "• temporarily move known conflicting renderer mods (Sodium, Iris, VulkanMod, Nvidium, Canvas, OptiFine/OptiFabric) into the backup\n" +
             "• add the Fabric launcher Java arguments required/recommended for the native renderer path\n\n" +
             "Caustica RTX provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and NVIDIA Reflex. " +
+            "Ray Reconstruction uses DLSS performance/quality modes and, when enabled, replaces the standalone Super Resolution reconstruction step. " +
             "A full Restore original action is created before changes. Continue?",
             "Install Minecraft DLSS / RTX",
             MessageBoxButton.YesNo,
