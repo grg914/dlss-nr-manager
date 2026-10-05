@@ -261,6 +261,56 @@ public partial class MainWindow : Window
         await RefreshStateAsync();
     }
 
+    private void DeleteLocalAppData_Click(object sender, RoutedEventArgs e)
+    {
+        var appDataPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DlssNrManager");
+
+        var answer = MessageBox.Show(
+            $"This will permanently delete all DLSS NR Manager local data after the app closes.\n\n{appDataPath}\n\nThis includes cached artwork, scan/cache data and locally installed app components. The application will close after you confirm. Continue?",
+            "Delete local app data",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            var processId = Environment.ProcessId;
+            var escapedPath = appDataPath.Replace("'", "''", StringComparison.Ordinal);
+            var command =
+                $"$p = Get-Process -Id {processId} -ErrorAction SilentlyContinue; " +
+                "if ($p) { $p.WaitForExit() }; " +
+                $"Remove-Item -LiteralPath '{escapedPath}' -Recurse -Force -ErrorAction SilentlyContinue";
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-NonInteractive");
+            startInfo.ArgumentList.Add("-WindowStyle");
+            startInfo.ArgumentList.Add("Hidden");
+            startInfo.ArgumentList.Add("-Command");
+            startInfo.ArgumentList.Add(command);
+
+            Process.Start(startInfo);
+            Close();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Unable to schedule local app-data deletion.\n\n{ex.Message}",
+                "Delete local app data",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
     private async void GameBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (GameBox.SelectedItem is not DetectedGame game)
