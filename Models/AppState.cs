@@ -48,4 +48,5 @@ public sealed record InstallManifest(
     string GameExecutableHash,
     string RuntimeHash,
     DateTimeOffset InstalledAt,
-    IReadOnlyList<string>? ManagedFiles = null);
+    IReadOnlyList<string>? ManagedFiles = null,
+    string? BaselineBackup = null);
