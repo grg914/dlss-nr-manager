@@ -8,9 +8,11 @@
   <img src="assets/branding/hero.jpg" alt="DLSS NR Manager banner" width="100%" />
 </p>
 
-A native Windows manager for installing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
+A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
 
-> Supports automatic candidate detection across **Steam, Epic and GOG**, with upstream-validated profiles for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy, plus NVIDIA RTX 20/30/40/50 GPUs.
+Current application version: **v0.5.0**.
+
+> Supports automatic candidate detection across **Steam, Epic, GOG, Ubisoft Connect, EA App, Xbox App and Battle.net**, with upstream-validated profiles for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy, plus NVIDIA RTX 20/30/40/50 GPUs.
 
 ## Interface preview
 
@@ -24,7 +26,8 @@ The branding assets live under `assets/branding/`. The interface image is a desi
 
 - WPF / .NET 8, Windows x64
 - Self-contained single-file executable
-- Installed-game scanning through Steam, Epic and GOG manifests/registry
+- Installed-game scanning through Steam, Epic, GOG, Ubisoft Connect, EA App, Xbox App and Battle.net sources
+- Bounded scanner concurrency (4 workers) and a short-lived local scan cache to keep startup responsive
 - Compatibility confidence: Validated / Probable / Candidate
 - Upstream-validated target paths for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy
 - Heuristic detection using DLSS / Streamline / XeSS / FidelityFX runtime signals
@@ -33,16 +36,23 @@ The branding assets live under `assets/branding/`. The interface image is a desi
 - Stable/prerelease selection from the upstream OptiScaler-DLSSNR fork
 - Downloads the complete upstream release archive
 - Never downloads or redistributes the proprietary `nvngx_dlssnr.dll` runtime
-- Requires the user to select their own runtime and verifies SHA-256
+- Requires the user to select their own runtime and validates SHA-256, PE x64 architecture, file version and Authenticode trust
+- Verifies the downloaded upstream OptiScaler ZIP against the SHA-256 digest published by GitHub Releases when available
 - RTX 50 expected SHA-256: `E16BCF15E16E13F527491CDF7845B2FE6521A738D8F7C9C721866A8496E1FC8E`
 - RTX 20/30/40 compatibility-runtime SHA-256: `E67DEE209320CDAFE0E93E45675D7AA34323A53ACC57A72B2E40A181581C989A`
-- Full managed-install backup before changes
+- Full managed-install backup before changes, including destination collisions from the extracted OptiScaler package
 - Install, update, restore and uninstall
 - Detects existing proxy DLLs and refuses to overwrite unknown loaders silently
 - Cyberpunk proxy recommendation: `dbghelp.dll`; `dxgi.dll` fallback
-- Integrated `OptiScaler.log` viewer
+- Integrated `OptiScaler.log` viewer with large-log truncation
+- Per-game **Diagnose** report: temporal-upscaler signals, proxy, runtime state, OptiScaler load evidence, DLSSNR running evidence and loader conflicts
+- Tracks the installed release, proxy, game executable hash, runtime hash and install date in a local manager manifest
+- Detects when the game executable changed after DLSS NR was installed
 - Neural Rendering preset only edits keys that already exist in the current upstream INI
 - OptiScaler overlay is forced on with F10 (`ShortcutKey=0x79`)
+- Configurable FPS overlay detail and position
+- Optional `TargetProcessName` filtering and OptiScaler-managed ReShade loading
+- Checks GitHub Releases for newer DLSS NR Manager versions
 
 ## Default Neural Rendering preset
 
@@ -61,15 +71,15 @@ The upstream configuration documents `Style=1` as **Natural**. The manager does 
 ## Installation
 
 1. Download the Windows x64 artifact/release.
-2. Close Cyberpunk 2077 and its launcher.
+2. Close the target game and its launcher.
 3. Run `DlssNrManager.exe`.
-4. Confirm the detected game folder and GPU.
+4. Select a detected game or choose the executable folder manually.
 5. Select your separately obtained `nvngx_dlssnr.dll`.
-6. Ensure the runtime hash is valid for the detected RTX generation.
-7. Leave `dbghelp.dll` selected unless your loader setup requires another compatible proxy.
+6. Confirm the runtime validation for the detected RTX generation.
+7. Review the recommended proxy and run **Diagnose game** if the title is not upstream-validated.
 8. Click **Install**.
 
-The manager installs into `Cyberpunk 2077\bin\x64`.
+The manager installs into the selected game's executable folder. Cyberpunk 2077 uses the upstream-validated `bin\x64` target and `dbghelp.dll` recommendation.
 
 ## Loader compatibility
 
@@ -77,7 +87,7 @@ Cyberpunk installations using **Cyber Engine Tweaks (CET), RED4ext, ReShade or o
 
 Upstream specifically validates `dbghelp.dll` for Cyberpunk. `dxgi.dll` is the recommended fallback. Avoid `d3d12.dll` when Cyberpunk Ray Reconstruction becomes unavailable/greyed out because upstream documents a Streamline conflict resolved by switching to `dxgi.dll`.
 
-Correct chaining of third-party loaders is configuration-specific and is intentionally not automated in V1.
+The manager detects common loader conflicts and can ask OptiScaler to load `ReShade64.dll`, but it still avoids silently rewriting arbitrary third-party loader chains.
 
 ## Runtime licensing
 
@@ -92,11 +102,12 @@ OptiScaler and NVIDIA components retain their respective licenses and ownership.
 
 ## Limitations
 
-- Automatic detection is evidence-based. `Validated` means the target path is explicitly documented upstream; `Probable` and `Candidate` still require in-game verification.
+- Automatic compatibility remains evidence-based. `Validated` means the target path is explicitly documented upstream; `Probable` and `Candidate` still require in-game verification.
+- Ubisoft, EA, Xbox and Battle.net discovery is best-effort because launcher metadata formats and permissions can change.
 - GPU detection relies on Windows display-adapter registry data.
-- No automatic third-party loader chaining.
-- No proprietary runtime download.
-- Update availability is based on the selected upstream release channel.
+- The manager does not download or redistribute the proprietary DLSSNR runtime.
+- Authenticode is an additional trust signal; the known compatibility runtime for older RTX generations may not have the same signature properties as NVIDIA's RTX 50 runtime.
+- The manager does not silently chain arbitrary third-party proxy loaders.
 - The manager should not be used to inject mods into anti-cheat protected multiplayer games.
 
 ## Build
