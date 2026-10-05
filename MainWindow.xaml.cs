@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     private readonly GpuDetectionService _gpus = new();
     private readonly GitHubReleaseService _releases = new();
     private readonly InstallerService _installer = new();
+    private readonly DiagnosticService _diagnostics = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
@@ -24,16 +25,20 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
-            ? "Version v0.4.0"
+            ? "Version v0.5.0"
             : $"Version v{version.Major}.{version.Minor}.{version.Build}";
+
         Loaded += async (_, _) =>
         {
             ResetPointerState();
             await InitializeAsync();
         };
+
         Activated += (_, _) => ResetPointerState();
+
         Closed += (_, _) =>
         {
             Application.Current.Shutdown();
@@ -48,19 +53,22 @@ public partial class MainWindow : Window
 
         await Task.WhenAll(
             RefreshReleaseAsync(),
-            ScanGamesAsync());
+            ScanGamesAsync(forceRefresh: false));
 
         await RefreshStateAsync();
     }
 
-    private async Task ScanGamesAsync()
+    private async Task ScanGamesAsync(bool forceRefresh)
     {
         try
         {
-            StatusText.Text = "Scanning Steam, Epic and GOG…";
+            StatusText.Text = forceRefresh
+                ? "Scanning Steam, Epic, GOG, Ubisoft, EA, Xbox and Battle.net…"
+                : "Loading installed game library…";
+
             GameBox.IsEnabled = false;
 
-            _detectedGames = await Task.Run(() => _games.DetectCompatibleGames());
+            _detectedGames = await Task.Run(() => _games.DetectCompatibleGames(forceRefresh));
             GameBox.ItemsSource = _detectedGames;
 
             var preferred = _detectedGames.FirstOrDefault(x =>
@@ -75,7 +83,8 @@ public partial class MainWindow : Window
             {
                 _selectedGame = null;
                 GamePathBox.Text = "";
-                CompatibilityText.Text = "No compatible candidate was detected automatically. You can still select an executable folder manually.";
+                CompatibilityText.Text =
+                    "No compatible candidate was detected automatically. You can still select an executable folder manually.";
                 StatusText.Text = "No compatible game detected";
             }
         }
@@ -121,6 +130,7 @@ public partial class MainWindow : Window
             InstallButton.IsEnabled = false;
             UpdateButton.IsEnabled = false;
             ApplyPresetButton.IsEnabled = false;
+            DiagnoseButton.IsEnabled = false;
             LogBox.Text = "";
             return;
         }
@@ -129,6 +139,7 @@ public partial class MainWindow : Window
         InstallButton.IsEnabled = false;
         UpdateButton.IsEnabled = false;
         ApplyPresetButton.IsEnabled = false;
+        DiagnoseButton.IsEnabled = false;
 
         var gpuGeneration = _gpu.Generation;
         var result = await Task.Run(() =>
@@ -143,24 +154,26 @@ public partial class MainWindow : Window
 
         var state = result.State;
         var gameName = _selectedGame?.Name ?? "Selected game";
+
         StatusText.Text = state.Installed
-            ? $"{gameName} • Installed • proxy {state.ProxyName}"
+            ? $"{gameName} • Installed • proxy {state.ProxyName ?? "unknown"}"
             : $"{gameName} • Not installed";
 
-        VersionText.Text = $"Installed version: {state.Version ?? "unknown"}";
+        VersionText.Text = $"Installed OptiScaler package: {state.Version ?? "unknown"}";
         RuntimeText.Text = !state.RuntimePresent
             ? "DLSSNR runtime: missing"
-            : $"DLSSNR runtime: {(state.RuntimeHashValid ? "valid" : "hash invalid")} • {state.RuntimeHash}";
+            : $"DLSSNR runtime: {(state.RuntimeHashValid ? "valid hash" : "hash invalid")} • {state.RuntimeHash}";
 
         InstallButton.IsEnabled = !state.Installed;
         UpdateButton.IsEnabled = state.Installed;
         ApplyPresetButton.IsEnabled = state.Installed;
+        DiagnoseButton.IsEnabled = true;
         LogBox.Text = result.Log;
     }
 
     private async void ScanGames_Click(object sender, RoutedEventArgs e)
     {
-        await ScanGamesAsync();
+        await ScanGamesAsync(forceRefresh: true);
         await RefreshStateAsync();
     }
 
@@ -175,7 +188,19 @@ public partial class MainWindow : Window
             $"{game.Confidence} compatibility • {game.Platform} • {game.Evidence}";
 
         SelectProxy(game.RecommendedProxy);
+        SetSuggestedTargetProcess(game.TargetDirectory);
+        LoadReShadeCheck.IsChecked = File.Exists(Path.Combine(game.TargetDirectory, "ReShade64.dll"));
+
+        DiagnosticText.Text =
+            "Run Diagnose game to verify the renderer signals, OptiScaler load state, DLSSNR runtime and loader conflicts.";
+
         await RefreshStateAsync();
+    }
+
+    private void SetSuggestedTargetProcess(string gameDir)
+    {
+        var exe = InstallerService.FindMainExecutable(gameDir);
+        TargetProcessBox.Text = exe == null ? "" : Path.GetFileName(exe);
     }
 
     private void SelectProxy(string proxyName)
@@ -202,6 +227,7 @@ public partial class MainWindow : Window
 
         StatusText.Text = "Inspecting selected folder…";
         var normalized = await Task.Run(() => GameDetectionService.Normalize(dialog.FolderName));
+
         if (normalized == null)
         {
             MessageBox.Show(
@@ -217,6 +243,8 @@ public partial class MainWindow : Window
         GamePathBox.Text = normalized;
         CompatibilityText.Text = "Manual target • compatibility has not been automatically validated.";
         SelectProxy("dxgi.dll");
+        SetSuggestedTargetProcess(normalized);
+        LoadReShadeCheck.IsChecked = File.Exists(Path.Combine(normalized, "ReShade64.dll"));
         await RefreshStateAsync();
     }
 
@@ -232,16 +260,19 @@ public partial class MainWindow : Window
             return;
 
         _runtimePath = dialog.FileName;
-        var hash = await HashService.Sha256Async(_runtimePath);
-        var expected = _gpu.Generation == "RTX 50"
-            ? InstallerService.Rtx50Hash
-            : _gpu.Generation is "RTX 20" or "RTX 30" or "RTX 40"
-                ? InstallerService.Rtx2040Hash
-                : null;
+        RuntimePathText.Text = "Validating runtime…";
+
+        var validation = await RuntimeValidationService.ValidateAsync(_runtimePath, _gpu.Generation);
+        var signature = validation.SignatureValid
+            ? $"trusted signature{(string.IsNullOrWhiteSpace(validation.Publisher) ? "" : $" • {validation.Publisher}")}"
+            : "signature not trusted/available";
 
         RuntimePathText.Text =
-            $"{Path.GetFileName(_runtimePath)}\nSHA-256: {hash}\n" +
-            $"{(expected != null && hash.Equals(expected, StringComparison.OrdinalIgnoreCase) ? "Valid runtime" : "Hash does not match detected GPU generation")}";
+            $"{Path.GetFileName(_runtimePath)}\n" +
+            $"Version: {validation.FileVersion ?? "unknown"} • {(validation.Is64Bit ? "x64" : "not x64")}\n" +
+            $"SHA-256: {validation.Hash}\n" +
+            $"{(validation.HashValid ? "Expected runtime hash ✓" : "Runtime hash mismatch ✕")}\n" +
+            $"Authenticode: {signature}";
     }
 
     private async void Install_Click(object sender, RoutedEventArgs e)
@@ -264,7 +295,8 @@ public partial class MainWindow : Window
         if (_selectedGame is { Confidence: not "Validated" })
         {
             var answer = MessageBox.Show(
-                $"{_selectedGame.Name} is classified as {_selectedGame.Confidence}, not upstream-validated.\n\nTarget: {_selectedGame.TargetDirectory}\nEvidence: {_selectedGame.Evidence}\n\nContinue with installation?",
+                $"{_selectedGame.Name} is classified as {_selectedGame.Confidence}, not upstream-validated.\n\n" +
+                $"Target: {_selectedGame.TargetDirectory}\nEvidence: {_selectedGame.Evidence}\n\nContinue with installation?",
                 "Compatibility not fully validated",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
@@ -289,6 +321,7 @@ public partial class MainWindow : Window
         try
         {
             SetBusy(true);
+
             var backup = await _installer.InstallAsync(
                 GamePathBox.Text,
                 _runtimePath,
@@ -297,6 +330,8 @@ public partial class MainWindow : Window
                 proxy,
                 GetSelectedWorkingScale(),
                 _releases);
+
+            await Task.Run(() => ApplyCurrentAdvancedSettings(GamePathBox.Text));
 
             MessageBox.Show(
                 $"Installation completed.\nBackup: {backup}",
@@ -323,17 +358,84 @@ public partial class MainWindow : Window
 
         try
         {
-            _installer.ApplyPreset(GamePathBox.Text, GetSelectedWorkingScale());
+            await Task.Run(() => _installer.ApplyPreset(GamePathBox.Text, GetSelectedWorkingScale()));
             MessageBox.Show(
                 "Preset applied. Restart the game if it is currently running.",
                 "DLSS NR Manager",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
+
             await RefreshStateAsync();
         }
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Preset failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void ApplyAdvanced_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(GamePathBox.Text))
+            return;
+
+        try
+        {
+            var gameDir = GamePathBox.Text;
+            await Task.Run(() => ApplyCurrentAdvancedSettings(gameDir));
+
+            MessageBox.Show(
+                "OptiScaler advanced settings applied. Restart the game if it is running.",
+                "DLSS NR Manager",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Settings failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ApplyCurrentAdvancedSettings(string gameDir)
+    {
+        _installer.ApplyAdvancedSettings(
+            gameDir,
+            FpsTypeBox.SelectedIndex < 0 ? 1 : FpsTypeBox.SelectedIndex,
+            FpsPositionBox.SelectedIndex < 0 ? 0 : FpsPositionBox.SelectedIndex,
+            ShowFpsCheck.IsChecked == true,
+            TargetProcessBox.Text,
+            LoadReShadeCheck.IsChecked == true);
+    }
+
+    private async void Diagnose_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(GamePathBox.Text))
+            return;
+
+        try
+        {
+            DiagnoseButton.IsEnabled = false;
+            DiagnosticText.Text = "Running compatibility diagnostics…";
+
+            var game = GamePathBox.Text;
+            var gpu = _gpu;
+
+            var report = await Task.Run(() =>
+            {
+                var state = _installer.Inspect(game, gpu.Generation);
+                return _diagnostics.Diagnose(game, gpu, state);
+            });
+
+            DiagnosticText.Text =
+                $"{report.Summary}\n\n" +
+                string.Join("\n", report.Lines.Select(x => $"• {x}"));
+        }
+        catch (Exception ex)
+        {
+            DiagnosticText.Text = $"Diagnostic failed: {ex.Message}";
+        }
+        finally
+        {
+            DiagnoseButton.IsEnabled = true;
         }
     }
 
@@ -392,6 +494,17 @@ public partial class MainWindow : Window
             await RefreshReleaseAsync();
     }
 
+    private void Minimize_Click(object sender, RoutedEventArgs e)
+        => WindowState = WindowState.Minimized;
+
+    private void Maximize_Click(object sender, RoutedEventArgs e)
+        => WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+
+    private void Close_Click(object sender, RoutedEventArgs e)
+        => Close();
+
     private bool IsPrereleaseSelected() => ChannelBox.SelectedIndex == 1;
 
     private string GetSelectedWorkingScale()
@@ -408,16 +521,16 @@ public partial class MainWindow : Window
         Cursor = busy ? System.Windows.Input.Cursors.Wait : null;
         System.Windows.Input.Mouse.OverrideCursor = busy ? System.Windows.Input.Cursors.Wait : null;
 
-        if (busy)
-        {
-            InstallButton.IsEnabled = false;
-            UpdateButton.IsEnabled = false;
-            ApplyPresetButton.IsEnabled = false;
-            return;
-        }
+        InstallButton.IsEnabled = !busy && InstallButton.IsEnabled;
+        UpdateButton.IsEnabled = !busy && UpdateButton.IsEnabled;
+        ApplyPresetButton.IsEnabled = !busy && ApplyPresetButton.IsEnabled;
+        DiagnoseButton.IsEnabled = !busy;
 
-        ResetPointerState();
-        _ = RefreshStateAsync();
+        if (!busy)
+        {
+            ResetPointerState();
+            _ = RefreshStateAsync();
+        }
     }
 
     private void ResetPointerState()
