@@ -136,7 +136,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
   - downloads the required Fabric API from FabricMC
   - downloads the current compatible Caustica RTX prerelease (the upstream RTX build is currently prerelease-only)
-  - optionally installs an RTX-safe performance pack from Modrinth: **Lithium + FerriteCore + Krypton + Dynamic FPS**
+  - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + Dynamic FPS**
   - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica
   - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
@@ -154,7 +154,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 
 Caustica RTX currently implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. NVIDIA documents Ray Reconstruction as an extension of the DLSS Super Resolution path: when RR is enabled it replaces the standalone SR reconstruction step while using the selected DLSS performance/quality mode. The manager therefore does **not** present a fake separate SR toggle that only copies a DLL; a standalone SR path must be implemented by the active renderer.
 
-**Sodium/Iris are intentionally not installed in the Caustica RTX profile.** Sodium and Iris modify/replace major portions of Minecraft's renderer/shader pipeline, while Caustica owns the Vulkan/path-traced world renderer. The manager keeps them in the conflict detector instead of presenting an unsupported "DLSS + Iris shaderpack" combination. For RTX visuals, use Caustica plus a LabPBR resource pack such as SPBR; for non-renderer performance gains, use the RTX-safe performance pack above.
+**Sodium/Iris are intentionally not installed in the Caustica RTX profile.** Sodium and Iris modify/replace major portions of Minecraft's renderer/shader pipeline, while Caustica owns the Vulkan/path-traced world renderer. The manager keeps them in the conflict detector instead of presenting an unsupported "DLSS + Iris shaderpack" combination. For RTX visuals, use Caustica plus a LabPBR resource pack such as SPBR; for non-renderer performance gains, use the optional performance pack above. Caustica remains experimental, so final compatibility is still verified at runtime.
 
 ## Default Neural Rendering preset
 
