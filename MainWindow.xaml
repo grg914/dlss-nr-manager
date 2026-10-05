@@ -556,8 +556,9 @@
 
                   <StackPanel Orientation="Horizontal">
                     <CheckBox x:Name="MinecraftInstallFabricApiCheck"
-                              Content="Install/update Fabric API"
+                              Content="Fabric API (required)"
                               IsChecked="True"
+                              IsEnabled="False"
                               Margin="0,0,18,0"/>
                     <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
                               Content="Allow Caustica prereleases"
