@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private DetectedGame? _selectedGame;
     private IReadOnlyList<DetectedGame> _detectedGames = [];
     private bool _isBusy;
+    private int _stateRefreshVersion;
 
     public MainWindow()
     {
@@ -29,7 +30,11 @@ public partial class MainWindow : Window
             await InitializeAsync();
         };
         Activated += (_, _) => ResetPointerState();
-        Closed += (_, _) => Application.Current.Shutdown();
+        Closed += (_, _) =>
+        {
+            Application.Current.Shutdown();
+            Environment.Exit(0);
+        };
     }
 
     private async Task InitializeAsync()
@@ -41,7 +46,7 @@ public partial class MainWindow : Window
             RefreshReleaseAsync(),
             ScanGamesAsync());
 
-        RefreshState();
+        await RefreshStateAsync();
     }
 
     private async Task ScanGamesAsync()
@@ -97,9 +102,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RefreshState()
+    private async Task RefreshStateAsync()
     {
+        var refreshVersion = ++_stateRefreshVersion;
         var game = GamePathBox.Text;
+
         if (string.IsNullOrWhiteSpace(game) || !Directory.Exists(game))
         {
             if (_detectedGames.Count == 0)
@@ -114,7 +121,23 @@ public partial class MainWindow : Window
             return;
         }
 
-        var state = _installer.Inspect(game, _gpu.Generation);
+        StatusText.Text = "Reading installation state…";
+        InstallButton.IsEnabled = false;
+        UpdateButton.IsEnabled = false;
+        ApplyPresetButton.IsEnabled = false;
+
+        var gpuGeneration = _gpu.Generation;
+        var result = await Task.Run(() =>
+        {
+            var state = _installer.Inspect(game, gpuGeneration);
+            var log = _installer.ReadLog(game);
+            return (State: state, Log: log);
+        });
+
+        if (refreshVersion != _stateRefreshVersion || !IsLoaded)
+            return;
+
+        var state = result.State;
         var gameName = _selectedGame?.Name ?? "Selected game";
         StatusText.Text = state.Installed
             ? $"{gameName} • Installed • proxy {state.ProxyName}"
@@ -128,16 +151,16 @@ public partial class MainWindow : Window
         InstallButton.IsEnabled = !state.Installed;
         UpdateButton.IsEnabled = state.Installed;
         ApplyPresetButton.IsEnabled = state.Installed;
-        LogBox.Text = _installer.ReadLog(game);
+        LogBox.Text = result.Log;
     }
 
     private async void ScanGames_Click(object sender, RoutedEventArgs e)
     {
         await ScanGamesAsync();
-        RefreshState();
+        await RefreshStateAsync();
     }
 
-    private void GameBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void GameBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (GameBox.SelectedItem is not DetectedGame game)
             return;
@@ -148,7 +171,7 @@ public partial class MainWindow : Window
             $"{game.Confidence} compatibility • {game.Platform} • {game.Evidence}";
 
         SelectProxy(game.RecommendedProxy);
-        RefreshState();
+        await RefreshStateAsync();
     }
 
     private void SelectProxy(string proxyName)
@@ -163,7 +186,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SelectGame_Click(object sender, RoutedEventArgs e)
+    private async void SelectGame_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog
         {
@@ -173,7 +196,8 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog() != true)
             return;
 
-        var normalized = GameDetectionService.Normalize(dialog.FolderName);
+        StatusText.Text = "Inspecting selected folder…";
+        var normalized = await Task.Run(() => GameDetectionService.Normalize(dialog.FolderName));
         if (normalized == null)
         {
             MessageBox.Show(
@@ -189,7 +213,7 @@ public partial class MainWindow : Window
         GamePathBox.Text = normalized;
         CompatibilityText.Text = "Manual target • compatibility has not been automatically validated.";
         SelectProxy("dxgi.dll");
-        RefreshState();
+        await RefreshStateAsync();
     }
 
     private async void SelectRuntime_Click(object sender, RoutedEventArgs e)
@@ -276,7 +300,7 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
 
-            RefreshState();
+            await RefreshStateAsync();
         }
         catch (Exception ex)
         {
@@ -288,7 +312,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyPreset_Click(object sender, RoutedEventArgs e)
+    private async void ApplyPreset_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(GamePathBox.Text))
             return;
@@ -301,7 +325,7 @@ public partial class MainWindow : Window
                 "DLSS NR Manager",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
-            RefreshState();
+            await RefreshStateAsync();
         }
         catch (Exception ex)
         {
@@ -309,12 +333,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Restore_Click(object sender, RoutedEventArgs e)
+    private async void Restore_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            _installer.RestoreLatest(GamePathBox.Text);
-            RefreshState();
+            await Task.Run(() => _installer.RestoreLatest(GamePathBox.Text));
+            await RefreshStateAsync();
             MessageBox.Show("Latest backup restored.");
         }
         catch (Exception ex)
@@ -323,7 +347,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Uninstall_Click(object sender, RoutedEventArgs e)
+    private async void Uninstall_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show(
                 "Remove files managed by DLSS NR Manager? Backups will be preserved.",
@@ -334,8 +358,8 @@ public partial class MainWindow : Window
 
         try
         {
-            _installer.Uninstall(GamePathBox.Text);
-            RefreshState();
+            await Task.Run(() => _installer.Uninstall(GamePathBox.Text));
+            await RefreshStateAsync();
         }
         catch (Exception ex)
         {
@@ -346,13 +370,16 @@ public partial class MainWindow : Window
     private async void Refresh_Click(object sender, RoutedEventArgs e)
     {
         await RefreshReleaseAsync();
-        RefreshState();
+        await RefreshStateAsync();
     }
 
-    private void ReloadLog_Click(object sender, RoutedEventArgs e)
+    private async void ReloadLog_Click(object sender, RoutedEventArgs e)
     {
         if (!string.IsNullOrWhiteSpace(GamePathBox.Text))
-            LogBox.Text = _installer.ReadLog(GamePathBox.Text);
+        {
+            var game = GamePathBox.Text;
+            LogBox.Text = await Task.Run(() => _installer.ReadLog(game));
+        }
     }
 
     private async void ChannelBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -386,7 +413,7 @@ public partial class MainWindow : Window
         }
 
         ResetPointerState();
-        RefreshState();
+        _ = RefreshStateAsync();
     }
 
     private void ResetPointerState()
