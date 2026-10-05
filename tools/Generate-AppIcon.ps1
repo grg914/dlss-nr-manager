@@ -74,8 +74,10 @@ $contentWidth = $maxX - $minX + 1
 $contentHeight = $maxY - $minY + 1
 $contentSize = [Math]::Max($contentWidth, $contentHeight)
 
-# Keep a small amount of transparent padding so the mark does not touch the edge.
-$padding = [int][Math]::Ceiling($contentSize * 0.06)
+# Keep only a small transparent safety margin. A larger margin makes the
+# Windows desktop/taskbar mark look smaller and softer because Shell scales
+# the visible artwork again inside its icon slot.
+$padding = [int][Math]::Ceiling($contentSize * 0.03)
 $cropSize = [Math]::Min(
     [Math]::Max($contentSize + ($padding * 2), 1),
     [Math]::Min($width, $height)
@@ -95,37 +97,102 @@ $squareBitmap.Freeze()
 
 Write-Host ("Icon source: {0}x{1}; content bounds: {2}x{3}; crop: {4}x{4}" -f $width, $height, $contentWidth, $contentHeight, $cropSize)
 
-$sizes = @(16, 20, 24, 32, 40, 48, 64, 96, 128, 192, 256)
-$frames = New-Object System.Collections.Generic.List[object]
+function Resize-BitmapSource {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Media.Imaging.BitmapSource]$SourceBitmap,
 
-foreach ($size in $sizes) {
+        [Parameter(Mandatory = $true)]
+        [int]$TargetSize
+    )
+
+    $current = $SourceBitmap
+
+    # Progressive downsampling prevents a very large branding PNG from being
+    # reduced to 16/20/24 px in one interpolation pass. This produces visibly
+    # crisper Explorer/Desktop/taskbar frames.
+    while ($current.PixelWidth -gt ($TargetSize * 2)) {
+        $nextSize = [Math]::Max(
+            $TargetSize,
+            [int][Math]::Ceiling($current.PixelWidth / 2.0)
+        )
+
+        $intermediate = New-Object System.Windows.Media.Imaging.RenderTargetBitmap(
+            $nextSize,
+            $nextSize,
+            96,
+            96,
+            [System.Windows.Media.PixelFormats]::Pbgra32
+        )
+
+        $visual = New-Object System.Windows.Media.DrawingVisual
+        [System.Windows.Media.RenderOptions]::SetBitmapScalingMode(
+            $visual,
+            [System.Windows.Media.BitmapScalingMode]::Fant
+        )
+        $context = $visual.RenderOpen()
+        $context.DrawImage(
+            $current,
+            (New-Object System.Windows.Rect(
+                0.0,
+                0.0,
+                [double]$nextSize,
+                [double]$nextSize
+            ))
+        )
+        $context.Close()
+        $intermediate.Render($visual)
+        $intermediate.Freeze()
+        $current = $intermediate
+    }
+
+    if ($current.PixelWidth -eq $TargetSize) {
+        return $current
+    }
+
     $target = New-Object System.Windows.Media.Imaging.RenderTargetBitmap(
-        $size,
-        $size,
+        $TargetSize,
+        $TargetSize,
         96,
         96,
         [System.Windows.Media.PixelFormats]::Pbgra32
     )
 
-    $visual = New-Object System.Windows.Media.DrawingVisual
+    $finalVisual = New-Object System.Windows.Media.DrawingVisual
     [System.Windows.Media.RenderOptions]::SetBitmapScalingMode(
-        $visual,
-        [System.Windows.Media.BitmapScalingMode]::HighQuality
+        $finalVisual,
+        [System.Windows.Media.BitmapScalingMode]::Fant
     )
     [System.Windows.Media.RenderOptions]::SetEdgeMode(
-        $visual,
+        $finalVisual,
         [System.Windows.Media.EdgeMode]::Unspecified
     )
-    $context = $visual.RenderOpen()
 
-    $context.DrawImage(
-        $squareBitmap,
-        (New-Object System.Windows.Rect(0.0, 0.0, [double]$size, [double]$size))
+    $finalContext = $finalVisual.RenderOpen()
+    $finalContext.DrawImage(
+        $current,
+        (New-Object System.Windows.Rect(
+            0.0,
+            0.0,
+            [double]$TargetSize,
+            [double]$TargetSize
+        ))
     )
-    $context.Close()
+    $finalContext.Close()
 
-    $target.Render($visual)
+    $target.Render($finalVisual)
     $target.Freeze()
+    return $target
+}
+
+# These are the canonical Windows Shell/DPI icon slots plus 20/40 px used by
+# common 125% scaling paths. Exact frames avoid Shell interpolating a nearby
+# size, which is a common cause of a blurry desktop/taskbar icon.
+$sizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
+$frames = New-Object System.Collections.Generic.List[object]
+
+foreach ($size in $sizes) {
+    $target = Resize-BitmapSource -SourceBitmap $squareBitmap -TargetSize $size
 
     $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
     $encoder.Frames.Add(
