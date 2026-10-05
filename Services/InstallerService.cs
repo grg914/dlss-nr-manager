@@ -99,8 +99,23 @@ public sealed class InstallerService
             ?? throw new InvalidOperationException("Unsupported or undetected NVIDIA RTX generation.");
 
         var validation = await RuntimeValidationService.ValidateAsync(runtimePath, gpu.Generation);
-        if (!validation.Hash.Equals(expected, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"DLSSNR runtime SHA-256 mismatch. Expected {expected}, got {validation.Hash}.");
+
+        var knownHash =
+            validation.Hash.Equals(expected, StringComparison.OrdinalIgnoreCase);
+
+        var trustedNvidiaSignedRuntime =
+            validation.Is64Bit &&
+            validation.SignatureValid &&
+            !string.IsNullOrWhiteSpace(validation.Publisher) &&
+            validation.Publisher.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase);
+
+        if (!knownHash && !trustedNvidiaSignedRuntime)
+        {
+            throw new InvalidOperationException(
+                "DLSSNR runtime validation failed. The runtime must either match a known validated SHA-256 " +
+                "or be a trusted x64 NVIDIA-signed runtime from the official Streamline package. " +
+                $"SHA-256: {validation.Hash}; Publisher: {validation.Publisher ?? "unknown"}.");
+        }
 
         if (!validation.Is64Bit)
             throw new InvalidOperationException("The selected DLSSNR runtime is not a 64-bit PE DLL.");
