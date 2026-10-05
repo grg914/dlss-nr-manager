@@ -32,6 +32,8 @@ public sealed class MinecraftOneClickService
         MinecraftInstallCandidate instance,
         bool installFabricApi,
         bool allowPrereleaseCaustica,
+        bool installRtxPerformancePack,
+        bool installLabPbrResourcePack,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -119,6 +121,8 @@ public sealed class MinecraftOneClickService
                 refreshed,
                 installFabricApi,
                 allowPrereleaseCaustica,
+                installRtxPerformancePack,
+                installLabPbrResourcePack,
                 progress,
                 cancellationToken);
 
@@ -260,7 +264,19 @@ public sealed class MinecraftOneClickService
         RestoreMatchingConfig(root, backup);
 
         if (componentBackup != null && Directory.Exists(componentBackup))
-            RestoreDirectoryContents(componentBackup, Path.Combine(root, "mods"));
+        {
+            RestoreTopLevelFiles(
+                componentBackup,
+                Path.Combine(root, "mods"));
+
+            RestoreDirectoryContents(
+                Path.Combine(componentBackup, "extra", "mods"),
+                Path.Combine(root, "mods"));
+
+            RestoreDirectoryContents(
+                Path.Combine(componentBackup, "extra", "resourcepacks"),
+                Path.Combine(root, "resourcepacks"));
+        }
 
         TryDeleteFile(markerPath);
 
@@ -515,6 +531,27 @@ public sealed class MinecraftOneClickService
 
         TryDeleteDirectory(destination);
         CopyDirectory(backup, destination);
+    }
+
+    private static void RestoreTopLevelFiles(
+        string source,
+        string destination)
+    {
+        if (!Directory.Exists(source))
+            return;
+
+        Directory.CreateDirectory(destination);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     source,
+                     "*",
+                     SearchOption.TopDirectoryOnly))
+        {
+            var target = Path.Combine(
+                destination,
+                Path.GetFileName(file));
+            File.Copy(file, target, true);
+        }
     }
 
     private static void RestoreDirectoryContents(string source, string destination)
