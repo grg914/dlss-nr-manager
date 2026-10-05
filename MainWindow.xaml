@@ -9,7 +9,9 @@
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResize"
-        Background="{StaticResource AppBackground}">
+        Background="{StaticResource AppBackground}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="48"
                         ResizeBorderThickness="7"
@@ -40,7 +42,10 @@
 
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <Border Width="28" Height="28" CornerRadius="7" ClipToBounds="True" Margin="0,0,10,0">
-            <Image Source="assets/branding/logo.png" Stretch="UniformToFill"/>
+            <Image Source="assets/branding/logo.png"
+                   Stretch="UniformToFill"
+                   RenderOptions.BitmapScalingMode="Fant"
+                   SnapsToDevicePixels="True"/>
           </Border>
           <TextBlock Text="DLSS NR Manager"
                      FontSize="14"
@@ -92,7 +97,10 @@
                       BorderBrush="#28465A"
                       BorderThickness="1"
                       ClipToBounds="True">
-                <Image Source="assets/branding/logo.png" Stretch="UniformToFill"/>
+                <Image Source="assets/branding/logo.png"
+                   Stretch="UniformToFill"
+                   RenderOptions.BitmapScalingMode="Fant"
+                   SnapsToDevicePixels="True"/>
               </Border>
 
               <StackPanel Grid.Column="1"
