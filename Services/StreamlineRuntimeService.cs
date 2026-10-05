@@ -132,11 +132,33 @@ public sealed class StreamlineRuntimeService
 
             var names = new List<string> { "sl.interposer.dll", "sl.common.dll" };
             if (includeSuperResolution)
-                names.AddRange(["sl.dlss.dll", "nvngx_dlss.dll"]);
+            {
+                names.AddRange(
+                [
+                    "sl.dlss.dll",
+                    "nvngx_dlss.dll",
+                    // DLSS Ray Reconstruction / DLSS-D. These are optional
+                    // unless the renderer integrates RR, but are safe to stage
+                    // when present in the official Streamline package.
+                    "sl.dlss_d.dll",
+                    "nvngx_dlssd.dll"
+                ]);
+            }
+
             if (includeFrameGeneration)
                 names.AddRange(["sl.dlss_g.dll", "nvngx_dlssg.dll"]);
+
             if (includeReflex)
-                names.Add("sl.reflex.dll");
+            {
+                names.AddRange(
+                [
+                    "sl.reflex.dll",
+                    // Required by the Streamline Reflex Vulkan path when the
+                    // package ships it.
+                    "NvLowLatencyVk.dll"
+                ]);
+            }
+
             if (includeNeuralRendering)
                 names.AddRange(["sl.dlss_nr.dll", "nvngx_dlssnr.dll"]);
 
