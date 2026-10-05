@@ -194,6 +194,8 @@ public sealed class MinecraftIntegrationService
         MinecraftInstallCandidate instance,
         bool installFabricApi,
         bool allowPrereleaseCaustica,
+        bool installRtxPerformancePack,
+        bool installLabPbrResourcePack,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -277,6 +279,54 @@ public sealed class MinecraftIntegrationService
 
             installed.Add(new MinecraftComponentResult(
                 "Caustica RTX", caustica.Tag, causticaDestination, CausticaRtxRepo));
+
+            if (installRtxPerformancePack)
+            {
+                progress?.Report("Installing RTX-safe Minecraft performance mods…");
+
+                foreach (var project in new[]
+                {
+                    new ModrinthProject("Lithium", "lithium", "lithium"),
+                    new ModrinthProject("FerriteCore", "ferrite-core", "ferritecore"),
+                    new ModrinthProject("Krypton", "krypton", "krypton"),
+                    new ModrinthProject("Dynamic FPS", "dynamic-fps", "dynamic-fps")
+                })
+                {
+                    var component = await InstallModrinthProjectAsync(
+                        instance.RootDirectory,
+                        mods,
+                        backup,
+                        project,
+                        loader: "fabric",
+                        progress,
+                        cancellationToken);
+
+                    managedDestinations.Add(component.InstalledPath);
+                    installed.Add(component);
+                }
+            }
+
+            if (installLabPbrResourcePack)
+            {
+                progress?.Report("Installing SPBR LabPBR resource pack for Caustica RTX…");
+
+                var resourcePacks = Path.Combine(
+                    instance.RootDirectory,
+                    "resourcepacks");
+                Directory.CreateDirectory(resourcePacks);
+
+                var spbr = await InstallModrinthProjectAsync(
+                    instance.RootDirectory,
+                    resourcePacks,
+                    backup,
+                    new ModrinthProject("SPBR LabPBR", "spbr", "spbr"),
+                    loader: null,
+                    progress,
+                    cancellationToken);
+
+                managedDestinations.Add(spbr.InstalledPath);
+                installed.Add(spbr);
+            }
 
             WriteManagedManifest(instance.RootDirectory, installed, backup);
 
@@ -412,6 +462,193 @@ public sealed class MinecraftIntegrationService
         }
 
         File.Move(temp, destination, true);
+    }
+
+    private async Task<MinecraftComponentResult> InstallModrinthProjectAsync(
+        string minecraftRoot,
+        string destinationDirectory,
+        string backup,
+        ModrinthProject project,
+        string? loader,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var versionsUrl =
+            $"https://api.modrinth.com/v2/project/{project.Slug}/version" +
+            $"?game_versions={Uri.EscapeDataString("[\"" + MinecraftVersion + "\"]")}" +
+            (string.IsNullOrWhiteSpace(loader)
+                ? ""
+                : $"&loaders={Uri.EscapeDataString("[\"" + loader + "\"]")}");
+
+        using var versions = await GetJsonAsync(
+            versionsUrl,
+            cancellationToken);
+
+        if (versions.RootElement.ValueKind != JsonValueKind.Array ||
+            versions.RootElement.GetArrayLength() == 0)
+        {
+            throw new InvalidOperationException(
+                $"No Modrinth build of {project.Name} was found for Minecraft {MinecraftVersion}" +
+                (string.IsNullOrWhiteSpace(loader) ? "." : $" / {loader}."));
+        }
+
+        JsonElement? selectedVersion = null;
+        JsonElement? selectedFile = null;
+
+        foreach (var version in versions.RootElement.EnumerateArray())
+        {
+            if (!version.TryGetProperty("files", out var files) ||
+                files.ValueKind != JsonValueKind.Array)
+                continue;
+
+            var candidates = files.EnumerateArray()
+                .Where(file =>
+                {
+                    var filename = file.TryGetProperty("filename", out var filenameElement)
+                        ? filenameElement.GetString() ?? ""
+                        : "";
+
+                    return !string.IsNullOrWhiteSpace(filename) &&
+                           !filename.Contains("sources", StringComparison.OrdinalIgnoreCase);
+                })
+                .ToList();
+
+            var primary = candidates.FirstOrDefault(file =>
+                file.TryGetProperty("primary", out var primaryElement) &&
+                primaryElement.ValueKind == JsonValueKind.True);
+
+            var chosen = primary.ValueKind != JsonValueKind.Undefined
+                ? primary
+                : candidates.FirstOrDefault();
+
+            if (chosen.ValueKind == JsonValueKind.Undefined)
+                continue;
+
+            selectedVersion = version;
+            selectedFile = chosen;
+            break;
+        }
+
+        if (selectedVersion == null || selectedFile == null)
+        {
+            throw new InvalidOperationException(
+                $"Modrinth returned no downloadable file for {project.Name}.");
+        }
+
+        var file = selectedFile.Value;
+        var filename = file.GetProperty("filename").GetString()
+            ?? throw new InvalidDataException(
+                $"Modrinth file name is missing for {project.Name}.");
+
+        var url = file.GetProperty("url").GetString()
+            ?? throw new InvalidDataException(
+                $"Modrinth download URL is missing for {project.Name}.");
+
+        var versionNumber = selectedVersion.Value.TryGetProperty(
+                "version_number",
+                out var versionElement)
+            ? versionElement.GetString() ?? "unknown"
+            : "unknown";
+
+        string? sha512 = null;
+        if (file.TryGetProperty("hashes", out var hashes) &&
+            hashes.TryGetProperty("sha512", out var sha512Element))
+        {
+            sha512 = sha512Element.GetString();
+        }
+
+        await BackupMatchingFileAsync(
+            minecraftRoot,
+            destinationDirectory,
+            backup,
+            project.FileToken,
+            cancellationToken);
+
+        var destination = Path.Combine(destinationDirectory, filename);
+        var temp = destination + ".download";
+        progress?.Report($"Downloading {project.Name} {versionNumber}…");
+
+        using (var response = await _http.GetAsync(
+                   url,
+                   HttpCompletionOption.ResponseHeadersRead,
+                   cancellationToken))
+        {
+            response.EnsureSuccessStatusCode();
+
+            await using var input =
+                await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var output = new FileStream(
+                temp,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                128 * 1024,
+                useAsync: true);
+
+            await input.CopyToAsync(output, cancellationToken);
+        }
+
+        if (!string.IsNullOrWhiteSpace(sha512))
+        {
+            await using var stream = File.OpenRead(temp);
+            var actual = Convert.ToHexString(
+                await SHA512.HashDataAsync(stream, cancellationToken));
+
+            if (!actual.Equals(sha512, StringComparison.OrdinalIgnoreCase))
+            {
+                TryDelete(temp);
+                throw new InvalidDataException(
+                    $"SHA-512 mismatch for {project.Name}. " +
+                    $"Expected {sha512}, got {actual}.");
+            }
+        }
+
+        File.Move(temp, destination, true);
+
+        return new MinecraftComponentResult(
+            project.Name,
+            versionNumber,
+            destination,
+            $"Modrinth:{project.Slug}");
+    }
+
+    private static async Task BackupMatchingFileAsync(
+        string minecraftRoot,
+        string directory,
+        string backup,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(directory))
+            return;
+
+        foreach (var file in Directory.EnumerateFiles(
+                     directory,
+                     "*",
+                     SearchOption.TopDirectoryOnly))
+        {
+            var name = Path.GetFileName(file);
+            if (!name.Contains(token, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var relativeDirectory = Path.GetRelativePath(
+                minecraftRoot,
+                directory);
+
+            var destination = Path.Combine(
+                backup,
+                "extra",
+                relativeDirectory,
+                name);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+
+            await using var input = File.OpenRead(file);
+            await using var output = File.Create(destination);
+            await input.CopyToAsync(output, cancellationToken);
+
+            File.Delete(file);
+        }
     }
 
     private async Task<JsonDocument> GetJsonAsync(
@@ -868,6 +1105,11 @@ public sealed class MinecraftIntegrationService
         try { if (File.Exists(path)) File.Delete(path); }
         catch { }
     }
+
+    private sealed record ModrinthProject(
+        string Name,
+        string Slug,
+        string FileToken);
 
     private sealed record GitHubRelease(
         string Tag,
