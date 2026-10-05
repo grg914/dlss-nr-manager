@@ -140,38 +140,38 @@ public sealed class AppUpdateService
 
         var script = $"""
 $ErrorActionPreference = 'Stop'
-$pidToWait = {Environment.ProcessId}
-$source = '{stagedEscaped}'
-$target = '{currentEscaped}'
-$self = '{scriptEscaped}'
+$pidToWait = {{Environment.ProcessId}}
+$source = '{{stagedEscaped}}'
+$target = '{{currentEscaped}}'
+$self = '{{scriptEscaped}}'
 
-try {{
+try {
     Wait-Process -Id $pidToWait -ErrorAction SilentlyContinue
 
     $success = $false
-    for ($i = 0; $i -lt 30; $i++) {{
-        try {{
+    for ($i = 0; $i -lt 30; $i++) {
+        try {
             Copy-Item -LiteralPath $source -Destination $target -Force
             $success = $true
             break
-        }} catch {{
+        } catch {
             Start-Sleep -Milliseconds 500
-        }}
-    }}
+        }
+    }
 
-    if (-not $success) {{
+    if (-not $success) {
         throw 'Unable to replace the running executable after waiting for shutdown.'
-    }}
+    }
 
-    try {{
+    try {
         Start-Process -FilePath 'ie4uinit.exe' -ArgumentList '-show' -WindowStyle Hidden
-    }} catch {{}}
+    } catch {}
 
     Start-Process -FilePath $target
-}} finally {{
+} finally {
     Start-Sleep -Milliseconds 500
     Remove-Item -LiteralPath $self -Force -ErrorAction SilentlyContinue
-}}
+}
 """;
 
         File.WriteAllText(scriptPath, script);
