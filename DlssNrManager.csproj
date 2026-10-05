@@ -23,4 +23,10 @@
     <Resource Include="assets\branding\logo.png" />
     <Resource Include="assets\branding\app.ico" />
   </ItemGroup>
+
+  <Target Name="GenerateApplicationIcon"
+          BeforeTargets="CoreCompile"
+          Condition="'$(OS)' == 'Windows_NT' and Exists('$(MSBuildProjectDirectory)\assets\branding\logo.png')">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\Generate-AppIcon.ps1&quot; -Source &quot;$(MSBuildProjectDirectory)\assets\branding\logo.png&quot; -Output &quot;$(MSBuildProjectDirectory)\assets\branding\app.ico&quot;" />
+  </Target>
 </Project>
