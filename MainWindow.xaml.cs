@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftDlssPackageService _minecraftDlss = new();
+    private readonly MinecraftPreflightService _minecraftPreflight = new();
     private readonly MinecraftOneClickService _minecraftOneClick;
     private readonly StreamlineRuntimeService _streamline = new();
     private readonly PcCleanupService _pcCleanup = new();
@@ -33,6 +34,7 @@ public partial class MainWindow : Window
     private DetectedGame? _selectedGame;
     private IReadOnlyList<DetectedGame> _detectedGames = [];
     private IReadOnlyList<MinecraftInstallCandidate> _minecraftInstances = [];
+    private MinecraftPreflightResult? _minecraftPreflightResult;
     private string? _minecraftDlssZipPath;
     private string? _minecraftDlssNrPath;
     private IReadOnlyList<PcCleanupItem> _cleanupItems = [];
@@ -1035,6 +1037,136 @@ public partial class MainWindow : Window
     private MinecraftInstallCandidate? SelectedMinecraftInstance()
         => MinecraftInstanceBox.SelectedItem as MinecraftInstallCandidate;
 
+    private async void MinecraftInstanceBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (SelectedMinecraftInstance() == null)
+            return;
+
+        await RunMinecraftPreflightAsync(showDialogOnFailure: false);
+    }
+
+    private async void RunMinecraftPreflight_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await RunMinecraftPreflightAsync(showDialogOnFailure: true);
+    }
+
+    private async Task<MinecraftPreflightResult?> RunMinecraftPreflightAsync(
+        bool showDialogOnFailure)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null)
+        {
+            MinecraftPreflightSummaryText.Text =
+                "Select a Minecraft Java instance first.";
+            MinecraftPreflightDetailsText.Text =
+                "No preflight has been run.";
+
+            if (showDialogOnFailure)
+            {
+                MessageBox.Show(
+                    "Select a Minecraft Java instance first.",
+                    "Minecraft RTX preflight",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+
+            return null;
+        }
+
+        try
+        {
+            MinecraftPreflightButton.IsEnabled = false;
+            MinecraftOneClickInstallButton.IsEnabled = false;
+            MinecraftPreflightSummaryText.Text = "Running RTX preflight…";
+            MinecraftPreflightDetailsText.Text =
+                "Checking GPU, NVIDIA driver, Vulkan RT, Java, Minecraft/Fabric versions, renderer conflicts and write access.";
+
+            var result = await _minecraftPreflight.RunAsync(instance);
+            _minecraftPreflightResult = result;
+
+            MinecraftPreflightSummaryText.Text =
+                $"Preflight: {result.Summary}";
+
+            var resourceKey = result.Status switch
+            {
+                MinecraftPreflightSeverity.Ready => "Accent",
+                MinecraftPreflightSeverity.Warning => "Warning",
+                _ => "Danger"
+            };
+
+            MinecraftPreflightSummaryText.Foreground =
+                (System.Windows.Media.Brush)FindResource(resourceKey);
+
+            MinecraftPreflightDetailsText.Text = string.Join(
+                "\n",
+                result.Checks.Select(check =>
+                {
+                    var icon = check.Severity switch
+                    {
+                        MinecraftPreflightSeverity.Ready => "✓",
+                        MinecraftPreflightSeverity.Warning => "!",
+                        _ => "×"
+                    };
+
+                    return $"{icon} {check.Name}: {check.Details}";
+                }));
+
+            MinecraftOneClickInstallButton.IsEnabled = result.CanInstall;
+
+            if (showDialogOnFailure ||
+                result.Status == MinecraftPreflightSeverity.Unsupported)
+            {
+                var message = string.Join(
+                    "\n\n",
+                    result.Checks.Select(check =>
+                        $"{check.Severity} — {check.Name}\n{check.Details}"));
+
+                MessageBox.Show(
+                    $"Overall status: {result.Summary}\n\n{message}",
+                    "Minecraft RTX preflight",
+                    MessageBoxButton.OK,
+                    result.Status == MinecraftPreflightSeverity.Unsupported
+                        ? MessageBoxImage.Error
+                        : result.Status == MinecraftPreflightSeverity.Warning
+                            ? MessageBoxImage.Warning
+                            : MessageBoxImage.Information);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _minecraftPreflightResult = null;
+            MinecraftPreflightSummaryText.Text = "Preflight failed";
+            MinecraftPreflightSummaryText.Foreground =
+                (System.Windows.Media.Brush)FindResource("Danger");
+            MinecraftPreflightDetailsText.Text = ex.Message;
+            MinecraftOneClickInstallButton.IsEnabled = false;
+
+            if (showDialogOnFailure)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Minecraft RTX preflight failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+
+            return null;
+        }
+        finally
+        {
+            MinecraftPreflightButton.IsEnabled = true;
+
+            if (_minecraftPreflightResult?.CanInstall == true)
+                MinecraftOneClickInstallButton.IsEnabled = true;
+        }
+    }
+
     private async void InstallMinecraftOneClick_Click(object sender, RoutedEventArgs e)
     {
         var instance = SelectedMinecraftInstance();
@@ -1046,6 +1178,48 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
+        }
+
+        var preflight = await RunMinecraftPreflightAsync(
+            showDialogOnFailure: false);
+
+        if (preflight == null)
+            return;
+
+        if (!preflight.CanInstall)
+        {
+            var blockers = string.Join(
+                "\n",
+                preflight.Checks
+                    .Where(check =>
+                        check.Severity == MinecraftPreflightSeverity.Unsupported)
+                    .Select(check => $"• {check.Name}: {check.Details}"));
+
+            MessageBox.Show(
+                "Installation is blocked by the RTX preflight:\n\n" + blockers,
+                "Minecraft RTX unsupported",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
+
+        if (preflight.Status == MinecraftPreflightSeverity.Warning)
+        {
+            var warnings = string.Join(
+                "\n",
+                preflight.Checks
+                    .Where(check =>
+                        check.Severity == MinecraftPreflightSeverity.Warning)
+                    .Select(check => $"• {check.Name}: {check.Details}"));
+
+            if (MessageBox.Show(
+                    "The RTX preflight found warnings:\n\n" +
+                    warnings +
+                    "\n\nThe installer can automatically fix some of these items. Continue?",
+                    "Minecraft RTX preflight warning",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
         }
 
         var warning = MessageBox.Show(
@@ -1077,8 +1251,10 @@ public partial class MainWindow : Window
 
             var result = await _minecraftOneClick.InstallAsync(
                 instance,
-                installFabricApi: true,
-                allowPrereleaseCaustica: true,
+                installFabricApi:
+                    MinecraftInstallFabricApiCheck.IsChecked == true,
+                allowPrereleaseCaustica:
+                    MinecraftAllowPrereleaseCheck.IsChecked == true,
                 progress);
 
             MinecraftStatusText.Text =
@@ -1102,6 +1278,7 @@ public partial class MainWindow : Window
                 MessageBoxImage.Information);
 
             ScanMinecraft_Click(sender, e);
+            await RunMinecraftPreflightAsync(showDialogOnFailure: false);
         }
         catch (Exception ex)
         {
