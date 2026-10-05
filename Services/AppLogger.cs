@@ -34,7 +34,6 @@ public static class AppLogger
             Info($"OS: {RuntimeInformation.OSDescription}");
             Info($"Framework: {RuntimeInformation.FrameworkDescription}");
             Info($"Architecture: process={RuntimeInformation.ProcessArchitecture}, OS={RuntimeInformation.OSArchitecture}");
-            Info($"Machine: {Environment.MachineName}");
             Info($"User interactive: {Environment.UserInteractive}");
         }
         catch
@@ -121,7 +120,7 @@ public static class AppLogger
 
                 File.AppendAllText(
                     LogPath,
-                    builder.ToString(),
+                    Sanitize(builder.ToString()),
                     new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             }
         }
@@ -129,6 +128,44 @@ public static class AppLogger
         {
             // Never throw from logging.
         }
+    }
+
+    private static string Sanitize(string value)
+    {
+        try
+        {
+            var replacements = new[]
+            {
+                (
+                    Environment.GetFolderPath(
+                        Environment.SpecialFolder.UserProfile),
+                    "%USERPROFILE%"),
+                (
+                    Environment.GetFolderPath(
+                        Environment.SpecialFolder.LocalApplicationData),
+                    "%LOCALAPPDATA%"),
+                (
+                    Environment.GetFolderPath(
+                        Environment.SpecialFolder.ApplicationData),
+                    "%APPDATA%")
+            };
+
+            foreach (var (path, token) in replacements
+                         .Where(item => !string.IsNullOrWhiteSpace(item.Item1))
+                         .OrderByDescending(item => item.Item1.Length))
+            {
+                value = value.Replace(
+                    path,
+                    token,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch
+        {
+            // Sanitization is best-effort.
+        }
+
+        return value;
     }
 
     private static void RotateIfNeeded()
