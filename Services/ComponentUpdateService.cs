@@ -42,8 +42,7 @@ public sealed class ComponentUpdateService
         }
 
         progress?.Report("Updating GitHub media components…");
-        media.ResetTools();
-        await media.SetupAsync(progress, cancellationToken);
+        await media.UpdateToolsAsync(progress, cancellationToken);
 
         SaveState(remote);
         progress?.Report("GitHub media components updated.");
