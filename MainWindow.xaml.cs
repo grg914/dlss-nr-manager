@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftDlssPackageService _minecraftDlss = new();
     private readonly StreamlineRuntimeService _streamline = new();
+    private readonly PcCleanupService _pcCleanup = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
@@ -33,6 +34,7 @@ public partial class MainWindow : Window
     private IReadOnlyList<MinecraftInstallCandidate> _minecraftInstances = [];
     private string? _minecraftDlssZipPath;
     private string? _minecraftDlssNrPath;
+    private IReadOnlyList<PcCleanupItem> _cleanupItems = [];
     private bool _isBusy;
     private int _stateRefreshVersion;
 
@@ -67,6 +69,9 @@ public partial class MainWindow : Window
         AiUpscaleStatusText.Text = _aiUpscale.IsReady
             ? "AI Upscale engine ready."
             : "AI Upscale engine not installed yet.";
+
+        _cleanupItems = _pcCleanup.CreateDefaultItems();
+        PcCleanupList.ItemsSource = _cleanupItems;
 
         Closed += (_, _) =>
         {
@@ -759,6 +764,123 @@ public partial class MainWindow : Window
                 "PC Update Center",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+        }
+    }
+
+    private async void AnalyzePcCleanup_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            PcCleanupAnalyzeButton.IsEnabled = false;
+            PcCleanupCleanButton.IsEnabled = false;
+            PcCleanupStatusText.Text = "Analyzing caches…";
+
+            var progress = new Progress<string>(
+                message => PcCleanupStatusText.Text = message);
+
+            _cleanupItems = await _pcCleanup.AnalyzeAsync(
+                _cleanupItems,
+                progress);
+
+            PcCleanupList.ItemsSource = null;
+            PcCleanupList.ItemsSource = _cleanupItems;
+
+            var total = _cleanupItems.Sum(x => x.Bytes);
+            var files = _cleanupItems.Sum(x => x.FileCount);
+            var skipped = _cleanupItems.Sum(x => x.SkippedCount);
+
+            PcCleanupStatusText.Text =
+                $"Analysis complete • {files:N0} files • {PcCleanupService.FormatBytes(total)} reclaimable";
+
+            PcCleanupTotalText.Text =
+                $"Analyzed total: {PcCleanupService.FormatBytes(total)}" +
+                (skipped > 0 ? $" • {skipped:N0} inaccessible/locked entries skipped" : "");
+        }
+        catch (Exception ex)
+        {
+            PcCleanupStatusText.Text = $"Cache analysis failed: {ex.Message}";
+        }
+        finally
+        {
+            PcCleanupAnalyzeButton.IsEnabled = true;
+            PcCleanupCleanButton.IsEnabled = true;
+        }
+    }
+
+    private async void CleanPcCleanup_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _cleanupItems.Where(x => x.IsSelected).ToList();
+        if (selected.Count == 0)
+        {
+            MessageBox.Show(
+                "Select at least one cache category.",
+                "PC Cleanup",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var knownBytes = selected.Sum(x => x.Bytes);
+        var selectedNames = string.Join(
+            "\n",
+            selected.Select(x => $"• {x.Name}"));
+
+        var answer = MessageBox.Show(
+            "Delete the selected temporary/cache files?\n\n" +
+            selectedNames +
+            $"\n\nCurrently analyzed size: {PcCleanupService.FormatBytes(knownBytes)}\n\n" +
+            "Games and applications may rebuild shader caches after cleanup. " +
+            "Locked or inaccessible files will be skipped.",
+            "Clean selected caches",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            PcCleanupAnalyzeButton.IsEnabled = false;
+            PcCleanupCleanButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => PcCleanupStatusText.Text = message);
+
+            var result = await _pcCleanup.CleanAsync(
+                _cleanupItems,
+                progress);
+
+            PcCleanupStatusText.Text =
+                $"Cleanup complete • {result.DeletedFiles:N0} files • " +
+                $"{PcCleanupService.FormatBytes(result.DeletedBytes)} removed" +
+                (result.SkippedFiles > 0
+                    ? $" • {result.SkippedFiles:N0} locked/inaccessible skipped"
+                    : "");
+
+            _cleanupItems = await _pcCleanup.AnalyzeAsync(
+                _cleanupItems,
+                progress);
+
+            PcCleanupList.ItemsSource = null;
+            PcCleanupList.ItemsSource = _cleanupItems;
+
+            var remaining = _cleanupItems.Sum(x => x.Bytes);
+            PcCleanupTotalText.Text =
+                $"Remaining analyzed cache: {PcCleanupService.FormatBytes(remaining)}";
+        }
+        catch (Exception ex)
+        {
+            PcCleanupStatusText.Text = $"Cleanup failed: {ex.Message}";
+            MessageBox.Show(
+                ex.Message,
+                "PC Cleanup",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            PcCleanupAnalyzeButton.IsEnabled = true;
+            PcCleanupCleanButton.IsEnabled = true;
         }
     }
 
