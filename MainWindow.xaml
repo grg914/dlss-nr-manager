@@ -466,9 +466,21 @@
 
               <StackPanel Grid.Column="0">
                 <TextBlock Text="Media Neural Rendering" Style="{StaticResource SectionTitle}"/>
-                <TextBlock Text="Apply DLSS Neural Rendering to an image or video file without modifying a game."
+                <TextBlock Text="Apply Neural Rendering, AI super-resolution, or both to an image or video file."
                            Style="{StaticResource SectionSubtitle}"
                            Margin="0,4,0,14"/>
+
+                <TextBlock Text="Processing mode"
+                           Foreground="{StaticResource Muted}"
+                           FontSize="11"
+                           FontWeight="SemiBold"/>
+                <ComboBox x:Name="MediaModeBox"
+                          Margin="0,5,0,10"
+                          SelectionChanged="MediaModeBox_SelectionChanged">
+                  <ComboBoxItem Content="Neural Rendering" IsSelected="True"/>
+                  <ComboBoxItem Content="AI Upscale"/>
+                  <ComboBoxItem Content="Neural Rendering + AI Upscale"/>
+                </ComboBox>
 
                 <TextBlock Text="Source file"
                            Foreground="{StaticResource Muted}"
@@ -567,6 +579,97 @@
                              FontWeight="SemiBold"/>
                 </Grid>
 
+                <Border x:Name="AiUpscaleOptionsPanel"
+                        Background="#0B121A"
+                        BorderBrush="#1E2C3A"
+                        BorderThickness="1"
+                        CornerRadius="9"
+                        Padding="12"
+                        Margin="0,0,0,12"
+                        Visibility="Collapsed">
+                  <StackPanel>
+                    <TextBlock Text="AI Upscale"
+                               FontWeight="SemiBold"/>
+                    <TextBlock Text="Real-ESRGAN NCNN Vulkan • local GPU processing"
+                               Foreground="{StaticResource Muted}"
+                               FontSize="11"
+                               Margin="0,3,0,10"/>
+
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+
+                      <StackPanel Grid.Column="0">
+                        <TextBlock Text="AI scale"
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"/>
+                        <ComboBox x:Name="AiScaleBox" Margin="0,5,0,0">
+                          <ComboBoxItem Content="2×" IsSelected="True"/>
+                          <ComboBoxItem Content="3×"/>
+                          <ComboBoxItem Content="4×"/>
+                        </ComboBox>
+                      </StackPanel>
+
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Text="AI model"
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"/>
+                        <ComboBox x:Name="AiModelBox" Margin="0,5,0,0">
+                          <ComboBoxItem Content="General / Photo" IsSelected="True"/>
+                          <ComboBoxItem Content="General / Conservative"/>
+                          <ComboBoxItem Content="Illustration / Anime"/>
+                          <ComboBoxItem Content="Anime Video / Minecraft"/>
+                        </ComboBox>
+                      </StackPanel>
+                    </Grid>
+
+                    <Grid Margin="0,10,0,0">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+
+                      <StackPanel Grid.Column="0">
+                        <TextBlock Text="Tile size"
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"/>
+                        <ComboBox x:Name="AiTileBox" Margin="0,5,0,0">
+                          <ComboBoxItem Content="Auto" IsSelected="True"/>
+                          <ComboBoxItem Content="256"/>
+                          <ComboBoxItem Content="384"/>
+                          <ComboBoxItem Content="512"/>
+                        </ComboBox>
+                      </StackPanel>
+
+                      <CheckBox Grid.Column="2"
+                                x:Name="AiTtaCheck"
+                                Content="TTA quality mode (slower)"
+                                VerticalAlignment="Bottom"
+                                Margin="0,0,0,8"/>
+                    </Grid>
+
+                    <Button x:Name="AiUpscaleSetupButton"
+                            Style="{StaticResource CyanButton}"
+                            Content="Set up AI Upscale engine"
+                            Margin="0,12,0,0"
+                            Click="SetupAiUpscale_Click"/>
+
+                    <TextBlock x:Name="AiUpscaleStatusText"
+                               Text="AI Upscale engine not installed yet."
+                               Foreground="{StaticResource Muted}"
+                               TextWrapping="Wrap"
+                               FontSize="11"
+                               Margin="0,8,0,0"/>
+                  </StackPanel>
+                </Border>
+
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -581,7 +684,7 @@
                   <Button Grid.Column="2"
                           x:Name="MediaProcessButton"
                           Style="{StaticResource PrimaryButton}"
-                          Content="Process with DLSS NR"
+                          Content="Process media"
                           Click="ProcessMedia_Click"/>
                 </Grid>
 
