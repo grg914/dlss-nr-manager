@@ -53,7 +53,7 @@ public sealed class MinecraftOneClickService
             root,
             ".dlss-nr-manager-backups",
             "minecraft-one-click",
-            DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss"));
+            DateTimeOffset.Now.ToString("yyyyMMdd-HHmmssfff"));
 
         Directory.CreateDirectory(backup);
 
@@ -75,6 +75,7 @@ public sealed class MinecraftOneClickService
         var fabricWasPresent = instance.FabricDetected;
         var existingFabricVersions = SnapshotFabricVersionDirectories(root);
         var fabricBefore = MinecraftPreflightService.DetectFabricLoader(root);
+        MinecraftSetupResult? completedSetup = null;
 
         try
         {
@@ -126,6 +127,8 @@ public sealed class MinecraftOneClickService
                 progress,
                 cancellationToken);
 
+            completedSetup = setup;
+
             var createdFabricVersions = SnapshotFabricVersionDirectories(root)
                 .Except(existingFabricVersions, StringComparer.OrdinalIgnoreCase)
                 .Select(path => Path.GetRelativePath(root, path))
@@ -176,6 +179,33 @@ public sealed class MinecraftOneClickService
         {
             try
             {
+                if (completedSetup != null)
+                {
+                    try
+                    {
+                        _integration.UninstallManagedMinecraftRtx(root);
+                    }
+                    catch { }
+
+                    RestoreTopLevelFiles(
+                        completedSetup.BackupDirectory,
+                        Path.Combine(root, "mods"));
+
+                    RestoreDirectoryContents(
+                        Path.Combine(
+                            completedSetup.BackupDirectory,
+                            "extra",
+                            "mods"),
+                        Path.Combine(root, "mods"));
+
+                    RestoreDirectoryContents(
+                        Path.Combine(
+                            completedSetup.BackupDirectory,
+                            "extra",
+                            "resourcepacks"),
+                        Path.Combine(root, "resourcepacks"));
+                }
+
                 RestoreFromBackup(
                     root,
                     backup,
