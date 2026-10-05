@@ -28,15 +28,72 @@ $bitmap.UriSource = New-Object System.Uri($sourcePath)
 $bitmap.EndInit()
 $bitmap.Freeze()
 
-# Windows Explorer/taskbar icons are square. Crop the source to a centered square
-# before resampling instead of letterboxing the whole logo into a square. Letterboxing
-# makes the visible mark unnecessarily small at 16-48 px and appears blurry.
-$cropSize = [Math]::Min($bitmap.PixelWidth, $bitmap.PixelHeight)
-$cropX = [int](($bitmap.PixelWidth - $cropSize) / 2)
-$cropY = [int](($bitmap.PixelHeight - $cropSize) / 2)
+# Find the actual non-transparent artwork bounds. The branding PNG contains
+# transparent breathing room; using the full canvas makes the visible mark too small
+# in Explorer/Desktop and Windows then scales that tiny mark again, which looks blurry.
+$converted = New-Object System.Windows.Media.Imaging.FormatConvertedBitmap(
+    $bitmap,
+    [System.Windows.Media.PixelFormats]::Bgra32,
+    $null,
+    0
+)
+$converted.Freeze()
+
+$width = $converted.PixelWidth
+$height = $converted.PixelHeight
+$stride = $width * 4
+$pixels = New-Object byte[] ($stride * $height)
+$converted.CopyPixels($pixels, $stride, 0)
+
+$minX = $width
+$minY = $height
+$maxX = -1
+$maxY = -1
+
+for ($y = 0; $y -lt $height; $y++) {
+    $row = $y * $stride
+    for ($x = 0; $x -lt $width; $x++) {
+        $alpha = $pixels[$row + ($x * 4) + 3]
+        if ($alpha -gt 8) {
+            if ($x -lt $minX) { $minX = $x }
+            if ($x -gt $maxX) { $maxX = $x }
+            if ($y -lt $minY) { $minY = $y }
+            if ($y -gt $maxY) { $maxY = $y }
+        }
+    }
+}
+
+if ($maxX -lt $minX -or $maxY -lt $minY) {
+    $minX = 0
+    $minY = 0
+    $maxX = $width - 1
+    $maxY = $height - 1
+}
+
+$contentWidth = $maxX - $minX + 1
+$contentHeight = $maxY - $minY + 1
+$contentSize = [Math]::Max($contentWidth, $contentHeight)
+
+# Keep a small amount of transparent padding so the mark does not touch the edge.
+$padding = [int][Math]::Ceiling($contentSize * 0.06)
+$cropSize = [Math]::Min(
+    [Math]::Max($contentSize + ($padding * 2), 1),
+    [Math]::Min($width, $height)
+)
+
+$centerX = ($minX + $maxX) / 2.0
+$centerY = ($minY + $maxY) / 2.0
+$cropX = [int][Math]::Round($centerX - ($cropSize / 2.0))
+$cropY = [int][Math]::Round($centerY - ($cropSize / 2.0))
+
+$cropX = [Math]::Max(0, [Math]::Min($cropX, $width - $cropSize))
+$cropY = [Math]::Max(0, [Math]::Min($cropY, $height - $cropSize))
+
 $cropRect = New-Object System.Windows.Int32Rect($cropX, $cropY, $cropSize, $cropSize)
-$squareBitmap = New-Object System.Windows.Media.Imaging.CroppedBitmap($bitmap, $cropRect)
+$squareBitmap = New-Object System.Windows.Media.Imaging.CroppedBitmap($converted, $cropRect)
 $squareBitmap.Freeze()
+
+Write-Host ("Icon source: {0}x{1}; content bounds: {2}x{3}; crop: {4}x{4}" -f $width, $height, $contentWidth, $contentHeight, $cropSize)
 
 $sizes = @(16, 20, 24, 32, 40, 48, 64, 96, 128, 192, 256)
 $frames = New-Object System.Collections.Generic.List[object]
@@ -53,7 +110,7 @@ foreach ($size in $sizes) {
     $visual = New-Object System.Windows.Media.DrawingVisual
     [System.Windows.Media.RenderOptions]::SetBitmapScalingMode(
         $visual,
-        [System.Windows.Media.BitmapScalingMode]::Fant
+        [System.Windows.Media.BitmapScalingMode]::HighQuality
     )
     [System.Windows.Media.RenderOptions]::SetEdgeMode(
         $visual,
