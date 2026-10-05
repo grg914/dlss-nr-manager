@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="DLSS NR Manager"
-        Icon="assets/branding/logo.jpg"
+        Icon="assets/branding/app.ico"
         Width="1180" Height="900" MinWidth="980" MinHeight="720"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
