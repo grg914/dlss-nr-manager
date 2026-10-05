@@ -1252,8 +1252,7 @@ public partial class MainWindow : Window
             var result = await _minecraftOneClick.InstallAsync(
                 instance,
                 installFabricApi: true,
-                allowPrereleaseCaustica:
-                    MinecraftAllowPrereleaseCheck.IsChecked == true,
+                allowPrereleaseCaustica: true,
                 progress);
 
             MinecraftStatusText.Text =
