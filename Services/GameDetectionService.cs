@@ -39,9 +39,10 @@ public sealed class GameDetectionService
         var apps = DetectSteamApps()
             .Concat(DetectEpicApps())
             .Concat(DetectGogApps())
+            .Concat(LauncherGameDiscovery.DetectItchApps())
             .Concat(DetectUbisoftApps())
             .Concat(DetectEaApps())
-            .Concat(DetectXboxApps())
+            .Concat(LauncherGameDiscovery.DetectXboxApps())
             .Concat(DetectBattleNetApps())
             .Where(x => !string.IsNullOrWhiteSpace(x.Root) && Directory.Exists(x.Root))
             .GroupBy(x => x.Root, StringComparer.OrdinalIgnoreCase)
@@ -475,7 +476,7 @@ public sealed class GameDetectionService
                         name,
                         "Steam",
                         Path.Combine(steamApps, "common", installDir),
-                        $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900_2x.jpg");
+                        null);
             }
         }
     }

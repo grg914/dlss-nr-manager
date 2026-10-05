@@ -226,6 +226,9 @@
                                          VerticalAlignment="Center"/>
                               <Image Source="{Binding ArtworkUrl}"
                                      Stretch="UniformToFill"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     SnapsToDevicePixels="True"
                                      RenderOptions.BitmapScalingMode="HighQuality"/>
                             </Grid>
                           </Border>
