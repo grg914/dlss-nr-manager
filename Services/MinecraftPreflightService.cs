@@ -578,7 +578,7 @@ public sealed class MinecraftPreflightService
                 var versionText = result.Output + "\n" + result.Error;
                 var match = Regex.Match(
                     versionText,
-                    ""(?<major>\\d+)(?:[._+-]|\")",
+                    "\\\"(?<major>\\d+)",
                     RegexOptions.CultureInvariant);
 
                 if (match.Success &&
