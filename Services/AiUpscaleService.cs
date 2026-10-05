@@ -53,13 +53,13 @@ public sealed class AiUpscaleService
 
     public bool IsReady =>
         File.Exists(EngineExe) &&
-        Directory.Exists(ModelsDirectory);
+        HasUsableModels(ModelsDirectory);
 
     public AiUpscaleService()
     {
         _http.Timeout = TimeSpan.FromMinutes(10);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "0.9"));
+            new ProductInfoHeaderValue("DlssNrManager", "1.0"));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
@@ -101,25 +101,41 @@ public sealed class AiUpscaleService
             ?? throw new InvalidOperationException(
                 "Real-ESRGAN executable was not found after extraction.");
 
-        var engineFolder = Path.GetDirectoryName(exe)!;
+        // Copy the complete extracted package, not only the directory that
+        // contains the executable. Some Real-ESRGAN release layouts keep
+        // models/ beside the executable directory rather than underneath it.
+        CopyDirectoryContents(extractDir, RootDirectory);
 
-        foreach (var file in Directory.EnumerateFiles(
-                     engineFolder,
-                     "*",
-                     SearchOption.AllDirectories))
+        // A few repackaged distributions keep the models in models.zip.
+        // Expand it when present so the engine can use the standard -m path.
+        if (!HasUsableModels(ModelsDirectory))
         {
-            var relative = Path.GetRelativePath(engineFolder, file);
-            var destination = Path.Combine(RootDirectory, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            File.Copy(file, destination, true);
+            var modelsArchive = FindFile(RootDirectory, "models.zip");
+            if (modelsArchive != null)
+            {
+                var modelDestination = Path.Combine(
+                    Path.GetDirectoryName(modelsArchive)!,
+                    "models");
+
+                Directory.CreateDirectory(modelDestination);
+                ExtractSafe(modelsArchive, modelDestination);
+            }
         }
 
         TryDeleteDirectory(extractDir);
         TryDeleteFile(zipPath);
 
         if (!IsReady)
+        {
+            var discoveredExe = EngineExe;
+            var discoveredModels = ModelsDirectory;
+
             throw new InvalidOperationException(
-                "Real-ESRGAN installation completed, but its executable or models could not be located.");
+                "Real-ESRGAN installation completed but the engine package is incomplete. " +
+                $"Executable: {(File.Exists(discoveredExe) ? discoveredExe : "not found")}; " +
+                $"models: {(HasUsableModels(discoveredModels) ? discoveredModels : "not found or incomplete")}. " +
+                "Use 'Set up AI Upscale engine' again to repair the installation.");
+        }
 
         progress?.Report($"AI Upscale engine ready • Real-ESRGAN {asset.Tag}.");
     }
@@ -522,6 +538,56 @@ public sealed class AiUpscaleService
 
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             entry.ExtractToFile(target, overwrite: true);
+        }
+    }
+
+    private static bool HasUsableModels(string? directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            return false;
+
+        try
+        {
+            var files = Directory
+                .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                .Select(Path.GetFileName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // At least one complete NCNN model pair is enough to consider the
+            // engine installed. Individual model selection is validated later
+            // by Real-ESRGAN itself.
+            return files.Any(name =>
+                name!.EndsWith(".param", StringComparison.OrdinalIgnoreCase) &&
+                files.Contains(
+                    Path.ChangeExtension(name, ".bin")));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void CopyDirectoryContents(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     source,
+                     "*",
+                     SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var target = Path.Combine(destination, relative);
+
+            // Temporary setup artifacts are managed separately.
+            if (relative.Equals(
+                    "realesrgan-windows.zip",
+                    StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target, true);
         }
     }
 
