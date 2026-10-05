@@ -49,7 +49,7 @@ public static class IniService
         {
             SetIfPresent(lines, menuSection, "ShowFps", showFps ? "true" : "false");
             SetIfPresent(lines, menuSection, "FpsOverlayType", Math.Clamp(fpsType, 0, 6).ToString());
-            SetIfPresent(lines, menuSection, "FpsOverlayPosition", Math.Clamp(fpsPosition, 0, 3).ToString());
+            SetIfPresent(lines, menuSection, "FpsOverlayPos", Math.Clamp(fpsPosition, 0, 3).ToString());
             SetIfPresent(lines, menuSection, "OverlayMenu", "true");
             SetIfPresent(lines, menuSection, "ShortcutKey", "0x79");
         }
