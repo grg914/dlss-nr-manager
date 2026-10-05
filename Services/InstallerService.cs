@@ -104,7 +104,7 @@ public sealed class InstallerService
         try
         {
             var zip = Path.Combine(temp, "optiscaler.zip");
-            await releases.DownloadAsync(release.ZipUrl, zip);
+            await releases.DownloadAsync(release.ZipUrl, zip, release.ZipSha256);
 
             var extract = Path.Combine(temp, "extract");
             ZipFile.ExtractToDirectory(zip, extract);
