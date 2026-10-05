@@ -79,7 +79,7 @@ public sealed class GameDetectionService
         {
             var rootSignals = FindSignalsRecursive(root, maxResults: 3);
             if (rootSignals.Count == 0) return;
-            evidence = rootSignals.Select(Path.GetFileName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            evidence = rootSignals.Select(Path.GetFileName).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         var hasDlss = evidence.Any(x => x.Equals("nvngx_dlss.dll", StringComparison.OrdinalIgnoreCase));
@@ -277,11 +277,13 @@ public sealed class GameDetectionService
 
     private static IEnumerable<(string Name, string Root)> DetectEpicApps()
     {
+        var results = new List<(string Name, string Root)>();
         var manifestDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             "Epic", "EpicGamesLauncher", "Data", "Manifests");
 
-        if (!Directory.Exists(manifestDir)) yield break;
+        if (!Directory.Exists(manifestDir))
+            return results;
 
         foreach (var file in Directory.EnumerateFiles(manifestDir, "*.item"))
         {
@@ -290,18 +292,26 @@ public sealed class GameDetectionService
                 using var json = JsonDocument.Parse(File.ReadAllText(file));
                 var root = json.RootElement;
 
-                if (!root.TryGetProperty("InstallLocation", out var installLocation)) continue;
+                if (!root.TryGetProperty("InstallLocation", out var installLocation))
+                    continue;
+
                 var path = installLocation.GetString();
-                if (string.IsNullOrWhiteSpace(path)) continue;
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
 
-                string name = "Epic game";
-                if (root.TryGetProperty("DisplayName", out var displayName) && !string.IsNullOrWhiteSpace(displayName.GetString()))
+                var name = "Epic game";
+                if (root.TryGetProperty("DisplayName", out var displayName) &&
+                    !string.IsNullOrWhiteSpace(displayName.GetString()))
+                {
                     name = displayName.GetString()!;
+                }
 
-                yield return (name, path);
+                results.Add((name, path));
             }
             catch { }
         }
+
+        return results;
     }
 
     private static IEnumerable<(string Name, string Root)> DetectGogApps()
