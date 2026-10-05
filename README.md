@@ -53,9 +53,10 @@ Current application version: **v1.0.0**.
   - `sl.interposer.dll`
   - `sl.common.dll`
   - `sl.dlss.dll` / `nvngx_dlss.dll`
+  - `sl.dlss_d.dll` / `nvngx_dlssd.dll` for DLSS Ray Reconstruction when supported by the renderer
   - `sl.dlss_g.dll` / `nvngx_dlssg.dll`
-  - `sl.reflex.dll`
-  - `sl.dlss_nr.dll` / `nvngx_dlssnr.dll`
+  - `sl.reflex.dll` plus `NvLowLatencyVk.dll` when present for the Vulkan Reflex path
+  - `sl.dlss_nr.dll` / `nvngx_dlssnr.dll` when present in the selected Streamline package
 - Existing vendor DLLs in a game are not overwritten by the resource-completion step
 - NVIDIA binaries are **not committed to this repository**
 
@@ -114,16 +115,28 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Minecraft Java 26.2 profile
 - Detects vanilla and common custom launcher instances
 - Optional manual instance selection
+- **RTX preflight** runs before any instance modification and reports **Ready / Warning / Unsupported** for:
+  - NVIDIA RTX GPU detection
+  - NVIDIA driver presence/version
+  - Vulkan ray-tracing capability when `vulkaninfo` is available, with Vulkan-driver fallback detection
+  - Java 25
+  - Minecraft 26.2
+  - Fabric Loader 0.19.3+
+  - known renderer conflicts
+  - instance write access
 - **Install DLSS / RTX** one-click workflow:
+  - blocks on unsupported preflight results and requires explicit confirmation for warnings
   - creates a restore point before changing the instance
   - sets `preferredGraphicsBackend:"vulkan"`
   - verifies Java 25 x64 before Fabric/Caustica setup
   - installs Eclipse Temurin 25 automatically with WinGet when Java 25 is missing
-  - installs Fabric Loader automatically when missing
-  - downloads Fabric API from FabricMC
+  - installs/updates Fabric Loader automatically on Mojang/Microsoft-style instances when missing or older than 0.19.3
+  - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
+  - downloads the required Fabric API from FabricMC
   - downloads the latest compatible Caustica RTX release
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
-  - patches the Fabric launcher profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`
+  - patches the Mojang launcher Fabric profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`
+  - warns when a third-party launcher manages JVM arguments separately
   - relies on Caustica RTX's implemented Vulkan/NVIDIA path for path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex
 - **Restore original** reverses the one-click changes:
   - removes manager-installed Caustica/Fabric API files
