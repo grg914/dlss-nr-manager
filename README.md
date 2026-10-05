@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
 
-Current application version: **v0.5.0**.
+Current application version: **v0.5.1**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, Ubisoft Connect, EA App, Xbox App and Battle.net**, with upstream-validated profiles for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy, plus NVIDIA RTX 20/30/40/50 GPUs.
 
