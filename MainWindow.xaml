@@ -196,8 +196,56 @@
                         CornerRadius="10"
                         Padding="7">
                   <ListBox x:Name="GameBox"
-                           DisplayMemberPath="DisplayName"
-                           SelectionChanged="GameBox_SelectionChanged"/>
+                           SelectionChanged="GameBox_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="52"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                          </Grid.ColumnDefinitions>
+
+                          <Border Grid.Column="0"
+                                  Width="52"
+                                  Height="72"
+                                  CornerRadius="7"
+                                  Background="#111A24"
+                                  BorderBrush="#26394D"
+                                  BorderThickness="1"
+                                  ClipToBounds="True">
+                            <Grid>
+                              <TextBlock Text="GAME"
+                                         Foreground="#516176"
+                                         FontSize="9"
+                                         FontWeight="Bold"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
+                              <Image Source="{Binding ArtworkUrl}"
+                                     Stretch="UniformToFill"
+                                     RenderOptions.BitmapScalingMode="HighQuality"/>
+                            </Grid>
+                          </Border>
+
+                          <StackPanel Grid.Column="2"
+                                      VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}"
+                                       Foreground="#F4F7FB"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Margin="0,4,0,0"
+                                       Foreground="#8E9AAD"
+                                       FontSize="11">
+                              <Run Text="{Binding Platform}"/>
+                              <Run Text="  •  "/>
+                              <Run Text="{Binding Confidence}"/>
+                            </TextBlock>
+                          </StackPanel>
+                        </Grid>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
                 </Border>
 
                 <TextBlock Grid.Row="3"
