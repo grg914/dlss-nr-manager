@@ -302,7 +302,7 @@
 
               <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
-                  <TextBlock Text="Install & configure" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="Install &amp; configure" Style="{StaticResource SectionTitle}"/>
                   <TextBlock Text="Choose the upstream channel and Neural Rendering preset"
                              Style="{StaticResource SectionSubtitle}"
                              Margin="0,4,0,14"/>
