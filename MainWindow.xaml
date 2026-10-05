@@ -144,6 +144,9 @@
                 <Button Style="{StaticResource CyanButton}"
                         Content="Scan installed games"
                         Click="ScanGames_Click"/>
+                <Button Content="Clear cover cache"
+                        Margin="0,8,0,0"
+                        Click="ClearArtworkCache_Click"/>
               </StackPanel>
             </Grid>
           </Border>
@@ -693,9 +696,33 @@
                   <CheckBox x:Name="LoadReShadeCheck"
                             Content="Ask OptiScaler to load ReShade64.dll"/>
 
+                  <CheckBox x:Name="InstallReShadeAddonCheck"
+                            Content="Install latest ReShade with full add-on support after install/update"
+                            Margin="0,8,0,0"/>
+
+                  <CheckBox x:Name="AutoUpdateComponentsCheck"
+                            Content="Automatically keep GitHub components up to date"
+                            IsChecked="True"
+                            Margin="0,8,0,0"/>
+
+                  <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            Style="{StaticResource CyanButton}"
+                            Content="Install ReShade add-on"
+                            Click="InstallReShadeAddon_Click"/>
+                    <Button Grid.Column="2"
+                            Content="Check component updates"
+                            Click="CheckComponentUpdates_Click"/>
+                  </Grid>
+
                   <Button Style="{StaticResource CyanButton}"
                           Content="Apply advanced settings"
-                          Margin="0,14,0,0"
+                          Margin="0,10,0,0"
                           HorizontalAlignment="Stretch"
                           Click="ApplyAdvanced_Click"/>
 
