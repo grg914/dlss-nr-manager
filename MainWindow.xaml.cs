@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private readonly DiagnosticService _diagnostics = new();
     private readonly GameArtworkService _artwork = new();
     private readonly MediaService _media = new();
+    private readonly AiUpscaleService _aiUpscale = new();
     private readonly ReShadeService _reshade = new();
     private readonly ComponentUpdateService _components = new();
     private readonly PcUpdateService _pcUpdates = new();
@@ -56,6 +57,10 @@ public partial class MainWindow : Window
         MediaStatusText.Text = _media.IsReady
             ? "Media engine ready."
             : "Media engine not installed yet.";
+
+        AiUpscaleStatusText.Text = _aiUpscale.IsReady
+            ? "AI Upscale engine ready."
+            : "AI Upscale engine not installed yet.";
 
         Closed += (_, _) =>
         {
@@ -808,6 +813,96 @@ public partial class MainWindow : Window
         }
     }
 
+    private void MediaModeBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (AiUpscaleOptionsPanel == null)
+            return;
+
+        var mode = MediaModeBox.SelectedIndex;
+        AiUpscaleOptionsPanel.Visibility =
+            mode is 1 or 2
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        if (MediaScaleBox != null)
+            MediaScaleBox.IsEnabled = mode != 1;
+
+        if (MediaStyleBox != null)
+            MediaStyleBox.IsEnabled = mode != 1;
+
+        if (MediaIntensitySlider != null)
+            MediaIntensitySlider.IsEnabled = mode != 1;
+    }
+
+    private async void SetupAiUpscale_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            AiUpscaleSetupButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => AiUpscaleStatusText.Text = message);
+
+            await _aiUpscale.SetupAsync(progress);
+
+            AiUpscaleStatusText.Text =
+                "AI Upscale engine ready • Real-ESRGAN NCNN Vulkan installed in LocalAppData.";
+        }
+        catch (Exception ex)
+        {
+            AiUpscaleStatusText.Text =
+                $"AI Upscale setup failed: {ex.Message}";
+
+            MessageBox.Show(
+                ex.Message,
+                "AI Upscale setup failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            AiUpscaleSetupButton.IsEnabled = true;
+        }
+    }
+
+    private AiUpscaleOptions CaptureAiUpscaleOptions(
+        string outputDirectory)
+    {
+        var scale = AiScaleBox.SelectedIndex switch
+        {
+            1 => 3,
+            2 => 4,
+            _ => 2
+        };
+
+        var model = AiModelBox.SelectedIndex switch
+        {
+            1 => AiUpscaleModel.GeneralSoft,
+            2 => AiUpscaleModel.AnimeIllustration,
+            3 => AiUpscaleModel.AnimeVideo,
+            _ => AiUpscaleModel.GeneralPhoto
+        };
+
+        var tile = AiTileBox.SelectedIndex switch
+        {
+            1 => 256,
+            2 => 384,
+            3 => 512,
+            _ => 0
+        };
+
+        return new AiUpscaleOptions(
+            scale,
+            model,
+            outputDirectory,
+            AiTtaCheck.IsChecked == true,
+            tile);
+    }
+
     private async void ProcessMedia_Click(object sender, RoutedEventArgs e)
     {
         var source = MediaSourceBox.Text;
@@ -835,6 +930,7 @@ public partial class MainWindow : Window
         {
             MediaSetupButton.IsEnabled = false;
             MediaProcessButton.IsEnabled = false;
+            AiUpscaleSetupButton.IsEnabled = false;
 
             var scale = MediaScaleBox.SelectedIndex switch
             {
@@ -845,14 +941,63 @@ public partial class MainWindow : Window
 
             var style = Math.Max(0, MediaStyleBox.SelectedIndex);
             var intensity = MediaIntensitySlider.Value;
-            var progress = new Progress<string>(message => MediaStatusText.Text = message);
+            var mode = MediaModeBox.SelectedIndex;
+            var progress = new Progress<string>(
+                message =>
+                {
+                    MediaStatusText.Text = message;
+                    if (mode is 1 or 2)
+                        AiUpscaleStatusText.Text = message;
+                });
 
-            var result = await _media.ProcessAsync(
-                source,
-                new MediaProcessOptions(scale, style, intensity, output),
-                progress);
+            string result;
+
+            if (mode == 1)
+            {
+                result = await _aiUpscale.UpscaleAsync(
+                    source,
+                    CaptureAiUpscaleOptions(output),
+                    _media,
+                    progress);
+            }
+            else if (mode == 2)
+            {
+                MediaStatusText.Text =
+                    "Step 1/2 • Neural Rendering at native resolution…";
+
+                var nrIntermediate = await _media.ProcessAsync(
+                    source,
+                    new MediaProcessOptions(
+                        "Native",
+                        style,
+                        intensity,
+                        output),
+                    progress);
+
+                MediaStatusText.Text =
+                    "Step 2/2 • AI super-resolution…";
+
+                result = await _aiUpscale.UpscaleAsync(
+                    nrIntermediate,
+                    CaptureAiUpscaleOptions(output),
+                    _media,
+                    progress);
+            }
+            else
+            {
+                result = await _media.ProcessAsync(
+                    source,
+                    new MediaProcessOptions(
+                        scale,
+                        style,
+                        intensity,
+                        output),
+                    progress);
+            }
 
             MediaStatusText.Text = $"Complete • {result}";
+            if (mode is 1 or 2)
+                AiUpscaleStatusText.Text = $"Complete • {result}";
 
             if (MessageBox.Show(
                     $"Processing complete.\n\n{result}\n\nOpen output folder?",
@@ -871,6 +1016,8 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             MediaStatusText.Text = $"Processing failed: {ex.Message}";
+            AiUpscaleStatusText.Text = $"Processing failed: {ex.Message}";
+
             MessageBox.Show(
                 ex.Message,
                 "Media processing failed",
@@ -881,6 +1028,7 @@ public partial class MainWindow : Window
         {
             MediaSetupButton.IsEnabled = true;
             MediaProcessButton.IsEnabled = true;
+            AiUpscaleSetupButton.IsEnabled = true;
         }
     }
 
