@@ -190,10 +190,13 @@ public sealed class MinecraftIntegrationService
     {
         ValidateInstance(instance.RootDirectory);
 
-        if (!DetectFabric(instance.RootDirectory))
+        var fabric = MinecraftPreflightService.DetectFabricLoader(instance.RootDirectory);
+        if (!fabric.ForMinecraft262 ||
+            fabric.Version == null ||
+            fabric.Version < Version.Parse(MinimumFabricLoader))
         {
             throw new InvalidOperationException(
-                "Fabric Loader was not detected for this instance. Install Fabric first and restart the Minecraft Launcher.");
+                $"Fabric Loader {MinimumFabricLoader}+ for Minecraft {MinecraftVersion} was not detected.");
         }
 
         var mods = Path.Combine(instance.RootDirectory, "mods");
@@ -207,62 +210,81 @@ public sealed class MinecraftIntegrationService
         Directory.CreateDirectory(backup);
 
         var installed = new List<MinecraftComponentResult>();
+        var managedDestinations = new List<string>();
 
-        if (installFabricApi)
+        try
         {
-            progress?.Report($"Finding Fabric API for Minecraft {MinecraftVersion}…");
+            if (installFabricApi)
+            {
+                progress?.Report($"Finding Fabric API for Minecraft {MinecraftVersion}…");
 
-            var fabric = await FindReleaseAsync(
-                FabricApiRepo,
-                r => r.Tag.Contains("+26.2", StringComparison.OrdinalIgnoreCase)
-                     || r.Name.Contains("[26.2]", StringComparison.OrdinalIgnoreCase)
-                     || r.Name.Contains("26.2", StringComparison.OrdinalIgnoreCase),
-                includePrerelease: false,
+                var fabricApi = await FindReleaseAsync(
+                    FabricApiRepo,
+                    r => r.Tag.Contains("+26.2", StringComparison.OrdinalIgnoreCase)
+                         || r.Name.Contains("[26.2]", StringComparison.OrdinalIgnoreCase)
+                         || r.Name.Contains("26.2", StringComparison.OrdinalIgnoreCase),
+                    includePrerelease: false,
+                    cancellationToken);
+
+                var asset = SelectAsset(
+                    fabricApi,
+                    name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
+                            && name.Contains("fabric-api", StringComparison.OrdinalIgnoreCase)
+                            && !ContainsAny(name, "sources", "dev", "javadoc"));
+
+                await BackupMatchingAsync(mods, backup, "fabric-api-", cancellationToken);
+
+                var destination = Path.Combine(mods, asset.Name);
+                managedDestinations.Add(destination);
+                await DownloadAssetAsync(asset, destination, progress, cancellationToken);
+
+                installed.Add(new MinecraftComponentResult(
+                    "Fabric API", fabricApi.Tag, destination, FabricApiRepo));
+            }
+
+            progress?.Report("Finding latest compatible Caustica RTX release…");
+
+            var caustica = await FindReleaseAsync(
+                CausticaRtxRepo,
+                r => !r.Draft,
+                allowPrereleaseCaustica,
                 cancellationToken);
 
-            var asset = SelectAsset(
-                fabric,
+            var causticaAsset = SelectAsset(
+                caustica,
                 name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                        && name.Contains("fabric-api", StringComparison.OrdinalIgnoreCase)
+                        && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
                         && !ContainsAny(name, "sources", "dev", "javadoc"));
 
-            await BackupMatchingAsync(mods, backup, "fabric-api-", cancellationToken);
+            await BackupMatchingAsync(mods, backup, "caustica", cancellationToken);
 
-            var destination = Path.Combine(mods, asset.Name);
-            await DownloadAssetAsync(asset, destination, progress, cancellationToken);
+            var causticaDestination = Path.Combine(mods, causticaAsset.Name);
+            managedDestinations.Add(causticaDestination);
+            await DownloadAssetAsync(
+                causticaAsset,
+                causticaDestination,
+                progress,
+                cancellationToken);
 
             installed.Add(new MinecraftComponentResult(
-                "Fabric API", fabric.Tag, destination, FabricApiRepo));
+                "Caustica RTX", caustica.Tag, causticaDestination, CausticaRtxRepo));
+
+            WriteManagedManifest(instance.RootDirectory, installed, backup);
+
+            progress?.Report(
+                "Minecraft RTX components installed. Start the Fabric profile and enable the renderer's Vulkan/RTX option if required.");
+
+            return new MinecraftSetupResult(instance, installed, backup);
         }
+        catch
+        {
+            foreach (var destination in managedDestinations)
+                TryDelete(destination);
 
-        progress?.Report("Finding latest compatible Caustica RTX release…");
-
-        var caustica = await FindReleaseAsync(
-            CausticaRtxRepo,
-            r => !r.Draft,
-            allowPrereleaseCaustica,
-            cancellationToken);
-
-        var causticaAsset = SelectAsset(
-            caustica,
-            name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                    && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
-                    && !ContainsAny(name, "sources", "dev", "javadoc"));
-
-        await BackupMatchingAsync(mods, backup, "caustica", cancellationToken);
-
-        var causticaDestination = Path.Combine(mods, causticaAsset.Name);
-        await DownloadAssetAsync(causticaAsset, causticaDestination, progress, cancellationToken);
-
-        installed.Add(new MinecraftComponentResult(
-            "Caustica RTX", caustica.Tag, causticaDestination, CausticaRtxRepo));
-
-        WriteManagedManifest(instance.RootDirectory, installed, backup);
-
-        progress?.Report(
-            "Minecraft RTX components installed. Start the Fabric profile and enable the renderer's Vulkan/RTX option if required.");
-
-        return new MinecraftSetupResult(instance, installed, backup);
+            RestoreBackupJars(backup, mods);
+            TryDelete(Path.Combine(instance.RootDirectory, ".dlss-nr-manager-minecraft.json"));
+            throw;
+        }
     }
 
     public void UninstallManagedMinecraftRtx(string minecraftRoot)
@@ -746,6 +768,25 @@ public sealed class MinecraftIntegrationService
         catch
         {
             return false;
+        }
+    }
+
+    private static void RestoreBackupJars(
+        string backup,
+        string mods)
+    {
+        if (!Directory.Exists(backup))
+            return;
+
+        Directory.CreateDirectory(mods);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     backup,
+                     "*.jar",
+                     SearchOption.TopDirectoryOnly))
+        {
+            var destination = Path.Combine(mods, Path.GetFileName(file));
+            File.Copy(file, destination, true);
         }
     }
 
