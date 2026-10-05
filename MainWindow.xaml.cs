@@ -227,19 +227,13 @@ public partial class MainWindow : Window
             $"{game.Confidence} compatibility • {game.Platform} • {game.Evidence}";
 
         SelectProxy(game.RecommendedProxy);
-        SetSuggestedTargetProcess(game.TargetDirectory);
-        LoadReShadeCheck.IsChecked = File.Exists(Path.Combine(game.TargetDirectory, "ReShade64.dll"));
+        TargetProcessBox.Text = "";
+        LoadReShadeCheck.IsChecked = false;
 
         DiagnosticText.Text =
             "Run Diagnose game to verify the renderer signals, OptiScaler load state, DLSSNR runtime and loader conflicts.";
 
         await RefreshStateAsync();
-    }
-
-    private void SetSuggestedTargetProcess(string gameDir)
-    {
-        var exe = InstallerService.FindMainExecutable(gameDir);
-        TargetProcessBox.Text = exe == null ? "" : Path.GetFileName(exe);
     }
 
     private void SelectProxy(string proxyName)
@@ -282,8 +276,8 @@ public partial class MainWindow : Window
         GamePathBox.Text = normalized;
         CompatibilityText.Text = "Manual target • compatibility has not been automatically validated.";
         SelectProxy("dxgi.dll");
-        SetSuggestedTargetProcess(normalized);
-        LoadReShadeCheck.IsChecked = File.Exists(Path.Combine(normalized, "ReShade64.dll"));
+        TargetProcessBox.Text = "";
+        LoadReShadeCheck.IsChecked = false;
         await RefreshStateAsync();
     }
 
