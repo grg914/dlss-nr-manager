@@ -250,7 +250,12 @@ public partial class MainWindow : Window
 
     private async void ClearArtworkCache_Click(object sender, RoutedEventArgs e)
     {
+        // Detach the current item templates before clearing so WPF can release
+        // image handles. The artwork service still uses generation-specific file
+        // names, so a locked old cover cannot block the refresh.
+        GameBox.ItemsSource = null;
         _artwork.ClearCache();
+
         StatusText.Text = "Cover cache cleared. Reloading artwork…";
         await ScanGamesAsync(forceRefresh: true);
         await RefreshStateAsync();
