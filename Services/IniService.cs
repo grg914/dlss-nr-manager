@@ -1,7 +1,7 @@
 namespace DlssNrManager.Services;
 public static class IniService
 {
-    public static void ApplyCyberpunkPreset(string iniPath)
+    public static void ApplyPreset(string iniPath, string workingScale)
     {
         if (!File.Exists(iniPath)) return;
         var lines = File.ReadAllLines(iniPath).ToList();
@@ -12,7 +12,7 @@ public static class IniService
             SetIfPresent(lines, dlssNrSection, "Enabled", "true");
             SetIfPresent(lines, dlssNrSection, "RunBeforeSR", "true");
             SetIfPresent(lines, dlssNrSection, "Passes", "1");
-            SetIfPresent(lines, dlssNrSection, "WorkingScale", "1.0");
+            SetIfPresent(lines, dlssNrSection, "WorkingScale", workingScale);
             SetIfPresent(lines, dlssNrSection, "Style", "1");
         }
 
