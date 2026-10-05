@@ -2,7 +2,7 @@
 
 A native Windows manager for installing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
 
-> V1 targets **Cyberpunk 2077** and NVIDIA RTX 20/30/40/50 GPUs.
+> Supports automatic candidate detection across **Steam, Epic and GOG**, with upstream-validated profiles for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy, plus NVIDIA RTX 20/30/40/50 GPUs.
 
 ## Screenshots
 
@@ -12,8 +12,11 @@ A native Windows manager for installing and maintaining the experimental **OptiS
 
 - WPF / .NET 8, Windows x64
 - Self-contained single-file executable
-- Cyberpunk 2077 detection through Steam, GOG and Epic manifests/registry
-- Manual game-folder selection
+- Installed-game scanning through Steam, Epic and GOG manifests/registry
+- Compatibility confidence: Validated / Probable / Candidate
+- Upstream-validated target paths for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy
+- Heuristic detection using DLSS / Streamline / XeSS / FidelityFX runtime signals
+- Manual game-folder selection fallback
 - NVIDIA GPU and RTX-generation detection
 - Stable/prerelease selection from the upstream OptiScaler-DLSSNR fork
 - Downloads the complete upstream release archive
@@ -26,11 +29,12 @@ A native Windows manager for installing and maintaining the experimental **OptiS
 - Detects existing proxy DLLs and refuses to overwrite unknown loaders silently
 - Cyberpunk proxy recommendation: `dbghelp.dll`; `dxgi.dll` fallback
 - Integrated `OptiScaler.log` viewer
-- Cyberpunk RTX preset only edits keys that already exist in the current upstream INI
+- Neural Rendering preset only edits keys that already exist in the current upstream INI
+- OptiScaler overlay is forced on with F10 (`ShortcutKey=0x79`)
 
-## Cyberpunk preset
+## Default Neural Rendering preset
 
-For the current upstream INI the manager sets, under `[DlssNr]`:
+For the current upstream INI the manager sets the following conservative Neural Rendering defaults under `[DlssNr]`:
 
 ```ini
 Enabled=true
@@ -76,7 +80,7 @@ OptiScaler and NVIDIA components retain their respective licenses and ownership.
 
 ## Limitations
 
-- V1 supports Cyberpunk 2077 only.
+- Automatic detection is evidence-based. `Validated` means the target path is explicitly documented upstream; `Probable` and `Candidate` still require in-game verification.
 - GPU detection relies on Windows display-adapter registry data.
 - No automatic third-party loader chaining.
 - No proprietary runtime download.
