@@ -94,7 +94,7 @@ public partial class MainWindow : Window
         try
         {
             StatusText.Text = forceRefresh
-                ? "Scanning Steam, Epic, GOG, Ubisoft, EA, Xbox and Battle.net…"
+                ? "Scanning Steam, Epic, GOG, itch.io, Ubisoft, EA, Xbox and Battle.net…"
                 : "Loading installed game library…";
 
             GameBox.IsEnabled = false;
