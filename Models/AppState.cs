@@ -1,7 +1,34 @@
 namespace DlssNrManager.Models;
+
 public sealed record GpuInfo(string Name, string Generation, bool IsNvidia);
 public sealed record ReleaseInfo(string Tag, string Name, bool Prerelease, string ZipUrl);
-public sealed record InstallState(bool Installed, string? ProxyName, string? Version, bool RuntimePresent, string? RuntimeHash, bool RuntimeHashValid);
+
+public sealed record InstallState(
+    bool Installed,
+    string? ProxyName,
+    string? Version,
+    bool RuntimePresent,
+    string? RuntimeHash,
+    bool RuntimeHashValid);
+
+public sealed record RuntimeValidation(
+    string Hash,
+    bool HashValid,
+    bool SignatureValid,
+    string? Publisher,
+    string? FileVersion,
+    bool Is64Bit)
+{
+    public bool Trusted => HashValid && SignatureValid && Is64Bit;
+}
+
+public sealed record DiagnosticResult(
+    string Summary,
+    IReadOnlyList<string> Lines,
+    bool Ready,
+    bool OptiScalerLoaded,
+    bool DlssNrRunning);
+
 public sealed record DetectedGame(
     string Name,
     string Platform,
@@ -13,3 +40,11 @@ public sealed record DetectedGame(
 {
     public string DisplayName => $"{Name}  •  {Platform}  •  {Confidence}";
 }
+
+public sealed record InstallManifest(
+    string Release,
+    string Proxy,
+    string GameExecutable,
+    string GameExecutableHash,
+    string RuntimeHash,
+    DateTimeOffset InstalledAt);
