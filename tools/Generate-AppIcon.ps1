@@ -41,6 +41,14 @@ foreach ($size in $sizes) {
     )
 
     $visual = New-Object System.Windows.Media.DrawingVisual
+    [System.Windows.Media.RenderOptions]::SetBitmapScalingMode(
+        $visual,
+        [System.Windows.Media.BitmapScalingMode]::Fant
+    )
+    [System.Windows.Media.RenderOptions]::SetEdgeMode(
+        $visual,
+        [System.Windows.Media.EdgeMode]::Unspecified
+    )
     $context = $visual.RenderOpen()
 
     $sourceRatio = $bitmap.PixelWidth / [double]$bitmap.PixelHeight
