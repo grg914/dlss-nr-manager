@@ -76,6 +76,12 @@ public sealed class MinecraftOneClickService
 
         try
         {
+            progress?.Report("Verifying Java 25 runtime…");
+            await _integration.EnsureJava25RuntimeAsync(
+                root,
+                progress,
+                cancellationToken);
+
             disabled = DisableConflictingRendererMods(root, backup, progress);
 
             progress?.Report("Forcing Minecraft 26.2 to prefer the Vulkan graphics backend…");
