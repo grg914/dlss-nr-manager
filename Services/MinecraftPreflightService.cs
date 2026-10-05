@@ -359,10 +359,33 @@ public sealed class MinecraftPreflightService
 
     private static bool IsExternallyManagedLauncher(
         MinecraftInstallCandidate instance)
-        => instance.Source.Contains("Prism", StringComparison.OrdinalIgnoreCase)
-           || instance.Source.Contains("Modrinth", StringComparison.OrdinalIgnoreCase)
-           || instance.Source.Contains("CurseForge", StringComparison.OrdinalIgnoreCase)
-           || instance.Source.Contains("GDLauncher", StringComparison.OrdinalIgnoreCase);
+    {
+        if (instance.Source.Contains("Prism", StringComparison.OrdinalIgnoreCase) ||
+            instance.Source.Contains("Modrinth", StringComparison.OrdinalIgnoreCase) ||
+            instance.Source.Contains("CurseForge", StringComparison.OrdinalIgnoreCase) ||
+            instance.Source.Contains("GDLauncher", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Manual folder selection must not bypass launcher ownership detection.
+        // Common third-party launchers keep their instance metadata either in
+        // the selected game directory or its parent.
+        foreach (var root in CandidateMetadataRoots(instance.RootDirectory))
+        {
+            foreach (var marker in new[]
+            {
+                "mmc-pack.json",
+                "instance.cfg",
+                "minecraftinstance.json",
+                "instance.json"
+            })
+            {
+                if (File.Exists(Path.Combine(root, marker)))
+                    return true;
+            }
+        }
+
+        return false;
+    }
 
     private static IReadOnlyList<string> CandidateMetadataRoots(string root)
     {
