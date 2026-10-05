@@ -10,17 +10,19 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
 
-Current application version: **v0.5.1**.
+Current application version: **v0.7.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, Ubisoft Connect, EA App, Xbox App and Battle.net**, with upstream-validated profiles for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy, plus NVIDIA RTX 20/30/40/50 GPUs.
 
-## Interface preview
+## Screenshots
 
 <p align="center">
-  <img src="assets/branding/app-mockup.jpg" alt="DLSS NR Manager interface concept" width="100%" />
+  <img src="docs/screenshots/app-real.jpg" alt="DLSS NR Manager running with Cyberpunk 2077 detected and OptiScaler DLSS Neural Rendering installed" width="100%" />
 </p>
 
-The branding assets live under `assets/branding/`. The interface image is a design target for the ongoing WPF UI refresh; runtime compatibility and installation status remain determined by the application itself.
+<p align="center"><sub>Real DLSS NR Manager application capture on Windows — not a generated UI mockup.</sub></p>
+
+The application now uses the dark WPF dashboard shown above, with game detection, installation state, GPU/runtime validation, Neural Rendering presets, diagnostics and media processing integrated into the same interface.
 
 ## Features
 
@@ -53,6 +55,13 @@ The branding assets live under `assets/branding/`. The interface image is a desi
 - Configurable FPS overlay detail and position
 - Optional `TargetProcessName` filtering and OptiScaler-managed ReShade loading
 - Checks GitHub Releases for newer DLSS NR Manager versions
+- Game cover artwork in the library, including Steam and best-effort artwork resolution for Epic, EA App, Battle.net, Ubisoft Connect, GOG and Xbox App
+- Dedicated cover fallbacks for Battlefield 6 / BF6 and Call of Duty: Black Ops 6 / BO6
+- Integrated **Media Neural Rendering** for local images and videos
+- Media engine setup downloads `video2dlssnr` and FFmpeg from their upstream GitHub releases instead of bundling them
+- Media output presets: Native, 2× and 4K
+- Media Neural Rendering styles: Default, Natural and Cinematic, with adjustable intensity
+- Video processing keeps audio and uses NVENC HEVC encoding when available
 
 ## Default Neural Rendering preset
 
@@ -88,6 +97,14 @@ Cyberpunk installations using **Cyber Engine Tweaks (CET), RED4ext, ReShade or o
 Upstream specifically validates `dbghelp.dll` for Cyberpunk. `dxgi.dll` is the recommended fallback. Avoid `d3d12.dll` when Cyberpunk Ray Reconstruction becomes unavailable/greyed out because upstream documents a Streamline conflict resolved by switching to `dxgi.dll`.
 
 The manager detects common loader conflicts and can ask OptiScaler to load `ReShade64.dll`, but it still avoids silently rewriting arbitrary third-party loader chains.
+
+## Media Neural Rendering
+
+The **Media Neural Rendering** section applies the same experimental Neural Rendering technology to local image and video files without modifying a game installation.
+
+For images, the manager drives `video2dlssnr.exe` directly. For videos, FFmpeg decodes frames to RGBA, `video2dlssnr` processes the frames, and FFmpeg encodes the result with NVENC while preserving an audio track.
+
+The media engine is downloaded on demand into the user's LocalAppData folder. DLSS NR Manager does not bundle `video2dlssnr`, FFmpeg, or proprietary NVIDIA Neural Rendering runtime files inside its executable.
 
 ## Runtime licensing
 
