@@ -97,7 +97,12 @@ public sealed class InstallerService
             throw new InvalidOperationException(
                 $"{proxy} already exists and is not identified as OptiScaler. Choose another proxy or resolve loader chaining first.");
 
+        var previousManifest = ReadManifest(gameDir);
         var backup = CreateBackup(gameDir);
+        var baselineBackup = !string.IsNullOrWhiteSpace(previousManifest?.BaselineBackup)
+            ? previousManifest!.BaselineBackup!
+            : Path.GetRelativePath(gameDir, backup);
+
         var temp = Path.Combine(Path.GetTempPath(), "DlssNrManager", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temp);
 
@@ -173,7 +178,8 @@ public sealed class InstallerService
                 await HashService.Sha256Async(gameExe),
                 validation.Hash,
                 DateTimeOffset.UtcNow,
-                managedFiles);
+                managedFiles,
+                baselineBackup);
 
             File.WriteAllText(
                 manifestPath,
@@ -299,6 +305,14 @@ public sealed class InstallerService
             }
 
             RemoveEmptyManagedDirectories(gameDir, manifest.ManagedFiles);
+
+            if (!string.IsNullOrWhiteSpace(manifest.BaselineBackup) &&
+                IsSafeRelativePath(manifest.BaselineBackup))
+            {
+                var baseline = Path.Combine(gameDir, manifest.BaselineBackup);
+                if (Directory.Exists(baseline))
+                    CopyTree(baseline, gameDir, true);
+            }
 
             if (!preserveBackups)
             {
