@@ -59,12 +59,7 @@ public sealed class GameDetectionService
                     games.Add(detected);
             });
 
-        var result = games
-            .GroupBy(x => x.TargetDirectory, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.OrderByDescending(x => ConfidenceRank(x.Confidence)).First())
-            .OrderByDescending(x => ConfidenceRank(x.Confidence))
-            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var result = DeduplicateGames(games);
 
         TryWriteCache(result);
         return result;
@@ -302,6 +297,109 @@ public sealed class GameDetectionService
             _ => 1
         };
 
+    private static List<DetectedGame> DeduplicateGames(IEnumerable<DetectedGame> games)
+        => games
+            .GroupBy(GetGameIdentityKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(x => ConfidenceRank(x.Confidence))
+                .ThenBy(x => PlatformRank(x.Platform))
+                .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                .First())
+            .OrderByDescending(x => ConfidenceRank(x.Confidence))
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static string GetGameIdentityKey(DetectedGame game)
+    {
+        // Prefer a real executable path. This collapses the same installation
+        // discovered by multiple launchers even when their library roots differ.
+        foreach (var exeName in new[] { "Cyberpunk2077.exe", "bg3.exe", "bg3_dx11.exe" })
+        {
+            var direct = Path.Combine(game.TargetDirectory, exeName);
+            if (File.Exists(direct))
+                return "exe:" + NormalizePathKey(direct);
+
+            var nested = FindKnownExecutable(game.InstallRoot, exeName);
+            if (nested != null)
+                return "exe:" + NormalizePathKey(nested);
+        }
+
+        var topExe = SafeEnumerateFiles(game.TargetDirectory, "*.exe")
+            .OrderByDescending(path =>
+            {
+                try { return new FileInfo(path).Length; }
+                catch { return 0L; }
+            })
+            .FirstOrDefault();
+
+        if (topExe != null)
+            return "exe:" + NormalizePathKey(topExe);
+
+        return "dir:" + NormalizePathKey(game.TargetDirectory);
+    }
+
+    private static string? FindKnownExecutable(string root, string exeName)
+    {
+        if (!Directory.Exists(root))
+            return null;
+
+        var queue = new Queue<(string Path, int Depth)>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        queue.Enqueue((root, 0));
+
+        while (queue.Count > 0 && visited.Count < 500)
+        {
+            var (directory, depth) = queue.Dequeue();
+            if (!visited.Add(directory))
+                continue;
+
+            var candidate = Path.Combine(directory, exeName);
+            if (File.Exists(candidate))
+                return candidate;
+
+            if (depth >= 4)
+                continue;
+
+            foreach (var child in SafeEnumerateDirectories(directory))
+            {
+                if (!ShouldSkipDirectory(Path.GetFileName(child)))
+                    queue.Enqueue((child, depth + 1));
+            }
+        }
+
+        return null;
+    }
+
+    private static string NormalizePathKey(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .ToUpperInvariant();
+        }
+        catch
+        {
+            return path
+                .Trim()
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .ToUpperInvariant();
+        }
+    }
+
+    private static int PlatformRank(string platform)
+        => platform switch
+        {
+            "Steam" => 0,
+            "GOG" => 1,
+            "Epic" => 2,
+            "Xbox App" => 3,
+            "Ubisoft Connect" => 4,
+            "EA App" => 5,
+            "Battle.net" => 6,
+            _ => 99
+        };
+
     private static IReadOnlyList<DetectedGame>? TryReadCache()
     {
         try
@@ -313,8 +411,12 @@ public sealed class GameDetectionService
             if (cache == null || DateTimeOffset.UtcNow - cache.CreatedAt > CacheLifetime)
                 return null;
 
-            var existing = cache.Games.Where(x => Directory.Exists(x.TargetDirectory)).ToList();
-            return existing.Count == 0 ? null : existing;
+            var existing = cache.Games
+                .Where(x => Directory.Exists(x.TargetDirectory))
+                .ToList();
+
+            var deduplicated = DeduplicateGames(existing);
+            return deduplicated.Count == 0 ? null : deduplicated;
         }
         catch
         {
