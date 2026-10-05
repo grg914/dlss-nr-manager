@@ -13,6 +13,15 @@
     <SolidColorBrush x:Key="Danger" Color="#FF5A64"/>
     <SolidColorBrush x:Key="Border" Color="#263342"/>
 
+    <!-- Override native Windows theme colors used internally by WPF ComboBox/Button templates. -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#101722"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F4F6FA"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#151922"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F6FA"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#174B37"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#748091"/>
+
     <Style TargetType="Window">
       <Setter Property="Background" Value="{StaticResource Bg}"/>
       <Setter Property="Foreground" Value="{StaticResource Text}"/>
@@ -44,6 +53,19 @@
       <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Cursor" Value="Hand"/>
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="#253143"/>
+          <Setter Property="BorderBrush" Value="#35506A"/>
+        </Trigger>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Background" Value="#10141B"/>
+          <Setter Property="Foreground" Value="#748091"/>
+          <Setter Property="BorderBrush" Value="#202A36"/>
+          <Setter Property="Cursor" Value="Arrow"/>
+          <Setter Property="Opacity" Value="1"/>
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style TargetType="TextBox">
@@ -63,6 +85,13 @@
       <Setter Property="Foreground" Value="{StaticResource Text}"/>
       <Setter Property="Background" Value="#101722"/>
       <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+      <Style.Triggers>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Foreground" Value="#748091"/>
+          <Setter Property="Background" Value="#10141B"/>
+          <Setter Property="Opacity" Value="1"/>
+        </Trigger>
+      </Style.Triggers>
     </Style>
 
     <Style TargetType="ComboBoxItem">
