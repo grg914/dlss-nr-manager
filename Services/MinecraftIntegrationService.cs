@@ -217,7 +217,7 @@ public sealed class MinecraftIntegrationService
             instance.RootDirectory,
             ".dlss-nr-manager-backups",
             "minecraft",
-            DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss"));
+            DateTimeOffset.Now.ToString("yyyyMMdd-HHmmssfff"));
         Directory.CreateDirectory(backup);
 
         var installed = new List<MinecraftComponentResult>();
