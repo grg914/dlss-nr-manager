@@ -24,6 +24,13 @@ public partial class MainWindow : Window
     private bool _isBusy;
     private int _stateRefreshVersion;
 
+    private sealed record AdvancedSettingsSnapshot(
+        int FpsType,
+        int FpsPosition,
+        bool ShowFps,
+        string TargetProcessName,
+        bool LoadReShade);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -160,12 +167,26 @@ public partial class MainWindow : Window
         DiagnoseButton.IsEnabled = false;
 
         var gpuGeneration = _gpu.Generation;
-        var result = await Task.Run(() =>
+        (InstallState State, string Log) result;
+        try
         {
-            var state = _installer.Inspect(game, gpuGeneration);
-            var log = _installer.ReadLog(game);
-            return (State: state, Log: log);
-        });
+            result = await Task.Run(() =>
+            {
+                var state = _installer.Inspect(game, gpuGeneration);
+                var log = _installer.ReadLog(game);
+                return (state, log);
+            });
+        }
+        catch (Exception ex)
+        {
+            if (refreshVersion == _stateRefreshVersion)
+            {
+                StatusText.Text = "Unable to inspect selected game";
+                RuntimeText.Text = ex.Message;
+                DiagnoseButton.IsEnabled = true;
+            }
+            return;
+        }
 
         if (refreshVersion != _stateRefreshVersion || !IsLoaded)
             return;
@@ -280,17 +301,25 @@ public partial class MainWindow : Window
         _runtimePath = dialog.FileName;
         RuntimePathText.Text = "Validating runtime…";
 
-        var validation = await RuntimeValidationService.ValidateAsync(_runtimePath, _gpu.Generation);
-        var signature = validation.SignatureValid
-            ? $"trusted signature{(string.IsNullOrWhiteSpace(validation.Publisher) ? "" : $" • {validation.Publisher}")}"
-            : "signature not trusted/available";
+        try
+        {
+            var validation = await RuntimeValidationService.ValidateAsync(_runtimePath, _gpu.Generation);
+            var signature = validation.SignatureValid
+                ? $"trusted signature{(string.IsNullOrWhiteSpace(validation.Publisher) ? "" : $" • {validation.Publisher}")}"
+                : "signature not trusted/available";
 
-        RuntimePathText.Text =
-            $"{Path.GetFileName(_runtimePath)}\n" +
-            $"Version: {validation.FileVersion ?? "unknown"} • {(validation.Is64Bit ? "x64" : "not x64")}\n" +
-            $"SHA-256: {validation.Hash}\n" +
-            $"{(validation.HashValid ? "Expected runtime hash ✓" : "Runtime hash mismatch ✕")}\n" +
-            $"Authenticode: {signature}";
+            RuntimePathText.Text =
+                $"{Path.GetFileName(_runtimePath)}\n" +
+                $"Version: {validation.FileVersion ?? "unknown"} • {(validation.Is64Bit ? "x64" : "not x64")}\n" +
+                $"SHA-256: {validation.Hash}\n" +
+                $"{(validation.HashValid ? "Expected runtime hash ✓" : "Runtime hash mismatch ✕")}\n" +
+                $"Authenticode: {signature}";
+        }
+        catch (Exception ex)
+        {
+            _runtimePath = null;
+            RuntimePathText.Text = $"Runtime validation failed: {ex.Message}";
+        }
     }
 
     private async void Install_Click(object sender, RoutedEventArgs e)
@@ -338,6 +367,7 @@ public partial class MainWindow : Window
 
         try
         {
+            var advanced = CaptureAdvancedSettings();
             SetBusy(true);
 
             var backup = await _installer.InstallAsync(
@@ -349,7 +379,8 @@ public partial class MainWindow : Window
                 GetSelectedWorkingScale(),
                 _releases);
 
-            await Task.Run(() => ApplyCurrentAdvancedSettings(GamePathBox.Text));
+            var gameDir = GamePathBox.Text;
+            await Task.Run(() => ApplyAdvancedSettings(gameDir, advanced));
 
             MessageBox.Show(
                 $"Installation completed.\nBackup: {backup}",
@@ -399,7 +430,8 @@ public partial class MainWindow : Window
         try
         {
             var gameDir = GamePathBox.Text;
-            await Task.Run(() => ApplyCurrentAdvancedSettings(gameDir));
+            var advanced = CaptureAdvancedSettings();
+            await Task.Run(() => ApplyAdvancedSettings(gameDir, advanced));
 
             MessageBox.Show(
                 "OptiScaler advanced settings applied. Restart the game if it is running.",
@@ -413,15 +445,23 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyCurrentAdvancedSettings(string gameDir)
-    {
-        _installer.ApplyAdvancedSettings(
-            gameDir,
+    private AdvancedSettingsSnapshot CaptureAdvancedSettings()
+        => new(
             FpsTypeBox.SelectedIndex < 0 ? 1 : FpsTypeBox.SelectedIndex,
             FpsPositionBox.SelectedIndex < 0 ? 0 : FpsPositionBox.SelectedIndex,
             ShowFpsCheck.IsChecked == true,
             TargetProcessBox.Text,
             LoadReShadeCheck.IsChecked == true);
+
+    private void ApplyAdvancedSettings(string gameDir, AdvancedSettingsSnapshot settings)
+    {
+        _installer.ApplyAdvancedSettings(
+            gameDir,
+            settings.FpsType,
+            settings.FpsPosition,
+            settings.ShowFps,
+            settings.TargetProcessName,
+            settings.LoadReShade);
     }
 
     private async void Diagnose_Click(object sender, RoutedEventArgs e)
@@ -520,6 +560,21 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(_managerUpdateUrl) { UseShellExecute = true });
     }
 
+    private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            Maximize_Click(sender, e);
+            return;
+        }
+
+        if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed)
+        {
+            try { DragMove(); }
+            catch (InvalidOperationException) { }
+        }
+    }
+
     private void Minimize_Click(object sender, RoutedEventArgs e)
         => WindowState = WindowState.Minimized;
 
@@ -547,16 +602,17 @@ public partial class MainWindow : Window
         Cursor = busy ? System.Windows.Input.Cursors.Wait : null;
         System.Windows.Input.Mouse.OverrideCursor = busy ? System.Windows.Input.Cursors.Wait : null;
 
-        InstallButton.IsEnabled = !busy && InstallButton.IsEnabled;
-        UpdateButton.IsEnabled = !busy && UpdateButton.IsEnabled;
-        ApplyPresetButton.IsEnabled = !busy && ApplyPresetButton.IsEnabled;
-        DiagnoseButton.IsEnabled = !busy;
-
-        if (!busy)
+        if (busy)
         {
-            ResetPointerState();
-            _ = RefreshStateAsync();
+            InstallButton.IsEnabled = false;
+            UpdateButton.IsEnabled = false;
+            ApplyPresetButton.IsEnabled = false;
+            DiagnoseButton.IsEnabled = false;
+            return;
         }
+
+        ResetPointerState();
+        _ = RefreshStateAsync();
     }
 
     private void ResetPointerState()
