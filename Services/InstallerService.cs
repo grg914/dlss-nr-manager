@@ -10,13 +10,44 @@ public sealed class InstallerService
 
     public InstallState Inspect(string gameDir, string gpuGeneration)
     {
-        var proxy = ProxyNames.FirstOrDefault(p => IsOptiScaler(Path.Combine(gameDir,p)));
+        var managedProxy = ReadManagedProxy(gameDir);
+        string? proxy = null;
+
+        if (!string.IsNullOrWhiteSpace(managedProxy) &&
+            ProxyNames.Contains(managedProxy, StringComparer.OrdinalIgnoreCase) &&
+            File.Exists(Path.Combine(gameDir, managedProxy)))
+        {
+            proxy = managedProxy;
+        }
+
+        proxy ??= ProxyNames.FirstOrDefault(p => IsOptiScaler(Path.Combine(gameDir, p)));
+
         var runtime = Path.Combine(gameDir, "nvngx_dlssnr.dll");
         string? hash = null;
-        if (File.Exists(runtime)) hash = HashService.Sha256Async(runtime).GetAwaiter().GetResult();
-        var expected = gpuGeneration == "RTX 50" ? Rtx50Hash : gpuGeneration is "RTX 20" or "RTX 30" or "RTX 40" ? Rtx2040Hash : null;
+        if (File.Exists(runtime))
+            hash = HashService.Sha256Async(runtime).GetAwaiter().GetResult();
+
+        var expected = gpuGeneration == "RTX 50"
+            ? Rtx50Hash
+            : gpuGeneration is "RTX 20" or "RTX 30" or "RTX 40"
+                ? Rtx2040Hash
+                : null;
+
         var ini = Path.Combine(gameDir, "OptiScaler.ini");
-        return new(proxy != null && File.Exists(ini), proxy, ReadInstalledVersion(gameDir), File.Exists(runtime), hash, expected != null && hash == expected);
+        var forwarder = Path.Combine(gameDir, "nvngx.dll_dlssnr.dll");
+
+        var installed = proxy != null &&
+                        File.Exists(ini) &&
+                        File.Exists(runtime) &&
+                        File.Exists(forwarder);
+
+        return new(
+            installed,
+            proxy,
+            ReadInstalledVersion(gameDir),
+            File.Exists(runtime),
+            hash,
+            expected != null && hash?.Equals(expected, StringComparison.OrdinalIgnoreCase) == true);
     }
 
     public async Task<string> InstallAsync(string gameDir, string runtimePath, GpuInfo gpu, ReleaseInfo release, string proxy, GitHubReleaseService releases)
@@ -100,6 +131,12 @@ public sealed class InstallerService
     {
         var p=Path.Combine(gameDir,".dlssnr-manager-version");
         return File.Exists(p)?File.ReadAllText(p).Trim():null;
+    }
+
+    private static string? ReadManagedProxy(string gameDir)
+    {
+        var p = Path.Combine(gameDir, ".dlssnr-manager-proxy");
+        return File.Exists(p) ? File.ReadAllText(p).Trim() : null;
     }
 
     private static bool IsOptiScaler(string path)
