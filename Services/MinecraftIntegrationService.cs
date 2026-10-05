@@ -39,7 +39,7 @@ public sealed class MinecraftIntegrationService
     {
         _http.Timeout = TimeSpan.FromMinutes(10);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "0.9"));
+            new ProductInfoHeaderValue("DlssNrManager", "1.0"));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
@@ -118,9 +118,10 @@ public sealed class MinecraftIntegrationService
     {
         ValidateInstance(minecraftRoot);
 
-        var java = FindJavaExecutable()
+        var java = await FindJava25ExecutableAsync(cancellationToken)
             ?? throw new InvalidOperationException(
-                "Java was not found. Minecraft 26.2/Fabric requires a suitable Java 25 runtime.");
+                "Java 25 was not found. Minecraft 26.2 + Caustica RTX requires Java 25. " +
+                "Install a Java 25 x64 runtime, then run Install DLSS / RTX again.");
 
         var release = await FindReleaseAsync(
             FabricInstallerRepo,
@@ -479,18 +480,26 @@ public sealed class MinecraftIntegrationService
         catch { }
     }
 
-    private static string? FindJavaExecutable()
+    private static async Task<string?> FindJava25ExecutableAsync(
+        CancellationToken cancellationToken)
     {
+        var candidates = new List<string>();
+
+        void AddCandidate(string? path)
+        {
+            if (!string.IsNullOrWhiteSpace(path) &&
+                File.Exists(path) &&
+                !candidates.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                candidates.Add(path);
+            }
+        }
+
         var javaHome = Environment.GetEnvironmentVariable("JAVA_HOME");
         if (!string.IsNullOrWhiteSpace(javaHome))
         {
-            var candidate = Path.Combine(javaHome, "bin", "javaw.exe");
-            if (File.Exists(candidate))
-                return candidate;
-
-            candidate = Path.Combine(javaHome, "bin", "java.exe");
-            if (File.Exists(candidate))
-                return candidate;
+            AddCandidate(Path.Combine(javaHome, "bin", "java.exe"));
+            AddCandidate(Path.Combine(javaHome, "bin", "javaw.exe"));
         }
 
         foreach (var root in new[]
@@ -499,7 +508,14 @@ public sealed class MinecraftIntegrationService
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
         })
         {
-            foreach (var vendor in new[] { "Java", "Eclipse Adoptium", "Microsoft", "Zulu" })
+            foreach (var vendor in new[]
+            {
+                "Java",
+                "Eclipse Adoptium",
+                "Microsoft",
+                "Zulu",
+                "Amazon Corretto"
+            })
             {
                 var vendorRoot = Path.Combine(root, vendor);
                 if (!Directory.Exists(vendorRoot))
@@ -507,20 +523,74 @@ public sealed class MinecraftIntegrationService
 
                 try
                 {
-                    var candidate = Directory.EnumerateFiles(
-                            vendorRoot,
-                            "javaw.exe",
-                            SearchOption.AllDirectories)
-                        .FirstOrDefault();
-
-                    if (candidate != null)
-                        return candidate;
+                    foreach (var candidate in Directory.EnumerateFiles(
+                                 vendorRoot,
+                                 "java.exe",
+                                 SearchOption.AllDirectories))
+                    {
+                        AddCandidate(candidate);
+                    }
                 }
                 catch { }
             }
         }
 
+        foreach (var candidate in candidates)
+        {
+            if (await IsJavaMajorVersionAsync(candidate, 25, cancellationToken))
+                return candidate;
+        }
+
         return null;
+    }
+
+    private static async Task<bool> IsJavaMajorVersionAsync(
+        string javaExecutable,
+        int expectedMajor,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(javaExecutable)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            psi.ArgumentList.Add("-version");
+
+            using var process = Process.Start(psi);
+            if (process == null)
+                return false;
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+            await process.WaitForExitAsync(cancellationToken);
+
+            var versionText = (await stdoutTask) + "\n" + (await stderrTask);
+            if (process.ExitCode != 0)
+                return false;
+
+            var firstQuote = versionText.IndexOf('"');
+            if (firstQuote < 0)
+                return false;
+
+            var secondQuote = versionText.IndexOf('"', firstQuote + 1);
+            if (secondQuote <= firstQuote)
+                return false;
+
+            var version = versionText[(firstQuote + 1)..secondQuote];
+            var firstPart = version.Split('.', '-', '+')[0];
+
+            return int.TryParse(firstPart, out var major) &&
+                   major == expectedMajor;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static async Task BackupMatchingAsync(
