@@ -561,8 +561,9 @@
                               IsEnabled="False"
                               Margin="0,0,18,0"/>
                     <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
-                              Content="Allow Caustica prereleases"
-                              IsChecked="True"/>
+                              Content="Caustica RTX prerelease (currently required)"
+                              IsChecked="True"
+                              IsEnabled="False"/>
                   </StackPanel>
 
                   <Grid Margin="0,12,0,0">
