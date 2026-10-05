@@ -41,7 +41,9 @@ Current application version: **v1.0.0**.
 - Game cover artwork with Steam and multi-provider fallback resolution
 - Dedicated Battlefield 6 / BF6 artwork handling
 - Local artwork cache with **Clear cover cache**
-- Multi-resolution Windows application icon generated before compilation
+- Multi-resolution Windows application icon generated from the sharp branding PNG before compilation, with exact Windows DPI frames and progressive downsampling
+- In-app version check against the latest GitHub Release
+- One-click self-update: downloads the newest published EXE/ZIP, verifies GitHub SHA-256 when available, validates executable version metadata, replaces the running EXE after shutdown and restarts automatically
 
 ### Automatic NVIDIA runtime/resources
 
@@ -134,6 +136,9 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
   - downloads the required Fabric API from FabricMC
   - downloads the current compatible Caustica RTX prerelease (the upstream RTX build is currently prerelease-only)
+  - optionally installs an RTX-safe performance pack from Modrinth: **Lithium + FerriteCore + Krypton + Dynamic FPS**
+  - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica
+  - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
   - patches the Mojang launcher Fabric profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`
   - warns when a third-party launcher manages JVM arguments separately
@@ -148,6 +153,8 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Minecraft resource documentation under `resources/minecraft/`
 
 Caustica RTX currently implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. NVIDIA documents Ray Reconstruction as an extension of the DLSS Super Resolution path: when RR is enabled it replaces the standalone SR reconstruction step while using the selected DLSS performance/quality mode. The manager therefore does **not** present a fake separate SR toggle that only copies a DLL; a standalone SR path must be implemented by the active renderer.
+
+**Sodium/Iris are intentionally not installed in the Caustica RTX profile.** Sodium and Iris modify/replace major portions of Minecraft's renderer/shader pipeline, while Caustica owns the Vulkan/path-traced world renderer. The manager keeps them in the conflict detector instead of presenting an unsupported "DLSS + Iris shaderpack" combination. For RTX visuals, use Caustica plus a LabPBR resource pack such as SPBR; for non-renderer performance gains, use the RTX-safe performance pack above.
 
 ## Default Neural Rendering preset
 
@@ -220,6 +227,7 @@ The project integrates or automates workflows around:
 - `FabricMC/fabric-installer`
 - `FabricMC/fabric-api`
 - `AriesAlex/Caustica-RTX`
+- Modrinth API projects: Lithium, FerriteCore, Krypton, Dynamic FPS and SPBR
 - `xinntao/Real-ESRGAN-ncnn-vulkan`
 
 ## Limitations
