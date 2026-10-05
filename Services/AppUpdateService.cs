@@ -195,7 +195,7 @@ try {
             startInfo.Verb = "runas";
         }
 
-        Process.Start(startInfo)
+        _ = Process.Start(startInfo)
             ?? throw new InvalidOperationException(
                 "Could not launch the updater process.");
     }
