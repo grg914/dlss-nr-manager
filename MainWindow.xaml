@@ -471,7 +471,7 @@
             <StackPanel>
               <TextBlock Text="Minecraft Java RTX"
                          Style="{StaticResource SectionTitle}"/>
-              <TextBlock Text="Minecraft 26.2 • Fabric • Caustica RTX • optional user-provided DLSS/Streamline runtime"
+              <TextBlock Text="Minecraft 26.2 • one-click Vulkan path tracing • DLSS Ray Reconstruction • Frame Generation/MFG • Reflex"
                          Style="{StaticResource SectionSubtitle}"
                          Margin="0,4,0,14"/>
 
@@ -528,30 +528,33 @@
 
                   <Grid Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="1.3*"/>
                       <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="1.1*"/>
                       <ColumnDefinition Width="8"/>
                       <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <Button Grid.Column="0"
-                            Style="{StaticResource CyanButton}"
-                            Content="Install Fabric"
-                            Click="InstallMinecraftFabric_Click"/>
-                    <Button Grid.Column="2"
+                            x:Name="MinecraftOneClickInstallButton"
                             Style="{StaticResource PrimaryButton}"
-                            Content="Enable RTX stack"
-                            Click="InstallMinecraftRtx_Click"/>
+                            Content="Install DLSS / RTX"
+                            Click="InstallMinecraftOneClick_Click"/>
+                    <Button Grid.Column="2"
+                            x:Name="MinecraftRestoreOriginalButton"
+                            Style="{StaticResource DangerButton}"
+                            Content="Restore original"
+                            Click="RestoreMinecraftOriginal_Click"/>
                     <Button Grid.Column="4"
                             Content="Open Launcher"
                             Click="OpenMinecraftLauncher_Click"/>
-                    <Button Grid.Column="6"
-                            Content="Remove managed RTX"
-                            Click="RemoveMinecraftRtx_Click"/>
                   </Grid>
+
+                  <TextBlock Foreground="{StaticResource Muted}"
+                             FontSize="10"
+                             TextWrapping="Wrap"
+                             Margin="0,9,0,0"
+                             Text="One-click install: backs up the instance, forces Minecraft 26.2 to prefer Vulkan, installs Fabric if needed, installs Fabric API + Caustica RTX, disables conflicting renderer mods into the backup, and patches the Fabric launcher profile for native access. Restore original reverses the tracked changes."/>
                 </StackPanel>
               </Border>
 
@@ -648,7 +651,7 @@
                          FontSize="11"
                          Margin="0,10,0,0"/>
 
-              <TextBlock Text="Renderer warning: do not automatically combine multiple world-renderer replacements. Staging a DLL does not by itself activate DLSS in Minecraft; the active renderer/provider must support that NVIDIA API."
+              <TextBlock Text="Caustica RTX currently provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. DLSS Super Resolution is not falsely enabled by copying DLLs: it requires renderer support. The one-click installer relies on Caustica's implemented NVIDIA path and keeps the manual runtime tools below as advanced staging only."
                          Foreground="{StaticResource Warning}"
                          TextWrapping="Wrap"
                          FontSize="10"
