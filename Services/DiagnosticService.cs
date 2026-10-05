@@ -64,7 +64,15 @@ public sealed class DiagnosticService
         lines.Add($"OptiScaler loaded in game: {(loaded ? "yes" : "not confirmed")}");
         lines.Add($"DLSS Neural Rendering state: {(nrRunning ? "RUNNING" : "not confirmed")}");
 
-        var conflicts = DetectLoaderConflicts(gameDir, state.ProxyName);
+        var reshadeManaged = IniService.ReadValue(
+            Path.Combine(gameDir, "OptiScaler.ini"),
+            "Plugins",
+            "LoadReshade");
+
+        var conflicts = DetectLoaderConflicts(
+            gameDir,
+            state.ProxyName,
+            string.Equals(reshadeManaged, "true", StringComparison.OrdinalIgnoreCase));
         lines.Add(conflicts.Count == 0
             ? "Loader conflicts: none detected"
             : $"Potential loader conflicts: {string.Join(", ", conflicts)}");
@@ -89,7 +97,10 @@ public sealed class DiagnosticService
         return new(summary, lines, ready, loaded, nrRunning);
     }
 
-    private static List<string> DetectLoaderConflicts(string gameDir, string? managedProxy)
+    private static List<string> DetectLoaderConflicts(
+        string gameDir,
+        string? managedProxy,
+        bool reshadeManagedByOptiScaler)
     {
         var conflicts = new List<string>();
         foreach (var file in LoaderSignals)
@@ -103,7 +114,10 @@ public sealed class DiagnosticService
                 continue;
 
             if (file.Equals("ReShade64.dll", StringComparison.OrdinalIgnoreCase))
-                conflicts.Add("ReShade64.dll");
+            {
+                if (!reshadeManagedByOptiScaler)
+                    conflicts.Add("ReShade64.dll");
+            }
             else if (file.Equals("dxgi.dll", StringComparison.OrdinalIgnoreCase) ||
                      file.Equals("d3d11.dll", StringComparison.OrdinalIgnoreCase) ||
                      file.Equals("d3d12.dll", StringComparison.OrdinalIgnoreCase) ||
@@ -158,17 +172,48 @@ public sealed class DiagnosticService
 
     private static bool SafeFind(string root, string fileName)
     {
-        try
+        if (!Directory.Exists(root))
+            return false;
+
+        var queue = new Queue<(string Path, int Depth)>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        queue.Enqueue((root, 0));
+
+        while (queue.Count > 0 && visited.Count < 2000)
         {
-            if (File.Exists(Path.Combine(root, fileName)))
+            var (directory, depth) = queue.Dequeue();
+            if (!visited.Add(directory))
+                continue;
+
+            if (File.Exists(Path.Combine(directory, fileName)))
                 return true;
 
-            return Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories).Take(1).Any();
+            if (depth >= 7)
+                continue;
+
+            IEnumerable<string> children;
+            try
+            {
+                children = Directory.EnumerateDirectories(directory).ToArray();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var child in children)
+            {
+                var name = Path.GetFileName(child);
+                if (name.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("_CommonRedist", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("__Installer", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                queue.Enqueue((child, depth + 1));
+            }
         }
-        catch
-        {
-            return false;
-        }
+
+        return false;
     }
 
     private static string[] ReadTail(string path, int maxLines)
