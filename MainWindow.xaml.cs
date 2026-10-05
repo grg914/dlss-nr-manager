@@ -1277,7 +1277,6 @@ public partial class MainWindow : Window
                 MessageBoxImage.Information);
 
             ScanMinecraft_Click(sender, e);
-            await RunMinecraftPreflightAsync(showDialogOnFailure: false);
         }
         catch (Exception ex)
         {
