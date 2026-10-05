@@ -18,7 +18,10 @@ public static class IniService
 
         var menuSection = FindSection(lines, "Menu");
         if (menuSection >= 0)
+        {
+            SetIfPresent(lines, menuSection, "OverlayMenu", "true");
             SetIfPresent(lines, menuSection, "ShortcutKey", "0x79"); // VK_F10
+        }
 
         File.WriteAllLines(iniPath, lines);
     }
