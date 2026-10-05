@@ -177,26 +177,29 @@ public sealed class MinecraftPreflightService
                     "Minecraft version could not be verified from this launcher's local metadata. Confirm that this profile targets 26.2 before launch."));
 
         var fabric = DetectFabricLoader(root);
+        var externalLauncher = IsExternallyManagedLauncher(instance);
+
         if (fabric.Version == null)
         {
             checks.Add(new(
                 "Fabric Loader",
-                MinecraftPreflightSeverity.Warning,
-                $"Fabric Loader {MinimumFabricLoader} or newer was not detected. The one-click installer will install it."));
+                externalLauncher
+                    ? MinecraftPreflightSeverity.Unsupported
+                    : MinecraftPreflightSeverity.Warning,
+                externalLauncher
+                    ? $"Fabric Loader {MinimumFabricLoader}+ for Minecraft 26.2 is required. Install/update Fabric from {instance.Source} first; the manager will not rewrite this launcher's instance metadata."
+                    : $"Fabric Loader {MinimumFabricLoader} or newer was not detected. The one-click installer will install it."));
         }
-        else if (fabric.Version < MinimumFabricLoader)
+        else if (fabric.Version < MinimumFabricLoader || !fabric.ForMinecraft262)
         {
             checks.Add(new(
                 "Fabric Loader",
-                MinecraftPreflightSeverity.Warning,
-                $"Fabric Loader {fabric.Version} is older than required {MinimumFabricLoader}. The one-click installer will update it."));
-        }
-        else if (!fabric.ForMinecraft262)
-        {
-            checks.Add(new(
-                "Fabric Loader",
-                MinecraftPreflightSeverity.Warning,
-                $"Fabric Loader {fabric.Version} is present, but its Minecraft 26.2 association could not be verified. The one-click installer will install/update the 26.2 loader."));
+                externalLauncher
+                    ? MinecraftPreflightSeverity.Unsupported
+                    : MinecraftPreflightSeverity.Warning,
+                externalLauncher
+                    ? $"Fabric Loader {fabric.Version} is not a verified {MinimumFabricLoader}+ loader for Minecraft 26.2. Update the Fabric component from {instance.Source} first."
+                    : $"Fabric Loader {fabric.Version} is not a verified {MinimumFabricLoader}+ loader for Minecraft 26.2. The one-click installer will update it."));
         }
         else
         {
@@ -204,6 +207,14 @@ public sealed class MinecraftPreflightService
                 "Fabric Loader",
                 MinecraftPreflightSeverity.Ready,
                 $"Fabric Loader {fabric.Version} for Minecraft 26.2."));
+        }
+
+        if (externalLauncher && fabric.ForMinecraft262)
+        {
+            checks.Add(new(
+                "Launcher JVM profile",
+                MinecraftPreflightSeverity.Warning,
+                $"{instance.Source} manages JVM arguments outside launcher_profiles.json. The manager can install the renderer stack, but verify -Xss16m and --enable-native-access=ALL-UNNAMED in that launcher's Java/JVM settings if Caustica reports native-access or stack issues."));
         }
 
         var conflicts = FindConflictingRendererMods(root);
@@ -268,41 +279,102 @@ public sealed class MinecraftPreflightService
         Version? best = null;
         var for262 = false;
 
-        if (!Directory.Exists(versions))
-            return (null, false);
-
         try
         {
-            foreach (var directory in Directory.EnumerateDirectories(
-                         versions,
-                         "fabric-loader-*",
-                         SearchOption.TopDirectoryOnly))
+            if (Directory.Exists(versions))
             {
-                var name = Path.GetFileName(directory);
-                var match = Regex.Match(
-                    name,
-                    @"^fabric-loader-(?<version>\d+(?:\.\d+){1,3})(?:-[^-]+)*-(?<mc>\d+(?:\.\d+)+)$",
-                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-                if (!match.Success ||
-                    !Version.TryParse(match.Groups["version"].Value, out var version))
-                    continue;
-
-                if (best == null || version > best)
-                    best = version;
-
-                if (match.Groups["mc"].Value.Equals(
-                        MinecraftIntegrationService.MinecraftVersion,
-                        StringComparison.OrdinalIgnoreCase) &&
-                    version >= MinimumFabricLoader)
+                foreach (var directory in Directory.EnumerateDirectories(
+                             versions,
+                             "fabric-loader-*",
+                             SearchOption.TopDirectoryOnly))
                 {
-                    for262 = true;
+                    var name = Path.GetFileName(directory);
+                    var match = Regex.Match(
+                        name,
+                        @"^fabric-loader-(?<version>\d+(?:\.\d+){1,3})(?:-[^-]+)*-(?<mc>\d+(?:\.\d+)+)$",
+                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+                    if (!match.Success ||
+                        !Version.TryParse(match.Groups["version"].Value, out var version))
+                        continue;
+
+                    if (best == null || version > best)
+                        best = version;
+
+                    if (match.Groups["mc"].Value.Equals(
+                            MinecraftIntegrationService.MinecraftVersion,
+                            StringComparison.OrdinalIgnoreCase) &&
+                        version >= MinimumFabricLoader)
+                    {
+                        for262 = true;
+                    }
+                }
+            }
+
+            foreach (var metadataRoot in CandidateMetadataRoots(root))
+            {
+                foreach (var metadata in new[]
+                {
+                    "mmc-pack.json",
+                    "instance.json",
+                    "profile.json",
+                    "minecraftinstance.json",
+                    "instance.cfg"
+                })
+                {
+                    var path = Path.Combine(metadataRoot, metadata);
+                    if (!File.Exists(path))
+                        continue;
+
+                    var text = File.ReadAllText(path);
+                    if (!text.Contains("fabric", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var match = Regex.Match(
+                        text,
+                        @"fabric(?:mc)?(?:[. _-]*loader)?[^0-9]{0,80}(?<version>\d+\.\d+(?:\.\d+)?)",
+                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+                    if (!match.Success ||
+                        !Version.TryParse(match.Groups["version"].Value, out var version))
+                        continue;
+
+                    if (best == null || version > best)
+                        best = version;
+
+                    if (text.Contains(
+                            MinecraftIntegrationService.MinecraftVersion,
+                            StringComparison.OrdinalIgnoreCase) &&
+                        version >= MinimumFabricLoader)
+                    {
+                        for262 = true;
+                    }
                 }
             }
         }
         catch { }
 
         return (best, for262);
+    }
+
+    private static bool IsExternallyManagedLauncher(
+        MinecraftInstallCandidate instance)
+        => instance.Source.Contains("Prism", StringComparison.OrdinalIgnoreCase)
+           || instance.Source.Contains("Modrinth", StringComparison.OrdinalIgnoreCase)
+           || instance.Source.Contains("CurseForge", StringComparison.OrdinalIgnoreCase)
+           || instance.Source.Contains("GDLauncher", StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> CandidateMetadataRoots(string root)
+    {
+        yield return root;
+
+        try
+        {
+            var parent = Directory.GetParent(root)?.FullName;
+            if (!string.IsNullOrWhiteSpace(parent))
+                yield return parent;
+        }
+        catch { }
     }
 
     private static MinecraftPreflightResult Build(
@@ -347,26 +419,30 @@ public sealed class MinecraftPreflightService
                 }
             }
 
-            foreach (var metadata in new[]
+            foreach (var metadataRoot in CandidateMetadataRoots(root))
             {
-                "instance.cfg",
-                "mmc-pack.json",
-                "instance.json",
-                "profile.json"
-            })
-            {
-                var path = Path.Combine(root, metadata);
-                if (!File.Exists(path))
-                    continue;
+                foreach (var metadata in new[]
+                {
+                    "instance.cfg",
+                    "mmc-pack.json",
+                    "instance.json",
+                    "profile.json",
+                    "minecraftinstance.json"
+                })
+                {
+                    var path = Path.Combine(metadataRoot, metadata);
+                    if (!File.Exists(path))
+                        continue;
 
-                var text = File.ReadAllText(path);
-                if (text.Contains(
-                        MinecraftIntegrationService.MinecraftVersion,
-                        StringComparison.OrdinalIgnoreCase))
-                    return VersionDetection.Detected;
+                    var text = File.ReadAllText(path);
+                    if (text.Contains(
+                            MinecraftIntegrationService.MinecraftVersion,
+                            StringComparison.OrdinalIgnoreCase))
+                        return VersionDetection.Detected;
 
-                if (Regex.IsMatch(text, @"\b\d+\.\d+(?:\.\d+)?\b"))
-                    sawOtherVersion = true;
+                    if (Regex.IsMatch(text, @"\b\d+\.\d+(?:\.\d+)?\b"))
+                        sawOtherVersion = true;
+                }
             }
         }
         catch { }
