@@ -17,10 +17,10 @@ Current application version: **v0.7.0**.
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/app-real.jpg" alt="DLSS NR Manager running with Cyberpunk 2077 detected and OptiScaler DLSS Neural Rendering installed" width="100%" />
+  <img src="docs/screenshots/Capture%20d'%C3%A9cran%202026-10-05%20204315.png" alt="DLSS NR Manager running with Cyberpunk 2077 detected and OptiScaler DLSS Neural Rendering installed" width="100%" />
 </p>
 
-<p align="center"><sub>Real DLSS NR Manager application capture on Windows — not a generated UI mockup.</sub></p>
+<p align="center"><sub>Real DLSS NR Manager v0.7.0 application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
 
 The application now uses the dark WPF dashboard shown above, with game detection, installation state, GPU/runtime validation, Neural Rendering presets, diagnostics and media processing integrated into the same interface.
 
