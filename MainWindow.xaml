@@ -350,8 +350,13 @@
                             Click="Diagnose_Click"/>
                   </Grid>
 
+                  <CheckBox x:Name="AutoNvidiaRuntimeCheck"
+                            Content="Automatically download the latest official NVIDIA Streamline DLSSNR runtime when needed"
+                            IsChecked="True"
+                            Margin="0,9,0,0"/>
+
                   <TextBlock x:Name="RuntimePathText"
-                             Margin="0,9,0,0"
+                             Margin="0,7,0,0"
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
                              FontSize="11"/>
@@ -910,6 +915,11 @@
                           Style="{StaticResource CyanButton}"
                           Content="Scan PC updates"
                           Click="ScanPcUpdates_Click"/>
+                  <Button x:Name="WingetUpdateButton"
+                          Style="{StaticResource PrimaryButton}"
+                          Content="WinGet update all"
+                          Margin="8,0,0,0"
+                          Click="WingetUpdateAll_Click"/>
                   <Button Content="Clear scan cache"
                           Margin="8,0,0,0"
                           Click="ClearPcUpdateCache_Click"/>
@@ -1003,7 +1013,7 @@
                          FontSize="10"
                          TextWrapping="Wrap"
                          Margin="0,9,0,0"
-                         Text="Safety: detection only. DLSS NR Manager never installs software, drivers, Windows updates or firmware from this panel. Actions only open official vendor, Microsoft Store, Windows Update or Microsoft WinGet source pages."/>
+                         Text="PC scans remain read-only. The only install action in this panel is WinGet update all, which runs only after explicit confirmation. Driver, Windows Update, firmware and BIOS actions still only open official pages/settings."/>
             </StackPanel>
           </Border>
 
