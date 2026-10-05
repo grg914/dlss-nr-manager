@@ -138,7 +138,7 @@ public sealed class AppUpdateService
         var stagedEscaped = EscapePowerShell(stagedExecutable);
         var scriptEscaped = EscapePowerShell(scriptPath);
 
-        var script = $"""
+        var script = $$"""
 $ErrorActionPreference = 'Stop'
 $pidToWait = {{Environment.ProcessId}}
 $source = '{{stagedEscaped}}'
