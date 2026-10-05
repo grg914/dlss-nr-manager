@@ -41,17 +41,24 @@ public sealed class GameDetectionService
 
     private static IEnumerable<string> DetectGog()
     {
+        var results = new List<string>();
         foreach (var path in new[] {
             @"SOFTWARE\WOW6432Node\GOG.com\Games\1423049311",
             @"SOFTWARE\GOG.com\Games\1423049311" })
         {
             foreach (var hive in new[] { Registry.LocalMachine, Registry.CurrentUser })
-            try
             {
-                using var key = hive.OpenSubKey(path);
-                if (key?.GetValue("path") is string p) yield return p;
-            } catch { }
+                try
+                {
+                    using var key = hive.OpenSubKey(path);
+                    if (key?.GetValue("path") is string p && !string.IsNullOrWhiteSpace(p))
+                        results.Add(p);
+                }
+                catch { }
+            }
         }
+
+        return results;
     }
 
     private static IEnumerable<string> DetectEpic()
