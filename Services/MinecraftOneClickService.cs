@@ -39,14 +39,6 @@ public sealed class MinecraftOneClickService
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException(root);
 
-        var backup = Path.Combine(
-            root,
-            ".dlss-nr-manager-backups",
-            "minecraft-one-click",
-            DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss"));
-
-        Directory.CreateDirectory(backup);
-
         var markerPath = Path.Combine(root, ".dlss-nr-manager-oneclick.json");
         if (File.Exists(markerPath))
         {
@@ -54,6 +46,14 @@ public sealed class MinecraftOneClickService
                 "A one-click Minecraft DLSS / RTX installation is already tracked for this instance. " +
                 "Use Restore original before installing again.");
         }
+
+        var backup = Path.Combine(
+            root,
+            ".dlss-nr-manager-backups",
+            "minecraft-one-click",
+            DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss"));
+
+        Directory.CreateDirectory(backup);
 
         var optionsPath = Path.Combine(root, "options.txt");
         var launcherProfilesPath = Path.Combine(root, "launcher_profiles.json");
@@ -69,18 +69,25 @@ public sealed class MinecraftOneClickService
 
         BackupMatchingConfig(root, backup);
 
-        var disabled = DisableConflictingRendererMods(root, backup, progress);
+        var disabled = new List<string>();
         var fabricWasPresent = instance.FabricDetected;
         var existingFabricVersions = SnapshotFabricVersionDirectories(root);
+        var fabricBefore = MinecraftPreflightService.DetectFabricLoader(root);
 
         try
         {
+            disabled = DisableConflictingRendererMods(root, backup, progress);
+
             progress?.Report("Forcing Minecraft 26.2 to prefer the Vulkan graphics backend…");
             SetPreferredGraphicsBackend(root, "vulkan");
 
-            if (!fabricWasPresent)
+            if (fabricBefore.Version == null ||
+                fabricBefore.Version < Version.Parse(MinecraftIntegrationService.MinimumFabricLoader) ||
+                !fabricBefore.ForMinecraft262)
             {
-                progress?.Report("Fabric Loader is missing. Installing it automatically…");
+                progress?.Report(
+                    $"Installing/updating Fabric Loader {MinecraftIntegrationService.MinimumFabricLoader}+ for Minecraft {MinecraftIntegrationService.MinecraftVersion}…");
+
                 await _integration.LaunchFabricInstallerAsync(
                     root,
                     progress,
@@ -88,10 +95,13 @@ public sealed class MinecraftOneClickService
             }
 
             var refreshed = _integration.CreateManualCandidate(root);
-            if (!refreshed.FabricDetected)
+            var fabricAfter = MinecraftPreflightService.DetectFabricLoader(root);
+            if (!fabricAfter.ForMinecraft262 ||
+                fabricAfter.Version == null ||
+                fabricAfter.Version < Version.Parse(MinecraftIntegrationService.MinimumFabricLoader))
             {
                 throw new InvalidOperationException(
-                    "Fabric Loader still was not detected after installation.");
+                    $"Fabric Loader {MinecraftIntegrationService.MinimumFabricLoader}+ for Minecraft {MinecraftIntegrationService.MinecraftVersion} was not detected after installation.");
             }
 
             PatchFabricLauncherProfile(
@@ -161,6 +171,12 @@ public sealed class MinecraftOneClickService
                     backup,
                     optionsExisted,
                     launcherProfilesExisted);
+
+                foreach (var created in SnapshotFabricVersionDirectories(root)
+                             .Except(existingFabricVersions, StringComparer.OrdinalIgnoreCase))
+                {
+                    TryDeleteDirectory(created);
+                }
             }
             catch { }
 
@@ -238,7 +254,7 @@ public sealed class MinecraftOneClickService
         RestoreMatchingConfig(root, backup);
 
         if (componentBackup != null && Directory.Exists(componentBackup))
-            RestoreDirectoryContents(componentBackup, root);
+            RestoreDirectoryContents(componentBackup, Path.Combine(root, "mods"));
 
         TryDeleteFile(markerPath);
 
