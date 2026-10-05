@@ -426,7 +426,7 @@ public sealed class MediaService
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "1.0"));
+            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
 
         using var response = await _http.SendAsync(
             request,
@@ -466,7 +466,7 @@ public sealed class MediaService
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "1.0"));
+            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
 
         using var response = await _http.SendAsync(
             request,
