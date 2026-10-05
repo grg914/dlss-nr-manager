@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly MediaService _media = new();
     private readonly ReShadeService _reshade = new();
     private readonly ComponentUpdateService _components = new();
+    private readonly PcUpdateService _pcUpdates = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
@@ -572,6 +573,83 @@ public partial class MainWindow : Window
             settings.ShowFps,
             settings.TargetProcessName,
             settings.LoadReShade);
+    }
+
+    private async void ScanPcUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            PcUpdateScanButton.IsEnabled = false;
+            PcUpdateActionButton.IsEnabled = false;
+            PcUpdateStatusText.Text = "Scanning PC updates…";
+
+            var progress = new Progress<string>(
+                message => PcUpdateStatusText.Text = message);
+
+            var result = await _pcUpdates.ScanAsync(
+                forceRefresh: true,
+                progress);
+
+            PcUpdateList.ItemsSource = result.Items;
+            PcUpdateStatusText.Text =
+                $"Scanned {result.ScannedAt.LocalDateTime:g} • " +
+                $"{result.ComputerManufacturer} {result.ComputerModel} • " +
+                $"BIOS {result.BiosVersion} • {result.Items.Count} entries";
+        }
+        catch (Exception ex)
+        {
+            PcUpdateStatusText.Text = $"PC update scan failed: {ex.Message}";
+        }
+        finally
+        {
+            PcUpdateScanButton.IsEnabled = true;
+        }
+    }
+
+    private void ClearPcUpdateCache_Click(object sender, RoutedEventArgs e)
+    {
+        _pcUpdates.ClearCache();
+        PcUpdateList.ItemsSource = null;
+        PcUpdateStatusText.Text = "PC update scan cache cleared.";
+        PcUpdateSelectionText.Text = "";
+        PcUpdateActionButton.IsEnabled = false;
+    }
+
+    private void PcUpdateList_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (PcUpdateList.SelectedItem is not PcUpdateItem item)
+        {
+            PcUpdateActionButton.IsEnabled = false;
+            PcUpdateSelectionText.Text = "";
+            return;
+        }
+
+        PcUpdateSelectionText.Text =
+            $"{item.Name} • {item.ActionLabel}";
+        PcUpdateActionButton.Content = item.ActionLabel;
+        PcUpdateActionButton.IsEnabled =
+            !string.IsNullOrWhiteSpace(item.ActionValue);
+    }
+
+    private void OpenPcUpdateAction_Click(object sender, RoutedEventArgs e)
+    {
+        if (PcUpdateList.SelectedItem is not PcUpdateItem item)
+            return;
+
+        try
+        {
+            _pcUpdates.OpenAction(item);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "PC Update Center",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private async void Diagnose_Click(object sender, RoutedEventArgs e)
