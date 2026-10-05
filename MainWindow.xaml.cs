@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly GitHubReleaseService _releases = new();
     private readonly InstallerService _installer = new();
     private readonly DiagnosticService _diagnostics = new();
+    private readonly GameArtworkService _artwork = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
@@ -81,7 +82,18 @@ public partial class MainWindow : Window
             _detectedGames = await Task.Run(() => _games.DetectCompatibleGames(forceRefresh));
             GameBox.ItemsSource = _detectedGames;
 
-            var preferred = _detectedGames.FirstOrDefault(x =>
+            var initiallySelectedPath = _selectedGame?.TargetDirectory;
+            StatusText.Text = "Resolving game cover art…";
+
+            _detectedGames = await _artwork.ResolveAsync(_detectedGames);
+            GameBox.ItemsSource = _detectedGames;
+
+            var preferred = !string.IsNullOrWhiteSpace(initiallySelectedPath)
+                ? _detectedGames.FirstOrDefault(x =>
+                    x.TargetDirectory.Equals(initiallySelectedPath, StringComparison.OrdinalIgnoreCase))
+                : null;
+
+            preferred ??= _detectedGames.FirstOrDefault(x =>
                                 x.Name.Contains("Cyberpunk 2077", StringComparison.OrdinalIgnoreCase))
                             ?? _detectedGames.FirstOrDefault(x => x.Confidence == "Validated")
                             ?? _detectedGames.FirstOrDefault(x => x.Confidence == "Probable")
