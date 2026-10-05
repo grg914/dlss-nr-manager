@@ -507,6 +507,25 @@ public partial class MainWindow : Window
                 _releases);
 
             var gameDir = GamePathBox.Text;
+
+            if (AutoNvidiaResourcesCheck.IsChecked == true)
+            {
+                var resourceProgress = new Progress<string>(
+                    message => RuntimePathText.Text = message);
+
+                var staged = await _streamline.StageSelectedResourcesAsync(
+                    gameDir,
+                    includeSuperResolution: true,
+                    includeFrameGeneration: true,
+                    includeReflex: true,
+                    includeNeuralRendering: true,
+                    resourceProgress);
+
+                RuntimePathText.Text =
+                    staged.Count == 0
+                        ? "NVIDIA resources checked • game already had the required files."
+                        : $"Added {staged.Count} missing official NVIDIA Streamline/DLSS resource file(s).";
+            }
             await Task.Run(() => ApplyAdvancedSettings(gameDir, advanced));
 
             if (InstallReShadeAddonCheck.IsChecked == true)
