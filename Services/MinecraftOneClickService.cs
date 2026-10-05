@@ -159,6 +159,18 @@ public sealed class MinecraftOneClickService
                 "Open Video Settings → Ray Tracing after first launch to choose DLSS quality, Frame Generation multiplier and Reflex mode."
             };
 
+            if (installRtxPerformancePack)
+            {
+                notes.Add(
+                    "Performance pack installed: Lithium, FerriteCore, Krypton and Dynamic FPS. These avoid replacing the world renderer, but Caustica is experimental so validate the first launch.");
+            }
+
+            if (installLabPbrResourcePack)
+            {
+                notes.Add(
+                    "SPBR LabPBR resource pack installed. Enable SPBR in Minecraft Resource Packs to use its PBR materials with Caustica RTX.");
+            }
+
             if (disabled.Count > 0)
             {
                 notes.Add(
