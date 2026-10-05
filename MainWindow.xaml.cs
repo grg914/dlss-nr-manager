@@ -1052,7 +1052,7 @@ public partial class MainWindow : Window
             "One-click installation will:\n\n" +
             "• back up the current Minecraft instance state\n" +
             "• force Minecraft 26.2 to prefer Vulkan\n" +
-            "• require and verify a Java 25 x64 runtime before Fabric/Caustica setup\n" +
+            "• verify Java 25 x64 and install Eclipse Temurin 25 with WinGet automatically if needed\n" +
             "• install Fabric automatically if it is missing\n" +
             "• install/update Fabric API and Caustica RTX\n" +
             "• temporarily move known conflicting renderer mods (Sodium, Iris, VulkanMod, Nvidium, Canvas, OptiFine/OptiFabric) into the backup\n" +
