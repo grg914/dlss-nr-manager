@@ -14,7 +14,7 @@ namespace DlssNrManager.Services;
 public sealed class GameArtworkService
 {
     private const int MaxConcurrentLookups = 4;
-    private const int ArtworkCacheVersion = 22;
+    private const int ArtworkCacheVersion = 23;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromDays(30);
     private static readonly TimeSpan NegativeCacheLifetime = TimeSpan.FromHours(2);
 
@@ -186,6 +186,21 @@ public sealed class GameArtworkService
         int appId,
         CancellationToken cancellationToken)
     {
+        // Steam changed a number of library assets from the legacy predictable
+        // /library_600x900.jpg layout to content-hashed paths. Battlefield 6 is
+        // one of those titles. Keep verified hashed library assets ahead of the
+        // generic fallbacks so EA/Steam installs resolve a portrait cover reliably.
+        var knownAsset = appId switch
+        {
+            2807960 =>
+                "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/2807960/289b1c193f9730a0d4ea4dbf912219e46cd1a8a3/library_capsule_2x.jpg",
+            _ => null
+        };
+
+        if (knownAsset != null &&
+            await UrlExistsAsync(knownAsset, cancellationToken))
+            return knownAsset;
+
         foreach (var url in new[]
         {
             $"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appId}/library_600x900_2x.jpg",

@@ -75,19 +75,19 @@ public sealed class PcUpdateService
             $"Motherboard: {bios.BoardManufacturer} {bios.BoardProduct}. " +
             "The app never flashes firmware."));
 
-        progress?.Report("Checking application updates with WinGet…");
+        progress?.Report("Scanning installed programs for available updates…");
         try
         {
-            items.AddRange(await ScanWingetAsync(cancellationToken));
+            items.AddRange(await ScanSoftwareUpdatesAsync(cancellationToken));
         }
         catch (Exception ex)
         {
             items.Add(new PcUpdateItem(
                 PcUpdateKind.Software,
-                "WinGet software scan unavailable",
+                "Installed-program update scan unavailable",
                 "",
                 "",
-                "WinGet",
+                "Software inventory",
                 "Open WinGet documentation",
                 "https://learn.microsoft.com/windows/package-manager/winget/",
                 ex.Message));
@@ -148,34 +148,129 @@ public sealed class PcUpdateService
         });
     }
 
+    private async Task<IReadOnlyList<PcUpdateItem>> ScanSoftwareUpdatesAsync(
+        CancellationToken cancellationToken)
+    {
+        var updates = new List<PcUpdateItem>();
+
+        // WinGet is the primary inventory because it can match traditional
+        // uninstall-registry entries, MSIX/MS Store apps and winget packages
+        // against current package manifests without installing anything.
+        try
+        {
+            updates.AddRange(await ScanWingetAsync(cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            updates.Add(new PcUpdateItem(
+                PcUpdateKind.Software,
+                "WinGet scan unavailable",
+                "",
+                "",
+                "WinGet",
+                "Open WinGet documentation",
+                "https://learn.microsoft.com/windows/package-manager/winget/",
+                ex.Message));
+        }
+
+        // Chocolatey is common on developer PCs and its 'outdated' command is
+        // read-only. Include it when present, but never run 'choco upgrade'.
+        try
+        {
+            updates.AddRange(await ScanChocolateyAsync(cancellationToken));
+        }
+        catch
+        {
+            // Chocolatey is optional; absence/failure should not fail the full scan.
+        }
+
+        return updates
+            .GroupBy(
+                x => $"{x.Source}|{NormalizeSoftwareKey(x.Name)}",
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
     private async Task<IReadOnlyList<PcUpdateItem>> ScanWingetAsync(
         CancellationToken cancellationToken)
     {
-        var result = await RunAsync(
+        // 'winget upgrade' without --all is a read-only query that lists
+        // available updates. It is more comprehensive than relying on one
+        // localized 'list' variant, and includes Store packages when matched.
+        var primary = await RunAsync(
             "winget.exe",
             new[]
             {
-                "list",
-                "--upgrade-available",
+                "upgrade",
                 "--include-unknown",
+                "--include-pinned",
                 "--accept-source-agreements",
-                "--disable-interactivity"
+                "--disable-interactivity",
+                "--nowarn"
             },
             cancellationToken);
 
-        if (result.ExitCode != 0 &&
-            !result.Output.Contains("No installed package", StringComparison.OrdinalIgnoreCase))
+        var parsed = ParseWingetUpgradeTable(primary.Output).ToList();
+
+        // Some WinGet versions expose additional matched programs through
+        // 'list --upgrade-available'. Query both and merge by package ID/name.
+        try
         {
-            throw new InvalidOperationException(
-                $"WinGet returned exit code {result.ExitCode}. {Tail(result.Error, 800)}");
+            var secondary = await RunAsync(
+                "winget.exe",
+                new[]
+                {
+                    "list",
+                    "--upgrade-available",
+                    "--include-unknown",
+                    "--accept-source-agreements",
+                    "--disable-interactivity",
+                    "--nowarn"
+                },
+                cancellationToken);
+
+            parsed.AddRange(ParseWingetUpgradeTable(secondary.Output));
+        }
+        catch
+        {
+            // The primary query is sufficient on clients that do not support
+            // every list option.
         }
 
-        return ParseWingetUpgradeTable(result.Output);
+        if (primary.ExitCode != 0 && parsed.Count == 0)
+        {
+            var combined = $"{primary.Output}\n{primary.Error}";
+            if (!LooksLikeNoWingetUpdates(combined))
+            {
+                throw new InvalidOperationException(
+                    $"WinGet returned exit code {primary.ExitCode}. {Tail(primary.Error, 1000)}");
+            }
+        }
+
+        return parsed
+            .GroupBy(
+                x => NormalizeSoftwareKey($"{x.Name}|{x.CurrentVersion}|{x.AvailableVersion}"),
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
     }
 
     private static IReadOnlyList<PcUpdateItem> ParseWingetUpgradeTable(string output)
     {
-        var lines = output.Replace("\r", "").Split('\n').Select(x => x.TrimEnd()).ToList();
+        // Strip VT/ANSI progress sequences and other terminal control data before
+        // reading the fixed-width table. Column separators are language-neutral,
+        // so this works with French/English/German Windows.
+        output = Regex.Replace(output, @"\x1B\[[0-?]*[ -/]*[@-~]", string.Empty);
+
+        var lines = output
+            .Replace("\r", "")
+            .Split('\n')
+            .Select(line => line.TrimEnd())
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToList();
+
         var separatorIndex = lines.FindIndex(line =>
             Regex.IsMatch(line, @"^\s*-{3,}(\s+-{3,}){2,}\s*$"));
 
@@ -202,11 +297,18 @@ public sealed class PcUpdateService
 
         foreach (var raw in lines.Skip(separatorIndex + 1))
         {
-            if (string.IsNullOrWhiteSpace(raw) ||
-                raw.TrimStart().StartsWith("-", StringComparison.Ordinal))
+            var trimmed = raw.Trim();
+            if (trimmed.Length == 0 ||
+                trimmed.StartsWith("-", StringComparison.Ordinal) ||
+                trimmed.Contains("upgrade available", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Contains("mise", StringComparison.OrdinalIgnoreCase) &&
+                !raw.Contains("  "))
                 continue;
 
-            var values = columns.Select(column => Slice(raw, column.Start, column.Width)).ToList();
+            var values = columns
+                .Select(column => Slice(raw, column.Start, column.Width))
+                .ToList();
+
             if (values.Count < 4)
                 continue;
 
@@ -218,7 +320,9 @@ public sealed class PcUpdateService
 
             if (string.IsNullOrWhiteSpace(name) ||
                 string.IsNullOrWhiteSpace(id) ||
-                string.IsNullOrWhiteSpace(available))
+                string.IsNullOrWhiteSpace(available) ||
+                available.Equals("Available", StringComparison.OrdinalIgnoreCase) ||
+                available.Equals("Disponible", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var officialPage = GetSoftwareOfficialUrl(id, name, source);
@@ -231,11 +335,75 @@ public sealed class PcUpdateService
                 string.IsNullOrWhiteSpace(source) ? "WinGet" : source,
                 "Open official/source page",
                 officialPage,
-                $"Package ID: {id}. Detection only — DLSS NR Manager does not run winget upgrade."));
+                $"Package ID: {id}. Read-only detection; DLSS NR Manager does not run winget upgrade."));
         }
 
         return updates;
     }
+
+    private async Task<IReadOnlyList<PcUpdateItem>> ScanChocolateyAsync(
+        CancellationToken cancellationToken)
+    {
+        var result = await RunAsync(
+            "choco.exe",
+            new[]
+            {
+                "outdated",
+                "--limit-output",
+                "--no-color"
+            },
+            cancellationToken);
+
+        if (result.ExitCode is not 0 and not 2)
+            return [];
+
+        var updates = new List<PcUpdateItem>();
+
+        foreach (var raw in result.Output.Replace("\r", "").Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith("Chocolatey", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var parts = line.Split('|');
+            if (parts.Length < 3)
+                continue;
+
+            var name = parts[0].Trim();
+            var current = parts[1].Trim();
+            var available = parts[2].Trim();
+
+            if (string.IsNullOrWhiteSpace(name) ||
+                string.IsNullOrWhiteSpace(available))
+                continue;
+
+            updates.Add(new PcUpdateItem(
+                PcUpdateKind.Software,
+                name,
+                current,
+                available,
+                "Chocolatey",
+                "Open Chocolatey package page",
+                $"https://community.chocolatey.org/packages/{Uri.EscapeDataString(name)}",
+                "Detected with 'choco outdated'. Read-only detection; DLSS NR Manager does not run choco upgrade."));
+        }
+
+        return updates;
+    }
+
+    private static bool LooksLikeNoWingetUpdates(string value)
+        => value.Contains("No applicable upgrade", StringComparison.OrdinalIgnoreCase)
+           || value.Contains("No installed package", StringComparison.OrdinalIgnoreCase)
+           || value.Contains("No available upgrade", StringComparison.OrdinalIgnoreCase)
+           || value.Contains("Aucune mise", StringComparison.OrdinalIgnoreCase)
+           || value.Contains("Aucun package", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeSoftwareKey(string value)
+        => Regex.Replace(
+            value.ToLowerInvariant(),
+            @"[^a-z0-9]+",
+            string.Empty,
+            RegexOptions.CultureInvariant);
 
     private async Task<IReadOnlyList<PcUpdateItem>> ScanWindowsUpdateAsync(
         BiosInfo bios,
@@ -502,6 +670,13 @@ $board = Get-CimInstance Win32_BaseBoard
         string script,
         CancellationToken cancellationToken)
     {
+        const string utf8Bootstrap =
+            "$utf8 = New-Object System.Text.UTF8Encoding($false); " +
+            "[Console]::OutputEncoding = $utf8; " +
+            "$OutputEncoding = $utf8; " +
+            "[Console]::InputEncoding = $utf8; ";
+
+        script = utf8Bootstrap + script;
         var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
 
         return await RunAsync(
@@ -552,7 +727,17 @@ $board = Get-CimInstance Win32_BaseBoard
             if (!File.Exists(CachePath))
                 return null;
 
-            return JsonSerializer.Deserialize<PcUpdateScanResult>(File.ReadAllText(CachePath));
+            var json = File.ReadAllText(CachePath);
+
+            // A previous build decoded Windows PowerShell output with the wrong
+            // code page. Never reuse that cache: rescan instead.
+            if (json.Contains('\uFFFD') ||
+                json.Contains("\\uFFFD", StringComparison.OrdinalIgnoreCase) ||
+                json.Contains("Ã", StringComparison.Ordinal) ||
+                json.Contains("â€", StringComparison.Ordinal))
+                return null;
+
+            return JsonSerializer.Deserialize<PcUpdateScanResult>(json);
         }
         catch
         {
