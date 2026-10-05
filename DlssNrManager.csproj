@@ -20,7 +20,7 @@
     <ApplicationIcon>assets\branding\app.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Resource Include="assets\branding\logo.jpg" />
+    <Resource Include="assets\branding\logo.png" />
     <Resource Include="assets\branding\app.ico" />
   </ItemGroup>
 </Project>
