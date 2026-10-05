@@ -21,6 +21,22 @@ jobs:
         shell: pwsh
         run: |
           if (!(Test-Path "publish/DlssNrManager.exe")) { throw "DlssNrManager.exe was not generated" }
+
+      - name: Verify embedded Windows icon
+        shell: pwsh
+        run: |
+          Add-Type @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class IconProbe {
+              [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+              public static extern uint ExtractIconEx(string szFileName, int nIconIndex, IntPtr[] phiconLarge, IntPtr[] phiconSmall, uint nIcons);
+          }
+"@
+          $exe = (Resolve-Path "publish/DlssNrManager.exe").Path
+          $count = [IconProbe]::ExtractIconEx($exe, -1, $null, $null, 0)
+          if ($count -lt 1) { throw "Published EXE contains no embedded icon resource" }
+          Write-Host "Embedded icon groups: $count"
       - uses: actions/upload-artifact@v4
         with:
           name: DlssNrManager-win-x64
