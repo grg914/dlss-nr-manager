@@ -5,6 +5,14 @@ using DlssNrManager.Models;
 
 namespace DlssNrManager.Services;
 
+public sealed record ManagerReleaseInfo(
+    Version Version,
+    string Tag,
+    string HtmlUrl,
+    string AssetName,
+    string AssetUrl,
+    string? Sha256);
+
 public sealed class GitHubReleaseService
 {
     private readonly HttpClient _http = new();
@@ -97,28 +105,108 @@ public sealed class GitHubReleaseService
         }
     }
 
-    public async Task<(Version? Version, string? Url)> GetLatestManagerReleaseAsync()
+    public async Task<ManagerReleaseInfo?> GetLatestManagerReleaseInfoAsync(
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var json = await _http.GetStringAsync(
-                "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest");
+            using var response = await _http.GetAsync(
+                "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
 
-            using var doc = JsonDocument.Parse(json);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            await using var stream =
+                await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var doc = await JsonDocument.ParseAsync(
+                stream,
+                cancellationToken: cancellationToken);
+
             var tag = doc.RootElement.GetProperty("tag_name").GetString();
-            var url = doc.RootElement.GetProperty("html_url").GetString();
+            var htmlUrl = doc.RootElement.GetProperty("html_url").GetString();
 
-            if (string.IsNullOrWhiteSpace(tag))
-                return (null, url);
+            if (string.IsNullOrWhiteSpace(tag) ||
+                string.IsNullOrWhiteSpace(htmlUrl))
+                return null;
 
             var normalized = tag.Trim().TrimStart('v', 'V');
-            return Version.TryParse(normalized, out var version)
-                ? (version, url)
-                : (null, url);
+            if (!Version.TryParse(normalized, out var version))
+                return null;
+
+            if (!doc.RootElement.TryGetProperty("assets", out var assets) ||
+                assets.ValueKind != JsonValueKind.Array)
+                return null;
+
+            var candidates = new List<(string Name, string Url, string? Sha256, int Rank)>();
+
+            foreach (var asset in assets.EnumerateArray())
+            {
+                var name = asset.TryGetProperty("name", out var nameElement)
+                    ? nameElement.GetString() ?? ""
+                    : "";
+                var url = asset.TryGetProperty("browser_download_url", out var urlElement)
+                    ? urlElement.GetString() ?? ""
+                    : "";
+
+                if (string.IsNullOrWhiteSpace(name) ||
+                    string.IsNullOrWhiteSpace(url))
+                    continue;
+
+                var rank =
+                    name.Equals("DlssNrManager.exe", StringComparison.OrdinalIgnoreCase) ? 0 :
+                    name.Equals("DlssNrManager-win-x64.zip", StringComparison.OrdinalIgnoreCase) ? 1 :
+                    name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? 2 :
+                    name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? 3 :
+                    100;
+
+                if (rank >= 100)
+                    continue;
+
+                string? sha256 = null;
+                if (asset.TryGetProperty("digest", out var digestElement))
+                {
+                    var digest = digestElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(digest) &&
+                        digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        sha256 = digest["sha256:".Length..];
+                    }
+                }
+
+                candidates.Add((name, url, sha256, rank));
+            }
+
+            var selected = candidates
+                .OrderBy(x => x.Rank)
+                .ThenBy(x => x.Name.Length)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(selected.Name) ||
+                string.IsNullOrWhiteSpace(selected.Url))
+                return null;
+
+            return new ManagerReleaseInfo(
+                version,
+                tag,
+                htmlUrl,
+                selected.Name,
+                selected.Url,
+                selected.Sha256);
         }
         catch
         {
-            return (null, null);
+            return null;
         }
     }
+
+    public async Task<(Version? Version, string? Url)> GetLatestManagerReleaseAsync()
+    {
+        var release = await GetLatestManagerReleaseInfoAsync();
+        return release == null
+            ? (null, null)
+            : (release.Version, release.HtmlUrl);
+    }
+
 }
