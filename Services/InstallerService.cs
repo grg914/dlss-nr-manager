@@ -52,7 +52,8 @@ public sealed class InstallerService
 
     public async Task<string> InstallAsync(string gameDir, string runtimePath, GpuInfo gpu, ReleaseInfo release, string proxy, GitHubReleaseService releases)
     {
-        if (!File.Exists(Path.Combine(gameDir, "Cyberpunk2077.exe"))) throw new InvalidOperationException("Cyberpunk2077.exe not found in selected bin\\x64 folder.");
+        if (!Directory.Exists(gameDir) || !Directory.EnumerateFiles(gameDir, "*.exe", SearchOption.TopDirectoryOnly).Any())
+            throw new InvalidOperationException("No game executable was found in the selected target folder.");
         var expected = gpu.Generation == "RTX 50" ? Rtx50Hash : gpu.Generation is "RTX 20" or "RTX 30" or "RTX 40" ? Rtx2040Hash : null;
         if (expected == null) throw new InvalidOperationException("Unsupported or undetected NVIDIA RTX generation.");
         var runtimeHash = await HashService.Sha256Async(runtimePath);
