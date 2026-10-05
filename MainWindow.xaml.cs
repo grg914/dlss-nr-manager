@@ -1151,8 +1151,18 @@ public partial class MainWindow : Window
             MinecraftPreflightDetailsText.Text =
                 "Checking GPU, NVIDIA driver, Vulkan RT, Java, Minecraft/Fabric versions, renderer conflicts and write access.";
 
+            AppLogger.Info(
+                $"Minecraft RTX preflight started. Instance='{instance.RootDirectory}'.");
+
             var result = await _minecraftPreflight.RunAsync(instance);
             _minecraftPreflightResult = result;
+
+            AppLogger.Info(
+                $"Minecraft RTX preflight result: {result.Summary}. " +
+                string.Join(
+                    " | ",
+                    result.Checks.Select(check =>
+                        $"{check.Severity}:{check.Name}={check.Details}")));
 
             MinecraftPreflightSummaryText.Text =
                 $"Preflight: {result.Summary}";
@@ -1206,6 +1216,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppLogger.Error(
+                $"Minecraft RTX preflight failed for '{instance.RootDirectory}'.",
+                ex);
+
             _minecraftPreflightResult = null;
             MinecraftPreflightSummaryText.Text = "Preflight failed";
             MinecraftPreflightSummaryText.Foreground =
@@ -1324,7 +1338,11 @@ public partial class MainWindow : Window
             MinecraftRestoreOriginalButton.IsEnabled = false;
 
             var progress = new Progress<string>(
-                message => MinecraftStatusText.Text = message);
+                message =>
+                {
+                    MinecraftStatusText.Text = message;
+                    AppLogger.Info($"Minecraft: {message}");
+                });
 
             var result = await _minecraftOneClick.InstallAsync(
                 instance,
