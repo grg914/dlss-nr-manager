@@ -1,0 +1,53 @@
+{
+  "profile_version": 1,
+  "minecraft_version": "26.2",
+  "java_major": 25,
+  "loader": {
+    "name": "Fabric Loader",
+    "minimum_version": "0.19.3",
+    "repository": "FabricMC/fabric-installer"
+  },
+  "github_components": [
+    {
+      "name": "Fabric API",
+      "repository": "FabricMC/fabric-api",
+      "required": true
+    },
+    {
+      "name": "Caustica RTX",
+      "repository": "AriesAlex/Caustica-RTX",
+      "required": true,
+      "notes": "Experimental Vulkan/path-tracing renderer. Do not combine automatically with another world-renderer replacement."
+    }
+  ],
+  "reference_projects": [
+    {
+      "name": "Vulcanite",
+      "repository": "PrliStrxs/Vulcanite",
+      "install": false,
+      "purpose": "Future Vulkan provider/API reference"
+    },
+    {
+      "name": "dlssmc",
+      "repository": "lukeclaw/dlssmc",
+      "install": false,
+      "purpose": "DLSS/Streamline integration reference; do not install incompatible builds into Minecraft 26.2"
+    }
+  ],
+  "local_runtime": {
+    "redistributed": false,
+    "source": "user-provided",
+    "staging_directory": ".dlss-nr-manager-runtime",
+    "profile_files": [
+      "sl.interposer.dll",
+      "sl.common.dll",
+      "sl.dlss.dll",
+      "nvngx_dlss.dll",
+      "sl.dlss_g.dll",
+      "nvngx_dlssg.dll",
+      "sl.reflex.dll",
+      "sl.dlss_nr.dll",
+      "nvngx_dlssnr.dll"
+    ]
+  }
+}
