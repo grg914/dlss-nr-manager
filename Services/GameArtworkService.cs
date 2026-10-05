@@ -11,6 +11,8 @@ public sealed class GameArtworkService
 {
     private const int MaxConcurrentLookups = 4;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromDays(30);
+    private static readonly TimeSpan NegativeCacheLifetime = TimeSpan.FromHours(12);
+    private const int ArtworkCacheVersion = 2;
 
     private readonly HttpClient _http = new();
     private readonly ConcurrentDictionary<string, ArtworkCacheEntry> _cache;
@@ -68,21 +70,29 @@ public sealed class GameArtworkService
         if (string.IsNullOrWhiteSpace(key))
             return game;
 
-        if (_cache.TryGetValue(key, out var cached) &&
-            DateTimeOffset.UtcNow - cached.CreatedAt < CacheLifetime)
+        if (_cache.TryGetValue(key, out var cached))
         {
-            return string.IsNullOrWhiteSpace(cached.Url)
-                ? game
-                : game with { ArtworkUrl = cached.Url };
+            var lifetime = string.IsNullOrWhiteSpace(cached.Url)
+                ? NegativeCacheLifetime
+                : CacheLifetime;
+
+            if (cached.Version == ArtworkCacheVersion &&
+                DateTimeOffset.UtcNow - cached.CreatedAt < lifetime)
+            {
+                return string.IsNullOrWhiteSpace(cached.Url)
+                    ? game
+                    : game with { ArtworkUrl = cached.Url };
+            }
         }
 
-        var url = await FindStrictSteamArtworkAsync(game.Name, cancellationToken);
-        _cache[key] = new ArtworkCacheEntry(url, DateTimeOffset.UtcNow);
+        var lookupName = GetArtworkLookupName(game.Name);
+        var url = await FindBestSteamArtworkAsync(lookupName, cancellationToken);
+        _cache[key] = new ArtworkCacheEntry(url, DateTimeOffset.UtcNow, ArtworkCacheVersion);
 
         return url == null ? game : game with { ArtworkUrl = url };
     }
 
-    private async Task<string?> FindStrictSteamArtworkAsync(
+    private async Task<string?> FindBestSteamArtworkAsync(
         string gameName,
         CancellationToken cancellationToken)
     {
@@ -108,15 +118,29 @@ public sealed class GameArtworkService
                 return null;
 
             var wanted = NormalizeTitle(gameName);
-            foreach (var item in items.EnumerateArray())
+            var best = items.EnumerateArray()
+                .Select(item =>
+                {
+                    if (!item.TryGetProperty("name", out var nameElement) ||
+                        !item.TryGetProperty("id", out var idElement))
+                        return (Item: item, Score: -1);
+
+                    var candidateName = nameElement.GetString();
+                    if (string.IsNullOrWhiteSpace(candidateName))
+                        return (Item: item, Score: -1);
+
+                    return (Item: item, Score: TitleScore(wanted, NormalizeTitle(candidateName)));
+                })
+                .OrderByDescending(x => x.Score)
+                .FirstOrDefault();
+
+            if (best.Score < 80)
+                return null;
+
+            foreach (var item in new[] { best.Item })
             {
                 if (!item.TryGetProperty("name", out var nameElement) ||
                     !item.TryGetProperty("id", out var idElement))
-                    continue;
-
-                var candidateName = nameElement.GetString();
-                if (string.IsNullOrWhiteSpace(candidateName) ||
-                    !NormalizeTitle(candidateName).Equals(wanted, StringComparison.Ordinal))
                     continue;
 
                 var appId = idElement.GetInt32();
@@ -289,6 +313,65 @@ public sealed class GameArtworkService
         return null;
     }
 
+    private static string GetArtworkLookupName(string value)
+    {
+        var n = NormalizeTitle(value);
+
+        if (n is "bf6" or "battlefield6" or "battlefieldvi")
+            return "Battlefield 6";
+
+        if (n is "bo6" or "blackops6" or "callofdutyblackops6" ||
+            n.Contains("blackops6", StringComparison.Ordinal))
+            return "Call of Duty Black Ops 6";
+
+        if (n.Contains("battlefield6", StringComparison.Ordinal))
+            return "Battlefield 6";
+
+        return value
+            .Replace("™", string.Empty)
+            .Replace("®", string.Empty)
+            .Trim();
+    }
+
+    private static int TitleScore(string wanted, string candidate)
+    {
+        if (wanted == candidate)
+            return 100;
+
+        if (candidate.Contains(wanted, StringComparison.Ordinal) ||
+            wanted.Contains(candidate, StringComparison.Ordinal))
+            return 92;
+
+        var max = Math.Max(wanted.Length, candidate.Length);
+        if (max == 0)
+            return 0;
+
+        var distance = Levenshtein(wanted, candidate);
+        return Math.Max(0, 100 - (distance * 100 / max));
+    }
+
+    private static int Levenshtein(string a, string b)
+    {
+        var previous = Enumerable.Range(0, b.Length + 1).ToArray();
+        var current = new int[b.Length + 1];
+
+        for (var i = 1; i <= a.Length; i++)
+        {
+            current[0] = i;
+            for (var j = 1; j <= b.Length; j++)
+            {
+                var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                current[j] = Math.Min(
+                    Math.Min(current[j - 1] + 1, previous[j] + 1),
+                    previous[j - 1] + cost);
+            }
+
+            (previous, current) = (current, previous);
+        }
+
+        return previous[b.Length];
+    }
+
     private static string NormalizeTitle(string value)
     {
         var normalized = value.ToLowerInvariant();
@@ -356,5 +439,8 @@ public sealed class GameArtworkService
         catch { }
     }
 
-    private sealed record ArtworkCacheEntry(string? Url, DateTimeOffset CreatedAt);
+    private sealed record ArtworkCacheEntry(
+        string? Url,
+        DateTimeOffset CreatedAt,
+        int Version = 1);
 }
