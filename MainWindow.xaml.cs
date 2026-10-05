@@ -366,9 +366,16 @@ public partial class MainWindow : Window
 
     private void SetBusy(bool busy)
     {
-        InstallButton.IsEnabled = !busy;
-        UpdateButton.IsEnabled = !busy;
-        ApplyPresetButton.IsEnabled = !busy;
         Cursor = busy ? System.Windows.Input.Cursors.Wait : null;
+
+        if (busy)
+        {
+            InstallButton.IsEnabled = false;
+            UpdateButton.IsEnabled = false;
+            ApplyPresetButton.IsEnabled = false;
+            return;
+        }
+
+        RefreshState();
     }
 }
