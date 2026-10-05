@@ -455,6 +455,196 @@
             </StackPanel>
           </Grid>
 
+          <!-- Minecraft -->
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <StackPanel>
+              <TextBlock Text="Minecraft Java RTX"
+                         Style="{StaticResource SectionTitle}"/>
+              <TextBlock Text="Minecraft 26.2 • Fabric • Caustica RTX • optional user-provided DLSS/Streamline runtime"
+                         Style="{StaticResource SectionSubtitle}"
+                         Margin="0,4,0,14"/>
+
+              <TextBlock Text="Minecraft instance"
+                         Foreground="{StaticResource Muted}"
+                         FontSize="11"
+                         FontWeight="SemiBold"/>
+
+              <Grid Margin="0,5,0,10">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="8"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="8"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <ComboBox x:Name="MinecraftInstanceBox"
+                          DisplayMemberPath="Name"/>
+
+                <Button Grid.Column="2"
+                        Content="Scan"
+                        Click="ScanMinecraft_Click"/>
+
+                <Button Grid.Column="4"
+                        Content="Choose folder"
+                        Click="ChooseMinecraftFolder_Click"/>
+              </Grid>
+
+              <Border Background="#0B121A"
+                      BorderBrush="#1D2A39"
+                      BorderThickness="1"
+                      CornerRadius="9"
+                      Padding="11"
+                      Margin="0,0,0,12">
+                <StackPanel>
+                  <TextBlock Text="Open-source renderer stack"
+                             FontWeight="SemiBold"/>
+                  <TextBlock Text="Downloads Fabric Installer, Fabric API and Caustica RTX directly from their upstream GitHub releases. No JAR is bundled in DLSS NR Manager."
+                             Foreground="{StaticResource Muted}"
+                             TextWrapping="Wrap"
+                             FontSize="11"
+                             Margin="0,4,0,8"/>
+
+                  <StackPanel Orientation="Horizontal">
+                    <CheckBox x:Name="MinecraftInstallFabricApiCheck"
+                              Content="Install/update Fabric API"
+                              IsChecked="True"
+                              Margin="0,0,18,0"/>
+                    <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
+                              Content="Allow Caustica prereleases"
+                              IsChecked="True"/>
+                  </StackPanel>
+
+                  <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0"
+                            Style="{StaticResource CyanButton}"
+                            Content="Install Fabric"
+                            Click="InstallMinecraftFabric_Click"/>
+                    <Button Grid.Column="2"
+                            Style="{StaticResource PrimaryButton}"
+                            Content="Enable RTX stack"
+                            Click="InstallMinecraftRtx_Click"/>
+                    <Button Grid.Column="4"
+                            Content="Open Launcher"
+                            Click="OpenMinecraftLauncher_Click"/>
+                    <Button Grid.Column="6"
+                            Content="Remove managed RTX"
+                            Click="RemoveMinecraftRtx_Click"/>
+                  </Grid>
+                </StackPanel>
+              </Border>
+
+              <Border Background="#0B121A"
+                      BorderBrush="#1D2A39"
+                      BorderThickness="1"
+                      CornerRadius="9"
+                      Padding="11">
+                <StackPanel>
+                  <TextBlock Text="Local NVIDIA DLSS / Streamline runtime"
+                             FontWeight="SemiBold"/>
+                  <TextBlock Text="Proprietary NVIDIA binaries are never downloaded from this repository. Select your own package or nvngx_dlssnr.dll; the manager validates and stages them locally for compatible providers."
+                             Foreground="{StaticResource Muted}"
+                             TextWrapping="Wrap"
+                             FontSize="11"
+                             Margin="0,4,0,10"/>
+
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="MinecraftDlssZipBox"
+                             IsReadOnly="True"
+                             MinHeight="38"
+                             Text="No DLSS package selected"/>
+                    <Button Grid.Column="2"
+                            Content="Select DLSS ZIP"
+                            Click="SelectMinecraftDlssZip_Click"/>
+                  </Grid>
+
+                  <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="MinecraftDlssNrBox"
+                             IsReadOnly="True"
+                             MinHeight="38"
+                             Text="No nvngx_dlssnr.dll selected"/>
+                    <Button Grid.Column="2"
+                            Content="Select DLSSNR DLL"
+                            Click="SelectMinecraftDlssNr_Click"/>
+                  </Grid>
+
+                  <WrapPanel Margin="0,0,0,10">
+                    <CheckBox x:Name="MinecraftDlssSrCheck"
+                              Content="DLSS Super Resolution"
+                              IsChecked="True"
+                              Margin="0,0,18,6"/>
+                    <CheckBox x:Name="MinecraftDlssFgCheck"
+                              Content="Frame Generation"
+                              IsChecked="True"
+                              Margin="0,0,18,6"/>
+                    <CheckBox x:Name="MinecraftDlssReflexCheck"
+                              Content="Reflex"
+                              IsChecked="True"
+                              Margin="0,0,18,6"/>
+                    <CheckBox x:Name="MinecraftDlssNrCheck"
+                              Content="Neural Rendering"
+                              IsChecked="True"
+                              Margin="0,0,18,6"/>
+                  </WrapPanel>
+
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0"
+                            Style="{StaticResource PrimaryButton}"
+                            Content="Stage DLSS package"
+                            Click="StageMinecraftDlssPackage_Click"/>
+                    <Button Grid.Column="2"
+                            Content="Stage DLSSNR only"
+                            Click="StageMinecraftDlssNr_Click"/>
+                    <Button Grid.Column="4"
+                            Content="Clear staged runtime"
+                            Click="ClearMinecraftDlssRuntime_Click"/>
+                  </Grid>
+                </StackPanel>
+              </Border>
+
+              <TextBlock x:Name="MinecraftStatusText"
+                         Text="Scan for a Minecraft Java instance."
+                         Foreground="{StaticResource Muted}"
+                         TextWrapping="Wrap"
+                         FontSize="11"
+                         Margin="0,10,0,0"/>
+
+              <TextBlock Text="Renderer warning: do not automatically combine multiple world-renderer replacements. Staging a DLL does not by itself activate DLSS in Minecraft; the active renderer/provider must support that NVIDIA API."
+                         Foreground="{StaticResource Warning}"
+                         TextWrapping="Wrap"
+                         FontSize="10"
+                         Margin="0,8,0,0"/>
+            </StackPanel>
+          </Border>
+
           <!-- Media -->
           <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
             <Grid>
