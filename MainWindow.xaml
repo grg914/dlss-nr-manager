@@ -577,7 +577,7 @@
 
                     <WrapPanel Margin="0,8,0,0">
                       <CheckBox x:Name="MinecraftPerformancePackCheck"
-                                Content="RTX-safe performance pack (Lithium + FerriteCore + Krypton + Dynamic FPS)"
+                                Content="Performance pack without renderer replacement (Lithium + FerriteCore + Krypton + Dynamic FPS)"
                                 IsChecked="True"
                                 Margin="0,0,18,6"/>
                       <CheckBox x:Name="MinecraftSpbrCheck"
@@ -586,7 +586,7 @@
                                 Margin="0,0,18,6"/>
                     </WrapPanel>
 
-                    <TextBlock Text="Sodium and Iris are not installed in RTX mode: they replace/modify the rendering pipeline and can conflict with Caustica, which owns the Vulkan/path-traced renderer. SPBR is the compatible LabPBR material pack for the DLSS/RTX path."
+                    <TextBlock Text="Sodium and Iris are not installed in RTX mode: they replace/modify the rendering pipeline and can conflict with Caustica, which owns the Vulkan/path-traced renderer. The optional performance pack avoids renderer replacement; Caustica is experimental, so mod compatibility is still validated at launch. SPBR is the compatible LabPBR material pack for the DLSS/RTX path."
                                Foreground="{StaticResource Warning}"
                                FontSize="10"
                                TextWrapping="Wrap"
