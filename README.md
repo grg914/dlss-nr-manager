@@ -117,6 +117,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - **Install DLSS / RTX** one-click workflow:
   - creates a restore point before changing the instance
   - sets `preferredGraphicsBackend:"vulkan"`
+  - verifies a Java 25 x64 runtime before Fabric/Caustica setup
   - installs Fabric Loader automatically when missing
   - downloads Fabric API from FabricMC
   - downloads the latest compatible Caustica RTX release
@@ -132,7 +133,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Local DLSS/Streamline ZIP and `nvngx_dlssnr.dll` staging remain available as advanced/manual tools
 - Minecraft resource documentation under `resources/minecraft/`
 
-Caustica RTX currently implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. The manager does **not** claim that copying a Super Resolution DLL alone enables DLSS Super Resolution; SR requires explicit support inside the active renderer.
+Caustica RTX currently implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. NVIDIA documents Ray Reconstruction as an extension of the DLSS Super Resolution path: when RR is enabled it replaces the standalone SR reconstruction step while using the selected DLSS performance/quality mode. The manager therefore does **not** present a fake separate SR toggle that only copies a DLL; a standalone SR path must be implemented by the active renderer.
 
 ## Default Neural Rendering preset
 
