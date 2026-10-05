@@ -410,6 +410,12 @@
                     </StackPanel>
                   </Grid>
 
+                  <CheckBox x:Name="AutoNvidiaResourcesCheck"
+                            Content="Add missing official NVIDIA Streamline/DLSS resources to the selected game"
+                            IsChecked="True"
+                            Margin="0,14,0,0"
+                            ToolTip="Downloads the latest official NVIDIA Streamline release and copies only missing SR/FG/Reflex/NR runtime DLLs. Existing game DLLs are never overwritten."/>
+
                   <Grid Margin="0,16,0,0">
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="*"/>
