@@ -554,16 +554,35 @@
                              FontSize="11"
                              Margin="0,4,0,8"/>
 
-                  <StackPanel Orientation="Horizontal">
-                    <CheckBox x:Name="MinecraftInstallFabricApiCheck"
-                              Content="Fabric API (required)"
-                              IsChecked="True"
-                              IsEnabled="False"
-                              Margin="0,0,18,0"/>
-                    <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
-                              Content="Caustica RTX prerelease (currently required)"
-                              IsChecked="True"
-                              IsEnabled="False"/>
+                  <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                      <CheckBox x:Name="MinecraftInstallFabricApiCheck"
+                                Content="Fabric API (required)"
+                                IsChecked="True"
+                                IsEnabled="False"
+                                Margin="0,0,18,0"/>
+                      <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
+                                Content="Caustica RTX prerelease (currently required)"
+                                IsChecked="True"
+                                IsEnabled="False"/>
+                    </StackPanel>
+
+                    <WrapPanel Margin="0,8,0,0">
+                      <CheckBox x:Name="MinecraftPerformancePackCheck"
+                                Content="RTX-safe performance pack (Lithium + FerriteCore + Krypton + Dynamic FPS)"
+                                IsChecked="True"
+                                Margin="0,0,18,6"/>
+                      <CheckBox x:Name="MinecraftSpbrCheck"
+                                Content="SPBR LabPBR resource pack"
+                                IsChecked="True"
+                                Margin="0,0,18,6"/>
+                    </WrapPanel>
+
+                    <TextBlock Text="Sodium and Iris are not installed in RTX mode: they replace/modify the rendering pipeline and can conflict with Caustica, which owns the Vulkan/path-traced renderer. SPBR is the compatible LabPBR material pack for the DLSS/RTX path."
+                               Foreground="{StaticResource Warning}"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"/>
                   </StackPanel>
 
                   <Grid Margin="0,12,0,0">
