@@ -1,12 +1,24 @@
+<p align="center">
+  <img src="assets/branding/logo.jpg" alt="DLSS NR Manager logo" width="128" />
+</p>
+
 # DLSS NR Manager
+
+<p align="center">
+  <img src="assets/branding/hero.jpg" alt="DLSS NR Manager banner" width="100%" />
+</p>
 
 A native Windows manager for installing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
 
 > Supports automatic candidate detection across **Steam, Epic and GOG**, with upstream-validated profiles for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy, plus NVIDIA RTX 20/30/40/50 GPUs.
 
-## Screenshots
+## Interface preview
 
-> Screenshot placeholder — main Cyberpunk card, installation status, GPU/runtime validation, actions and integrated logs.
+<p align="center">
+  <img src="assets/branding/app-mockup.jpg" alt="DLSS NR Manager interface concept" width="100%" />
+</p>
+
+The branding assets live under `assets/branding/`. The interface image is a design target for the ongoing WPF UI refresh; runtime compatibility and installation status remain determined by the application itself.
 
 ## Features
 
