@@ -364,17 +364,19 @@ public sealed class MinecraftPreflightService
            || instance.Source.Contains("CurseForge", StringComparison.OrdinalIgnoreCase)
            || instance.Source.Contains("GDLauncher", StringComparison.OrdinalIgnoreCase);
 
-    private static IEnumerable<string> CandidateMetadataRoots(string root)
+    private static IReadOnlyList<string> CandidateMetadataRoots(string root)
     {
-        yield return root;
+        var roots = new List<string> { root };
 
         try
         {
             var parent = Directory.GetParent(root)?.FullName;
             if (!string.IsNullOrWhiteSpace(parent))
-                yield return parent;
+                roots.Add(parent);
         }
         catch { }
+
+        return roots;
     }
 
     private static MinecraftPreflightResult Build(
