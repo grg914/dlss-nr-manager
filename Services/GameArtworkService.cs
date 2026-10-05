@@ -14,7 +14,7 @@ namespace DlssNrManager.Services;
 public sealed class GameArtworkService
 {
     private const int MaxConcurrentLookups = 4;
-    private const int ArtworkCacheVersion = 21;
+    private const int ArtworkCacheVersion = 22;
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromDays(30);
     private static readonly TimeSpan NegativeCacheLifetime = TimeSpan.FromHours(2);
 
@@ -43,12 +43,19 @@ public sealed class GameArtworkService
     public void ClearCache()
     {
         _cache.Clear();
+        _steamCatalog = null;
         TryDeleteFile(CachePath);
+        TryDeleteFile(SteamCatalogCachePath);
 
+        // WPF may still have the currently displayed image files open. Delete what
+        // is safe to delete, but never make a refresh depend on deleting an old file.
         try
         {
-            if (Directory.Exists(ArtworkDirectory))
-                Directory.Delete(ArtworkDirectory, true);
+            if (!Directory.Exists(ArtworkDirectory))
+                return;
+
+            foreach (var file in Directory.EnumerateFiles(ArtworkDirectory, "*", SearchOption.TopDirectoryOnly))
+                TryDeleteFile(file);
         }
         catch { }
     }
@@ -183,8 +190,13 @@ public sealed class GameArtworkService
         {
             $"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appId}/library_600x900_2x.jpg",
             $"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appId}/library_600x900.jpg",
+            $"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appId}/library_600x900_2x.jpg",
+            $"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appId}/library_600x900.jpg",
             $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900_2x.jpg",
-            $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg"
+            $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg",
+            $"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appId}/header.jpg",
+            $"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/{appId}/header.jpg",
+            $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/header.jpg"
         })
         {
             if (await UrlExistsAsync(url, cancellationToken))
@@ -497,7 +509,11 @@ public sealed class GameArtworkService
             if (string.IsNullOrWhiteSpace(safeKey))
                 safeKey = Guid.NewGuid().ToString("N");
 
-            var destination = Path.Combine(ArtworkDirectory, safeKey + extension);
+            // Use a fresh file name for every successful refresh. WPF's image
+            // decoder can keep the previous file handle alive even after the UI is
+            // rebound, so overwriting a stable path is unreliable on Windows.
+            var generation = $"{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}_{Guid.NewGuid():N}";
+            var destination = Path.Combine(ArtworkDirectory, $"{safeKey}_{generation}{extension}");
             var temporary = destination + ".tmp";
 
             await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
