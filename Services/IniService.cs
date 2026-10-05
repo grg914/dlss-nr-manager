@@ -5,13 +5,21 @@ public static class IniService
     {
         if (!File.Exists(iniPath)) return;
         var lines = File.ReadAllLines(iniPath).ToList();
-        var section = FindSection(lines, "DlssNr");
-        if (section < 0) return;
-        SetIfPresent(lines, section, "Enabled", "true");
-        SetIfPresent(lines, section, "RunBeforeSR", "true");
-        SetIfPresent(lines, section, "Passes", "1");
-        SetIfPresent(lines, section, "WorkingScale", "1.0");
-        SetIfPresent(lines, section, "Style", "1");
+
+        var dlssNrSection = FindSection(lines, "DlssNr");
+        if (dlssNrSection >= 0)
+        {
+            SetIfPresent(lines, dlssNrSection, "Enabled", "true");
+            SetIfPresent(lines, dlssNrSection, "RunBeforeSR", "true");
+            SetIfPresent(lines, dlssNrSection, "Passes", "1");
+            SetIfPresent(lines, dlssNrSection, "WorkingScale", "1.0");
+            SetIfPresent(lines, dlssNrSection, "Style", "1");
+        }
+
+        var menuSection = FindSection(lines, "Menu");
+        if (menuSection >= 0)
+            SetIfPresent(lines, menuSection, "ShortcutKey", "0x79"); // VK_F10
+
         File.WriteAllLines(iniPath, lines);
     }
 
