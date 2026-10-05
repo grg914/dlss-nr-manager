@@ -341,6 +341,13 @@ public sealed class MinecraftIntegrationService
                 TryDelete(destination);
 
             RestoreBackupJars(backup, mods);
+            RestoreBackupDirectory(
+                Path.Combine(backup, "extra", "mods"),
+                mods);
+            RestoreBackupDirectory(
+                Path.Combine(backup, "extra", "resourcepacks"),
+                Path.Combine(instance.RootDirectory, "resourcepacks"));
+
             TryDelete(Path.Combine(instance.RootDirectory, ".dlss-nr-manager-minecraft.json"));
             throw;
         }
@@ -1003,6 +1010,29 @@ public sealed class MinecraftIntegrationService
         catch
         {
             return false;
+        }
+    }
+
+    private static void RestoreBackupDirectory(
+        string source,
+        string destination)
+    {
+        if (!Directory.Exists(source))
+            return;
+
+        Directory.CreateDirectory(destination);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     source,
+                     "*",
+                     SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var target = Path.Combine(destination, relative);
+
+            Directory.CreateDirectory(
+                Path.GetDirectoryName(target)!);
+            File.Copy(file, target, true);
         }
     }
 
