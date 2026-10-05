@@ -227,11 +227,12 @@ public sealed class PcCleanupService
         DeleteEmptyDirectories(root, ref skippedFiles, cancellationToken);
     }
 
-    private static IEnumerable<string> EnumerateFilesSafe(
+    private static IReadOnlyList<string> EnumerateFilesSafe(
         string root,
         ref int skipped,
         CancellationToken cancellationToken)
     {
+        var result = new List<string>();
         var pending = new Stack<string>();
         pending.Push(root);
 
@@ -240,19 +241,15 @@ public sealed class PcCleanupService
             cancellationToken.ThrowIfCancellationRequested();
             var directory = pending.Pop();
 
-            IEnumerable<string> files;
             try
             {
-                files = Directory.EnumerateFiles(directory).ToArray();
+                result.AddRange(Directory.EnumerateFiles(directory));
             }
             catch
             {
                 skipped++;
                 continue;
             }
-
-            foreach (var file in files)
-                yield return file;
 
             IEnumerable<string> directories;
             try
@@ -281,6 +278,8 @@ public sealed class PcCleanupService
                 }
             }
         }
+
+        return result;
     }
 
     private static void DeleteEmptyDirectories(
