@@ -20,6 +20,8 @@ public partial class MainWindow : Window
     private readonly ReShadeService _reshade = new();
     private readonly ComponentUpdateService _components = new();
     private readonly PcUpdateService _pcUpdates = new();
+    private readonly MinecraftIntegrationService _minecraft = new();
+    private readonly MinecraftDlssPackageService _minecraftDlss = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
@@ -27,6 +29,9 @@ public partial class MainWindow : Window
     private string? _managerUpdateUrl;
     private DetectedGame? _selectedGame;
     private IReadOnlyList<DetectedGame> _detectedGames = [];
+    private IReadOnlyList<MinecraftInstallCandidate> _minecraftInstances = [];
+    private string? _minecraftDlssZipPath;
+    private string? _minecraftDlssNrPath;
     private bool _isBusy;
     private int _stateRefreshVersion;
 
@@ -743,6 +748,357 @@ public partial class MainWindow : Window
     {
         if (IsLoaded)
             await RefreshReleaseAsync();
+    }
+
+    private void ScanMinecraft_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _minecraftInstances = _minecraft.DetectInstances();
+            MinecraftInstanceBox.ItemsSource = _minecraftInstances;
+
+            if (_minecraftInstances.Count > 0)
+                MinecraftInstanceBox.SelectedIndex = 0;
+
+            MinecraftStatusText.Text = _minecraftInstances.Count == 0
+                ? "No Minecraft Java instance was detected. Use Choose folder for a custom launcher instance."
+                : $"Detected {_minecraftInstances.Count} Minecraft instance(s).";
+        }
+        catch (Exception ex)
+        {
+            MinecraftStatusText.Text = $"Minecraft scan failed: {ex.Message}";
+        }
+    }
+
+    private void ChooseMinecraftFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Select the Minecraft Java instance root"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        try
+        {
+            var candidate = _minecraft.CreateManualCandidate(dialog.FolderName);
+
+            _minecraftInstances = _minecraftInstances
+                .Where(x => !x.RootDirectory.Equals(
+                    candidate.RootDirectory,
+                    StringComparison.OrdinalIgnoreCase))
+                .Append(candidate)
+                .ToList();
+
+            MinecraftInstanceBox.ItemsSource = null;
+            MinecraftInstanceBox.ItemsSource = _minecraftInstances;
+            MinecraftInstanceBox.SelectedItem = candidate;
+
+            MinecraftStatusText.Text =
+                $"Selected {candidate.RootDirectory} • Fabric: {(candidate.FabricDetected ? "detected" : "not detected")}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Minecraft instance",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private MinecraftInstallCandidate? SelectedMinecraftInstance()
+        => MinecraftInstanceBox.SelectedItem as MinecraftInstallCandidate;
+
+    private async void InstallMinecraftFabric_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null)
+        {
+            MessageBox.Show("Select a Minecraft instance first.");
+            return;
+        }
+
+        var answer = MessageBox.Show(
+            $"Install Fabric Loader {MinecraftIntegrationService.MinimumFabricLoader} " +
+            $"for Minecraft {MinecraftIntegrationService.MinecraftVersion}?\n\n" +
+            "The official Fabric Installer is downloaded from FabricMC's GitHub release. Restart Minecraft Launcher afterwards.",
+            "Install Fabric",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            var progress = new Progress<string>(
+                message => MinecraftStatusText.Text = message);
+
+            await _minecraft.LaunchFabricInstallerAsync(
+                instance.RootDirectory,
+                progress);
+
+            ScanMinecraft_Click(sender, e);
+        }
+        catch (Exception ex)
+        {
+            MinecraftStatusText.Text = $"Fabric install failed: {ex.Message}";
+            MessageBox.Show(
+                ex.Message,
+                "Fabric install failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private async void InstallMinecraftRtx_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null)
+        {
+            MessageBox.Show("Select a Minecraft instance first.");
+            return;
+        }
+
+        var warning = MessageBox.Show(
+            "This installs or updates only the manager-controlled Fabric API and Caustica RTX JARs. " +
+            "Caustica replaces the world renderer and may conflict with Sodium, Iris or another Vulkan/world-renderer replacement.\n\nContinue?",
+            "Enable Minecraft RTX stack",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (warning != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            var progress = new Progress<string>(
+                message => MinecraftStatusText.Text = message);
+
+            var result = await _minecraft.InstallMinecraftRtxAsync(
+                instance,
+                MinecraftInstallFabricApiCheck.IsChecked == true,
+                MinecraftAllowPrereleaseCheck.IsChecked == true,
+                progress);
+
+            MinecraftStatusText.Text =
+                "Minecraft RTX stack installed • " +
+                string.Join(
+                    " • ",
+                    result.Components.Select(
+                        x => $"{x.Component} {x.Version}"));
+        }
+        catch (Exception ex)
+        {
+            MinecraftStatusText.Text = $"Minecraft RTX install failed: {ex.Message}";
+            MessageBox.Show(
+                ex.Message,
+                "Minecraft RTX install failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void OpenMinecraftLauncher_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _minecraft.OpenMinecraftLauncher();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Minecraft Launcher",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void RemoveMinecraftRtx_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null)
+        {
+            MessageBox.Show("Select a Minecraft instance first.");
+            return;
+        }
+
+        if (MessageBox.Show(
+                "Remove only Minecraft RTX files tracked by DLSS NR Manager? Backups are preserved.",
+                "Remove Minecraft RTX",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            _minecraft.UninstallManagedMinecraftRtx(instance.RootDirectory);
+            MinecraftStatusText.Text = "Managed Minecraft RTX files removed.";
+        }
+        catch (Exception ex)
+        {
+            MinecraftStatusText.Text = $"Minecraft RTX removal failed: {ex.Message}";
+        }
+    }
+
+    private void SelectMinecraftDlssZip_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select your local DLSS / Streamline package",
+            Filter = "ZIP archives (*.zip)|*.zip|All files|*.*"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        _minecraftDlssZipPath = dialog.FileName;
+        MinecraftDlssZipBox.Text = dialog.FileName;
+
+        try
+        {
+            var inspection = _minecraftDlss.Inspect(
+                dialog.FileName,
+                CaptureMinecraftDlssSelection());
+
+            MinecraftStatusText.Text = inspection.MissingRequiredFiles.Count == 0
+                ? $"DLSS package ready • {inspection.PresentFiles.Count} files detected."
+                : "DLSS package missing selected files: "
+                  + string.Join(", ", inspection.MissingRequiredFiles);
+        }
+        catch (Exception ex)
+        {
+            MinecraftStatusText.Text = $"DLSS package inspection failed: {ex.Message}";
+        }
+    }
+
+    private void SelectMinecraftDlssNr_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select nvngx_dlssnr.dll",
+            Filter = "NVIDIA DLSSNR runtime (nvngx_dlssnr.dll)|nvngx_dlssnr.dll|DLL files (*.dll)|*.dll"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        _minecraftDlssNrPath = dialog.FileName;
+        MinecraftDlssNrBox.Text = dialog.FileName;
+        MinecraftStatusText.Text = "DLSSNR runtime selected. It will be hash-validated before staging.";
+    }
+
+    private MinecraftDlssFeatureSelection CaptureMinecraftDlssSelection()
+        => new(
+            MinecraftDlssSrCheck.IsChecked == true,
+            MinecraftDlssFgCheck.IsChecked == true,
+            MinecraftDlssReflexCheck.IsChecked == true,
+            MinecraftDlssNrCheck.IsChecked == true);
+
+    private void StageMinecraftDlssPackage_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+
+        if (instance == null)
+        {
+            MessageBox.Show("Select a Minecraft instance first.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_minecraftDlssZipPath) ||
+            !File.Exists(_minecraftDlssZipPath))
+        {
+            MessageBox.Show("Select your local DLSS package ZIP first.");
+            return;
+        }
+
+        try
+        {
+            var installed = _minecraftDlss.StageSelectedRuntime(
+                _minecraftDlssZipPath,
+                instance.RootDirectory,
+                CaptureMinecraftDlssSelection(),
+                requireValidatedHashes: true);
+
+            MinecraftStatusText.Text =
+                $"Staged {installed.Count} validated DLSS/Streamline files in .dlss-nr-manager-runtime.";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Stage Minecraft DLSS package",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void StageMinecraftDlssNr_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+
+        if (instance == null)
+        {
+            MessageBox.Show("Select a Minecraft instance first.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_minecraftDlssNrPath) ||
+            !File.Exists(_minecraftDlssNrPath))
+        {
+            MessageBox.Show("Select nvngx_dlssnr.dll first.");
+            return;
+        }
+
+        try
+        {
+            var staged = _minecraftDlss.StageNeuralRenderingRuntime(
+                _minecraftDlssNrPath,
+                instance.RootDirectory,
+                requireValidatedHash: true);
+
+            MinecraftStatusText.Text =
+                $"Validated DLSSNR runtime staged at {staged}.";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Stage DLSSNR runtime",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void ClearMinecraftDlssRuntime_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+
+        if (instance == null)
+        {
+            MessageBox.Show("Select a Minecraft instance first.");
+            return;
+        }
+
+        if (MessageBox.Show(
+                "Delete the staged .dlss-nr-manager-runtime directory for this Minecraft instance?",
+                "Clear staged Minecraft runtime",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            _minecraftDlss.ClearStagedRuntime(instance.RootDirectory);
+            MinecraftStatusText.Text = "Staged Minecraft DLSS runtime removed.";
+        }
+        catch (Exception ex)
+        {
+            MinecraftStatusText.Text = $"Unable to clear staged runtime: {ex.Message}";
+        }
     }
 
     private void SelectMedia_Click(object sender, RoutedEventArgs e)
