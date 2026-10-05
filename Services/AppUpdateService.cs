@@ -101,6 +101,15 @@ public sealed class AppUpdateService
         return stagedExe;
     }
 
+    public void CleanupSuccessfulUpdateBackup()
+    {
+        var currentExecutable = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(currentExecutable))
+            return;
+
+        TryDelete(currentExecutable + ".update-backup");
+    }
+
     public void ApplyAndRestart(
         string stagedExecutable,
         Version expectedVersion)
@@ -137,16 +146,23 @@ public sealed class AppUpdateService
         var currentEscaped = EscapePowerShell(currentExecutable);
         var stagedEscaped = EscapePowerShell(stagedExecutable);
         var scriptEscaped = EscapePowerShell(scriptPath);
+        var backupEscaped = EscapePowerShell(
+            currentExecutable + ".update-backup");
 
         var script = $$"""
 $ErrorActionPreference = 'Stop'
 $pidToWait = {{Environment.ProcessId}}
 $source = '{{stagedEscaped}}'
 $target = '{{currentEscaped}}'
+$backup = '{{backupEscaped}}'
 $self = '{{scriptEscaped}}'
 
 try {
     Wait-Process -Id $pidToWait -ErrorAction SilentlyContinue
+
+    if (Test-Path -LiteralPath $target) {
+        Copy-Item -LiteralPath $target -Destination $backup -Force
+    }
 
     $success = $false
     for ($i = 0; $i -lt 30; $i++) {
@@ -167,7 +183,24 @@ try {
         Start-Process -FilePath 'ie4uinit.exe' -ArgumentList '-show' -WindowStyle Hidden
     } catch {}
 
-    Start-Process -FilePath $target
+    try {
+        Start-Process -FilePath $target
+    } catch {
+        if (Test-Path -LiteralPath $backup) {
+            Copy-Item -LiteralPath $backup -Destination $target -Force
+            Start-Process -FilePath $target
+        }
+
+        throw
+    }
+} catch {
+    if ((Test-Path -LiteralPath $backup) -and -not (Get-Process -Name 'DlssNrManager' -ErrorAction SilentlyContinue)) {
+        try {
+            Copy-Item -LiteralPath $backup -Destination $target -Force
+        } catch {}
+    }
+
+    throw
 } finally {
     Start-Sleep -Milliseconds 500
     Remove-Item -LiteralPath $self -Force -ErrorAction SilentlyContinue
