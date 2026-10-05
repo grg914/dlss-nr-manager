@@ -106,14 +106,13 @@
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="34"/>
                         </Grid.ColumnDefinitions>
-                        <ContentPresenter Grid.Column="0"
-                                          Margin="{Binding Padding, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                          VerticalAlignment="Center"
-                                          HorizontalAlignment="Left"
-                                          Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                          ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                          ContentStringFormat="{Binding SelectionBoxItemStringFormat, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                          TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}"/>
+                        <TextBlock Grid.Column="0"
+                                   Margin="{Binding Padding, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Left"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                   Text="{Binding Text, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                   TextTrimming="CharacterEllipsis"/>
                         <Path Grid.Column="1"
                               Width="9" Height="5"
                               HorizontalAlignment="Center"
