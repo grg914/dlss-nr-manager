@@ -2,45 +2,123 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using DlssNrManager.Models;
+
 namespace DlssNrManager.Services;
+
 public sealed class GitHubReleaseService
 {
     private readonly HttpClient _http = new();
+
     public GitHubReleaseService()
     {
-        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "1.0"));
+        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "0.5"));
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
 
     public async Task<ReleaseInfo?> GetLatestAsync(bool includePrerelease)
     {
-        var json = await _http.GetStringAsync("https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page=30");
+        var json = await _http.GetStringAsync(
+            "https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page=30");
+
         using var doc = JsonDocument.Parse(json);
+
         foreach (var release in doc.RootElement.EnumerateArray())
         {
-            if (release.GetProperty("draft").GetBoolean()) continue;
-            var pre = release.GetProperty("prerelease").GetBoolean();
-            if (pre && !includePrerelease) continue;
+            if (release.GetProperty("draft").GetBoolean())
+                continue;
+
+            var prerelease = release.GetProperty("prerelease").GetBoolean();
+            if (prerelease && !includePrerelease)
+                continue;
+
             var tag = release.GetProperty("tag_name").GetString() ?? "unknown";
             var name = release.GetProperty("name").GetString() ?? tag;
-            foreach (var asset in release.GetProperty("assets").EnumerateArray())
-            {
-                var assetName = asset.GetProperty("name").GetString() ?? "";
-                if (!assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) continue;
-                if (assetName.Contains("rtx40-mfg", StringComparison.OrdinalIgnoreCase)) continue;
-                var url = asset.GetProperty("browser_download_url").GetString();
-                if (!string.IsNullOrWhiteSpace(url)) return new(tag, name, pre, url);
-            }
+
+            var candidates = release.GetProperty("assets")
+                .EnumerateArray()
+                .Select(asset =>
+                {
+                    var assetName = asset.GetProperty("name").GetString() ?? string.Empty;
+                    var url = asset.GetProperty("browser_download_url").GetString();
+                    var digest = asset.TryGetProperty("digest", out var digestElement)
+                        ? digestElement.GetString()
+                        : null;
+
+                    return new
+                    {
+                        AssetName = assetName,
+                        Url = url,
+                        Digest = digest
+                    };
+                })
+                .Where(x =>
+                    !string.IsNullOrWhiteSpace(x.Url) &&
+                    x.AssetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                    x.AssetName.Contains("OptiScaler-NR", StringComparison.OrdinalIgnoreCase) &&
+                    !x.AssetName.Contains("rtx40-mfg", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.AssetName.Length)
+                .ToList();
+
+            var asset = candidates.FirstOrDefault();
+            if (asset == null)
+                continue;
+
+            var sha256 = asset.Digest != null &&
+                         asset.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+                ? asset.Digest["sha256:".Length..]
+                : null;
+
+            return new(tag, name, prerelease, asset.Url!, sha256);
         }
+
         return null;
     }
 
-    public async Task DownloadAsync(string url, string destination)
+    public async Task DownloadAsync(string url, string destination, string? expectedSha256 = null)
     {
         using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
-        await using var source = await response.Content.ReadAsStreamAsync();
-        await using var target = File.Create(destination);
-        await source.CopyToAsync(target);
+
+        await using (var source = await response.Content.ReadAsStreamAsync())
+        await using (var target = File.Create(destination))
+        {
+            await source.CopyToAsync(target);
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            var actual = await HashService.Sha256Async(destination);
+            if (!actual.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                try { File.Delete(destination); } catch { }
+                throw new InvalidDataException(
+                    $"Downloaded OptiScaler archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
+            }
+        }
+    }
+
+    public async Task<(Version? Version, string? Url)> GetLatestManagerReleaseAsync()
+    {
+        try
+        {
+            var json = await _http.GetStringAsync(
+                "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest");
+
+            using var doc = JsonDocument.Parse(json);
+            var tag = doc.RootElement.GetProperty("tag_name").GetString();
+            var url = doc.RootElement.GetProperty("html_url").GetString();
+
+            if (string.IsNullOrWhiteSpace(tag))
+                return (null, url);
+
+            var normalized = tag.Trim().TrimStart('v', 'V');
+            return Version.TryParse(normalized, out var version)
+                ? (version, url)
+                : (null, url);
+        }
+        catch
+        {
+            return (null, null);
+        }
     }
 }
