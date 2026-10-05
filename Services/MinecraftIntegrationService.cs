@@ -118,10 +118,10 @@ public sealed class MinecraftIntegrationService
     {
         ValidateInstance(minecraftRoot);
 
-        var java = await FindJava25ExecutableAsync(cancellationToken)
-            ?? throw new InvalidOperationException(
-                "Java 25 was not found. Minecraft 26.2 + Caustica RTX requires Java 25. " +
-                "Install a Java 25 x64 runtime, then run Install DLSS / RTX again.");
+        var java = await EnsureJava25Async(
+            minecraftRoot,
+            progress,
+            cancellationToken);
 
         var release = await FindReleaseAsync(
             FabricInstallerRepo,
@@ -480,7 +480,59 @@ public sealed class MinecraftIntegrationService
         catch { }
     }
 
+    private static async Task<string> EnsureJava25Async(
+        string minecraftRoot,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var java = await FindJava25ExecutableAsync(
+            minecraftRoot,
+            cancellationToken);
+
+        if (java != null)
+            return java;
+
+        var winget = FindOnPath("winget.exe");
+        if (winget == null)
+        {
+            throw new InvalidOperationException(
+                "Java 25 was not found and WinGet is unavailable. " +
+                "Install an x64 Java 25 runtime (for example Eclipse Temurin 25), then retry.");
+        }
+
+        progress?.Report(
+            "Java 25 is missing. Installing Eclipse Temurin 25 automatically with WinGet…");
+
+        foreach (var packageId in new[]
+        {
+            "EclipseAdoptium.Temurin.25.JRE",
+            "EclipseAdoptium.Temurin.25.JDK"
+        })
+        {
+            if (await TryInstallWingetPackageAsync(
+                    winget,
+                    packageId,
+                    cancellationToken))
+            {
+                java = await FindJava25ExecutableAsync(
+                    minecraftRoot,
+                    cancellationToken);
+
+                if (java != null)
+                {
+                    progress?.Report("Java 25 installed and verified.");
+                    return java;
+                }
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Java 25 could not be installed or verified automatically. " +
+            "Install Eclipse Temurin 25 x64 manually, then retry.");
+    }
+
     private static async Task<string?> FindJava25ExecutableAsync(
+        string minecraftRoot,
         CancellationToken cancellationToken)
     {
         var candidates = new List<string>();
@@ -500,6 +552,38 @@ public sealed class MinecraftIntegrationService
         {
             AddCandidate(Path.Combine(javaHome, "bin", "java.exe"));
             AddCandidate(Path.Combine(javaHome, "bin", "javaw.exe"));
+        }
+
+        foreach (var pathRoot in (Environment.GetEnvironmentVariable("PATH") ?? "")
+                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            AddCandidate(Path.Combine(pathRoot, "java.exe"));
+            AddCandidate(Path.Combine(pathRoot, "javaw.exe"));
+        }
+
+        foreach (var runtimeRoot in new[]
+        {
+            Path.Combine(minecraftRoot, "runtime"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                ".minecraft",
+                "runtime")
+        })
+        {
+            if (!Directory.Exists(runtimeRoot))
+                continue;
+
+            try
+            {
+                foreach (var candidate in Directory.EnumerateFiles(
+                             runtimeRoot,
+                             "java.exe",
+                             SearchOption.AllDirectories))
+                {
+                    AddCandidate(candidate);
+                }
+            }
+            catch { }
         }
 
         foreach (var root in new[]
@@ -542,6 +626,78 @@ public sealed class MinecraftIntegrationService
         }
 
         return null;
+    }
+
+    private static string? FindOnPath(string executable)
+    {
+        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "")
+                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            try
+            {
+                var candidate = Path.Combine(directory, executable);
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+            catch { }
+        }
+
+        var windowsApps = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Microsoft",
+            "WindowsApps",
+            executable);
+
+        return File.Exists(windowsApps) ? windowsApps : null;
+    }
+
+    private static async Task<bool> TryInstallWingetPackageAsync(
+        string winget,
+        string packageId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(winget)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+
+            foreach (var arg in new[]
+            {
+                "install",
+                "--id", packageId,
+                "--exact",
+                "--source", "winget",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+                "--silent",
+                "--disable-interactivity"
+            })
+            {
+                psi.ArgumentList.Add(arg);
+            }
+
+            using var process = Process.Start(psi);
+            if (process == null)
+                return false;
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+            await process.WaitForExitAsync(cancellationToken);
+            await stdoutTask;
+            await stderrTask;
+
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static async Task<bool> IsJavaMajorVersionAsync(
