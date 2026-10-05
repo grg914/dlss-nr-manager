@@ -148,7 +148,15 @@ public sealed class StreamlineRuntimeService
                     continue;
 
                 var destination = Path.Combine(gameDirectory, name);
-                File.Copy(source, destination, true);
+
+                // This helper exists for PCs/games that are missing the NVIDIA
+                // runtime resources. Never overwrite a game's existing vendor DLLs;
+                // OptiScaler's managed nvngx_dlssnr.dll is handled separately by
+                // InstallerService with backup/rollback semantics.
+                if (File.Exists(destination))
+                    continue;
+
+                File.Copy(source, destination, false);
                 installed.Add(destination);
             }
 
@@ -165,7 +173,7 @@ public sealed class StreamlineRuntimeService
 
     public void ClearCache() => TryDeleteDirectory(RootDirectory);
 
-    private static bool IsTrustedNvidiaRuntime(Models.RuntimeValidation validation)
+    private static bool IsTrustedNvidiaRuntime(DlssNrManager.Models.RuntimeValidation validation)
         => validation.Is64Bit
            && validation.SignatureValid
            && !string.IsNullOrWhiteSpace(validation.Publisher)
