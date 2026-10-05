@@ -96,7 +96,9 @@ public sealed class PcUpdateService
         progress?.Report("Checking Windows, connected-device drivers and firmware…");
         try
         {
-            items.AddRange(await ScanWindowsUpdateAsync(bios, cancellationToken));
+            var windowsItems = await ScanWindowsUpdateAsync(bios, cancellationToken);
+            items.AddRange(windowsItems);
+            items.Add(await ScanNvidiaDriverStatusAsync(windowsItems, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -146,6 +148,123 @@ public sealed class PcUpdateService
         {
             UseShellExecute = true
         });
+    }
+
+    public async Task<string> UpdateAllWingetAsync(
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        progress?.Report("Updating applications with WinGet…");
+
+        var result = await RunAsync(
+            "winget.exe",
+            new[]
+            {
+                "upgrade",
+                "--all",
+                "--include-unknown",
+                "--include-pinned",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+                "--disable-interactivity",
+                "--nowarn"
+            },
+            cancellationToken);
+
+        if (result.ExitCode != 0 &&
+            !LooksLikeNoWingetUpdates(result.Output + "\n" + result.Error))
+        {
+            throw new InvalidOperationException(
+                $"WinGet update failed with exit code {result.ExitCode}. {Tail(result.Error, 1500)}");
+        }
+
+        ClearCache();
+
+        var output = (result.Output + "\n" + result.Error).Trim();
+        return string.IsNullOrWhiteSpace(output)
+            ? "WinGet update completed."
+            : Tail(output, 5000);
+    }
+
+    private async Task<PcUpdateItem> ScanNvidiaDriverStatusAsync(
+        IReadOnlyList<PcUpdateItem> windowsItems,
+        CancellationToken cancellationToken)
+    {
+        string gpuName = "NVIDIA GPU";
+        string installedVersion = "Unknown";
+
+        try
+        {
+            var smi = await RunAsync(
+                "nvidia-smi.exe",
+                new[]
+                {
+                    "--query-gpu=name,driver_version",
+                    "--format=csv,noheader"
+                },
+                cancellationToken);
+
+            var line = smi.Output
+                .Replace("\r", "")
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                var parts = line.Split(',', 2);
+                if (parts.Length >= 1 && !string.IsNullOrWhiteSpace(parts[0]))
+                    gpuName = parts[0].Trim();
+                if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[1]))
+                    installedVersion = parts[1].Trim();
+            }
+        }
+        catch
+        {
+            // nvidia-smi may not be on PATH. Fall back to the registry.
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SOFTWARE\NVIDIA Corporation\Installer");
+                installedVersion = key?.GetValue("LastInstallerVersion")?.ToString()
+                                   ?? "Unknown";
+            }
+            catch { }
+        }
+
+        var offered = windowsItems.FirstOrDefault(item =>
+            item.Kind == PcUpdateKind.Driver &&
+            (
+                item.Name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase) ||
+                item.Details.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
+            ));
+
+        if (offered != null)
+        {
+            return new PcUpdateItem(
+                PcUpdateKind.Driver,
+                $"NVIDIA driver — {gpuName}",
+                installedVersion,
+                string.IsNullOrWhiteSpace(offered.AvailableVersion)
+                    ? "Update available"
+                    : offered.AvailableVersion,
+                "Windows Update + NVIDIA",
+                "Open NVIDIA drivers",
+                "https://www.nvidia.com/Download/index.aspx",
+                "A newer NVIDIA driver is currently offered through Windows Update. " +
+                "For the newest Game Ready / Studio release, use NVIDIA's official driver page.");
+        }
+
+        return new PcUpdateItem(
+            PcUpdateKind.Driver,
+            $"NVIDIA driver — {gpuName}",
+            installedVersion,
+            "No newer NVIDIA driver offered by Windows Update",
+            "NVIDIA",
+            "Check official NVIDIA drivers",
+            "https://www.nvidia.com/Download/index.aspx",
+            "Windows Update does not currently advertise a newer NVIDIA display driver. " +
+            "This does not guarantee you have NVIDIA's newest Game Ready / Studio branch; " +
+            "open the official NVIDIA page for the definitive vendor check.");
     }
 
     private async Task<IReadOnlyList<PcUpdateItem>> ScanSoftwareUpdatesAsync(
