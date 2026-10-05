@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
 
-Current application version: **v0.7.0**.
+Current application version: **v0.8.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, Ubisoft Connect, EA App, Xbox App and Battle.net**, with upstream-validated profiles for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy, plus NVIDIA RTX 20/30/40/50 GPUs.
 
@@ -57,11 +57,15 @@ The application now uses the dark WPF dashboard shown above, with game detection
 - Checks GitHub Releases for newer DLSS NR Manager versions
 - Game cover artwork in the library, including Steam and best-effort artwork resolution for Epic, EA App, Battle.net, Ubisoft Connect, GOG and Xbox App
 - Dedicated cover fallbacks for Battlefield 6 / BF6 and Call of Duty: Black Ops 6 / BO6
+- Artwork is downloaded into `%LOCALAPPDATA%\\DlssNrManager\\artwork` so non-Steam launchers use stable local cover files; the UI includes a **Clear cover cache** action
 - Integrated **Media Neural Rendering** for local images and videos
 - Media engine setup downloads `video2dlssnr` and FFmpeg from their upstream GitHub releases instead of bundling them
 - Media output presets: Native, 2× and 4K
 - Media Neural Rendering styles: Default, Natural and Cinematic, with adjustable intensity
 - Video processing keeps audio and uses NVENC HEVC encoding when available
+- Optional verified ReShade installer with **full add-on support** for the selected game
+- Automatic GitHub component checks update `video2dlssnr` and FFmpeg when their upstream release assets change
+- Multi-resolution Windows icon is generated from the HD PNG logo before compilation using high-quality Fant scaling
 
 ## Default Neural Rendering preset
 
