@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -17,6 +18,7 @@ public partial class MainWindow : Window
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
     private string? _runtimePath;
+    private string? _managerUpdateUrl;
     private DetectedGame? _selectedGame;
     private IReadOnlyList<DetectedGame> _detectedGames = [];
     private bool _isBusy;
@@ -53,7 +55,8 @@ public partial class MainWindow : Window
 
         await Task.WhenAll(
             RefreshReleaseAsync(),
-            ScanGamesAsync(forceRefresh: false));
+            ScanGamesAsync(forceRefresh: false),
+            CheckManagerUpdateAsync());
 
         await RefreshStateAsync();
     }
@@ -97,6 +100,21 @@ public partial class MainWindow : Window
         {
             GameBox.IsEnabled = true;
         }
+    }
+
+    private async Task CheckManagerUpdateAsync()
+    {
+        var latest = await _releases.GetLatestManagerReleaseAsync();
+        if (latest.Version == null)
+            return;
+
+        var current = typeof(MainWindow).Assembly.GetName().Version ?? new Version(0, 0, 0);
+        if (latest.Version <= current)
+            return;
+
+        _managerUpdateUrl = latest.Url;
+        ManagerUpdateButton.Content = $"Update v{latest.Version}";
+        ManagerUpdateButton.Visibility = Visibility.Visible;
     }
 
     private async Task RefreshReleaseAsync()
@@ -492,6 +510,14 @@ public partial class MainWindow : Window
     {
         if (IsLoaded)
             await RefreshReleaseAsync();
+    }
+
+    private void ManagerUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_managerUpdateUrl))
+            return;
+
+        Process.Start(new ProcessStartInfo(_managerUpdateUrl) { UseShellExecute = true });
     }
 
     private void Minimize_Click(object sender, RoutedEventArgs e)
