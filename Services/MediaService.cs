@@ -39,6 +39,16 @@ public sealed class MediaService
         File.Exists(FfmpegExe) &&
         File.Exists(FfprobeExe);
 
+    public void ResetTools()
+    {
+        try
+        {
+            if (Directory.Exists(RootDirectory))
+                Directory.Delete(RootDirectory, true);
+        }
+        catch { }
+    }
+
     public async Task SetupAsync(
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
