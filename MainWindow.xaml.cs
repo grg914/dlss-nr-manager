@@ -87,6 +87,8 @@ public partial class MainWindow : Window
 
     private async Task InitializeAsync()
     {
+        _appUpdater.CleanupSuccessfulUpdateBackup();
+
         _gpu = _gpus.Detect();
         GpuText.Text = $"{_gpu.Name}  •  {_gpu.Generation}";
 
