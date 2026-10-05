@@ -287,28 +287,50 @@ public sealed class PcCleanupService
         ref int skipped,
         CancellationToken cancellationToken)
     {
-        List<string> directories;
-        try
+        var pending = new Stack<string>();
+        var directories = new List<string>();
+        pending.Push(root);
+
+        while (pending.Count > 0)
         {
-            directories = Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories)
-                .OrderByDescending(path => path.Length)
-                .ToList();
-        }
-        catch
-        {
-            return;
+            cancellationToken.ThrowIfCancellationRequested();
+            var current = pending.Pop();
+
+            IEnumerable<string> children;
+            try
+            {
+                children = Directory.EnumerateDirectories(current).ToArray();
+            }
+            catch
+            {
+                skipped++;
+                continue;
+            }
+
+            foreach (var child in children)
+            {
+                try
+                {
+                    var attributes = File.GetAttributes(child);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0)
+                        continue;
+
+                    directories.Add(child);
+                    pending.Push(child);
+                }
+                catch
+                {
+                    skipped++;
+                }
+            }
         }
 
-        foreach (var directory in directories)
+        foreach (var directory in directories.OrderByDescending(path => path.Length))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             try
             {
-                var attributes = File.GetAttributes(directory);
-                if ((attributes & FileAttributes.ReparsePoint) != 0)
-                    continue;
-
                 if (!Directory.EnumerateFileSystemEntries(directory).Any())
                     Directory.Delete(directory, false);
             }
