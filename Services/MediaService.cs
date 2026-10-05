@@ -58,31 +58,43 @@ public sealed class MediaService
             "_update-backup-" + Guid.NewGuid().ToString("N"));
         var processorBackup = Path.Combine(backupRoot, "video2dlssnr");
         var toolsBackup = Path.Combine(backupRoot, "tools");
+        var processorMoved = false;
+        var toolsMoved = false;
 
         try
         {
             Directory.CreateDirectory(backupRoot);
 
             if (Directory.Exists(ProcessorDirectory))
+            {
                 Directory.Move(ProcessorDirectory, processorBackup);
+                processorMoved = true;
+            }
 
             if (Directory.Exists(ToolsDirectory))
+            {
                 Directory.Move(ToolsDirectory, toolsBackup);
+                toolsMoved = true;
+            }
 
             await SetupAsync(progress, cancellationToken);
             TryDeleteDirectory(backupRoot);
         }
         catch
         {
-            // Remove any partial replacement before restoring the last
-            // known-good media engine.
-            TryDeleteDirectory(ProcessorDirectory);
-            TryDeleteDirectory(ToolsDirectory);
+            // Delete only replacement directories whose originals were
+            // successfully moved away. If a move itself failed, leave the
+            // original directory untouched.
+            if (processorMoved)
+                TryDeleteDirectory(ProcessorDirectory);
 
-            if (Directory.Exists(processorBackup))
+            if (toolsMoved)
+                TryDeleteDirectory(ToolsDirectory);
+
+            if (processorMoved && Directory.Exists(processorBackup))
                 Directory.Move(processorBackup, ProcessorDirectory);
 
-            if (Directory.Exists(toolsBackup))
+            if (toolsMoved && Directory.Exists(toolsBackup))
                 Directory.Move(toolsBackup, ToolsDirectory);
 
             TryDeleteDirectory(backupRoot);
