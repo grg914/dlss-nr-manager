@@ -1,35 +1,58 @@
 <Window x:Class="DlssNrManager.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="DLSS NR Manager" Width="980" Height="760" MinWidth="820" MinHeight="650"
+        Title="DLSS NR Manager" Width="1020" Height="820" MinWidth="860" MinHeight="680"
         WindowStartupLocation="CenterScreen">
-  <Grid Margin="28">
+  <Grid Margin="28" Background="{StaticResource Bg}">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
     <StackPanel Margin="0,0,0,22">
       <TextBlock Text="DLSS NR Manager" FontSize="30" FontWeight="SemiBold"/>
-      <TextBlock Text="OptiScaler Neural Rendering manager for Cyberpunk 2077" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/>
+      <TextBlock Text="OptiScaler Neural Rendering manager for compatible installed games"
+                 Foreground="{StaticResource Muted}" Margin="0,5,0,0"/>
     </StackPanel>
+
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
       <StackPanel>
         <Border Background="{StaticResource Card}" CornerRadius="14" Padding="20" Margin="0,0,0,14">
-          <Grid>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <StackPanel>
-              <TextBlock Text="Cyberpunk 2077" FontSize="22" FontWeight="SemiBold"/>
-              <TextBlock x:Name="StatusText" Text="Checking installation…" Foreground="{StaticResource Accent}" Margin="0,5,0,14"/>
-              <TextBlock Text="Game folder" Foreground="{StaticResource Muted}"/>
-              <TextBox x:Name="GamePathBox" Margin="0,5,0,12" IsReadOnly="True"/>
-              <TextBlock Text="GPU" Foreground="{StaticResource Muted}"/>
-              <TextBlock x:Name="GpuText" Margin="0,4,0,6"/>
-              <TextBlock x:Name="VersionText" Foreground="{StaticResource Muted}"/>
-              <TextBlock x:Name="RuntimeText" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Margin="22,0,0,0">
-              <Button Content="Select game folder" Click="SelectGame_Click" Margin="0,0,0,8"/>
-              <Button Content="Select DLSSNR runtime" Click="SelectRuntime_Click" Margin="0,0,0,8"/>
-              <TextBlock x:Name="RuntimePathText" TextWrapping="Wrap" Width="250" Foreground="{StaticResource Muted}"/>
-            </StackPanel>
-          </Grid>
+          <StackPanel>
+            <DockPanel Margin="0,0,0,12">
+              <StackPanel>
+                <TextBlock Text="Game target" FontSize="22" FontWeight="SemiBold"/>
+                <TextBlock x:Name="StatusText" Text="Scanning installed games…"
+                           Foreground="{StaticResource Accent}" Margin="0,5,0,0"/>
+              </StackPanel>
+              <Button Content="Scan installed games" DockPanel.Dock="Right"
+                      HorizontalAlignment="Right" Click="ScanGames_Click" Margin="12,0,0,0"/>
+            </DockPanel>
+
+            <TextBlock Text="Detected compatible games" Foreground="{StaticResource Muted}"/>
+            <ComboBox x:Name="GameBox" Margin="0,5,0,12" Height="34"
+                      DisplayMemberPath="DisplayName"
+                      SelectionChanged="GameBox_SelectionChanged"/>
+
+            <TextBlock x:Name="CompatibilityText" Foreground="{StaticResource Muted}"
+                       TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="Target executable folder" Foreground="{StaticResource Muted}"/>
+                <TextBox x:Name="GamePathBox" Margin="0,5,0,12" IsReadOnly="True"/>
+                <TextBlock Text="GPU" Foreground="{StaticResource Muted}"/>
+                <TextBlock x:Name="GpuText" Margin="0,4,0,6"/>
+                <TextBlock x:Name="VersionText" Foreground="{StaticResource Muted}"/>
+                <TextBlock x:Name="RuntimeText" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+              </StackPanel>
+
+              <StackPanel Grid.Column="1" Margin="22,0,0,0">
+                <Button Content="Select game folder" Click="SelectGame_Click" Margin="0,0,0,8"/>
+                <Button Content="Select DLSSNR runtime" Click="SelectRuntime_Click" Margin="0,0,0,8"/>
+                <TextBlock x:Name="RuntimePathText" TextWrapping="Wrap" Width="280"
+                           Foreground="{StaticResource Muted}"/>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
         </Border>
 
         <Border Background="{StaticResource Card}" CornerRadius="14" Padding="20" Margin="0,0,0,14">
@@ -40,8 +63,10 @@
                 <ComboBoxItem Content="Stable" IsSelected="True"/>
                 <ComboBoxItem Content="Prerelease"/>
               </ComboBox>
-              <TextBlock x:Name="AvailableVersionText" VerticalAlignment="Center" Margin="14,0,0,0" Foreground="{StaticResource Muted}"/>
+              <TextBlock x:Name="AvailableVersionText" VerticalAlignment="Center"
+                         Margin="14,0,0,0" Foreground="{StaticResource Muted}"/>
             </StackPanel>
+
             <WrapPanel>
               <Button x:Name="InstallButton" Content="Install" Click="Install_Click"/>
               <Button x:Name="UpdateButton" Content="Update" Click="Install_Click"/>
@@ -56,11 +81,12 @@
           <StackPanel Margin="0,12,0,0">
             <TextBlock Text="Proxy DLL" Foreground="{StaticResource Muted}"/>
             <ComboBox x:Name="ProxyBox" Width="220" HorizontalAlignment="Left" Margin="0,5,0,10">
-              <ComboBoxItem Content="dbghelp.dll" IsSelected="True"/>
-              <ComboBoxItem Content="dxgi.dll"/>
+              <ComboBoxItem Content="dbghelp.dll"/>
+              <ComboBoxItem Content="dxgi.dll" IsSelected="True"/>
               <ComboBoxItem Content="d3d12.dll"/>
             </ComboBox>
-            <TextBlock Text="Cyberpunk recommendation: dbghelp.dll. Use dxgi.dll as fallback. d3d12.dll can conflict with Streamline/Ray Reconstruction." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
+            <TextBlock Text="dxgi.dll is the generic first choice. Cyberpunk 2077 uses dbghelp.dll as its validated recommendation. Existing loaders are never overwritten silently."
+                       Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
           </StackPanel>
         </Expander>
 
@@ -68,7 +94,8 @@
           <StackPanel>
             <DockPanel Margin="0,0,0,10">
               <TextBlock Text="OptiScaler log" FontSize="16" FontWeight="SemiBold"/>
-              <Button Content="Reload log" DockPanel.Dock="Right" HorizontalAlignment="Right" Click="ReloadLog_Click"/>
+              <Button Content="Reload log" DockPanel.Dock="Right"
+                      HorizontalAlignment="Right" Click="ReloadLog_Click"/>
             </DockPanel>
             <TextBox x:Name="LogBox" Height="220" IsReadOnly="True" TextWrapping="NoWrap"
                      FontFamily="Consolas" FontSize="12" VerticalScrollBarVisibility="Auto"
