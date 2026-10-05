@@ -1,0 +1,359 @@
+using System.Collections.Concurrent;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using DlssNrManager.Models;
+
+namespace DlssNrManager.Services;
+
+public sealed class GameArtworkService
+{
+    private const int MaxConcurrentLookups = 4;
+    private static readonly TimeSpan CacheLifetime = TimeSpan.FromDays(30);
+
+    private readonly HttpClient _http = new();
+    private readonly ConcurrentDictionary<string, ArtworkCacheEntry> _cache;
+
+    private static readonly string CachePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "DlssNrManager",
+        "artwork-cache.json");
+
+    public GameArtworkService()
+    {
+        _http.Timeout = TimeSpan.FromSeconds(8);
+        _http.DefaultRequestHeaders.UserAgent.Add(
+            new ProductInfoHeaderValue("DlssNrManager", "0.6"));
+
+        _cache = LoadCache();
+    }
+
+    public async Task<IReadOnlyList<DetectedGame>> ResolveAsync(
+        IReadOnlyList<DetectedGame> games,
+        CancellationToken cancellationToken = default)
+    {
+        using var limiter = new SemaphoreSlim(MaxConcurrentLookups);
+
+        var tasks = games.Select(async game =>
+        {
+            await limiter.WaitAsync(cancellationToken);
+            try
+            {
+                return await ResolveOneAsync(game, cancellationToken);
+            }
+            finally
+            {
+                limiter.Release();
+            }
+        });
+
+        var resolved = await Task.WhenAll(tasks);
+        SaveCache();
+        return resolved;
+    }
+
+    private async Task<DetectedGame> ResolveOneAsync(
+        DetectedGame game,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(game.ArtworkUrl))
+            return game;
+
+        var local = FindLocalArtwork(game.InstallRoot, game.Platform);
+        if (local != null)
+            return game with { ArtworkUrl = local };
+
+        var key = NormalizeTitle(game.Name);
+        if (string.IsNullOrWhiteSpace(key))
+            return game;
+
+        if (_cache.TryGetValue(key, out var cached) &&
+            DateTimeOffset.UtcNow - cached.CreatedAt < CacheLifetime)
+        {
+            return string.IsNullOrWhiteSpace(cached.Url)
+                ? game
+                : game with { ArtworkUrl = cached.Url };
+        }
+
+        var url = await FindStrictSteamArtworkAsync(game.Name, cancellationToken);
+        _cache[key] = new ArtworkCacheEntry(url, DateTimeOffset.UtcNow);
+
+        return url == null ? game : game with { ArtworkUrl = url };
+    }
+
+    private async Task<string?> FindStrictSteamArtworkAsync(
+        string gameName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var requestUrl =
+                "https://store.steampowered.com/api/storesearch/?" +
+                $"term={Uri.EscapeDataString(gameName)}&l=english&cc=US";
+
+            using var response = await _http.GetAsync(
+                requestUrl,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+
+            if (!json.RootElement.TryGetProperty("items", out var items) ||
+                items.ValueKind != JsonValueKind.Array)
+                return null;
+
+            var wanted = NormalizeTitle(gameName);
+            foreach (var item in items.EnumerateArray())
+            {
+                if (!item.TryGetProperty("name", out var nameElement) ||
+                    !item.TryGetProperty("id", out var idElement))
+                    continue;
+
+                var candidateName = nameElement.GetString();
+                if (string.IsNullOrWhiteSpace(candidateName) ||
+                    !NormalizeTitle(candidateName).Equals(wanted, StringComparison.Ordinal))
+                    continue;
+
+                var appId = idElement.GetInt32();
+                foreach (var url in new[]
+                {
+                    $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900_2x.jpg",
+                    $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg"
+                })
+                {
+                    if (await UrlExistsAsync(url, cancellationToken))
+                        return url;
+                }
+
+                return null;
+            }
+        }
+        catch
+        {
+            // Artwork is cosmetic. Detection/install must never fail because a store is offline.
+        }
+
+        return null;
+    }
+
+    private async Task<bool> UrlExistsAsync(string url, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Range = new RangeHeaderValue(0, 0);
+
+            using var response = await _http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            return response.IsSuccessStatusCode &&
+                   response.Content.Headers.ContentType?.MediaType?.StartsWith(
+                       "image/",
+                       StringComparison.OrdinalIgnoreCase) == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string? FindLocalArtwork(string root, string platform)
+    {
+        if (!Directory.Exists(root))
+            return null;
+
+        var explicitArtwork = platform.Equals("Xbox App", StringComparison.OrdinalIgnoreCase)
+            ? FindXboxArtwork(root)
+            : null;
+
+        if (explicitArtwork != null)
+            return explicitArtwork;
+
+        var preferredNames = new[]
+        {
+            "cover", "poster", "boxart", "box_art", "keyart", "key_art",
+            "library_600x900", "library_600x900_2x", "portrait", "vertical",
+            "storelogo", "store_logo"
+        };
+
+        var extensions = new HashSet<string>(
+            new[] { ".jpg", ".jpeg", ".png", ".bmp" },
+            StringComparer.OrdinalIgnoreCase);
+
+        var queue = new Queue<(string Path, int Depth)>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var candidates = new List<(string Path, int Score)>();
+        queue.Enqueue((root, 0));
+
+        while (queue.Count > 0 && visited.Count < 500)
+        {
+            var (directory, depth) = queue.Dequeue();
+            if (!visited.Add(directory))
+                continue;
+
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(directory))
+                {
+                    if (!extensions.Contains(Path.GetExtension(file)))
+                        continue;
+
+                    var baseName = Path.GetFileNameWithoutExtension(file)
+                        .Replace("-", "_")
+                        .Replace(" ", "_");
+
+                    var score = preferredNames
+                        .Select((value, index) => new { value, index })
+                        .Where(x => baseName.Contains(x.value, StringComparison.OrdinalIgnoreCase))
+                        .Select(x => 100 - x.index)
+                        .DefaultIfEmpty(0)
+                        .Max();
+
+                    if (score > 0)
+                        candidates.Add((file, score - depth * 5));
+                }
+            }
+            catch { }
+
+            if (depth >= 3)
+                continue;
+
+            try
+            {
+                foreach (var child in Directory.EnumerateDirectories(directory))
+                {
+                    var name = Path.GetFileName(child);
+                    if (name.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
+                        name.Equals("_CommonRedist", StringComparison.OrdinalIgnoreCase) ||
+                        name.Equals("__Installer", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    queue.Enqueue((child, depth + 1));
+                }
+            }
+            catch { }
+        }
+
+        return candidates
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x =>
+            {
+                try { return new FileInfo(x.Path).Length; }
+                catch { return 0L; }
+            })
+            .Select(x => x.Path)
+            .FirstOrDefault();
+    }
+
+    private static string? FindXboxArtwork(string contentRoot)
+    {
+        var config = Path.Combine(contentRoot, "MicrosoftGame.config");
+        if (!File.Exists(config))
+            return null;
+
+        try
+        {
+            var xml = new System.Xml.XmlDocument();
+            xml.Load(config);
+
+            var shellVisuals = xml.SelectSingleNode("//ShellVisuals");
+            if (shellVisuals?.Attributes == null)
+                return null;
+
+            foreach (var attributeName in new[]
+                     {
+                         "StoreLogo", "Square150x150Logo", "Square44x44Logo", "SplashScreenImage"
+                     })
+            {
+                var relative = shellVisuals.Attributes[attributeName]?.Value;
+                if (string.IsNullOrWhiteSpace(relative))
+                    continue;
+
+                var path = Path.Combine(
+                    contentRoot,
+                    relative.Replace('/', Path.DirectorySeparatorChar));
+
+                if (File.Exists(path))
+                    return path;
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    private static string NormalizeTitle(string value)
+    {
+        var normalized = value.ToLowerInvariant();
+
+        normalized = Regex.Replace(
+            normalized,
+            @"\b(deluxe|ultimate|standard|complete|definitive|gold|goty|game of the year)\s+edition\b",
+            string.Empty,
+            RegexOptions.CultureInvariant);
+
+        normalized = normalized
+            .Replace("™", string.Empty)
+            .Replace("®", string.Empty)
+            .Replace("©", string.Empty)
+            .Replace("&", "and");
+
+        normalized = Regex.Replace(
+            normalized,
+            @"[^a-z0-9]+",
+            string.Empty,
+            RegexOptions.CultureInvariant);
+
+        return normalized;
+    }
+
+    private static ConcurrentDictionary<string, ArtworkCacheEntry> LoadCache()
+    {
+        try
+        {
+            if (!File.Exists(CachePath))
+                return new();
+
+            var entries = JsonSerializer.Deserialize<Dictionary<string, ArtworkCacheEntry>>(
+                File.ReadAllText(CachePath));
+
+            return entries == null
+                ? new()
+                : new ConcurrentDictionary<string, ArtworkCacheEntry>(
+                    entries,
+                    StringComparer.Ordinal);
+        }
+        catch
+        {
+            return new();
+        }
+    }
+
+    private void SaveCache()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(CachePath)!);
+
+            var snapshot = _cache.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value,
+                StringComparer.Ordinal);
+
+            File.WriteAllText(
+                CachePath,
+                JsonSerializer.Serialize(
+                    snapshot,
+                    new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch { }
+    }
+
+    private sealed record ArtworkCacheEntry(string? Url, DateTimeOffset CreatedAt);
+}
