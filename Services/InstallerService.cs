@@ -50,7 +50,7 @@ public sealed class InstallerService
             expected != null && hash?.Equals(expected, StringComparison.OrdinalIgnoreCase) == true);
     }
 
-    public async Task<string> InstallAsync(string gameDir, string runtimePath, GpuInfo gpu, ReleaseInfo release, string proxy, GitHubReleaseService releases)
+    public async Task<string> InstallAsync(string gameDir, string runtimePath, GpuInfo gpu, ReleaseInfo release, string proxy, string workingScale, GitHubReleaseService releases)
     {
         if (!Directory.Exists(gameDir) || !Directory.EnumerateFiles(gameDir, "*.exe", SearchOption.TopDirectoryOnly).Any())
             throw new InvalidOperationException("No game executable was found in the selected target folder.");
@@ -79,11 +79,20 @@ public sealed class InstallerService
         File.Copy(optiDll, proxyPath, true);
         File.Delete(optiDll);
         File.Copy(runtimePath, Path.Combine(gameDir, "nvngx_dlssnr.dll"), true);
-        IniService.ApplyCyberpunkPreset(Path.Combine(gameDir, "OptiScaler.ini"));
+        IniService.ApplyPreset(Path.Combine(gameDir, "OptiScaler.ini"), workingScale);
         File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-version"), release.Tag);
         File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-proxy"), proxy);
         Directory.Delete(temp, true);
         return backup;
+    }
+
+    public void ApplyPreset(string gameDir, string workingScale)
+    {
+        var ini = Path.Combine(gameDir, "OptiScaler.ini");
+        if (!File.Exists(ini))
+            throw new InvalidOperationException("OptiScaler.ini was not found for the selected game.");
+
+        IniService.ApplyPreset(ini, workingScale);
     }
 
     public string CreateBackup(string gameDir)
