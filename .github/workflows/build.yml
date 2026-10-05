@@ -35,6 +35,43 @@ jobs:
           if ($count -lt 1) { throw "Published EXE contains no embedded icon resource" }
           Write-Host "Embedded icon groups: $count"
 
+      - name: Verify exact Windows icon frames
+        shell: pwsh
+        run: |
+          $path = "assets/branding/app.ico"
+          if (!(Test-Path $path)) { throw "Generated app.ico is missing" }
+
+          $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $path))
+          if ($bytes.Length -lt 6) { throw "Generated ICO is too small" }
+
+          $count = [BitConverter]::ToUInt16($bytes, 4)
+          $sizes = @()
+
+          for ($i = 0; $i -lt $count; $i++) {
+            $offset = 6 + ($i * 16)
+            if ($offset + 15 -ge $bytes.Length) { throw "Malformed ICO directory entry" }
+
+            $width = [int]$bytes[$offset]
+            $height = [int]$bytes[$offset + 1]
+            if ($width -eq 0) { $width = 256 }
+            if ($height -eq 0) { $height = 256 }
+
+            if ($width -ne $height) {
+              throw "Non-square icon frame detected: $width x $height"
+            }
+
+            $sizes += $width
+          }
+
+          $required = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
+          foreach ($size in $required) {
+            if ($sizes -notcontains $size) {
+              throw "Missing exact icon frame: ${size}x${size}. Found: $($sizes -join ', ')"
+            }
+          }
+
+          Write-Host "ICO frames verified: $($sizes -join ', ')"
+
       - uses: actions/upload-artifact@v4
         with:
           name: DlssNrManager-win-x64
