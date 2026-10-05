@@ -47,6 +47,49 @@ public sealed class MediaService
         TryDeleteDirectory(ToolsDirectory);
     }
 
+    public async Task UpdateToolsAsync(
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        Directory.CreateDirectory(RootDirectory);
+
+        var backupRoot = Path.Combine(
+            RootDirectory,
+            "_update-backup-" + Guid.NewGuid().ToString("N"));
+        var processorBackup = Path.Combine(backupRoot, "video2dlssnr");
+        var toolsBackup = Path.Combine(backupRoot, "tools");
+
+        try
+        {
+            Directory.CreateDirectory(backupRoot);
+
+            if (Directory.Exists(ProcessorDirectory))
+                Directory.Move(ProcessorDirectory, processorBackup);
+
+            if (Directory.Exists(ToolsDirectory))
+                Directory.Move(ToolsDirectory, toolsBackup);
+
+            await SetupAsync(progress, cancellationToken);
+            TryDeleteDirectory(backupRoot);
+        }
+        catch
+        {
+            // Remove any partial replacement before restoring the last
+            // known-good media engine.
+            TryDeleteDirectory(ProcessorDirectory);
+            TryDeleteDirectory(ToolsDirectory);
+
+            if (Directory.Exists(processorBackup))
+                Directory.Move(processorBackup, ProcessorDirectory);
+
+            if (Directory.Exists(toolsBackup))
+                Directory.Move(toolsBackup, ToolsDirectory);
+
+            TryDeleteDirectory(backupRoot);
+            throw;
+        }
+    }
+
     public async Task SetupAsync(
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
