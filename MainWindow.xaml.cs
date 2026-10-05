@@ -1251,8 +1251,7 @@ public partial class MainWindow : Window
 
             var result = await _minecraftOneClick.InstallAsync(
                 instance,
-                installFabricApi:
-                    MinecraftInstallFabricApiCheck.IsChecked == true,
+                installFabricApi: true,
                 allowPrereleaseCaustica:
                     MinecraftAllowPrereleaseCheck.IsChecked == true,
                 progress);
