@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     private readonly GameDetectionService _games = new();
     private readonly GpuDetectionService _gpus = new();
     private readonly GitHubReleaseService _releases = new();
+    private readonly AppUpdateService _appUpdater = new();
     private readonly InstallerService _installer = new();
     private readonly DiagnosticService _diagnostics = new();
     private readonly GameArtworkService _artwork = new();
@@ -30,7 +31,7 @@ public partial class MainWindow : Window
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
     private string? _runtimePath;
-    private string? _managerUpdateUrl;
+    private ManagerReleaseInfo? _managerRelease;
     private DetectedGame? _selectedGame;
     private IReadOnlyList<DetectedGame> _detectedGames = [];
     private IReadOnlyList<MinecraftInstallCandidate> _minecraftInstances = [];
@@ -164,16 +165,32 @@ public partial class MainWindow : Window
 
     private async Task CheckManagerUpdateAsync()
     {
-        var latest = await _releases.GetLatestManagerReleaseAsync();
-        if (latest.Version == null)
-            return;
+        _managerRelease = await _releases.GetLatestManagerReleaseInfoAsync();
 
-        var current = typeof(MainWindow).Assembly.GetName().Version ?? new Version(0, 0, 0);
-        if (latest.Version <= current)
-            return;
+        var current =
+            typeof(MainWindow).Assembly.GetName().Version
+            ?? new Version(0, 0, 0);
 
-        _managerUpdateUrl = latest.Url;
-        ManagerUpdateButton.Content = $"Update v{latest.Version}";
+        if (_managerRelease == null)
+        {
+            AppVersionText.Text =
+                $"Version v{current.Major}.{current.Minor}.{current.Build} • no published update";
+            ManagerUpdateButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (_managerRelease.Version <= current)
+        {
+            AppVersionText.Text =
+                $"Version v{current.Major}.{current.Minor}.{current.Build} • latest";
+            ManagerUpdateButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        AppVersionText.Text =
+            $"Version v{current.Major}.{current.Minor}.{current.Build} • update available";
+        ManagerUpdateButton.Content =
+            $"Download & install v{_managerRelease.Version}";
         ManagerUpdateButton.Visibility = Visibility.Visible;
     }
 
@@ -1887,12 +1904,81 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ManagerUpdate_Click(object sender, RoutedEventArgs e)
+    private async void ManagerUpdate_Click(
+        object sender,
+        RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(_managerUpdateUrl))
+        if (_managerRelease == null)
+        {
+            await CheckManagerUpdateAsync();
+            if (_managerRelease == null)
+            {
+                MessageBox.Show(
+                    "No published DLSS NR Manager update is currently available.",
+                    "DLSS NR Manager update",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+        }
+
+        var current =
+            typeof(MainWindow).Assembly.GetName().Version
+            ?? new Version(0, 0, 0);
+
+        if (_managerRelease.Version <= current)
+        {
+            MessageBox.Show(
+                $"DLSS NR Manager v{current.Major}.{current.Minor}.{current.Build} is already the latest published version.",
+                "DLSS NR Manager update",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            ManagerUpdateButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (MessageBox.Show(
+                $"Download and install DLSS NR Manager v{_managerRelease.Version}?\n\n" +
+                "The update is downloaded from this project's latest GitHub Release, " +
+                "validated, then the app closes, replaces its executable and restarts automatically.",
+                "Install DLSS NR Manager update",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
-        Process.Start(new ProcessStartInfo(_managerUpdateUrl) { UseShellExecute = true });
+        try
+        {
+            ManagerUpdateButton.IsEnabled = false;
+            ManagerUpdateButton.Content =
+                $"Downloading v{_managerRelease.Version}…";
+
+            var progress = new Progress<string>(
+                message => ManagerUpdateButton.Content = message);
+
+            var staged = await _appUpdater.DownloadAndStageAsync(
+                _managerRelease,
+                progress);
+
+            ManagerUpdateButton.Content = "Restarting to update…";
+
+            _appUpdater.ApplyAndRestart(
+                staged,
+                _managerRelease.Version);
+
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            ManagerUpdateButton.IsEnabled = true;
+            ManagerUpdateButton.Content =
+                $"Retry update v{_managerRelease.Version}";
+
+            MessageBox.Show(
+                ex.Message,
+                "DLSS NR Manager update failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
