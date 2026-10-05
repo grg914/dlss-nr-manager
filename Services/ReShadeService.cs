@@ -22,7 +22,7 @@ public sealed class ReShadeService
     {
         _http.Timeout = TimeSpan.FromSeconds(30);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "1.0"));
+            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
     }
 
     public async Task<(string Version, string InstallerPath)> GetLatestAddonInstallerAsync(
