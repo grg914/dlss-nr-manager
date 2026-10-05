@@ -463,21 +463,10 @@ public sealed class MinecraftIntegrationService
 
     private static bool DetectFabric(string root)
     {
-        var versions = Path.Combine(root, "versions");
-
-        try
-        {
-            if (Directory.Exists(versions) &&
-                Directory.EnumerateDirectories(versions)
-                    .Select(Path.GetFileName)
-                    .Any(name => name?.Contains(
-                        "fabric-loader",
-                        StringComparison.OrdinalIgnoreCase) == true))
-                return true;
-        }
-        catch { }
-
-        return false;
+        var fabric = MinecraftPreflightService.DetectFabricLoader(root);
+        return fabric.ForMinecraft262 &&
+               fabric.Version != null &&
+               fabric.Version >= Version.Parse(MinimumFabricLoader);
     }
 
     private static void AddChildren(
