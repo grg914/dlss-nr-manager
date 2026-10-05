@@ -114,14 +114,25 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Minecraft Java 26.2 profile
 - Detects vanilla and common custom launcher instances
 - Optional manual instance selection
-- Downloads Fabric Installer and Fabric API from official upstream GitHub releases
-- Downloads Caustica RTX from its upstream GitHub releases
-- Local DLSS/Streamline package staging with SHA-256 validation
-- Optional `nvngx_dlssnr.dll` staging
-- Manager-tracked install/remove flow with backups
+- **Install DLSS / RTX** one-click workflow:
+  - creates a restore point before changing the instance
+  - sets `preferredGraphicsBackend:"vulkan"`
+  - installs Fabric Loader automatically when missing
+  - downloads Fabric API from FabricMC
+  - downloads the latest compatible Caustica RTX release
+  - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
+  - patches the Fabric launcher profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`
+  - relies on Caustica RTX's implemented Vulkan/NVIDIA path for path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex
+- **Restore original** reverses the one-click changes:
+  - removes manager-installed Caustica/Fabric API files
+  - restores `options.txt` and the previous launcher profile
+  - restores renderer mods moved into the backup
+  - restores previous Caustica config/native data when it existed
+  - removes Fabric version directories only when the one-click installer created them
+- Local DLSS/Streamline ZIP and `nvngx_dlssnr.dll` staging remain available as advanced/manual tools
 - Minecraft resource documentation under `resources/minecraft/`
 
-Staging NVIDIA DLLs does not by itself enable DLSS in Minecraft; the active renderer/provider must implement the corresponding NVIDIA API.
+Caustica RTX currently implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. The manager does **not** claim that copying a Super Resolution DLL alone enables DLSS Super Resolution; SR requires explicit support inside the active renderer.
 
 ## Default Neural Rendering preset
 
