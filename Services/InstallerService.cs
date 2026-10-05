@@ -21,6 +21,7 @@ public sealed class InstallerService
         }
 
         proxy ??= ProxyNames.FirstOrDefault(p => IsOptiScaler(Path.Combine(gameDir, p)));
+        proxy ??= InferProxyFromLog(gameDir);
 
         var runtime = Path.Combine(gameDir, "nvngx_dlssnr.dll");
         string? hash = null;
@@ -35,11 +36,23 @@ public sealed class InstallerService
 
         var ini = Path.Combine(gameDir, "OptiScaler.ini");
         var forwarder = Path.Combine(gameDir, "nvngx.dll_dlssnr.dll");
+        var optiFolder = Path.Combine(gameDir, "OptiScaler");
+        var log = Path.Combine(gameDir, "OptiScaler.log");
+        var versionMarker = Path.Combine(gameDir, ".dlssnr-manager-version");
 
-        var installed = proxy != null &&
-                        File.Exists(ini) &&
-                        File.Exists(runtime) &&
-                        File.Exists(forwarder);
+        var corePresent = File.Exists(ini) &&
+                          File.Exists(runtime) &&
+                          File.Exists(forwarder);
+
+        var legacyEvidence = Directory.Exists(optiFolder) ||
+                             File.Exists(log) ||
+                             File.Exists(versionMarker);
+
+        // Older manager builds did not always write the proxy/version marker files.
+        // Treat the installation as present when the complete DLSSNR payload exists
+        // and there is additional OptiScaler evidence, even if the proxy cannot be
+        // identified through PE version metadata.
+        var installed = corePresent && (proxy != null || legacyEvidence);
 
         return new(
             installed,
@@ -135,6 +148,27 @@ public sealed class InstallerService
     {
         var p=Path.Combine(gameDir,"OptiScaler.log");
         return File.Exists(p)?File.ReadAllText(p):"No OptiScaler.log found yet.";
+    }
+
+    private static string? InferProxyFromLog(string gameDir)
+    {
+        var path = Path.Combine(gameDir, "OptiScaler.log");
+        if (!File.Exists(path)) return null;
+
+        try
+        {
+            foreach (var line in File.ReadLines(path).Take(400))
+            {
+                foreach (var proxy in ProxyNames)
+                {
+                    if (line.Contains(proxy, StringComparison.OrdinalIgnoreCase))
+                        return proxy;
+                }
+            }
+        }
+        catch { }
+
+        return null;
     }
 
     private static string? ReadInstalledVersion(string gameDir)
