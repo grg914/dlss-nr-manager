@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftDlssPackageService _minecraftDlss = new();
+    private readonly MinecraftOneClickService _minecraftOneClick;
     private readonly StreamlineRuntimeService _streamline = new();
     private readonly PcCleanupService _pcCleanup = new();
 
@@ -48,6 +49,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _minecraftOneClick = new MinecraftOneClickService(_minecraft);
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
@@ -1033,61 +1035,30 @@ public partial class MainWindow : Window
     private MinecraftInstallCandidate? SelectedMinecraftInstance()
         => MinecraftInstanceBox.SelectedItem as MinecraftInstallCandidate;
 
-    private async void InstallMinecraftFabric_Click(object sender, RoutedEventArgs e)
+    private async void InstallMinecraftOneClick_Click(object sender, RoutedEventArgs e)
     {
         var instance = SelectedMinecraftInstance();
         if (instance == null)
         {
-            MessageBox.Show("Select a Minecraft instance first.");
-            return;
-        }
-
-        var answer = MessageBox.Show(
-            $"Install Fabric Loader {MinecraftIntegrationService.MinimumFabricLoader} " +
-            $"for Minecraft {MinecraftIntegrationService.MinecraftVersion}?\n\n" +
-            "The official Fabric Installer is downloaded from FabricMC's GitHub release. Restart Minecraft Launcher afterwards.",
-            "Install Fabric",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (answer != MessageBoxResult.Yes)
-            return;
-
-        try
-        {
-            var progress = new Progress<string>(
-                message => MinecraftStatusText.Text = message);
-
-            await _minecraft.LaunchFabricInstallerAsync(
-                instance.RootDirectory,
-                progress);
-
-            ScanMinecraft_Click(sender, e);
-        }
-        catch (Exception ex)
-        {
-            MinecraftStatusText.Text = $"Fabric install failed: {ex.Message}";
             MessageBox.Show(
-                ex.Message,
-                "Fabric install failed",
+                "Select a Minecraft Java instance first.",
+                "Minecraft DLSS / RTX",
                 MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-    }
-
-    private async void InstallMinecraftRtx_Click(object sender, RoutedEventArgs e)
-    {
-        var instance = SelectedMinecraftInstance();
-        if (instance == null)
-        {
-            MessageBox.Show("Select a Minecraft instance first.");
+                MessageBoxImage.Information);
             return;
         }
 
         var warning = MessageBox.Show(
-            "This installs or updates only the manager-controlled Fabric API and Caustica RTX JARs. " +
-            "Caustica replaces the world renderer and may conflict with Sodium, Iris or another Vulkan/world-renderer replacement.\n\nContinue?",
-            "Enable Minecraft RTX stack",
+            "One-click installation will:\n\n" +
+            "• back up the current Minecraft instance state\n" +
+            "• force Minecraft 26.2 to prefer Vulkan\n" +
+            "• install Fabric automatically if it is missing\n" +
+            "• install/update Fabric API and Caustica RTX\n" +
+            "• temporarily move known conflicting renderer mods (Sodium, Iris, VulkanMod, Nvidium, Canvas, OptiFine/OptiFabric) into the backup\n" +
+            "• add the Fabric launcher Java arguments required/recommended for the native renderer path\n\n" +
+            "Caustica RTX provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and NVIDIA Reflex. " +
+            "A full Restore original action is created before changes. Continue?",
+            "Install Minecraft DLSS / RTX",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
 
@@ -1096,30 +1067,120 @@ public partial class MainWindow : Window
 
         try
         {
+            MinecraftOneClickInstallButton.IsEnabled = false;
+            MinecraftRestoreOriginalButton.IsEnabled = false;
+
             var progress = new Progress<string>(
                 message => MinecraftStatusText.Text = message);
 
-            var result = await _minecraft.InstallMinecraftRtxAsync(
+            var result = await _minecraftOneClick.InstallAsync(
                 instance,
-                MinecraftInstallFabricApiCheck.IsChecked == true,
-                MinecraftAllowPrereleaseCheck.IsChecked == true,
+                installFabricApi: true,
+                allowPrereleaseCaustica: true,
                 progress);
 
             MinecraftStatusText.Text =
-                "Minecraft RTX stack installed • " +
+                "Minecraft DLSS / RTX ready • " +
                 string.Join(
                     " • ",
-                    result.Components.Select(
-                        x => $"{x.Component} {x.Version}"));
+                    result.Setup.Components.Select(
+                        component => $"{component.Component} {component.Version}"));
+
+            var notes =
+                string.Join("\n", result.Notes.Select(note => $"• {note}"));
+
+            MessageBox.Show(
+                "Installation completed.\n\n" +
+                notes +
+                "\n\nLaunch the Fabric profile. In Minecraft, open Options → Video Settings → Ray Tracing " +
+                "to choose DLSS quality, Frame Generation/MFG multiplier and Reflex mode. " +
+                "The manager already sets preferredGraphicsBackend to Vulkan.",
+                "Minecraft DLSS / RTX ready",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            ScanMinecraft_Click(sender, e);
         }
         catch (Exception ex)
         {
-            MinecraftStatusText.Text = $"Minecraft RTX install failed: {ex.Message}";
+            MinecraftStatusText.Text =
+                $"Minecraft one-click install failed: {ex.Message}";
+
             MessageBox.Show(
                 ex.Message,
-                "Minecraft RTX install failed",
+                "Minecraft DLSS / RTX install failed",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+        }
+        finally
+        {
+            MinecraftOneClickInstallButton.IsEnabled = true;
+            MinecraftRestoreOriginalButton.IsEnabled = true;
+        }
+    }
+
+    private void RestoreMinecraftOriginal_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null)
+        {
+            MessageBox.Show(
+                "Select the Minecraft instance to restore first.",
+                "Restore Minecraft",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var answer = MessageBox.Show(
+            "Restore this Minecraft instance to the state saved immediately before the one-click DLSS / RTX installation?\n\n" +
+            "This removes manager-installed Caustica/Fabric API files, restores the previous options and launcher profile, " +
+            "restores renderer mods that were moved to the backup, removes Caustica native/runtime output and removes Fabric version folders only when they were created by the one-click installation.",
+            "Restore original Minecraft",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            MinecraftOneClickInstallButton.IsEnabled = false;
+            MinecraftRestoreOriginalButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => MinecraftStatusText.Text = message);
+
+            _minecraftOneClick.RestoreOriginal(
+                instance.RootDirectory,
+                progress);
+
+            MinecraftStatusText.Text =
+                "Minecraft instance restored to its original pre-install state.";
+
+            MessageBox.Show(
+                "Minecraft has been restored from the one-click backup.",
+                "Restore complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            ScanMinecraft_Click(sender, e);
+        }
+        catch (Exception ex)
+        {
+            MinecraftStatusText.Text =
+                $"Minecraft restore failed: {ex.Message}";
+
+            MessageBox.Show(
+                ex.Message,
+                "Minecraft restore failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            MinecraftOneClickInstallButton.IsEnabled = true;
+            MinecraftRestoreOriginalButton.IsEnabled = true;
         }
     }
 
@@ -1136,33 +1197,6 @@ public partial class MainWindow : Window
                 "Minecraft Launcher",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-        }
-    }
-
-    private void RemoveMinecraftRtx_Click(object sender, RoutedEventArgs e)
-    {
-        var instance = SelectedMinecraftInstance();
-        if (instance == null)
-        {
-            MessageBox.Show("Select a Minecraft instance first.");
-            return;
-        }
-
-        if (MessageBox.Show(
-                "Remove only Minecraft RTX files tracked by DLSS NR Manager? Backups are preserved.",
-                "Remove Minecraft RTX",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) != MessageBoxResult.Yes)
-            return;
-
-        try
-        {
-            _minecraft.UninstallManagedMinecraftRtx(instance.RootDirectory);
-            MinecraftStatusText.Text = "Managed Minecraft RTX files removed.";
-        }
-        catch (Exception ex)
-        {
-            MinecraftStatusText.Text = $"Minecraft RTX removal failed: {ex.Message}";
         }
     }
 
