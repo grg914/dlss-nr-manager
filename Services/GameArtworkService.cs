@@ -85,11 +85,36 @@ public sealed class GameArtworkService
             }
         }
 
-        var lookupName = GetArtworkLookupName(game.Name);
-        var url = await FindBestSteamArtworkAsync(lookupName, cancellationToken);
+        var knownAppId = GetKnownSteamAppId(game);
+        var url = knownAppId == null
+            ? null
+            : await GetSteamArtworkByAppIdAsync(knownAppId.Value, cancellationToken);
+
+        if (url == null)
+        {
+            var lookupName = GetArtworkLookupName(game.Name);
+            url = await FindBestSteamArtworkAsync(lookupName, cancellationToken);
+        }
         _cache[key] = new ArtworkCacheEntry(url, DateTimeOffset.UtcNow, ArtworkCacheVersion);
 
         return url == null ? game : game with { ArtworkUrl = url };
+    }
+
+    private async Task<string?> GetSteamArtworkByAppIdAsync(
+        int appId,
+        CancellationToken cancellationToken)
+    {
+        foreach (var url in new[]
+        {
+            $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900_2x.jpg",
+            $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg"
+        })
+        {
+            if (await UrlExistsAsync(url, cancellationToken))
+                return url;
+        }
+
+        return null;
     }
 
     private async Task<string?> FindBestSteamArtworkAsync(
@@ -143,18 +168,9 @@ public sealed class GameArtworkService
                     !item.TryGetProperty("id", out var idElement))
                     continue;
 
-                var appId = idElement.GetInt32();
-                foreach (var url in new[]
-                {
-                    $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900_2x.jpg",
-                    $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg"
-                })
-                {
-                    if (await UrlExistsAsync(url, cancellationToken))
-                        return url;
-                }
-
-                return null;
+                return await GetSteamArtworkByAppIdAsync(
+                    idElement.GetInt32(),
+                    cancellationToken);
             }
         }
         catch
@@ -309,6 +325,27 @@ public sealed class GameArtworkService
             }
         }
         catch { }
+
+        return null;
+    }
+
+    private static int? GetKnownSteamAppId(DetectedGame game)
+    {
+        var n = NormalizeTitle(game.Name);
+
+        if (n is "bf6" or "battlefield6" or "battlefieldvi" ||
+            n.Contains("battlefield6", StringComparison.Ordinal))
+            return 2807960;
+
+        var blackOps6 = n is "bo6" or "blackops6" or "callofdutyblackops6" ||
+                        n.Contains("blackops6", StringComparison.Ordinal) ||
+                        Directory.Exists(Path.Combine(game.InstallRoot, "mp24"));
+
+        if (blackOps6)
+            return 4384550;
+
+        if (n is "callofduty" or "cod")
+            return 1938090;
 
         return null;
     }
