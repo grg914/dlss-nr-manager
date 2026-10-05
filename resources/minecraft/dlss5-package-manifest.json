@@ -1,0 +1,27 @@
+{
+  "manifest_version": 1,
+  "source_label": "User-provided DLSS 5 package fingerprint",
+  "redistributed": false,
+  "note": "These hashes identify the package supplied by the project owner. The proprietary NVIDIA/Streamline binaries are intentionally not stored in this repository.",
+  "files": [
+    {"name":"nvngx_dlss.dll","size":58956400,"sha256":"C85F971CE023C9F3492FC7455F0B01A24BA18EA39636407A846902C4360B0B7E","profile":"super_resolution"},
+    {"name":"nvngx_dlssg.dll","size":7453808,"sha256":"5D5CBF14D2727D47F93FD10BF77BD91708AE122482A6F86FD564971641EBD47B","profile":"frame_generation"},
+    {"name":"nvngx_dlssnr.dll","size":165840496,"sha256":"E16BCF15E16E13F527491CDF7845B2FE6521A738D8F7C9C721866A8496E1FC8E","profile":"neural_rendering"},
+    {"name":"renodx-dlss.addon64","size":2624512,"sha256":"1D855CF226857DCE890CFFBF7206BA9B6497CE1D471B217C1C8B44B6CD5D27E9","profile":"not_used_by_minecraft_profile"},
+    {"name":"renodx-dlss5-v2.5.addon64","size":391168,"sha256":"A2973900531D58FF7BEB21172828095BCE2281BC2A81E82191F9D89C983D6A21","profile":"not_used_by_minecraft_profile"},
+    {"name":"renodx-dlss5.addon64","size":391168,"sha256":"87AEF9DDD937C7241E6BF8D8EFEA0045D63559135E254C60DAB316DB3D3A4AEE","profile":"not_used_by_minecraft_profile"},
+    {"name":"ReShade_Setup_6.8.0_Addon.exe","size":4318424,"sha256":"AFE4C8F13048306307983B8B3D41D5BF00A86820440B0E57DEA10950E1176445","profile":"not_used_by_minecraft_profile"},
+    {"name":"sl.common.dll","size":830592,"sha256":"A4B2B5ACBE49FBC6D44DD432CAC19CD53218F698B2539DC7ED0FB268C72CFC8D","profile":"core"},
+    {"name":"sl.dlss.dll","size":421504,"sha256":"1EB5FB3D6F01D340FE086D981CC2DE4F18AA6D05EE276E5CF28ECD54818DCC8B","profile":"super_resolution"},
+    {"name":"sl.dlss_g.dll","size":625792,"sha256":"B8B5EFFD7DEBDB750ABD216DE43385FB653261712BC315D85EBA68811FB3EE02","profile":"frame_generation"},
+    {"name":"sl.dlss_nr.dll","size":401024,"sha256":"9F6672E5E0170DC118A3188D21BDA187E1FC1AA3502895B21AB846D23165C11D","profile":"neural_rendering"},
+    {"name":"sl.interposer.dll","size":651392,"sha256":"27B2190057994C0B287C2C5716953BF1586F6499AC12FBBB2092B9AAF8396570","profile":"core"},
+    {"name":"sl.nis.dll","size":1155200,"sha256":"6039E38A1AF56C8E86F3E936596E2DB910BF3D76BBF4268562A3B13763049DFA","profile":"optional"},
+    {"name":"sl.pcl.dll","size":360064,"sha256":"12AA4E76C28A27C735E4ECB3072F44D09428ACB107B70AC38E4BD48DDB05F88D","profile":"optional"},
+    {"name":"sl.reflex.dll","size":382080,"sha256":"ECF12973CDCEC2FFCED2EA77B1C7E45F4D387E7C864DDB5531B66A6F947EFFB3","profile":"reflex"}
+  ],
+  "missing_for_ray_reconstruction_streamline_profile": [
+    "sl.dlss_d.dll",
+    "nvngx_dlssd.dll"
+  ]
+}
