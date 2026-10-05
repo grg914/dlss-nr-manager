@@ -65,8 +65,17 @@
               <TextBlock Text="DLSS NR Manager" FontSize="34" FontWeight="SemiBold"/>
               <TextBlock Text="OptiScaler Neural Rendering manager for compatible installed games"
                          Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
-              <TextBlock x:Name="AppVersionText" Text="Version"
-                         Foreground="{StaticResource Accent2}" FontSize="13" Margin="0,5,0,0"/>
+              <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                <TextBlock x:Name="AppVersionText" Text="Version"
+                           Foreground="{StaticResource Accent2}" FontSize="13" VerticalAlignment="Center"/>
+                <Button x:Name="ManagerUpdateButton"
+                        Content="Update available"
+                        Visibility="Collapsed"
+                        Padding="8,3" MinHeight="0"
+                        Margin="12,0,0,0"
+                        FontSize="12"
+                        Click="ManagerUpdate_Click"/>
+              </StackPanel>
             </StackPanel>
           </DockPanel>
 
