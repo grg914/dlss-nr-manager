@@ -1,7 +1,7 @@
 namespace DlssNrManager.Models;
 
 public sealed record GpuInfo(string Name, string Generation, bool IsNvidia);
-public sealed record ReleaseInfo(string Tag, string Name, bool Prerelease, string ZipUrl);
+public sealed record ReleaseInfo(string Tag, string Name, bool Prerelease, string ZipUrl, string? ZipSha256 = null);
 
 public sealed record InstallState(
     bool Installed,
