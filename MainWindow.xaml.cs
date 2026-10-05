@@ -18,11 +18,18 @@ public partial class MainWindow : Window
     private string? _runtimePath;
     private DetectedGame? _selectedGame;
     private IReadOnlyList<DetectedGame> _detectedGames = [];
+    private bool _isBusy;
 
     public MainWindow()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await InitializeAsync();
+        Loaded += async (_, _) =>
+        {
+            ResetPointerState();
+            await InitializeAsync();
+        };
+        Activated += (_, _) => ResetPointerState();
+        Closed += (_, _) => Application.Current.Shutdown();
     }
 
     private async Task InitializeAsync()
@@ -366,7 +373,9 @@ public partial class MainWindow : Window
 
     private void SetBusy(bool busy)
     {
+        _isBusy = busy;
         Cursor = busy ? System.Windows.Input.Cursors.Wait : null;
+        System.Windows.Input.Mouse.OverrideCursor = busy ? System.Windows.Input.Cursors.Wait : null;
 
         if (busy)
         {
@@ -376,6 +385,19 @@ public partial class MainWindow : Window
             return;
         }
 
+        ResetPointerState();
         RefreshState();
+    }
+
+    private void ResetPointerState()
+    {
+        if (_isBusy)
+            return;
+
+        if (System.Windows.Input.Mouse.Captured != null)
+            System.Windows.Input.Mouse.Capture(null);
+
+        System.Windows.Input.Mouse.OverrideCursor = null;
+        Cursor = null;
     }
 }
