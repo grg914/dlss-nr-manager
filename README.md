@@ -126,14 +126,14 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - instance write access
 - **Install DLSS / RTX** one-click workflow:
   - blocks on unsupported preflight results and requires explicit confirmation for warnings
-  - creates a restore point before changing the instance
+  - creates an application-managed backup snapshot before changing the instance
   - sets `preferredGraphicsBackend:"vulkan"`
   - verifies Java 25 x64 before Fabric/Caustica setup
   - installs Eclipse Temurin 25 automatically with WinGet when Java 25 is missing
   - installs/updates Fabric Loader automatically on Mojang/Microsoft-style instances when missing or older than 0.19.3
   - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
   - downloads the required Fabric API from FabricMC
-  - downloads the latest compatible Caustica RTX release
+  - downloads the current compatible Caustica RTX prerelease (the upstream RTX build is currently prerelease-only)
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
   - patches the Mojang launcher Fabric profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`
   - warns when a third-party launcher manages JVM arguments separately
