@@ -5,7 +5,7 @@
 # DLSS NR Manager
 
 <p align="center">
-  <img src="assets/branding/hero.jpg" alt="DLSS NR Manager banner" width="100%" />
+  <img src="assets/branding/hero.png" alt="DLSS NR Manager banner" width="100%" />
 </p>
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
