@@ -111,6 +111,15 @@ public sealed class MinecraftIntegrationService
             DetectFabric(full));
     }
 
+    public Task<string> EnsureJava25RuntimeAsync(
+        string minecraftRoot,
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
+        => EnsureJava25Async(
+            minecraftRoot,
+            progress,
+            cancellationToken);
+
     public async Task LaunchFabricInstallerAsync(
         string minecraftRoot,
         IProgress<string>? progress = null,
