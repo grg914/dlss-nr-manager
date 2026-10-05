@@ -41,12 +41,10 @@ public sealed class MediaService
 
     public void ResetTools()
     {
-        try
-        {
-            if (Directory.Exists(RootDirectory))
-                Directory.Delete(RootDirectory, true);
-        }
-        catch { }
+        // Keep sibling engines such as media-engine/realesrgan intact.
+        // Component updates only own video2dlssnr and FFmpeg tools.
+        TryDeleteDirectory(ProcessorDirectory);
+        TryDeleteDirectory(ToolsDirectory);
     }
 
     public async Task SetupAsync(
@@ -532,6 +530,16 @@ public sealed class MediaService
     }
 
     private static int Even(int value) => Math.Max(2, value & ~1);
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, true);
+        }
+        catch { }
+    }
 
     private static string Tail(string value, int max)
         => value.Length <= max ? value : value[^max..];
