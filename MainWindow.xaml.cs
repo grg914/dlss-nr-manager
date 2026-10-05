@@ -56,7 +56,7 @@ public partial class MainWindow : Window
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
-            ? "Version v1.0.0"
+            ? "Version v1.2.0"
             : $"Version v{version.Major}.{version.Minor}.{version.Build}";
 
         Loaded += async (_, _) =>
@@ -87,8 +87,11 @@ public partial class MainWindow : Window
 
     private async Task InitializeAsync()
     {
+        using var scope = AppLogger.Scope("MainWindow.InitializeAsync");
+
         _gpu = _gpus.Detect();
         GpuText.Text = $"{_gpu.Name}  •  {_gpu.Generation}";
+        AppLogger.Info($"GPU detected: {_gpu.Name} • {_gpu.Generation}");
 
         await Task.WhenAll(
             RefreshReleaseAsync(),
@@ -106,6 +109,9 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                AppLogger.Error(
+                    "Automatic media component update check failed.",
+                    ex);
                 MediaStatusText.Text = $"Automatic component update check failed: {ex.Message}";
             }
         }
@@ -113,6 +119,7 @@ public partial class MainWindow : Window
         // Reaching this point means the updated application completed its
         // normal startup path. Only now discard the previous executable.
         _appUpdater.CleanupSuccessfulUpdateBackup();
+        AppLogger.Info("Application initialization completed successfully.");
     }
 
     private async Task ScanGamesAsync(bool forceRefresh)
@@ -158,6 +165,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppLogger.Error("Installed-game scan failed.", ex);
             CompatibilityText.Text = $"Game scan failed: {ex.Message}";
             StatusText.Text = "Game scan failed";
         }
@@ -170,6 +178,11 @@ public partial class MainWindow : Window
     private async Task CheckManagerUpdateAsync()
     {
         _managerRelease = await _releases.GetLatestManagerReleaseInfoAsync();
+
+        AppLogger.Info(
+            _managerRelease == null
+                ? "Manager update check: no published release detected."
+                : $"Manager update check: latest published {_managerRelease.Tag}.");
 
         var current =
             typeof(MainWindow).Assembly.GetName().Version
@@ -288,6 +301,38 @@ public partial class MainWindow : Window
     {
         await ScanGamesAsync(forceRefresh: true);
         await RefreshStateAsync();
+    }
+
+    private void OpenDiagnosticLogs_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppLogger.LogDirectory);
+
+            Process.Start(new ProcessStartInfo(
+                "explorer.exe",
+                $"\"{AppLogger.LogDirectory}\"")
+            {
+                UseShellExecute = true
+            });
+
+            AppLogger.Info(
+                $"Opened diagnostic log directory: {AppLogger.LogDirectory}");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error(
+                "Unable to open diagnostic log directory.",
+                ex);
+
+            MessageBox.Show(
+                $"Log path:\n{AppLogger.LogPath}\n\n{ex.Message}",
+                "Diagnostic logs",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private async void ClearArtworkCache_Click(object sender, RoutedEventArgs e)
@@ -1270,6 +1315,11 @@ public partial class MainWindow : Window
 
         try
         {
+            AppLogger.Info(
+                $"Minecraft one-click install requested. Instance='{instance.RootDirectory}', " +
+                $"performancePack={MinecraftPerformancePackCheck.IsChecked == true}, " +
+                $"SPBR={MinecraftSpbrCheck.IsChecked == true}.");
+
             MinecraftOneClickInstallButton.IsEnabled = false;
             MinecraftRestoreOriginalButton.IsEnabled = false;
 
@@ -1285,6 +1335,13 @@ public partial class MainWindow : Window
                 installLabPbrResourcePack:
                     MinecraftSpbrCheck.IsChecked == true,
                 progress);
+
+            AppLogger.Info(
+                "Minecraft one-click install completed successfully: " +
+                string.Join(
+                    ", ",
+                    result.Setup.Components.Select(
+                        component => $"{component.Component} {component.Version}")));
 
             MinecraftStatusText.Text =
                 "Minecraft DLSS / RTX ready • " +
@@ -1310,6 +1367,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppLogger.Error(
+                $"Minecraft one-click install failed for '{instance.RootDirectory}'.",
+                ex);
+
             MinecraftStatusText.Text =
                 $"Minecraft one-click install failed: {ex.Message}";
 
@@ -1352,6 +1413,9 @@ public partial class MainWindow : Window
 
         try
         {
+            AppLogger.Info(
+                $"Minecraft restore requested. Instance='{instance.RootDirectory}'.");
+
             MinecraftOneClickInstallButton.IsEnabled = false;
             MinecraftRestoreOriginalButton.IsEnabled = false;
 
@@ -1361,6 +1425,9 @@ public partial class MainWindow : Window
             _minecraftOneClick.RestoreOriginal(
                 instance.RootDirectory,
                 progress);
+
+            AppLogger.Info(
+                $"Minecraft restore completed successfully. Instance='{instance.RootDirectory}'.");
 
             MinecraftStatusText.Text =
                 "Minecraft instance restored to its original pre-install state.";
@@ -1375,6 +1442,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppLogger.Error(
+                $"Minecraft restore failed for '{instance.RootDirectory}'.",
+                ex);
+
             MinecraftStatusText.Text =
                 $"Minecraft restore failed: {ex.Message}";
 
@@ -1965,11 +2036,17 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message => ManagerUpdateButton.Content = message);
 
+            AppLogger.Info(
+                $"Application update requested: {_managerRelease.Tag}.");
+
             var staged = await _appUpdater.DownloadAndStageAsync(
                 _managerRelease,
                 progress);
 
             ManagerUpdateButton.Content = "Restarting to update…";
+
+            AppLogger.Info(
+                $"Application update staged successfully at '{staged}'. Restarting.");
 
             _appUpdater.ApplyAndRestart(
                 staged,
@@ -1979,6 +2056,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppLogger.Error(
+                "Application self-update failed.",
+                ex);
+
             ManagerUpdateButton.IsEnabled = true;
             ManagerUpdateButton.Content =
                 $"Retry update v{_managerRelease.Version}";
