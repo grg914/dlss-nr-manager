@@ -155,6 +155,10 @@
                 <Button Content="Clear cover cache"
                         Margin="0,8,0,0"
                         Click="ClearArtworkCache_Click"/>
+                <Button Content="Open diagnostic logs"
+                        Margin="0,8,0,0"
+                        ToolTip="%LOCALAPPDATA%\DlssNrManager\logs"
+                        Click="OpenDiagnosticLogs_Click"/>
                 <Button Content="Delete local app data"
                         Margin="0,8,0,0"
                         ToolTip="%LOCALAPPDATA%\DlssNrManager"
