@@ -36,7 +36,8 @@ public sealed record DetectedGame(
     string TargetDirectory,
     string Confidence,
     string Evidence,
-    string RecommendedProxy = "dxgi.dll")
+    string RecommendedProxy = "dxgi.dll",
+    string? ArtworkUrl = null)
 {
     public string DisplayName => $"{Name}  •  {Platform}  •  {Confidence}";
 }
