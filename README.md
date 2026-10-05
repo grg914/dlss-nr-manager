@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.0.0**.
+Current application version: **v1.2.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, NVIDIA RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -21,6 +21,23 @@ Current application version: **v1.0.0**.
 </p>
 
 <p align="center"><sub>Application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
+
+## What's new in v1.2.0
+
+- Added persistent application diagnostics under `%LOCALAPPDATA%\DlssNrManager\logs\`.
+- Logs startup/runtime environment, GPU detection, application update checks, Minecraft RTX preflight results, one-click install progress, restore operations and failures.
+- Captures unhandled WPF, AppDomain and background-task exceptions with full stack traces and inner exceptions.
+- Rotates the main log at 5 MB into `dlss-nr-manager.previous.log` so diagnostics remain bounded.
+- Added **Open diagnostic logs** in the main window for quick access before sending a bug report.
+- Added Minecraft RTX preflight with **Ready / Warning / Unsupported** gating.
+- Added optional Minecraft performance pack: Lithium, FerriteCore, Krypton and Dynamic FPS.
+- Added optional SPBR LabPBR resource pack for Caustica RTX materials.
+- Added transactional Minecraft install/restore behavior and stronger rollback coverage.
+- Added in-app self-update from the latest GitHub Release with download validation, EXE version verification, automatic restart and previous-EXE rollback.
+- Improved NVIDIA Streamline resource staging for DLSS RR and Vulkan Reflex dependencies.
+- Improved Real-ESRGAN setup/repair and media-component update rollback.
+- Hardened PC Cleanup against filesystem junction/reparse-point traversal.
+- Improved the Windows icon pipeline using the sharp branding PNG, progressive downsampling and exact multi-resolution ICO frames.
 
 ## Features
 
@@ -37,6 +54,7 @@ Current application version: **v1.0.0**.
 - Install, update, restore and uninstall flows
 - Proxy conflict detection; unknown proxy DLLs are never silently overwritten
 - Integrated `OptiScaler.log` viewer and per-game compatibility diagnostics
+- Persistent application log with exception stack traces and one-click access to the log folder
 - Neural Rendering presets plus advanced OptiScaler overlay/process settings
 - Game cover artwork with Steam and multi-provider fallback resolution
 - Dedicated Battlefield 6 / BF6 artwork handling
@@ -44,6 +62,24 @@ Current application version: **v1.0.0**.
 - Multi-resolution Windows application icon generated from the sharp branding PNG before compilation, with exact Windows DPI frames and progressive downsampling
 - In-app version check against the latest GitHub Release
 - One-click self-update: downloads the newest published EXE/ZIP, verifies GitHub SHA-256 when available, validates executable version metadata, replaces the running EXE after shutdown and restarts automatically
+
+### Application diagnostics and logs
+
+DLSS NR Manager writes a persistent diagnostic log to:
+
+```text
+%LOCALAPPDATA%\DlssNrManager\logs\dlss-nr-manager.log
+```
+
+When the file reaches 5 MB, the previous log is retained as:
+
+```text
+%LOCALAPPDATA%\DlssNrManager\logs\dlss-nr-manager.previous.log
+```
+
+The log is designed for end-to-end troubleshooting and records timestamps, application version, OS/framework/process architecture, GPU detection, update checks, Minecraft RTX preflight results, Minecraft installation/restore progress and exception stack traces. Use **Open diagnostic logs** in the application and send the latest `dlss-nr-manager.log` when reporting a runtime problem.
+
+The logger is best-effort and is never allowed to prevent the application from starting or shutting down.
 
 ### Automatic NVIDIA runtime/resources
 
@@ -248,4 +284,4 @@ dotnet restore
 dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
-GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` can create a GitHub Release with the executable and ZIP.
+GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` can create a GitHub Release with the executable and ZIP. The release workflow requires the Git tag to match the project version exactly, so v1.2.0 must be tagged as `v1.2.0`.
