@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v2.0.0**.
+Current application version: **v2.1.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -40,6 +40,27 @@ Use the latest GitHub Release for the Windows x64 single-file build. Each v2 rel
 - `DlssNrManager.exe`
 - `DlssNrManager-win-x64.zip`
 - `SHA256SUMS.txt` for independent SHA-256 verification
+
+## What's new in v2.1.0
+
+v2.1 applies the strongest reliability and workflow ideas identified while auditing DLSS5-Swapper, reimplemented for the native WPF/.NET codebase.
+
+- Added a per-game transaction journal with explicit PREPARED / BACKED_UP / WRITING / VERIFIED / COMMITTED stages and automatic recovery of interrupted manager-owned installs when a valid backup exists.
+- Added bounded per-game history for install, update, rollback, restore, executable selection and OptiScaler build selection.
+- Added richer renderer detection for DirectX 8/9/10/11/12, DirectDraw, Vulkan and OpenGL using executable markers, explicit renderer filenames and known engine renderer modules.
+- Added DXVK/vkd3d wrapper recognition so Vulkan translation DLLs are not mistaken for normal DirectX targets.
+- Existing newer NVIDIA DLSS/Streamline runtime files are preserved instead of being downgraded by an incoming package.
+- Added game-context actions for launch, open folder, copy path, rescan, choose executable, history and restore.
+- Added configurable custom scan folders plus an explicit opt-in full fixed-drive scan; launcher discovery remains the default.
+- Expanded scan exclusions for asset trees, installers, redistributables, anti-cheat folders, logs, downloads and backup trees to reduce I/O and false positives.
+- Added multi-executable selection with a per-game preferred executable marker.
+- Expanded support bundles with renderer detection, game history and pending transaction state.
+- Added an automated regression-test project covering history bounds, transaction path safety, renderer detection, engine-module detection, DXVK translation and preferred-executable containment.
+- Added a persistent software-rendering mode for the WPF UI as a driver/compositor compatibility fallback.
+- Added direct game launch from the manager.
+- Added selection from recent OptiScaler builds with the chosen build remembered per game.
+- Added a before/after installation review showing current/target OptiScaler build, proxy, renderer, executable and runtime preservation behavior.
+- Retains the v2.0.2+ managed Minecraft updater and bundled Caustica/SPBRScandi release workflow, plus the v2.0.3 self-update button.
 
 ## What's new in v2.0.0
 
