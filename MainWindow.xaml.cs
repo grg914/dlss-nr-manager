@@ -79,7 +79,9 @@ public partial class MainWindow : Window
 
         AiUpscaleStatusText.Text = _aiUpscale.IsReady
             ? "AI Upscale engine ready."
-            : "AI Upscale engine not installed yet.";
+            : _aiUpscale.IsInstalled
+                ? "AI Upscale engine installed • model verification pending."
+                : "AI Upscale engine not installed yet.";
 
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "AI origin detector ready."
