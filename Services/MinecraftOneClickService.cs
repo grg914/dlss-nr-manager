@@ -58,12 +58,27 @@ public sealed class MinecraftOneClickService
         Directory.CreateDirectory(backup);
 
         var optionsPath = Path.Combine(root, "options.txt");
-        var launcherProfilesPath = Path.Combine(root, "launcher_profiles.json");
+        var launcherProfilesPath = Path.Combine(
+            root,
+            "launcher_profiles.json");
+        var microsoftStoreProfilesPath = Path.Combine(
+            root,
+            "launcher_profiles_microsoft_store.json");
+
         var optionsExisted = File.Exists(optionsPath);
         var launcherProfilesExisted = File.Exists(launcherProfilesPath);
+        var microsoftStoreProfilesExisted =
+            File.Exists(microsoftStoreProfilesPath);
 
         BackupFile(optionsPath, Path.Combine(backup, "options.txt"));
-        BackupFile(launcherProfilesPath, Path.Combine(backup, "launcher_profiles.json"));
+        BackupFile(
+            launcherProfilesPath,
+            Path.Combine(backup, "launcher_profiles.json"));
+        BackupFile(
+            microsoftStoreProfilesPath,
+            Path.Combine(
+                backup,
+                "launcher_profiles_microsoft_store.json"));
 
         BackupDirectoryIfExists(
             Path.Combine(root, "caustica-streamline"),
@@ -113,8 +128,8 @@ public sealed class MinecraftOneClickService
                     $"Fabric Loader {MinecraftIntegrationService.MinimumFabricLoader}+ for Minecraft {MinecraftIntegrationService.MinecraftVersion} was not detected after installation.");
             }
 
-            PatchFabricLauncherProfile(
-                launcherProfilesPath,
+            PatchFabricLauncherProfiles(
+                root,
                 progress);
 
             progress?.Report("Installing Fabric API and the Caustica RTX production bundle…");
@@ -144,7 +159,8 @@ public sealed class MinecraftOneClickService
                 disabled
                     .Select(path => Path.GetRelativePath(root, path))
                     .ToList(),
-                createdFabricVersions);
+                createdFabricVersions,
+                microsoftStoreProfilesExisted);
 
             File.WriteAllText(
                 markerPath,
@@ -264,7 +280,8 @@ public sealed class MinecraftOneClickService
                     root,
                     backup,
                     optionsExisted,
-                    launcherProfilesExisted);
+                    launcherProfilesExisted,
+                    microsoftStoreProfilesExisted);
 
                 foreach (var created in SnapshotFabricVersionDirectories(root)
                              .Except(existingFabricVersions, StringComparer.OrdinalIgnoreCase))
@@ -333,6 +350,15 @@ public sealed class MinecraftOneClickService
             Path.Combine(backup, "launcher_profiles.json"),
             Path.Combine(root, "launcher_profiles.json"),
             marker.LauncherProfilesExisted);
+
+        RestoreFile(
+            Path.Combine(
+                backup,
+                "launcher_profiles_microsoft_store.json"),
+            Path.Combine(
+                root,
+                "launcher_profiles_microsoft_store.json"),
+            marker.MicrosoftStoreProfilesExisted);
 
         RestoreDirectoryContents(
             Path.Combine(backup, "disabled-mods"),
@@ -415,77 +441,128 @@ public sealed class MinecraftOneClickService
         File.WriteAllLines(path, lines);
     }
 
-    private static void PatchFabricLauncherProfile(
-        string launcherProfilesPath,
+    private static void PatchFabricLauncherProfiles(
+        string root,
         IProgress<string>? progress)
     {
-        if (!File.Exists(launcherProfilesPath))
+        var candidates = new[]
+        {
+            Path.Combine(root, "launcher_profiles.json"),
+            Path.Combine(
+                root,
+                "launcher_profiles_microsoft_store.json")
+        };
+
+        var existing = candidates
+            .Where(File.Exists)
+            .ToList();
+
+        if (existing.Count == 0)
         {
             AppLogger.Warn(
-                "launcher_profiles.json was not found; Fabric JVM arguments could not be patched automatically.");
+                "No Mojang launcher profile JSON was found; Fabric JVM arguments could not be patched automatically.");
             progress?.Report(
-                "Warning: launcher_profiles.json was not found. Verify -Xss16m and --enable-native-access=ALL-UNNAMED manually in the launcher.");
+                "Warning: no Mojang launcher profile JSON was found. Verify -Xss16m and --enable-native-access=ALL-UNNAMED manually in the launcher.");
             return;
         }
 
-        try
+        var patchedAny = false;
+
+        foreach (var path in existing)
         {
-            var root = JsonNode.Parse(File.ReadAllText(launcherProfilesPath)) as JsonObject;
-            var profiles = root?["profiles"] as JsonObject;
-
-            if (root == null || profiles == null)
-                return;
-
-            var changed = false;
-
-            foreach (var profile in profiles)
+            try
             {
-                if (profile.Value is not JsonObject obj)
-                    continue;
+                if (PatchFabricLauncherProfileFile(path))
+                {
+                    patchedAny = true;
+                    progress?.Report(
+                        $"Fabric launcher profile updated: {Path.GetFileName(path)}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn(
+                    $"Fabric launcher profile '{Path.GetFileName(path)}' could not be patched: {ex.Message}");
+            }
+        }
 
-                var lastVersionId = obj["lastVersionId"]?.GetValue<string>() ?? "";
-                if (!lastVersionId.Contains("fabric-loader", StringComparison.OrdinalIgnoreCase) ||
-                    !lastVersionId.EndsWith(
-                        $"-{MinecraftIntegrationService.MinecraftVersion}",
+        if (!patchedAny)
+        {
+            AppLogger.Warn(
+                "No Fabric 26.2 launcher profile was found to patch with the required JVM arguments.");
+            progress?.Report(
+                "Warning: no Fabric 26.2 launcher profile was found for automatic JVM argument patching. Verify -Xss16m and --enable-native-access=ALL-UNNAMED manually.");
+        }
+    }
+
+    private static bool PatchFabricLauncherProfileFile(
+        string launcherProfilesPath)
+    {
+        var root =
+            JsonNode.Parse(
+                File.ReadAllText(launcherProfilesPath))
+            as JsonObject;
+        var profiles = root?["profiles"] as JsonObject;
+
+        if (root == null || profiles == null)
+            return false;
+
+        var changed = false;
+
+        foreach (var profile in profiles)
+        {
+            if (profile.Value is not JsonObject obj)
+                continue;
+
+            var lastVersionId =
+                obj["lastVersionId"]?.GetValue<string>() ?? "";
+
+            if (!lastVersionId.Contains(
+                    "fabric-loader",
+                    StringComparison.OrdinalIgnoreCase) ||
+                !lastVersionId.EndsWith(
+                    $"-{MinecraftIntegrationService.MinecraftVersion}",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var javaArgs =
+                obj["javaArgs"]?.GetValue<string>() ?? "";
+
+            foreach (var required in new[]
+            {
+                "-Xss16m",
+                "--enable-native-access=ALL-UNNAMED"
+            })
+            {
+                if (!javaArgs.Contains(
+                        required,
                         StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var javaArgs = obj["javaArgs"]?.GetValue<string>() ?? "";
-
-                foreach (var required in new[]
                 {
-                    "-Xss16m",
-                    "--enable-native-access=ALL-UNNAMED"
-                })
-                {
-                    if (!javaArgs.Contains(required, StringComparison.OrdinalIgnoreCase))
-                        javaArgs = string.IsNullOrWhiteSpace(javaArgs)
+                    javaArgs =
+                        string.IsNullOrWhiteSpace(javaArgs)
                             ? required
                             : javaArgs + " " + required;
                 }
-
-                obj["javaArgs"] = javaArgs;
-                changed = true;
             }
 
-            if (changed)
-            {
-                File.WriteAllText(
-                    launcherProfilesPath,
-                    root.ToJsonString(
-                        new JsonSerializerOptions { WriteIndented = true }));
+            obj["javaArgs"] = javaArgs;
+            changed = true;
+        }
 
-                progress?.Report(
-                    "Fabric launcher profile updated with native-access and renderer-safe stack settings.");
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLogger.Warn(
-                $"Fabric launcher profile could not be patched automatically: {ex.Message}");
-            progress?.Report(
-                "Warning: Fabric launcher JVM arguments could not be patched automatically. Verify -Xss16m and --enable-native-access=ALL-UNNAMED manually.");
-        }
+        if (!changed)
+            return false;
+
+        File.WriteAllText(
+            launcherProfilesPath,
+            root.ToJsonString(
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                }));
+
+        return true;
     }
 
     private static HashSet<string> SnapshotFabricVersionDirectories(string root)
@@ -559,7 +636,8 @@ public sealed class MinecraftOneClickService
         string root,
         string backup,
         bool optionsExisted,
-        bool launcherProfilesExisted)
+        bool launcherProfilesExisted,
+        bool microsoftStoreProfilesExisted)
     {
         RestoreFile(
             Path.Combine(backup, "options.txt"),
@@ -570,6 +648,15 @@ public sealed class MinecraftOneClickService
             Path.Combine(backup, "launcher_profiles.json"),
             Path.Combine(root, "launcher_profiles.json"),
             launcherProfilesExisted);
+
+        RestoreFile(
+            Path.Combine(
+                backup,
+                "launcher_profiles_microsoft_store.json"),
+            Path.Combine(
+                root,
+                "launcher_profiles_microsoft_store.json"),
+            microsoftStoreProfilesExisted);
 
         RestoreDirectoryContents(
             Path.Combine(backup, "disabled-mods"),
@@ -714,5 +801,6 @@ public sealed class MinecraftOneClickService
         string BackupDirectory,
         string ComponentBackupDirectory,
         List<string> DisabledRendererMods,
-        List<string> CreatedFabricVersionDirectories);
+        List<string> CreatedFabricVersionDirectories,
+        bool MicrosoftStoreProfilesExisted = false);
 }
