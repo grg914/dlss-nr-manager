@@ -8,6 +8,10 @@ namespace DlssNrManager.Services;
 
 public sealed class AppUpdateService
 {
+    private const long MaxUpdateDownloadBytes = 768L * 1024 * 1024;
+    private const long MaxUpdateExpandedBytes = 1024L * 1024 * 1024;
+    private const int MaxUpdateArchiveEntries = 256;
+
     private readonly HttpClient _http = new();
 
     public AppUpdateService()
@@ -64,6 +68,12 @@ public sealed class AppUpdateService
             {
                 response.EnsureSuccessStatusCode();
 
+                if (response.Content.Headers.ContentLength is > MaxUpdateDownloadBytes)
+                {
+                    throw new InvalidDataException(
+                        "The update package exceeds the 768 MB safety limit.");
+                }
+
                 await using var input =
                     await response.Content.ReadAsStreamAsync(cancellationToken);
                 await using var output = new FileStream(
@@ -74,7 +84,11 @@ public sealed class AppUpdateService
                     128 * 1024,
                     useAsync: true);
 
-                await input.CopyToAsync(output, cancellationToken);
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    MaxUpdateDownloadBytes,
+                    cancellationToken);
             }
 
             if (new FileInfo(temp).Length < 128 * 1024)
@@ -269,7 +283,7 @@ try {
 }
 """;
 
-        File.WriteAllText(scriptPath, script);
+        AtomicFile.WriteAllText(scriptPath, script);
 
         var startInfo = new ProcessStartInfo
         {
@@ -313,10 +327,27 @@ try {
 
         using (var archive = ZipFile.OpenRead(zipPath))
         {
+            if (archive.Entries.Count > MaxUpdateArchiveEntries)
+            {
+                throw new InvalidDataException(
+                    $"Update archive contains too many entries ({archive.Entries.Count:N0}).");
+            }
+
+            long expandedBytes = 0;
+
             foreach (var entry in archive.Entries)
             {
                 if (string.IsNullOrWhiteSpace(entry.Name))
                     continue;
+
+                expandedBytes = checked(
+                    expandedBytes + Math.Max(0, entry.Length));
+
+                if (expandedBytes > MaxUpdateExpandedBytes)
+                {
+                    throw new InvalidDataException(
+                        "Update archive exceeds the 1 GB extracted-size safety limit.");
+                }
 
                 var target = Path.GetFullPath(Path.Combine(
                     extract,
@@ -350,6 +381,37 @@ try {
                 .FirstOrDefault()
             ?? throw new InvalidDataException(
                 "The update ZIP does not contain an executable.");
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
+        }
     }
 
     private static void ValidateStagedExecutable(string path)
