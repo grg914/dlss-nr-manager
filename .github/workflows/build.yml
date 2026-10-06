@@ -135,3 +135,56 @@ jobs:
         with:
           name: DlssNrManager-win-x64
           path: publish/DlssNrManager.exe
+      - name: Build vendored Real-ESRGAN Windows engine
+        shell: pwsh
+        run: |
+          $sdkVersion = "1.2.162.0"
+          $sdkRoot = Join-Path $PWD "VulkanSDK"
+          $installer = Join-Path $PWD "VulkanSDK-$sdkVersion-Installer.exe"
+
+          if (!(Test-Path (Join-Path $sdkRoot "Include\vulkan\vulkan.h"))) {
+            Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$sdkVersion/windows/VulkanSDK-$sdkVersion-Installer.exe?Human=true" -OutFile $installer
+
+            7z x -aoa $installer "-o$sdkRoot" | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to extract Vulkan SDK $sdkVersion."
+            }
+          }
+
+          $env:VULKAN_SDK = $sdkRoot
+          $source = "third_party/Real-ESRGAN-ncnn-vulkan/src"
+          $build = "build-realesrgan"
+
+          if (!(Test-Path "$source/ncnn/CMakeLists.txt")) {
+            throw "Vendored ncnn source is missing."
+          }
+          if (!(Test-Path "$source/libwebp/CMakeLists.txt")) {
+            throw "Vendored libwebp source is missing."
+          }
+
+          cmake -S $source -B $build -A x64
+          if ($LASTEXITCODE -ne 0) {
+            throw "Real-ESRGAN CMake configure failed."
+          }
+
+          cmake --build $build --config Release --parallel 2
+          if ($LASTEXITCODE -ne 0) {
+            throw "Real-ESRGAN build failed."
+          }
+
+          $exe = Join-Path $build "Release/realesrgan-ncnn-vulkan.exe"
+          if (!(Test-Path $exe)) {
+            throw "Real-ESRGAN executable was not generated."
+          }
+
+          $size = (Get-Item $exe).Length
+          if ($size -lt 256KB) {
+            throw "Real-ESRGAN executable is unexpectedly small: $size bytes."
+          }
+
+          Write-Host "Vendored Real-ESRGAN build verified: $exe ($size bytes)"
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: Real-ESRGAN-vendored-win-x64
+          path: build-realesrgan/Release/realesrgan-ncnn-vulkan.exe
