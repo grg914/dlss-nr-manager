@@ -33,6 +33,8 @@ Run `tools/vendor-third-party.ps1` to materialize the snapshots. The importer:
 
 Use `-Replace` when intentionally refreshing an existing imported folder after changing the lock file.
 
+Some locked sources may define a `retention` policy. This is used when the application only requires a small, immutable subset of a large upstream snapshot. The importer applies the policy after checkout/LFS materialization, and the verifier reports an error if excluded files reappear. For the two AI-origin detector repositories, only `onnx/model_int8.onnx` is retained from the ONNX weight variants because those are the exact weights used by `AiOriginDetectionService`; model cards, configuration and licensing metadata remain in place.
+
 Run `tools/verify-self-contained.ps1` to audit the checkout. With `-Strict`, the verifier fails on missing locked mirrors, mutable refs, provenance mismatches, nested Git metadata, unresolved Git LFS pointers, or remaining direct upstream runtime/release dependencies.
 
 ## Licensing boundary
