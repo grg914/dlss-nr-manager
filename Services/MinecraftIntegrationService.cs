@@ -539,6 +539,8 @@ public sealed class MinecraftIntegrationService
                     new ModrinthProject("Lithium", "lithium", "lithium", "lithium"),
                     new ModrinthProject("FerriteCore", "ferrite-core", "ferritecore", "ferritecore"),
                     new ModrinthProject("Krypton", "krypton", "krypton", "krypton"),
+                    new ModrinthProject("C2ME", "c2me-fabric", "c2me", "c2me"),
+                    new ModrinthProject("BadOptimizations", "badoptimizations", "badoptimizations", "badoptimizations"),
                     new ModrinthProject("Dynamic FPS", "dynamic-fps", "dynamic-fps", "dynamic_fps")
                 })
                 {
