@@ -59,6 +59,13 @@ public partial class MainWindow : Window
         // Clean up media helpers left behind by an interrupted/older manager run.
         try { ExternalProcessTracker.KillAll(); } catch { }
 
+        var appPreferences = AppPreferencesService.Load();
+        if (appPreferences.SoftwareRendering)
+        {
+            System.Windows.Media.RenderOptions.ProcessRenderMode =
+                System.Windows.Interop.RenderMode.SoftwareOnly;
+        }
+
         InitializeComponent();
 
         var scanSettings = ScanSettingsService.Load();
@@ -68,6 +75,10 @@ public partial class MainWindow : Window
         _aiOrigin = new AiOriginDetectionService(_media);
 
         AppVersionText.Text = $"Version v{AppIdentity.VersionString}";
+        SoftwareRenderingButton.Content =
+            appPreferences.SoftwareRendering
+                ? "Use hardware UI rendering"
+                : "Use software UI rendering";
 
         Loaded += async (_, _) =>
         {
@@ -530,6 +541,20 @@ public partial class MainWindow : Window
         DiagnosticText.Text =
             "Run Diagnose game to verify the renderer signals, OptiScaler load state, DLSSNR runtime and loader conflicts.";
 
+        var preferredBuild =
+            GamePreferenceService.ReadOptiScalerBuild(
+                game.TargetDirectory);
+
+        if (!string.IsNullOrWhiteSpace(preferredBuild) &&
+            _recentReleases.FirstOrDefault(release =>
+                release.Tag.Equals(
+                    preferredBuild,
+                    StringComparison.OrdinalIgnoreCase)) is { } savedRelease)
+        {
+            OptiScalerBuildBox.SelectedItem = savedRelease;
+            _release = savedRelease;
+        }
+
         await RefreshStateAsync();
     }
 
@@ -925,6 +950,10 @@ public partial class MainWindow : Window
         var gameDir = GamePathBox.Text;
         if (!string.IsNullOrWhiteSpace(gameDir) && Directory.Exists(gameDir))
         {
+            GamePreferenceService.WriteOptiScalerBuild(
+                gameDir,
+                release.Tag);
+
             GameHistoryService.Append(
                 gameDir,
                 "Build selection",
@@ -2943,6 +2972,9 @@ public partial class MainWindow : Window
             software
                 ? System.Windows.Interop.RenderMode.SoftwareOnly
                 : System.Windows.Interop.RenderMode.Default;
+
+        AppPreferencesService.Save(
+            new AppPreferences(software));
 
         SoftwareRenderingButton.Content = software
             ? "Use hardware UI rendering"
