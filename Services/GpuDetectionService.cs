@@ -73,8 +73,7 @@ public sealed class GpuDetectionService
             if (process == null)
                 return [];
 
-            var output = process.StandardOutput.ReadToEnd();
-            if (!process.WaitForExit(3000) || process.ExitCode != 0)
+            if (!process.WaitForExit(3000))
             {
                 try
                 {
@@ -85,6 +84,11 @@ public sealed class GpuDetectionService
 
                 return [];
             }
+
+            if (process.ExitCode != 0)
+                return [];
+
+            var output = process.StandardOutput.ReadToEnd();
 
             return output
                 .Split(
