@@ -712,23 +712,55 @@ public partial class MainWindow : Window
                 _releases,
                 enableNeuralRendering);
 
+            string? resourceWarning = null;
+
             if (AutoNvidiaResourcesCheck.IsChecked == true)
             {
-                var resourceProgress = new Progress<string>(
-                    message => RuntimePathText.Text = message);
+                try
+                {
+                    var resourceProgress = new Progress<string>(
+                        message => RuntimePathText.Text = message);
 
-                var staged = await _streamline.StageSelectedResourcesAsync(
-                    gameDir,
-                    includeSuperResolution: _gpuCapabilities.SuperResolution,
-                    includeFrameGeneration: _gpuCapabilities.FrameGeneration,
-                    includeReflex: _gpuCapabilities.IsSupportedRtx,
-                    includeNeuralRendering: enableNeuralRendering,
-                    resourceProgress);
+                    var staged = await _streamline.StageSelectedResourcesAsync(
+                        gameDir,
+                        includeSuperResolution: _gpuCapabilities.SuperResolution,
+                        includeFrameGeneration: _gpuCapabilities.FrameGeneration,
+                        includeReflex: _gpuCapabilities.IsSupportedRtx,
+                        includeNeuralRendering: enableNeuralRendering,
+                        resourceProgress);
 
-                RuntimePathText.Text =
-                    staged.Count == 0
-                        ? $"NVIDIA resources checked • {_gpu.Generation} supported feature set already satisfied."
-                        : $"Added {staged.Count} missing official NVIDIA resource file(s) for {_gpu.Generation}.";
+                    if (staged.Count > 0)
+                    {
+                        try
+                        {
+                            _installer.RegisterManagedFiles(
+                                gameDir,
+                                staged);
+                        }
+                        catch
+                        {
+                            foreach (var path in staged)
+                            {
+                                try { if (File.Exists(path)) File.Delete(path); } catch { }
+                            }
+
+                            throw;
+                        }
+                    }
+
+                    RuntimePathText.Text =
+                        staged.Count == 0
+                            ? $"NVIDIA resources checked • {_gpu.Generation} supported feature set already satisfied."
+                            : $"Added {staged.Count} managed official NVIDIA resource file(s) for {_gpu.Generation}.";
+                }
+                catch (Exception ex)
+                {
+                    resourceWarning =
+                        "Optional NVIDIA resource staging could not be completed: " +
+                        ex.Message;
+                    RuntimePathText.Text = resourceWarning;
+                    AppLogger.Warn(resourceWarning);
+                }
             }
 
             await Task.Run(() => ApplyAdvancedSettings(gameDir, advanced));
@@ -755,10 +787,15 @@ public partial class MainWindow : Window
             }
 
             MessageBox.Show(
-                $"Installation completed for {_gpu.Generation}.\n\n{_gpuCapabilities.Summary}\n\nBackup: {backup}",
+                $"Installation completed for {_gpu.Generation}.\n\n{_gpuCapabilities.Summary}\n\nBackup: {backup}" +
+                (string.IsNullOrWhiteSpace(resourceWarning)
+                    ? ""
+                    : $"\n\nWarning: {resourceWarning}"),
                 "DLSS NR Manager",
                 MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                string.IsNullOrWhiteSpace(resourceWarning)
+                    ? MessageBoxImage.Information
+                    : MessageBoxImage.Warning);
 
             await RefreshStateAsync();
         }
