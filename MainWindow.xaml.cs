@@ -43,6 +43,9 @@ public partial class MainWindow : Window
     private string? _minecraftDlssZipPath;
     private string? _minecraftDlssNrPath;
     private IReadOnlyList<PcCleanupItem> _cleanupItems = [];
+    private AiOriginDetectionResult? _lastAiOriginResult;
+    private string? _lastAiOriginSource;
+    private readonly ManagedInstallIntegrityService _integrity = new();
     private bool _isBusy;
     private int _stateRefreshVersion;
     private CancellationTokenSource? _mediaOperationCts;
@@ -2632,9 +2635,19 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message => AiOriginStatusText.Text = message);
 
+            var mode = AiOriginModeBox.SelectedIndex == 1
+                ? AiOriginAnalysisMode.Thorough
+                : AiOriginAnalysisMode.Balanced;
+
             var result = await _aiOrigin.AnalyzeAsync(
                 source,
-                progress);
+                progress,
+                default,
+                mode);
+
+            _lastAiOriginResult = result;
+            _lastAiOriginSource = source;
+            AiOriginExportButton.IsEnabled = true;
 
             var provenance = result.ProvenanceSignals.Count == 0
                 ? "No known generator/provenance marker found."
@@ -2649,6 +2662,9 @@ public partial class MainWindow : Window
                 $"Primary detector: {result.PrimaryModelProbability:P1}\n" +
                 $"Secondary detector: {result.SecondaryModelProbability:P1}\n" +
                 $"Model disagreement: {result.ModelDisagreement:P1}\n" +
+                $"View consistency: {result.ViewConsistency:P1}\n" +
+                $"Temporal consistency: {result.TemporalConsistency:P1}\n" +
+                $"Analysis mode: {result.AnalysisMode}\n" +
                 $"Frames analyzed: {result.FramesAnalyzed}\n" +
                 (result.FramesAnalyzed > 1
                     ? $"Strong-AI frames: {result.FramesFlagged}/{result.FramesAnalyzed}\n"
@@ -2679,6 +2695,62 @@ public partial class MainWindow : Window
             AiOriginSetupButton.IsEnabled = true;
             AiOriginAnalyzeButton.IsEnabled = true;
             MediaProcessButton.IsEnabled = true;
+        }
+    }
+
+    private void ExportAiOriginReport_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (_lastAiOriginResult == null ||
+            string.IsNullOrWhiteSpace(_lastAiOriginSource))
+        {
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export AI origin analysis report",
+            Filter = "JSON report (*.json)|*.json",
+            FileName =
+                $"ai-origin-report-{DateTime.Now:yyyyMMdd-HHmmss}.json"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var payload = new
+            {
+                CreatedAt = DateTimeOffset.Now,
+                SourceFile = Path.GetFileName(_lastAiOriginSource),
+                SourceSha256 = HashService.Sha256(_lastAiOriginSource),
+                Result = _lastAiOriginResult
+            };
+
+            AtomicFile.WriteAllText(
+                dialog.FileName,
+                System.Text.Json.JsonSerializer.Serialize(
+                    payload,
+                    new System.Text.Json.JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    }));
+
+            MessageBox.Show(
+                "AI origin report exported successfully.",
+                "AI origin detection",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "AI origin report export failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
