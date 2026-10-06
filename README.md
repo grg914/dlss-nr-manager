@@ -31,7 +31,7 @@ Design references are kept under:
 - `docs/mockups/dlssnrmanager-menu/index.html` — interactive browser reference
 - `docs/mockups/dlssnrmanager-menu/MainWindow_DlssNrManager_Menu_Mockup.xaml` — WPF layout reference
 
-The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application.
+The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
 
 ## What's new in v1.5.0
 
