@@ -22,6 +22,8 @@ public sealed class InstallerService
 
     public InstallState Inspect(string gameDir, string gpuGeneration)
     {
+        RecoverInterruptedTransaction(gameDir);
+
         var managedProxy = ReadManagedProxy(gameDir);
         string? proxy = null;
 
@@ -160,6 +162,12 @@ public sealed class InstallerService
             ? previousManifest!.BaselineBackup!
             : Path.GetRelativePath(gameDir, backup);
 
+        var journal = FileTransactionJournal.Begin(
+            gameDir,
+            previousManifest == null ? "install" : "update",
+            backup);
+        journal.Stage("BACKED_UP");
+
         var temp = Path.Combine(Path.GetTempPath(), "DlssNrManager", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temp);
 
@@ -202,14 +210,36 @@ public sealed class InstallerService
             }
 
             BackupDestinationCollisions(sourceRoot, gameDir, backup);
-            CopyTree(sourceRoot, gameDir, overwrite: true);
+            journal.Stage("WRITING");
+
+            foreach (var source in Directory.EnumerateFiles(
+                         sourceRoot,
+                         "*",
+                         SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(sourceRoot, source);
+                if (!TryResolveUnderRoot(gameDir, relative, out var destination))
+                    throw new InvalidDataException(
+                        $"Unsafe archive destination: {relative}");
+
+                journal.Track(destination);
+            }
+
+            CopyTreePreservingNewerNvidia(
+                sourceRoot,
+                gameDir,
+                overwrite: true);
 
             var optiDll = Path.Combine(gameDir, "OptiScaler.dll");
+            journal.Track(proxyPath);
             File.Copy(optiDll, proxyPath, true);
             File.Delete(optiDll);
 
             if (enableNeuralRendering && runtimePath != null)
-                File.Copy(runtimePath, runtimeDestination, true);
+            {
+                journal.Track(runtimeDestination);
+                CopyIfNotOlder(runtimePath, runtimeDestination);
+            }
 
             IniService.ApplyPreset(
                 Path.Combine(gameDir, "OptiScaler.ini"),
@@ -247,11 +277,24 @@ public sealed class InstallerService
                 managedFiles,
                 baselineBackup);
 
+            journal.Track(versionMarkerPath);
+            journal.Track(proxyMarkerPath);
+            journal.Track(manifestPath);
+            journal.Stage("VERIFIED");
+
             AtomicFile.WriteAllText(
                 manifestPath,
                 JsonSerializer.Serialize(
                     manifest,
                     new JsonSerializerOptions { WriteIndented = true }));
+
+            journal.Commit();
+
+            GameHistoryService.Append(
+                gameDir,
+                previousManifest == null ? "Install" : "Update",
+                $"OptiScaler {release.Tag} • proxy {proxy}",
+                Path.GetRelativePath(gameDir, backup));
 
             return backup;
         }
@@ -268,6 +311,12 @@ public sealed class InstallerService
                 versionMarkerExistedBefore,
                 proxyMarkerExistedBefore,
                 manifestExistedBefore);
+            FileTransactionJournal.ClearPending(gameDir);
+            GameHistoryService.Append(
+                gameDir,
+                "Rollback",
+                $"Failed {release.Tag} install/update rolled back.",
+                Path.GetRelativePath(gameDir, backup));
             throw;
         }
         finally
@@ -404,6 +453,11 @@ public sealed class InstallerService
 
         Uninstall(gameDir, preserveBackups: true);
         CopyTree(latest, gameDir, true);
+        GameHistoryService.Append(
+            gameDir,
+            "Restore",
+            $"Restored backup {Path.GetFileName(latest)}.",
+            Path.GetRelativePath(gameDir, latest));
     }
 
     public void Uninstall(string gameDir, bool preserveBackups = true)
@@ -765,6 +819,150 @@ public sealed class InstallerService
         {
             return false;
         }
+    }
+
+    private static void RecoverInterruptedTransaction(string gameDir)
+    {
+        var pending = FileTransactionJournal.ReadPending(gameDir);
+        if (pending == null || pending.Stage.Equals("COMMITTED", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            if (!Directory.Exists(pending.BackupDirectory))
+            {
+                AppLogger.Warn(
+                    $"Interrupted transaction {pending.Id} has no backup directory; leaving journal for diagnostics.");
+                return;
+            }
+
+            foreach (var relative in pending.Files)
+            {
+                if (!TryResolveUnderRoot(gameDir, relative, out var destination) ||
+                    !TryResolveUnderRoot(pending.BackupDirectory, relative, out var backupFile))
+                    continue;
+
+                if (File.Exists(backupFile))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    File.Copy(backupFile, destination, true);
+                }
+                else if (File.Exists(destination))
+                {
+                    File.Delete(destination);
+                }
+            }
+
+            FileTransactionJournal.ClearPending(gameDir);
+            GameHistoryService.Append(
+                gameDir,
+                "Recovery",
+                $"Recovered interrupted {pending.Operation} transaction {pending.Id}.",
+                Path.GetRelativePath(gameDir, pending.BackupDirectory));
+
+            AppLogger.Warn(
+                $"Recovered interrupted game transaction {pending.Id} at stage {pending.Stage}.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn(
+                $"Interrupted transaction recovery failed: {ex.Message}");
+        }
+    }
+
+    private static void CopyTreePreservingNewerNvidia(
+        string source,
+        string dest,
+        bool overwrite)
+    {
+        Directory.CreateDirectory(dest);
+
+        foreach (var file in Directory.GetFiles(source))
+        {
+            var destination = Path.Combine(dest, Path.GetFileName(file));
+
+            if (IsNvidiaDlssRuntime(Path.GetFileName(file)) &&
+                File.Exists(destination) &&
+                IsDestinationNewer(destination, file))
+            {
+                AppLogger.Info(
+                    $"Preserved newer NVIDIA runtime: {Path.GetFileName(destination)}.");
+                continue;
+            }
+
+            File.Copy(file, destination, overwrite);
+        }
+
+        foreach (var dir in Directory.GetDirectories(source))
+        {
+            CopyTreePreservingNewerNvidia(
+                dir,
+                Path.Combine(dest, Path.GetFileName(dir)),
+                overwrite);
+        }
+    }
+
+    private static void CopyIfNotOlder(
+        string source,
+        string destination)
+    {
+        if (File.Exists(destination) &&
+            IsDestinationNewer(destination, source))
+        {
+            AppLogger.Info(
+                $"Preserved newer destination runtime: {Path.GetFileName(destination)}.");
+            return;
+        }
+
+        File.Copy(source, destination, true);
+    }
+
+    private static bool IsNvidiaDlssRuntime(string name)
+        => name.StartsWith("nvngx_dlss", StringComparison.OrdinalIgnoreCase)
+           || name.StartsWith("sl.dlss", StringComparison.OrdinalIgnoreCase)
+           || name.Equals("sl.interposer.dll", StringComparison.OrdinalIgnoreCase)
+           || name.Equals("sl.common.dll", StringComparison.OrdinalIgnoreCase)
+           || name.Equals("sl.reflex.dll", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDestinationNewer(
+        string destination,
+        string source)
+    {
+        try
+        {
+            var destinationVersion =
+                FileVersionInfo.GetVersionInfo(destination).FileVersion;
+            var sourceVersion =
+                FileVersionInfo.GetVersionInfo(source).FileVersion;
+
+            return Version.TryParse(
+                       NormalizeFileVersion(destinationVersion),
+                       out var current) &&
+                   Version.TryParse(
+                       NormalizeFileVersion(sourceVersion),
+                       out var incoming) &&
+                   current > incoming;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string NormalizeFileVersion(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "0.0.0.0";
+
+        var numeric = new string(
+            value.TakeWhile(ch =>
+                char.IsDigit(ch) || ch == '.')
+                .ToArray())
+            .Trim('.');
+
+        return string.IsNullOrWhiteSpace(numeric)
+            ? "0.0.0.0"
+            : numeric;
     }
 
     private static void CopyTree(string source, string dest, bool overwrite)
