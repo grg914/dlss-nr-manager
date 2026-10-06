@@ -121,7 +121,7 @@ public sealed class AiUpscaleService
     private static string FfprobeExe => Path.Combine(MediaRoot, "tools", "ffprobe.exe");
 
     public bool IsReady =>
-        File.Exists(EngineExe) &&
+        IsUsableFile(EngineExe, 256 * 1024) &&
         _modelsVerified &&
         HasUsableModels(ModelsDirectory);
 
@@ -148,7 +148,7 @@ public sealed class AiUpscaleService
 
         string engineTag = "existing";
 
-        if (!File.Exists(EngineExe))
+        if (!IsUsableFile(EngineExe, 256 * 1024))
         {
             progress?.Report(
                 "Checking latest Real-ESRGAN NCNN Vulkan release…");
@@ -972,6 +972,24 @@ public sealed class AiUpscaleService
 
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target, true);
+        }
+    }
+
+    private static bool IsUsableFile(
+        string path,
+        long minimumBytes)
+    {
+        if (string.IsNullOrWhiteSpace(path) ||
+            !File.Exists(path))
+            return false;
+
+        try
+        {
+            return new FileInfo(path).Length >= minimumBytes;
+        }
+        catch
+        {
+            return false;
         }
     }
 
