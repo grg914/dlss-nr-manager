@@ -2314,7 +2314,10 @@ public partial class MainWindow : Window
         try
         {
             var progress = new Progress<string>(message => MediaStatusText.Text = message);
-            var changed = await _components.EnsureMediaToolsLatestAsync(_media, progress);
+            var changed = await _components.EnsureMediaToolsLatestAsync(
+                _media,
+                progress,
+                forceRefresh: true);
             await RefreshReleaseAsync();
             await CheckManagerUpdateAsync();
 
