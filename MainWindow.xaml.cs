@@ -666,7 +666,7 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    RuntimePathText.Text = "Downloading official NVIDIA Streamline DLSSNR runtime…";
+                    RuntimePathText.Text = "Checking the official NVIDIA Streamline package for a published DLSSNR runtime…";
                     var progress = new Progress<string>(message => RuntimePathText.Text = message);
                     var runtime = await _streamline.EnsureLatestDlssNrAsync(
                         _gpu.Generation,
