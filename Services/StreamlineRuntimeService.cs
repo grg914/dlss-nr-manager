@@ -55,7 +55,7 @@ public sealed class StreamlineRuntimeService
 
         if (File.Exists(runtime))
         {
-            var validation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration);
+            var validation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration, cancellationToken);
             if (IsTrustedNvidiaRuntime(validation))
             {
                 return new StreamlineRuntimeResult(
