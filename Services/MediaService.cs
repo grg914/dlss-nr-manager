@@ -53,9 +53,9 @@ public sealed class MediaService
     public string FfprobePath => FfprobeExe;
 
     public bool IsReady =>
-        File.Exists(ProcessorExe) &&
-        File.Exists(FfmpegExe) &&
-        File.Exists(FfprobeExe);
+        IsUsableFile(ProcessorExe, 64 * 1024) &&
+        IsUsableFile(FfmpegExe, 1024 * 1024) &&
+        IsUsableFile(FfprobeExe, 1024 * 1024);
 
     public void ResetTools()
     {
@@ -128,7 +128,7 @@ public sealed class MediaService
         Directory.CreateDirectory(ProcessorDirectory);
         Directory.CreateDirectory(ToolsDirectory);
 
-        if (!File.Exists(ProcessorExe))
+        if (!IsUsableFile(ProcessorExe, 64 * 1024))
         {
             progress?.Report("Downloading video2dlssnr…");
             var release = await GetJsonAsync(
@@ -153,7 +153,8 @@ public sealed class MediaService
                     "video2dlssnr.exe was not found after extracting the release.");
         }
 
-        if (!File.Exists(FfmpegExe) || !File.Exists(FfprobeExe))
+        if (!IsUsableFile(FfmpegExe, 1024 * 1024) ||
+            !IsUsableFile(FfprobeExe, 1024 * 1024))
         {
             progress?.Report("Downloading FFmpeg…");
             var release = await GetJsonAsync(FfmpegApi, cancellationToken);
@@ -718,6 +719,24 @@ public sealed class MediaService
     private static bool IsImage(string path)
         => Path.GetExtension(path).ToLowerInvariant() is
             ".png" or ".jpg" or ".jpeg" or ".bmp" or ".tif" or ".tiff" or ".webp";
+
+    private static bool IsUsableFile(
+        string path,
+        long minimumBytes)
+    {
+        if (string.IsNullOrWhiteSpace(path) ||
+            !File.Exists(path))
+            return false;
+
+        try
+        {
+            return new FileInfo(path).Length >= minimumBytes;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private static Process StartPipeProcess(
         string exe,
