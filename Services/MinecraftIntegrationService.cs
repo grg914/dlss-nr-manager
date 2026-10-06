@@ -403,16 +403,33 @@ public sealed class MinecraftIntegrationService
                 $"Fabric profile target: {launcherType}.");
         }
 
-        using var process = Process.Start(psi)
-            ?? throw new InvalidOperationException("Could not start Fabric Installer.");
+        using var process = ExternalProcessTracker.Start(psi);
 
-        var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
+        try
+        {
+            var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
 
-        if (process.ExitCode != 0)
-            throw new InvalidOperationException(
-                "Fabric Installer failed.\n" + Tail(await stderr, 3000));
+            _ = await stdout;
+            var error = await stderr;
+
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(
+                    "Fabric Installer failed.\n" + Tail(error, 3000));
+        }
+        catch (OperationCanceledException)
+        {
+            ExternalProcessTracker.Kill(process);
+            throw;
+        }
+        finally
+        {
+            if (!process.HasExited)
+                ExternalProcessTracker.Kill(process);
+            else
+                ExternalProcessTracker.Untrack(process);
+        }
 
         progress?.Report("Fabric Loader installation finished. Restart Minecraft Launcher before continuing.");
     }
@@ -1859,18 +1876,35 @@ public sealed class MinecraftIntegrationService
                 psi.ArgumentList.Add(arg);
             }
 
-            using var process = Process.Start(psi);
-            if (process == null)
-                return false;
+            using var process = ExternalProcessTracker.Start(psi);
 
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            try
+            {
+                var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+                var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
-            await process.WaitForExitAsync(cancellationToken);
-            await stdoutTask;
-            await stderrTask;
+                await process.WaitForExitAsync(cancellationToken);
+                await stdoutTask;
+                await stderrTask;
 
-            return process.ExitCode == 0;
+                return process.ExitCode == 0;
+            }
+            catch (OperationCanceledException)
+            {
+                ExternalProcessTracker.Kill(process);
+                throw;
+            }
+            finally
+            {
+                if (!process.HasExited)
+                    ExternalProcessTracker.Kill(process);
+                else
+                    ExternalProcessTracker.Untrack(process);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -1894,32 +1928,49 @@ public sealed class MinecraftIntegrationService
             };
             psi.ArgumentList.Add("-version");
 
-            using var process = Process.Start(psi);
-            if (process == null)
-                return false;
+            using var process = ExternalProcessTracker.Start(psi);
 
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            try
+            {
+                var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+                var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
-            await process.WaitForExitAsync(cancellationToken);
+                await process.WaitForExitAsync(cancellationToken);
 
-            var versionText = (await stdoutTask) + "\n" + (await stderrTask);
-            if (process.ExitCode != 0)
-                return false;
+                var versionText = (await stdoutTask) + "\n" + (await stderrTask);
+                if (process.ExitCode != 0)
+                    return false;
 
-            var firstQuote = versionText.IndexOf('"');
-            if (firstQuote < 0)
-                return false;
+                var firstQuote = versionText.IndexOf('"');
+                if (firstQuote < 0)
+                    return false;
 
-            var secondQuote = versionText.IndexOf('"', firstQuote + 1);
-            if (secondQuote <= firstQuote)
-                return false;
+                var secondQuote = versionText.IndexOf('"', firstQuote + 1);
+                if (secondQuote <= firstQuote)
+                    return false;
 
-            var version = versionText[(firstQuote + 1)..secondQuote];
-            var firstPart = version.Split('.', '-', '+')[0];
+                var version = versionText[(firstQuote + 1)..secondQuote];
+                var firstPart = version.Split('.', '-', '+')[0];
 
-            return int.TryParse(firstPart, out var major) &&
-                   major == expectedMajor;
+                return int.TryParse(firstPart, out var major) &&
+                       major == expectedMajor;
+            }
+            catch (OperationCanceledException)
+            {
+                ExternalProcessTracker.Kill(process);
+                throw;
+            }
+            finally
+            {
+                if (!process.HasExited)
+                    ExternalProcessTracker.Kill(process);
+                else
+                    ExternalProcessTracker.Untrack(process);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
