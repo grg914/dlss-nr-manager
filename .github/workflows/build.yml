@@ -164,7 +164,7 @@ jobs:
             throw "Vendored libwebp source is missing."
           }
 
-          cmake -S $source -B $build -A x64
+          cmake -S $source -B $build -A x64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           if ($LASTEXITCODE -ne 0) {
             throw "Real-ESRGAN CMake configure failed."
           }
