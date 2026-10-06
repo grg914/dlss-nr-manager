@@ -131,7 +131,7 @@ public sealed class ComponentUpdateService
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 StatePath,
                 JsonSerializer.Serialize(state, new JsonSerializerOptions
                 {
