@@ -42,7 +42,6 @@ public sealed class MinecraftIntegrationService
 
     private const string FabricInstallerMavenBase =
         "https://maven.fabricmc.net/net/fabricmc/fabric-installer";
-    private const string CausticaRtxRepo = "grg914/Caustica-RTX";
     private const string ManagerRepository = "grg914/dlss-nr-manager";
     private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
 
@@ -303,27 +302,13 @@ public sealed class MinecraftIntegrationService
     {
         try
         {
-            GitHubRelease release;
-            try
-            {
-                release = await FindReleaseAsync(
-                    ManagerRepository,
-                    r => ReleaseBundlesCausticaForMinecraftVersion(
-                        r,
-                        MinecraftVersion),
-                    includePrerelease: true,
-                    cancellationToken);
-            }
-            catch (InvalidOperationException)
-            {
-                release = await FindReleaseAsync(
-                    CausticaRtxRepo,
-                    r => ReleaseTargetsMinecraftVersion(
-                        r,
-                        MinecraftVersion),
-                    includePrerelease: true,
-                    cancellationToken);
-            }
+            var release = await FindReleaseAsync(
+                ManagerRepository,
+                r => ReleaseBundlesCausticaForMinecraftVersion(
+                    r,
+                    MinecraftVersion),
+                includePrerelease: true,
+                cancellationToken);
 
             var asset = release.Assets.FirstOrDefault(candidate =>
                 IsProductionCausticaJar(candidate.Name));
@@ -546,34 +531,18 @@ public sealed class MinecraftIntegrationService
 
             progress?.Report("Finding latest compatible Caustica RTX bundle…");
 
-            GitHubRelease caustica;
-            string causticaSourceRepository;
-            try
-            {
-                caustica = await FindReleaseAsync(
-                    ManagerRepository,
-                    r => ReleaseBundlesCausticaForMinecraftVersion(
-                        r,
-                        MinecraftVersion),
-                    includePrerelease: true,
-                    cancellationToken);
-                causticaSourceRepository = ManagerRepository;
-                progress?.Report(
-                    $"Using bundled Caustica RTX from DLSS NR Manager release {caustica.Tag}.");
-            }
-            catch (InvalidOperationException)
-            {
-                caustica = await FindReleaseAsync(
-                    CausticaRtxRepo,
-                    r => ReleaseTargetsMinecraftVersion(
-                        r,
-                        MinecraftVersion),
-                    allowPrereleaseCaustica,
-                    cancellationToken);
-                causticaSourceRepository = CausticaRtxRepo;
-                progress?.Report(
-                    $"Bundled Caustica RTX not found; using {CausticaRtxRepo} release {caustica.Tag}.");
-            }
+            var caustica = await FindReleaseAsync(
+                ManagerRepository,
+                r => ReleaseBundlesCausticaForMinecraftVersion(
+                    r,
+                    MinecraftVersion),
+                includePrerelease: true,
+                cancellationToken);
+
+            const string causticaSourceRepository = ManagerRepository;
+
+            progress?.Report(
+                $"Using bundled Caustica RTX from DLSS NR Manager release {caustica.Tag}.");
 
             var causticaAsset = SelectAsset(
                 caustica,
