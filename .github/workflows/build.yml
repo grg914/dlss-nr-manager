@@ -138,20 +138,22 @@ jobs:
       - name: Build vendored Real-ESRGAN Windows engine
         shell: pwsh
         run: |
-          $sdkVersion = "1.2.162.0"
-          $sdkRoot = Join-Path $PWD "VulkanSDK"
-          $installer = Join-Path $PWD "VulkanSDK-$sdkVersion-Installer.exe"
+          $sdkVersion = "1.4.363.0"
+          $sdkRoot = "C:\VulkanSDK\$sdkVersion"
 
           if (!(Test-Path (Join-Path $sdkRoot "Include\vulkan\vulkan.h"))) {
-            Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$sdkVersion/windows/VulkanSDK-$sdkVersion-Installer.exe?Human=true" -OutFile $installer
-
-            7z x -aoa $installer "-o$sdkRoot" | Out-Null
+            winget install --id KhronosGroup.VulkanSDK --exact --version $sdkVersion --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
             if ($LASTEXITCODE -ne 0) {
-              throw "Failed to extract Vulkan SDK $sdkVersion."
+              throw "Failed to install Vulkan SDK $sdkVersion through winget."
             }
           }
 
+          if (!(Test-Path (Join-Path $sdkRoot "Include\vulkan\vulkan.h"))) {
+            throw "Vulkan SDK $sdkVersion was installed but expected headers are missing from $sdkRoot."
+          }
+
           $env:VULKAN_SDK = $sdkRoot
+          $env:Path = "$sdkRoot\Bin;$env:Path"
           $source = "third_party/Real-ESRGAN-ncnn-vulkan/src"
           $build = "build-realesrgan"
 
