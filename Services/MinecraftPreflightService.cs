@@ -689,10 +689,11 @@ public sealed class MinecraftPreflightService
 
             try
             {
-                foreach (var candidate in Directory.EnumerateFiles(
+                foreach (var candidate in EnumerateFilesBounded(
                              runtimeRoot,
                              "java.exe",
-                             SearchOption.AllDirectories))
+                             maxDepth: 6,
+                             maxResults: 64))
                     Add(candidate);
             }
             catch { }
@@ -719,10 +720,11 @@ public sealed class MinecraftPreflightService
 
                 try
                 {
-                    foreach (var candidate in Directory.EnumerateFiles(
+                    foreach (var candidate in EnumerateFilesBounded(
                                  vendorRoot,
                                  "java.exe",
-                                 SearchOption.AllDirectories))
+                                 maxDepth: 5,
+                                 maxResults: 48))
                         Add(candidate);
                 }
                 catch { }
@@ -786,10 +788,11 @@ public sealed class MinecraftPreflightService
 
             try
             {
-                var candidate = Directory.EnumerateFiles(
+                var candidate = EnumerateFilesBounded(
                         root,
                         name,
-                        SearchOption.AllDirectories)
+                        maxDepth: 5,
+                        maxResults: 16)
                     .FirstOrDefault();
 
                 if (candidate != null)
@@ -799,6 +802,77 @@ public sealed class MinecraftPreflightService
         }
 
         return null;
+    }
+
+    private static IEnumerable<string> EnumerateFilesBounded(
+        string root,
+        string fileName,
+        int maxDepth,
+        int maxResults)
+    {
+        if (!Directory.Exists(root) ||
+            maxDepth < 0 ||
+            maxResults <= 0)
+            yield break;
+
+        var pending = new Queue<(string Path, int Depth)>();
+        pending.Enqueue((root, 0));
+        var yielded = 0;
+
+        while (pending.Count > 0 && yielded < maxResults)
+        {
+            var (directory, depth) = pending.Dequeue();
+
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(
+                    directory,
+                    fileName,
+                    SearchOption.TopDirectoryOnly).ToArray();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var file in files)
+            {
+                yield return file;
+                yielded++;
+                if (yielded >= maxResults)
+                    yield break;
+            }
+
+            if (depth >= maxDepth)
+                continue;
+
+            IEnumerable<string> children;
+            try
+            {
+                children = Directory.EnumerateDirectories(
+                    directory,
+                    "*",
+                    SearchOption.TopDirectoryOnly).ToArray();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var child in children)
+            {
+                try
+                {
+                    var attributes = File.GetAttributes(child);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0)
+                        continue;
+
+                    pending.Enqueue((child, depth + 1));
+                }
+                catch { }
+            }
+        }
     }
 
     private static async Task<ProcessResult> RunProcessAsync(

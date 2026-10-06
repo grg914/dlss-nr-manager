@@ -43,6 +43,7 @@ public sealed class MinecraftIntegrationService
     private const string FabricInstallerMavenBase =
         "https://maven.fabricmc.net/net/fabricmc/fabric-installer";
     private const string CausticaRtxRepo = "grg914/Caustica-RTX";
+    private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
 
     private readonly HttpClient _http = new();
 
@@ -810,36 +811,68 @@ public sealed class MinecraftIntegrationService
         var temp = destination + ".download";
         progress?.Report($"Downloading {asset.Name}…");
 
-        using var response = await _http.GetAsync(
-            asset.Url,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-        await using (var output = new FileStream(
-                         temp,
-                         FileMode.Create,
-                         FileAccess.Write,
-                         FileShare.None,
-                         128 * 1024,
-                         useAsync: true))
+        if (!Uri.TryCreate(asset.Url, UriKind.Absolute, out var assetUri) ||
+            !assetUri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !assetUri.Host.Equals(
+                "github.com",
+                StringComparison.OrdinalIgnoreCase))
         {
-            await input.CopyToAsync(output, cancellationToken);
+            throw new InvalidDataException(
+                $"Unexpected GitHub asset URL: {asset.Url}");
         }
 
-        if (!string.IsNullOrWhiteSpace(asset.Sha256))
+        try
         {
-            var actual = await Sha256Async(temp, cancellationToken);
-            if (!actual.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
+            using var response = await _http.GetAsync(
+                assetUri,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
             {
-                TryDelete(temp);
                 throw new InvalidDataException(
-                    $"SHA-256 mismatch for {asset.Name}. Expected {asset.Sha256}, got {actual}.");
+                    $"{asset.Name} exceeds the 1 GB download safety limit.");
             }
-        }
 
-        File.Move(temp, destination, true);
+            await using (var input =
+                await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var output = new FileStream(
+                             temp,
+                             FileMode.Create,
+                             FileAccess.Write,
+                             FileShare.None,
+                             128 * 1024,
+                             useAsync: true))
+            {
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    MaxComponentDownloadBytes,
+                    cancellationToken);
+            }
+
+            if (!string.IsNullOrWhiteSpace(asset.Sha256))
+            {
+                var actual = await Sha256Async(temp, cancellationToken);
+                if (!actual.Equals(
+                        asset.Sha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"SHA-256 mismatch for {asset.Name}. Expected {asset.Sha256}, got {actual}.");
+                }
+            }
+
+            File.Move(temp, destination, true);
+        }
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
     }
 
     private async Task<MinecraftComponentResult> InstallModrinthProjectAsync(
@@ -1006,6 +1039,12 @@ public sealed class MinecraftIntegrationService
             {
                 response.EnsureSuccessStatusCode();
 
+                if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
+                {
+                    throw new InvalidDataException(
+                        $"{project.Name} exceeds the 1 GB download safety limit.");
+                }
+
                 await using var input =
                     await response.Content.ReadAsStreamAsync(cancellationToken);
                 await using var output = new FileStream(
@@ -1016,7 +1055,11 @@ public sealed class MinecraftIntegrationService
                     128 * 1024,
                     useAsync: true);
 
-                await input.CopyToAsync(output, cancellationToken);
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    MaxComponentDownloadBytes,
+                    cancellationToken);
             }
 
             await using (var stream = File.OpenRead(temp))
@@ -1493,6 +1536,18 @@ public sealed class MinecraftIntegrationService
         string componentName,
         CancellationToken cancellationToken)
     {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.Equals(
+                "maven.fabricmc.net",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected Fabric download URL: {url}");
+        }
+
         var temp = destination + ".download";
 
         try
@@ -1500,11 +1555,17 @@ public sealed class MinecraftIntegrationService
             progress?.Report($"Downloading {componentName}…");
 
             using (var response = await _http.GetAsync(
-                       url,
+                       uri,
                        HttpCompletionOption.ResponseHeadersRead,
                        cancellationToken))
             {
                 response.EnsureSuccessStatusCode();
+
+                if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
+                {
+                    throw new InvalidDataException(
+                        $"{componentName} exceeds the 1 GB download safety limit.");
+                }
 
                 await using var input =
                     await response.Content.ReadAsStreamAsync(
@@ -1517,8 +1578,10 @@ public sealed class MinecraftIntegrationService
                     128 * 1024,
                     useAsync: true);
 
-                await input.CopyToAsync(
+                await CopyWithLimitAsync(
+                    input,
                     output,
+                    MaxComponentDownloadBytes,
                     cancellationToken);
             }
 
@@ -1558,6 +1621,37 @@ public sealed class MinecraftIntegrationService
         {
             TryDelete(temp);
             throw;
+        }
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
         }
     }
 
@@ -1776,10 +1870,11 @@ public sealed class MinecraftIntegrationService
 
             try
             {
-                foreach (var candidate in Directory.EnumerateFiles(
+                foreach (var candidate in EnumerateFilesBounded(
                              runtimeRoot,
                              "java.exe",
-                             SearchOption.AllDirectories))
+                             maxDepth: 6,
+                             maxResults: 64))
                 {
                     AddCandidate(candidate);
                 }
@@ -1808,10 +1903,11 @@ public sealed class MinecraftIntegrationService
 
                 try
                 {
-                    foreach (var candidate in Directory.EnumerateFiles(
+                    foreach (var candidate in EnumerateFilesBounded(
                                  vendorRoot,
                                  "java.exe",
-                                 SearchOption.AllDirectories))
+                                 maxDepth: 5,
+                                 maxResults: 48))
                     {
                         AddCandidate(candidate);
                     }
@@ -1827,6 +1923,77 @@ public sealed class MinecraftIntegrationService
         }
 
         return null;
+    }
+
+    private static IEnumerable<string> EnumerateFilesBounded(
+        string root,
+        string fileName,
+        int maxDepth,
+        int maxResults)
+    {
+        if (!Directory.Exists(root) ||
+            maxDepth < 0 ||
+            maxResults <= 0)
+            yield break;
+
+        var pending = new Queue<(string Path, int Depth)>();
+        pending.Enqueue((root, 0));
+        var yielded = 0;
+
+        while (pending.Count > 0 && yielded < maxResults)
+        {
+            var (directory, depth) = pending.Dequeue();
+
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(
+                    directory,
+                    fileName,
+                    SearchOption.TopDirectoryOnly).ToArray();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var file in files)
+            {
+                yield return file;
+                yielded++;
+                if (yielded >= maxResults)
+                    yield break;
+            }
+
+            if (depth >= maxDepth)
+                continue;
+
+            IEnumerable<string> children;
+            try
+            {
+                children = Directory.EnumerateDirectories(
+                    directory,
+                    "*",
+                    SearchOption.TopDirectoryOnly).ToArray();
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var child in children)
+            {
+                try
+                {
+                    var attributes = File.GetAttributes(child);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0)
+                        continue;
+
+                    pending.Enqueue((child, depth + 1));
+                }
+                catch { }
+            }
+        }
     }
 
     private static string? FindOnPath(string executable)

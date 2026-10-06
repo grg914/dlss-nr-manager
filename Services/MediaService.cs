@@ -20,8 +20,23 @@ public sealed class MediaService
     private const string FfmpegAsset = "ffmpeg-master-latest-win64-gpl.zip";
     private const string FfmpegApi =
         "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest";
+    private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
+    private const long MaxExtractedArchiveBytes = 4L * 1024 * 1024 * 1024;
+    private const int MaxArchiveEntries = 100_000;
 
     private readonly HttpClient _http = new();
+
+    public MediaService()
+    {
+        _http.Timeout = TimeSpan.FromMinutes(10);
+        _http.DefaultRequestHeaders.UserAgent.Add(
+            new ProductInfoHeaderValue(
+                "DlssNrManager",
+                AppIdentity.UserAgentVersion));
+        _http.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue(
+                "application/vnd.github+json"));
+    }
 
     public string RootDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -38,9 +53,9 @@ public sealed class MediaService
     public string FfprobePath => FfprobeExe;
 
     public bool IsReady =>
-        File.Exists(ProcessorExe) &&
-        File.Exists(FfmpegExe) &&
-        File.Exists(FfprobeExe);
+        IsUsableFile(ProcessorExe, 64 * 1024) &&
+        IsUsableFile(FfmpegExe, 1024 * 1024) &&
+        IsUsableFile(FfprobeExe, 1024 * 1024);
 
     public void ResetTools()
     {
@@ -113,7 +128,7 @@ public sealed class MediaService
         Directory.CreateDirectory(ProcessorDirectory);
         Directory.CreateDirectory(ToolsDirectory);
 
-        if (!File.Exists(ProcessorExe))
+        if (!IsUsableFile(ProcessorExe, 64 * 1024))
         {
             progress?.Report("Downloading video2dlssnr…");
             var release = await GetJsonAsync(
@@ -125,20 +140,47 @@ public sealed class MediaService
                     $"Latest {ProcessorRepo} release has no {ProcessorAsset} asset.");
 
             var zip = Path.Combine(RootDirectory, ProcessorAsset);
-            await DownloadAsync(
-                asset.Url,
-                zip,
-                asset.Sha256,
-                cancellationToken);
-            ExtractSafe(zip, ProcessorDirectory);
-            File.Delete(zip);
+            var extract = Path.Combine(
+                RootDirectory,
+                "video2dlssnr-extract-" + Guid.NewGuid().ToString("N"));
 
-            if (!File.Exists(ProcessorExe))
+            try
+            {
+                await DownloadAsync(
+                    asset.Url,
+                    zip,
+                    asset.Sha256,
+                    cancellationToken);
+
+                ExtractSafe(zip, extract);
+
+                var extractedExe =
+                    FindFile(extract, "video2dlssnr.exe");
+
+                if (!IsUsableFile(extractedExe ?? "", 64 * 1024))
+                {
+                    throw new InvalidOperationException(
+                        "video2dlssnr.exe was not found or is invalid after extracting the release.");
+                }
+
+                TryDeleteDirectory(ProcessorDirectory);
+                Directory.Move(extract, ProcessorDirectory);
+            }
+            finally
+            {
+                TryDeleteFile(zip);
+                TryDeleteDirectory(extract);
+            }
+
+            if (!IsUsableFile(ProcessorExe, 64 * 1024))
+            {
                 throw new InvalidOperationException(
-                    "video2dlssnr.exe was not found after extracting the release.");
+                    "video2dlssnr installation did not produce a usable executable.");
+            }
         }
 
-        if (!File.Exists(FfmpegExe) || !File.Exists(FfprobeExe))
+        if (!IsUsableFile(FfmpegExe, 1024 * 1024) ||
+            !IsUsableFile(FfprobeExe, 1024 * 1024))
         {
             progress?.Report("Downloading FFmpeg…");
             var release = await GetJsonAsync(FfmpegApi, cancellationToken);
@@ -525,19 +567,30 @@ public sealed class MediaService
 
         try
         {
-            using var request =
-                new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.UserAgent.Add(
-                new ProductInfoHeaderValue(
-                    "DlssNrManager",
-                    "1.2"));
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                !uri.Scheme.Equals(
+                    Uri.UriSchemeHttps,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !uri.Host.Equals(
+                    "github.com",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Unexpected media-component release URL: {url}");
+            }
 
-            using var response = await _http.SendAsync(
-                request,
+            using var response = await _http.GetAsync(
+                uri,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
 
             response.EnsureSuccessStatusCode();
+
+            if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
+            {
+                throw new InvalidDataException(
+                    "Media component archive exceeds the 1 GB safety limit.");
+            }
 
             await using (var input =
                 await response.Content.ReadAsStreamAsync(
@@ -550,8 +603,10 @@ public sealed class MediaService
                 1024 * 128,
                 useAsync: true))
             {
-                await input.CopyToAsync(
+                await CopyWithLimitAsync(
+                    input,
                     output,
+                    MaxComponentDownloadBytes,
                     cancellationToken);
             }
 
@@ -603,6 +658,37 @@ public sealed class MediaService
     private static void ExtractSafe(string zipPath, string destination)
         => SafeZip.Extract(zipPath, destination);
 
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
+        }
+    }
+
     private static string? FindFile(string root, string name)
     {
         if (!Directory.Exists(root))
@@ -622,6 +708,24 @@ public sealed class MediaService
     private static bool IsImage(string path)
         => Path.GetExtension(path).ToLowerInvariant() is
             ".png" or ".jpg" or ".jpeg" or ".bmp" or ".tif" or ".tiff" or ".webp";
+
+    private static bool IsUsableFile(
+        string path,
+        long minimumBytes)
+    {
+        if (string.IsNullOrWhiteSpace(path) ||
+            !File.Exists(path))
+            return false;
+
+        try
+        {
+            return new FileInfo(path).Length >= minimumBytes;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private static Process StartPipeProcess(
         string exe,
@@ -690,6 +794,16 @@ public sealed class MediaService
     }
 
     private static int Even(int value) => Math.Max(2, value & ~1);
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch { }
+    }
 
     private static void TryDeleteDirectory(string path)
     {

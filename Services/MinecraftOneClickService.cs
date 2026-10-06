@@ -20,6 +20,7 @@ public sealed class MinecraftOneClickService
     private const string ManagerRepository = "grg914/dlss-nr-manager";
     private const string ScandiTextureAsset = "ScandiTextureV1.zip";
     private const string ScandiShaderAsset = "ScandiShaderV2.zip";
+    private const long MaxScandiPackDownloadBytes = 512L * 1024 * 1024;
 
     private static readonly string[] ConflictingRendererTokens =
     [
@@ -587,6 +588,12 @@ public sealed class MinecraftOneClickService
                     cancellationToken);
                 response.EnsureSuccessStatusCode();
 
+                if (response.Content.Headers.ContentLength is > MaxScandiPackDownloadBytes)
+                {
+                    throw new InvalidDataException(
+                        $"{assetName} exceeds the 512 MB download safety limit.");
+                }
+
                 await using (var input =
                     await response.Content.ReadAsStreamAsync(cancellationToken))
                 await using (var output = new FileStream(
@@ -597,7 +604,11 @@ public sealed class MinecraftOneClickService
                     128 * 1024,
                     useAsync: true))
                 {
-                    await input.CopyToAsync(output, cancellationToken);
+                    await CopyWithLimitAsync(
+                        input,
+                        output,
+                        MaxScandiPackDownloadBytes,
+                        cancellationToken);
                 }
 
                 if (new FileInfo(temp).Length < 1024)
@@ -630,6 +641,37 @@ public sealed class MinecraftOneClickService
         }
 
         return null;
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
+        }
     }
 
     private static bool CopyPack(

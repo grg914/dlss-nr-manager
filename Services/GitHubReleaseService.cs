@@ -15,6 +15,8 @@ public sealed record ManagerReleaseInfo(
 
 public sealed class GitHubReleaseService
 {
+    private const long MaxReleaseAssetBytes = 1024L * 1024 * 1024;
+
     private readonly HttpClient _http = new();
 
     public GitHubReleaseService()
@@ -161,6 +163,12 @@ public sealed class GitHubReleaseService
                 cancellationToken);
             response.EnsureSuccessStatusCode();
 
+            if (response.Content.Headers.ContentLength is > MaxReleaseAssetBytes)
+            {
+                throw new InvalidDataException(
+                    "GitHub release asset exceeds the 1 GB safety limit.");
+            }
+
             await using (var source =
                 await response.Content.ReadAsStreamAsync(
                     cancellationToken))
@@ -172,8 +180,10 @@ public sealed class GitHubReleaseService
                 128 * 1024,
                 useAsync: true))
             {
-                await source.CopyToAsync(
+                await CopyWithLimitAsync(
+                    source,
                     target,
+                    MaxReleaseAssetBytes,
                     cancellationToken);
             }
 
@@ -212,6 +222,37 @@ public sealed class GitHubReleaseService
             catch { }
 
             throw;
+        }
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
         }
     }
 
