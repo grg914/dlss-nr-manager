@@ -47,9 +47,17 @@ public sealed class ReShadeService
         var hash = json.RootElement.GetProperty("hash").GetString()
             ?? throw new InvalidOperationException("ReShade SHA-256 missing from manifest.");
 
+        if (hash.Length != 64 ||
+            hash.Any(ch => !Uri.IsHexDigit(ch)))
+        {
+            throw new InvalidDataException(
+                "ReShade manifest contains an invalid SHA-256 value.");
+        }
+
         var actualUrl = url.Split('#')[0];
         if (!Uri.TryCreate(actualUrl, UriKind.Absolute, out var downloadUri) ||
-            !downloadUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            !downloadUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !downloadUri.Host.Equals("reshade.me", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
                 $"Unexpected ReShade installer URL: {actualUrl}");
