@@ -2691,6 +2691,53 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ManagerCheckUpdate_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            ManagerCheckUpdateButton.IsEnabled = false;
+            ManagerCheckUpdateButton.Content = "Checking for updates…";
+
+            await CheckManagerUpdateAsync();
+
+            var current =
+                typeof(MainWindow).Assembly.GetName().Version
+                ?? new Version(0, 0, 0);
+
+            if (_managerRelease == null ||
+                _managerRelease.Version <= current)
+            {
+                MessageBox.Show(
+                    $"DLSS NR Manager v{current.Major}.{current.Minor}.{current.Build} is already up to date.",
+                    "DLSS NR Manager update",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            ManagerUpdate_Click(sender, e);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error(
+                "Manual DLSS NR Manager update check failed.",
+                ex);
+
+            MessageBox.Show(
+                ex.Message,
+                "DLSS NR Manager update check failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            ManagerCheckUpdateButton.IsEnabled = true;
+            ManagerCheckUpdateButton.Content = "Check for app updates";
+        }
+    }
+
     private async void ManagerUpdate_Click(
         object sender,
         RoutedEventArgs e)
