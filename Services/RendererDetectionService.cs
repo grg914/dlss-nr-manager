@@ -42,6 +42,17 @@ public static class RendererDetectionService
                      .Take(16))
         {
             var api = DetectApi(exe, out var evidence);
+
+            if (api == null)
+            {
+                var module = DetectEngineModuleApi(exe);
+                if (module != null)
+                {
+                    api = module.Value.Api;
+                    evidence = $"engine module {module.Value.Module}";
+                }
+            }
+
             var wrapper = DetectVulkanWrapper(Path.GetDirectoryName(exe)!);
 
             if (wrapper != null)
@@ -175,6 +186,44 @@ public static class RendererDetectionService
         }
 
         evidence = "no renderer marker";
+        return null;
+    }
+
+    private static (string Api, string Module)? DetectEngineModuleApi(
+        string executable)
+    {
+        var exeName = Path.GetFileName(executable).ToLowerInvariant();
+
+        var candidates = exeName switch
+        {
+            "hl.exe" => new[] { "hw.dll" },
+            "hl2.exe" => new[] { "bin/shaderapidx9.dll", "bin/engine.dll", "bin/x64/shaderapidx9.dll", "bin/x64/engine.dll" },
+            "left4dead2.exe" => new[] { "bin/shaderapidx9.dll", "bin/engine.dll" },
+            "portal2.exe" => new[] { "bin/shaderapidx9.dll", "bin/x64/shaderapidx9.dll" },
+            "garrysmod.exe" => new[] { "bin/shaderapidx9.dll", "bin/win64/shaderapidx9.dll" },
+            "xrengine.exe" => new[] { "xrRender_R4.dll", "xrRender_R3.dll", "xrRender_R2.dll", "xrRender_R1.dll" },
+            "farcry5.exe" => new[] { "bin/FC_m64.dll" },
+            "watch_dogs.exe" => new[] { "bin/Disrupt_b64.dll" },
+            "kingdomcome.exe" => new[] { "WHGame.dll" },
+            _ => Array.Empty<string>()
+        };
+
+        var root = Path.GetDirectoryName(executable)!;
+
+        foreach (var relative in candidates)
+        {
+            var module = Path.Combine(
+                root,
+                relative.Replace('/', Path.DirectorySeparatorChar));
+
+            if (!File.Exists(module))
+                continue;
+
+            var api = DetectApi(module, out _);
+            if (api != null)
+                return (api, relative);
+        }
+
         return null;
     }
 
