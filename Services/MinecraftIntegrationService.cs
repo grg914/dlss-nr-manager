@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Xml.Linq;
 
 namespace DlssNrManager.Services;
 
@@ -40,7 +41,8 @@ public sealed class MinecraftIntegrationService
     public const string MinimumFabricLoader = "0.19.3";
 
     private const string FabricApiRepo = "FabricMC/fabric-api";
-    private const string FabricInstallerRepo = "FabricMC/fabric-installer";
+    private const string FabricInstallerMavenBase =
+        "https://maven.fabricmc.net/net/fabricmc/fabric-installer";
     private const string CausticaRtxRepo = "AriesAlex/Caustica-RTX";
 
     private readonly HttpClient _http = new();
@@ -307,18 +309,9 @@ public sealed class MinecraftIntegrationService
             progress,
             cancellationToken);
 
-        var release = await FindReleaseAsync(
-            FabricInstallerRepo,
-            _ => true,
-            includePrerelease: false,
+        var installerPackage = await GetLatestFabricInstallerAsync(
+            progress,
             cancellationToken);
-
-        var asset = SelectAsset(
-            release,
-            name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                    && name.Contains("fabric-installer", StringComparison.OrdinalIgnoreCase)
-                    && !name.Contains("sources", StringComparison.OrdinalIgnoreCase)
-                    && !name.Contains("javadoc", StringComparison.OrdinalIgnoreCase));
 
         var installerRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -327,11 +320,21 @@ public sealed class MinecraftIntegrationService
             "fabric-installer");
 
         Directory.CreateDirectory(installerRoot);
-        var installer = Path.Combine(installerRoot, asset.Name);
 
-        await DownloadAssetAsync(asset, installer, progress, cancellationToken);
+        var installer = Path.Combine(
+            installerRoot,
+            installerPackage.FileName);
 
-        progress?.Report($"Installing Fabric Loader {MinimumFabricLoader} for Minecraft {MinecraftVersion}…");
+        await DownloadAndVerifyAsync(
+            installerPackage.DownloadUrl,
+            installer,
+            installerPackage.Sha256,
+            progress,
+            $"Fabric Installer {installerPackage.Version}",
+            cancellationToken);
+
+        progress?.Report(
+            $"Installing Fabric Loader {MinimumFabricLoader} for Minecraft {MinecraftVersion} using Fabric Installer {installerPackage.Version}…");
 
         var psi = new ProcessStartInfo(java)
         {
@@ -833,6 +836,183 @@ public sealed class MinecraftIntegrationService
         }
     }
 
+    private async Task<FabricInstallerPackage> GetLatestFabricInstallerAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        progress?.Report("Checking the official Fabric Maven for the latest installer…");
+
+        var metadataUrl =
+            $"{FabricInstallerMavenBase}/maven-metadata.xml";
+
+        using var response = await _http.GetAsync(
+            metadataUrl,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var metadataStream =
+            await response.Content.ReadAsStreamAsync(cancellationToken);
+
+        var metadata = XDocument.Load(metadataStream);
+
+        var version =
+            metadata.Root?
+                .Element("versioning")?
+                .Element("release")?
+                .Value?
+                .Trim();
+
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            version =
+                metadata.Root?
+                    .Element("versioning")?
+                    .Element("latest")?
+                    .Value?
+                    .Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            version =
+                metadata.Root?
+                    .Element("versioning")?
+                    .Element("versions")?
+                    .Elements("version")
+                    .Select(element => element.Value.Trim())
+                    .Where(value => Version.TryParse(value, out _))
+                    .OrderByDescending(value => Version.Parse(value))
+                    .FirstOrDefault();
+        }
+
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            throw new InvalidOperationException(
+                "The official Fabric Maven metadata did not contain an installer version.");
+        }
+
+        var fileName = $"fabric-installer-{version}.jar";
+        var downloadUrl =
+            $"{FabricInstallerMavenBase}/{version}/{fileName}";
+        var sha256Url = downloadUrl + ".sha256";
+
+        string? sha256 = null;
+
+        try
+        {
+            using var hashResponse = await _http.GetAsync(
+                sha256Url,
+                cancellationToken);
+
+            if (hashResponse.IsSuccessStatusCode)
+            {
+                sha256 = (
+                    await hashResponse.Content.ReadAsStringAsync(
+                        cancellationToken))
+                    .Trim()
+                    .Split(
+                        new[] { ' ', '\t', '\r', '\n' },
+                        StringSplitOptions.RemoveEmptyEntries)
+                    .FirstOrDefault();
+
+                if (string.IsNullOrWhiteSpace(sha256) ||
+                    sha256.Length != 64 ||
+                    !sha256.All(Uri.IsHexDigit))
+                {
+                    sha256 = null;
+                }
+            }
+        }
+        catch
+        {
+            // Hash verification remains best-effort only if the sidecar
+            // cannot be fetched. The HTTPS Maven origin is still trusted.
+        }
+
+        return new FabricInstallerPackage(
+            version,
+            fileName,
+            downloadUrl,
+            sha256);
+    }
+
+    private async Task DownloadAndVerifyAsync(
+        string url,
+        string destination,
+        string? expectedSha256,
+        IProgress<string>? progress,
+        string componentName,
+        CancellationToken cancellationToken)
+    {
+        var temp = destination + ".download";
+
+        try
+        {
+            progress?.Report($"Downloading {componentName}…");
+
+            using (var response = await _http.GetAsync(
+                       url,
+                       HttpCompletionOption.ResponseHeadersRead,
+                       cancellationToken))
+            {
+                response.EnsureSuccessStatusCode();
+
+                await using var input =
+                    await response.Content.ReadAsStreamAsync(
+                        cancellationToken);
+                await using var output = new FileStream(
+                    temp,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    128 * 1024,
+                    useAsync: true);
+
+                await input.CopyToAsync(
+                    output,
+                    cancellationToken);
+            }
+
+            if (new FileInfo(temp).Length < 100 * 1024)
+            {
+                throw new InvalidDataException(
+                    $"{componentName} download is unexpectedly small.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                await using var stream = File.OpenRead(temp);
+                var actual = Convert.ToHexString(
+                    await SHA256.HashDataAsync(
+                        stream,
+                        cancellationToken));
+
+                if (!actual.Equals(
+                        expectedSha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"{componentName} SHA-256 mismatch. " +
+                        $"Expected {expectedSha256}, got {actual}.");
+                }
+
+                progress?.Report(
+                    $"{componentName} SHA-256 verified.");
+            }
+
+            File.Move(
+                temp,
+                destination,
+                overwrite: true);
+        }
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
+    }
+
     private async Task<JsonDocument> GetJsonAsync(
         string url,
         CancellationToken cancellationToken)
@@ -1310,6 +1490,12 @@ public sealed class MinecraftIntegrationService
         try { if (File.Exists(path)) File.Delete(path); }
         catch { }
     }
+
+    private sealed record FabricInstallerPackage(
+        string Version,
+        string FileName,
+        string DownloadUrl,
+        string? Sha256);
 
     private sealed record ModrinthProject(
         string Name,
