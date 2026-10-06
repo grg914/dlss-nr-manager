@@ -886,9 +886,11 @@ $board = Get-CimInstance Win32_BaseBoard
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(CachePath)!);
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 CachePath,
-                JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+                JsonSerializer.Serialize(
+                    result,
+                    new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { }
     }
