@@ -276,7 +276,7 @@ public sealed class AiOriginDetectionService : IDisposable
             var tensor = CreateImageTensor(path);
             var inputName = session.InputMetadata.Keys.First();
 
-            using var input = NamedOnnxValue.CreateFromTensor(inputName, tensor);
+            var input = NamedOnnxValue.CreateFromTensor(inputName, tensor);
             using var results = session.Run([input]);
             var output = results.First().AsEnumerable<float>().ToArray();
 
