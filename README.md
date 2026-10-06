@@ -10,9 +10,9 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.3.0**.
+Current application version: **v1.4.0**.
 
-> Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, NVIDIA RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
+> Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
 ## Screenshots
 
@@ -22,7 +22,20 @@ Current application version: **v1.3.0**.
 
 <p align="center"><sub>Application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
 
-## What's new in v1.3.0
+## What's new in v1.4.0
+
+- Added a generation-aware **RTX capability matrix** for GeForce RTX 20/30/40/50 Series.
+- RTX 20/30: DLSS Super Resolution + Ray Reconstruction where the selected game/integration supports them.
+- RTX 40: adds DLSS Frame Generation support; Multi Frame Generation and 3D-Guided Neural Rendering remain unavailable.
+- RTX 50: enables the full supported stack, including Frame Generation, Multi Frame Generation and 3D-Guided Neural Rendering when the required NVIDIA runtime/SDK is available.
+- Non-RTX or unrecognized NVIDIA GPUs now show an explicit compatibility warning and game installation is disabled instead of failing later.
+- Added a prominent **offline/single-player only** warning for game injection/modification flows.
+- Added local anti-cheat signal detection (Easy Anti-Cheat, BattlEye, EA AntiCheat, FACEIT, Riot/Vanguard, RICOCHET, EQU8, XIGNCODE/GameGuard families). Installation is blocked when known anti-cheat files are detected.
+- General OptiScaler installation no longer requires a DLSS-NR runtime on RTX 20/30/40. Neural Rendering is disabled automatically and only hardware-supported NVIDIA resources are staged.
+- Improved NVIDIA GPU detection with an `nvidia-smi` fallback in addition to the Windows registry.
+- Updated the UI to disable Neural Rendering controls on GPUs that do not support them.
+
+## Previous v1.3.0 changes
 
 - Added **Check NVIDIA files** in Minecraft RTX to query only official `NVIDIA/DLSS` and `NVIDIA-RTX/Streamline` sources for public DLSS Neural Rendering headers and runtime DLLs.
 - The availability check requires both an API/header signal and a runtime DLL signal before reporting a deployable public DLSS-NR integration; renamed or unofficial DLLs are never accepted as proof.
@@ -41,9 +54,11 @@ Current application version: **v1.3.0**.
 - Installed-game scanning through Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net
 - Compatibility confidence: Validated / Probable / Candidate
 - Manual game-folder selection fallback
-- NVIDIA GPU and RTX-generation detection
+- NVIDIA GPU and RTX-generation detection with registry + `nvidia-smi` fallback
+- Generation-aware feature gating: RTX 20/30 = SR + RR; RTX 40 = SR + RR + FG; RTX 50 = SR + RR + FG + MFG + 3D-Guided Neural Rendering, subject to game/runtime support
 - Stable/prerelease selection from the upstream OptiScaler-DLSSNR fork
 - Full managed-install backup before game-directory changes
+- Multiplayer/anti-cheat safety guard: prominent warning on every general game install and hard block when known anti-cheat files are detected
 - Install, update, restore and uninstall flows
 - Proxy conflict detection; unknown proxy DLLs are never silently overwritten
 - Integrated `OptiScaler.log` viewer and per-game compatibility diagnostics
@@ -212,10 +227,10 @@ The manager only updates supported keys already present in the extracted upstrea
 2. Close the target game and its launcher.
 3. Run `DlssNrManager.exe`.
 4. Select a detected game or choose its executable folder manually.
-5. Leave **Automatically download the latest official NVIDIA Streamline DLSSNR runtime** enabled, or manually select your own `nvngx_dlssnr.dll`.
+5. On RTX 50, leave **Automatically download the latest official NVIDIA Streamline DLSSNR runtime** enabled, or manually select your own `nvngx_dlssnr.dll`. On RTX 20/30/40, Neural Rendering is disabled automatically and no DLSSNR runtime is required.
 6. Review the runtime validation and recommended proxy.
 7. Run **Diagnose game** when compatibility is not upstream-validated.
-8. Optionally keep **Add missing official NVIDIA Streamline/DLSS resources** enabled.
+8. Optionally keep **Add missing official NVIDIA Streamline/DLSS resources** enabled. The manager stages only the resources supported by the detected RTX generation.
 9. Click **Install**.
 
 The manager downloads OptiScaler from its upstream release, creates a backup, validates runtime components and then installs into the selected executable directory.
@@ -275,7 +290,7 @@ The project integrates or automates workflows around:
 - Cleaning shader caches can make the next game launch spend time rebuilding shaders.
 - Automatic runtime provisioning depends on the layout/content of NVIDIA's upstream Streamline release assets.
 - The manager does not silently chain arbitrary third-party proxy loaders.
-- Avoid injecting graphics modifications into anti-cheat-protected multiplayer games unless explicitly supported.
+- **Do not use the general game injection/install flow in multiplayer or anti-cheat-protected games unless the game developer explicitly allows it.** Proxy DLL injection can be treated as tampering and may lead to account sanctions or bans. The manager blocks installation when known anti-cheat files are detected, but absence of a local signal is not proof that online use is safe.
 
 ## Build
 
@@ -284,4 +299,4 @@ dotnet restore
 dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
-GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` can create a GitHub Release with the executable and ZIP. The release workflow requires the Git tag to match the project version exactly, so v1.2.0 must be tagged as `v1.2.0`.
+GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` can create a GitHub Release with the executable and ZIP. The release workflow requires the Git tag to match the project version exactly, so v1.4.0 must be tagged as `v1.4.0`.
