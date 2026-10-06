@@ -15,6 +15,9 @@ public sealed record StreamlineRuntimeResult(
 public sealed class StreamlineRuntimeService
 {
     private const string Repository = "NVIDIA-RTX/Streamline";
+    private const long MaxStreamlineDownloadBytes = 2L * 1024 * 1024 * 1024;
+    private const long MaxExtractedArchiveBytes = 8L * 1024 * 1024 * 1024;
+    private const int MaxArchiveEntries = 150_000;
     private readonly HttpClient _http = new();
 
     public string RootDirectory { get; } = Path.Combine(
@@ -359,6 +362,12 @@ public sealed class StreamlineRuntimeService
                 cancellationToken);
             response.EnsureSuccessStatusCode();
 
+            if (response.Content.Headers.ContentLength is > MaxStreamlineDownloadBytes)
+            {
+                throw new InvalidDataException(
+                    "NVIDIA Streamline archive exceeds the 2 GB safety limit.");
+            }
+
             await using (var input =
                 await response.Content.ReadAsStreamAsync(
                     cancellationToken))
@@ -370,8 +379,10 @@ public sealed class StreamlineRuntimeService
                 128 * 1024,
                 true))
             {
-                await input.CopyToAsync(
+                await CopyWithLimitAsync(
+                    input,
                     output,
+                    MaxStreamlineDownloadBytes,
                     cancellationToken);
             }
 
