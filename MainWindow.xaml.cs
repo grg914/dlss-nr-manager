@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private IReadOnlyList<PcCleanupItem> _cleanupItems = [];
     private bool _isBusy;
     private int _stateRefreshVersion;
+    private CancellationTokenSource? _mediaOperationCts;
 
     private sealed record AdvancedSettingsSnapshot(
         int FpsType,
@@ -54,13 +55,16 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        // Clean up media helpers left behind by an interrupted/older manager run.
+        try { ExternalProcessTracker.KillAll(); } catch { }
+
         InitializeComponent();
         _minecraftOneClick = new MinecraftOneClickService(_minecraft);
         _aiOrigin = new AiOriginDetectionService(_media);
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
-            ? "Version v1.3.0"
+            ? "Version v1.4.1"
             : $"Version v{version.Major}.{version.Minor}.{version.Build}";
 
         Loaded += async (_, _) =>
@@ -88,6 +92,9 @@ public partial class MainWindow : Window
 
         Closed += (_, _) =>
         {
+            try { _mediaOperationCts?.Cancel(); } catch { }
+            try { ExternalProcessTracker.KillAll(); } catch { }
+            _mediaOperationCts?.Dispose();
             _aiOrigin.Dispose();
             Application.Current.Shutdown();
             Environment.Exit(0);
@@ -1944,7 +1951,7 @@ public partial class MainWindow : Window
 
             await _aiOrigin.SetupAsync(progress);
             AiOriginStatusText.Text =
-                "AI origin detector ready • local ONNX model installed.";
+                "AI origin detector ready • two-model ONNX ensemble installed.";
         }
         catch (Exception ex)
         {
@@ -2000,19 +2007,22 @@ public partial class MainWindow : Window
 
             MessageBox.Show(
                 $"{result.Verdict}\n\n" +
-                $"AI probability: {result.AiProbability:P1}\n" +
+                $"AI ensemble score: {result.AiProbability:P1}\n" +
                 $"Confidence: {result.Confidence:P1}\n" +
+                $"Primary detector: {result.PrimaryModelProbability:P1}\n" +
+                $"Secondary detector: {result.SecondaryModelProbability:P1}\n" +
+                $"Model disagreement: {result.ModelDisagreement:P1}\n" +
                 $"Frames analyzed: {result.FramesAnalyzed}\n" +
                 (result.FramesAnalyzed > 1
-                    ? $"Frames flagged: {result.FramesFlagged}/{result.FramesAnalyzed}\n"
+                    ? $"Strong-AI frames: {result.FramesFlagged}/{result.FramesAnalyzed}\n"
                     : "") +
-                $"Model: {result.Model}\n\n" +
+                $"Detector: {result.Model}\n\n" +
                 $"Provenance / metadata:\n{provenance}\n\n" +
                 result.Notes,
                 "AI origin detection",
                 MessageBoxButton.OK,
                 result.Verdict.StartsWith("Likely AI", StringComparison.OrdinalIgnoreCase) ||
-                result.Verdict.StartsWith("AI provenance", StringComparison.OrdinalIgnoreCase)
+                result.Verdict.StartsWith("AI generator", StringComparison.OrdinalIgnoreCase)
                     ? MessageBoxImage.Warning
                     : MessageBoxImage.Information);
         }
@@ -2125,6 +2135,11 @@ public partial class MainWindow : Window
             MediaOutputBox.Text = output;
         }
 
+        _mediaOperationCts?.Cancel();
+        _mediaOperationCts?.Dispose();
+        _mediaOperationCts = new CancellationTokenSource();
+        var mediaCancellationToken = _mediaOperationCts.Token;
+
         try
         {
             MediaSetupButton.IsEnabled = false;
@@ -2157,7 +2172,8 @@ public partial class MainWindow : Window
                     source,
                     CaptureAiUpscaleOptions(output),
                     _media,
-                    progress);
+                    progress,
+                    mediaCancellationToken);
             }
             else if (mode == 2)
             {
@@ -2171,7 +2187,8 @@ public partial class MainWindow : Window
                         style,
                         intensity,
                         output),
-                    progress);
+                    progress,
+                    mediaCancellationToken);
 
                 MediaStatusText.Text =
                     "Step 2/2 • AI super-resolution…";
@@ -2180,7 +2197,8 @@ public partial class MainWindow : Window
                     nrIntermediate,
                     CaptureAiUpscaleOptions(output),
                     _media,
-                    progress);
+                    progress,
+                    mediaCancellationToken);
             }
             else
             {
@@ -2191,7 +2209,8 @@ public partial class MainWindow : Window
                         style,
                         intensity,
                         output),
-                    progress);
+                    progress,
+                    mediaCancellationToken);
             }
 
             MediaStatusText.Text = $"Complete • {result}";
@@ -2212,6 +2231,11 @@ public partial class MainWindow : Window
                 });
             }
         }
+        catch (OperationCanceledException)
+        {
+            MediaStatusText.Text = "Processing cancelled.";
+            AiUpscaleStatusText.Text = "Processing cancelled.";
+        }
         catch (Exception ex)
         {
             MediaStatusText.Text = $"Processing failed: {ex.Message}";
@@ -2225,6 +2249,9 @@ public partial class MainWindow : Window
         }
         finally
         {
+            try { ExternalProcessTracker.KillAll(); } catch { }
+            _mediaOperationCts?.Dispose();
+            _mediaOperationCts = null;
             MediaSetupButton.IsEnabled = true;
             MediaProcessButton.IsEnabled = true;
             AiUpscaleSetupButton.IsEnabled = true;

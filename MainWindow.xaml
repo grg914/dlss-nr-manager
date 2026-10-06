@@ -187,7 +187,7 @@
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="280"/>
+                  <RowDefinition Height="430"/>
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -1027,7 +1027,7 @@
                   <StackPanel>
                     <TextBlock Text="AI origin detection (beta)"
                                FontWeight="SemiBold"/>
-                    <TextBlock Text="Local synthetic-media screening • image classifier + video multi-frame analysis + provenance metadata"
+                    <TextBlock Text="Local synthetic-media screening • 2-model ensemble + 3-crop analysis + multi-frame video consistency + provenance metadata"
                                Foreground="{StaticResource Muted}"
                                FontSize="11"
                                TextWrapping="Wrap"

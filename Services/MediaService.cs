@@ -332,11 +332,27 @@ public sealed class MediaService
         var processorErrorTask = processor.StandardError.ReadToEndAsync(cancellationToken);
         var encoderErrorTask = encoder.StandardError.ReadToEndAsync(cancellationToken);
 
-        await Task.WhenAll(decodeToProcessor, processorToEncoder);
-        await Task.WhenAll(
-            decoder.WaitForExitAsync(cancellationToken),
-            processor.WaitForExitAsync(cancellationToken),
-            encoder.WaitForExitAsync(cancellationToken));
+        try
+        {
+            await Task.WhenAll(decodeToProcessor, processorToEncoder);
+            await Task.WhenAll(
+                decoder.WaitForExitAsync(cancellationToken),
+                processor.WaitForExitAsync(cancellationToken),
+                encoder.WaitForExitAsync(cancellationToken));
+        }
+        catch (OperationCanceledException)
+        {
+            ExternalProcessTracker.Kill(decoder);
+            ExternalProcessTracker.Kill(processor);
+            ExternalProcessTracker.Kill(encoder);
+            throw;
+        }
+        finally
+        {
+            if (!decoder.HasExited) ExternalProcessTracker.Kill(decoder); else ExternalProcessTracker.Untrack(decoder);
+            if (!processor.HasExited) ExternalProcessTracker.Kill(processor); else ExternalProcessTracker.Untrack(processor);
+            if (!encoder.HasExited) ExternalProcessTracker.Kill(encoder); else ExternalProcessTracker.Untrack(encoder);
+        }
 
         var decoderError = await decoderErrorTask;
         var processorError = await processorErrorTask;
@@ -646,8 +662,7 @@ public sealed class MediaService
         foreach (var arg in args)
             startInfo.ArgumentList.Add(arg);
 
-        return Process.Start(startInfo)
-               ?? throw new InvalidOperationException($"Could not start {Path.GetFileName(exe)}.");
+        return ExternalProcessTracker.Start(startInfo);
     }
 
     private static async Task<ProcessResult> RunAsync(
@@ -668,17 +683,31 @@ public sealed class MediaService
         foreach (var arg in args)
             startInfo.ArgumentList.Add(arg);
 
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException($"Could not start {Path.GetFileName(exe)}.");
+        using var process = ExternalProcessTracker.Start(startInfo);
 
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        try
+        {
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
-        await process.WaitForExitAsync(cancellationToken);
-        return new ProcessResult(
-            process.ExitCode,
-            await outputTask,
-            await errorTask);
+            await process.WaitForExitAsync(cancellationToken);
+            return new ProcessResult(
+                process.ExitCode,
+                await outputTask,
+                await errorTask);
+        }
+        catch (OperationCanceledException)
+        {
+            ExternalProcessTracker.Kill(process);
+            throw;
+        }
+        finally
+        {
+            if (!process.HasExited)
+                ExternalProcessTracker.Kill(process);
+            else
+                ExternalProcessTracker.Untrack(process);
+        }
     }
 
     private static int Even(int value) => Math.Max(2, value & ~1);
