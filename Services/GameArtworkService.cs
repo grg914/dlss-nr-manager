@@ -1134,9 +1134,11 @@ public sealed class GameArtworkService
                 pair => pair.Value,
                 StringComparer.Ordinal);
 
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 CachePath,
-                JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+                JsonSerializer.Serialize(
+                    snapshot,
+                    new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { }
     }
