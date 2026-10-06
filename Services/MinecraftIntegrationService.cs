@@ -50,7 +50,7 @@ public sealed class MinecraftIntegrationService
     {
         _http.Timeout = TimeSpan.FromMinutes(10);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
+            new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
     }
