@@ -1427,6 +1427,7 @@ public partial class MainWindow : Window
             (_minecraftPreflightResult?.CanInstall ?? true);
 
         MinecraftRestoreOriginalButton.IsEnabled = installed;
+        MinecraftUpdateManagedButton.IsEnabled = installed;
 
         if (installed && instance != null)
         {
@@ -1483,6 +1484,7 @@ public partial class MainWindow : Window
         {
             MinecraftPreflightButton.IsEnabled = false;
             MinecraftOneClickInstallButton.IsEnabled = false;
+            MinecraftUpdateManagedButton.IsEnabled = false;
             MinecraftPreflightSummaryText.Text = "Running RTX preflight…";
             MinecraftPreflightDetailsText.Text =
                 "Checking GPU, NVIDIA driver, Vulkan RT, Java, Minecraft/Fabric versions, renderer conflicts and write access.";
@@ -1533,6 +1535,7 @@ public partial class MainWindow : Window
                 ? "DLSS / RTX installed"
                 : "Install DLSS / RTX";
             MinecraftRestoreOriginalButton.IsEnabled = alreadyInstalled;
+            MinecraftUpdateManagedButton.IsEnabled = result.CanInstall && alreadyInstalled;
 
             if (showDialogOnFailure ||
                 result.Status == MinecraftPreflightSeverity.Unsupported)
@@ -1746,6 +1749,108 @@ public partial class MainWindow : Window
             MessageBox.Show(
                 ex.Message,
                 "Minecraft DLSS / RTX install failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            RefreshMinecraftInstallState();
+        }
+    }
+
+    private async void UpdateMinecraftManagedFiles_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null)
+        {
+            MessageBox.Show(
+                "Select a Minecraft Java instance first.",
+                "Minecraft managed update",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (!_minecraftOneClick.IsInstalled(instance.RootDirectory))
+        {
+            MessageBox.Show(
+                "No managed Minecraft DLSS / RTX installation is tracked for this instance. Use Install DLSS / RTX first.",
+                "Minecraft managed update",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var preflight = await RunMinecraftPreflightAsync(
+            showDialogOnFailure: false);
+
+        if (preflight == null || !preflight.CanInstall)
+            return;
+
+        if (MessageBox.Show(
+                "Check the managed Minecraft stack and refresh it to the newest compatible files?\n\n" +
+                "The manager will back up the current managed state first, then refresh Fabric API, Caustica RTX, optional performance mods and SPBRScandi according to the current selections. " +
+                "Downloaded GitHub assets are SHA-256 verified when GitHub publishes a digest.",
+                "Check & update managed files",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            MinecraftUpdateManagedButton.IsEnabled = false;
+            MinecraftOneClickInstallButton.IsEnabled = false;
+            MinecraftRestoreOriginalButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message =>
+                {
+                    MinecraftStatusText.Text = message;
+                    AppLogger.Info($"Minecraft update: {message}");
+                });
+
+            var result = await _minecraftOneClick.InstallAsync(
+                instance,
+                installFabricApi: true,
+                allowPrereleaseCaustica: true,
+                installRtxPerformancePack:
+                    MinecraftPerformancePackCheck.IsChecked == true,
+                installLabPbrResourcePack:
+                    MinecraftSpbrCheck.IsChecked == true,
+                progress);
+
+            await RefreshMinecraftCausticaBuildAsync();
+            await CheckManagerUpdateAsync();
+
+            MinecraftStatusText.Text =
+                "Managed Minecraft files refreshed • " +
+                string.Join(
+                    " • ",
+                    result.Setup.Components.Select(
+                        component => $"{component.Component} {component.Version}"));
+
+            MessageBox.Show(
+                "Managed Minecraft files are up to date. Existing manager-owned files were backed up before replacement.\n\n" +
+                "If a newer DLSS NR Manager application version is available, the Application page now shows its Download & install button.",
+                "Minecraft managed update complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            ScanMinecraft_Click(sender, e);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error(
+                $"Minecraft managed update failed for '{instance.RootDirectory}'.",
+                ex);
+            MinecraftStatusText.Text =
+                $"Minecraft managed update failed: {ex.Message}";
+
+            MessageBox.Show(
+                ex.Message,
+                "Minecraft managed update failed",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }

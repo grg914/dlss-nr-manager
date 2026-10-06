@@ -43,6 +43,7 @@ public sealed class MinecraftIntegrationService
     private const string FabricInstallerMavenBase =
         "https://maven.fabricmc.net/net/fabricmc/fabric-installer";
     private const string CausticaRtxRepo = "grg914/Caustica-RTX";
+    private const string ManagerRepository = "grg914/dlss-nr-manager";
     private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
 
     private readonly HttpClient _http = new();
@@ -302,18 +303,30 @@ public sealed class MinecraftIntegrationService
     {
         try
         {
-            var release = await FindReleaseAsync(
-                CausticaRtxRepo,
-                r => ReleaseTargetsMinecraftVersion(
-                    r,
-                    MinecraftVersion),
-                includePrerelease: true,
-                cancellationToken);
+            GitHubRelease release;
+            try
+            {
+                release = await FindReleaseAsync(
+                    ManagerRepository,
+                    r => ReleaseBundlesCausticaForMinecraftVersion(
+                        r,
+                        MinecraftVersion),
+                    includePrerelease: true,
+                    cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                release = await FindReleaseAsync(
+                    CausticaRtxRepo,
+                    r => ReleaseTargetsMinecraftVersion(
+                        r,
+                        MinecraftVersion),
+                    includePrerelease: true,
+                    cancellationToken);
+            }
 
             var asset = release.Assets.FirstOrDefault(candidate =>
-                candidate.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                && candidate.Name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
-                && !ContainsAny(candidate.Name, "sources", "dev", "javadoc"));
+                IsProductionCausticaJar(candidate.Name));
 
             return asset == null
                 ? $"{release.Tag} • no bundled JAR asset"
@@ -531,21 +544,40 @@ public sealed class MinecraftIntegrationService
                 installed.Add(fabricApi);
             }
 
-            progress?.Report("Finding latest compatible Caustica RTX release…");
+            progress?.Report("Finding latest compatible Caustica RTX bundle…");
 
-            var caustica = await FindReleaseAsync(
-                CausticaRtxRepo,
-                r => ReleaseTargetsMinecraftVersion(
-                    r,
-                    MinecraftVersion),
-                allowPrereleaseCaustica,
-                cancellationToken);
+            GitHubRelease caustica;
+            string causticaSourceRepository;
+            try
+            {
+                caustica = await FindReleaseAsync(
+                    ManagerRepository,
+                    r => ReleaseBundlesCausticaForMinecraftVersion(
+                        r,
+                        MinecraftVersion),
+                    includePrerelease: true,
+                    cancellationToken);
+                causticaSourceRepository = ManagerRepository;
+                progress?.Report(
+                    $"Using bundled Caustica RTX from DLSS NR Manager release {caustica.Tag}.");
+            }
+            catch (InvalidOperationException)
+            {
+                caustica = await FindReleaseAsync(
+                    CausticaRtxRepo,
+                    r => ReleaseTargetsMinecraftVersion(
+                        r,
+                        MinecraftVersion),
+                    allowPrereleaseCaustica,
+                    cancellationToken);
+                causticaSourceRepository = CausticaRtxRepo;
+                progress?.Report(
+                    $"Bundled Caustica RTX not found; using {CausticaRtxRepo} release {caustica.Tag}.");
+            }
 
             var causticaAsset = SelectAsset(
                 caustica,
-                name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                        && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
-                        && !ContainsAny(name, "sources", "dev", "javadoc"));
+                IsProductionCausticaJar);
 
             await BackupMatchingFileAsync(
                 instance.RootDirectory,
@@ -574,7 +606,7 @@ public sealed class MinecraftIntegrationService
             }
 
             installed.Add(new MinecraftComponentResult(
-                "Caustica RTX", caustica.Tag, causticaDestination, CausticaRtxRepo));
+                "Caustica RTX", caustica.Tag, causticaDestination, causticaSourceRepository));
 
             if (installRtxPerformancePack)
             {
@@ -1720,6 +1752,20 @@ public sealed class MinecraftIntegrationService
             prerelease,
             assets);
     }
+
+    private static bool IsProductionCausticaJar(string name)
+        => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
+           && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
+           && !ContainsAny(name, "sources", "dev", "javadoc");
+
+    private static bool ReleaseBundlesCausticaForMinecraftVersion(
+        GitHubRelease release,
+        string minecraftVersion)
+        => release.Assets.Any(asset =>
+            IsProductionCausticaJar(asset.Name)
+            && asset.Name.Contains(
+                minecraftVersion,
+                StringComparison.OrdinalIgnoreCase));
 
     private static bool ReleaseTargetsMinecraftVersion(
         GitHubRelease release,
