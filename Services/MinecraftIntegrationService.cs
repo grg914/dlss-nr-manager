@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -473,6 +474,7 @@ public sealed class MinecraftIntegrationService
                     new ModrinthProject(
                         "Fabric API",
                         "fabric-api",
+                        "fabric-api",
                         "fabric-api"),
                     loader: "fabric",
                     progress,
@@ -518,10 +520,10 @@ public sealed class MinecraftIntegrationService
 
                 foreach (var project in new[]
                 {
-                    new ModrinthProject("Lithium", "lithium", "lithium"),
-                    new ModrinthProject("FerriteCore", "ferrite-core", "ferritecore"),
-                    new ModrinthProject("Krypton", "krypton", "krypton"),
-                    new ModrinthProject("Dynamic FPS", "dynamic-fps", "dynamic-fps")
+                    new ModrinthProject("Lithium", "lithium", "lithium", "lithium"),
+                    new ModrinthProject("FerriteCore", "ferrite-core", "ferritecore", "ferritecore"),
+                    new ModrinthProject("Krypton", "krypton", "krypton", "krypton"),
+                    new ModrinthProject("Dynamic FPS", "dynamic-fps", "dynamic-fps", "dynamic_fps")
                 })
                 {
                     try
@@ -549,7 +551,8 @@ public sealed class MinecraftIntegrationService
                             backup,
                             instance.RootDirectory,
                             mods,
-                            project.FileToken);
+                            project.FileToken,
+                            project.FabricModId);
 
                         AppLogger.Warn(
                             $"Optional Minecraft mod {project.Name} was skipped: {ex.Message}");
@@ -599,7 +602,8 @@ public sealed class MinecraftIntegrationService
                         backup,
                         instance.RootDirectory,
                         resourcePacks,
-                        spbrProject.FileToken);
+                        spbrProject.FileToken,
+                        spbrProject.FabricModId);
 
                     AppLogger.Warn(
                         $"Optional Minecraft resource pack SPBR was skipped: {ex.Message}");
@@ -948,6 +952,8 @@ public sealed class MinecraftIntegrationService
                 destinationDirectory,
                 backup,
                 project.FileToken,
+                project.FabricModId,
+                temp,
                 cancellationToken);
 
             File.Move(temp, destination, true);
@@ -970,6 +976,8 @@ public sealed class MinecraftIntegrationService
         string directory,
         string backup,
         string token,
+        string? fabricModId,
+        string? excludedPath,
         CancellationToken cancellationToken)
     {
         if (!Directory.Exists(directory))
@@ -980,8 +988,41 @@ public sealed class MinecraftIntegrationService
                      "*",
                      SearchOption.TopDirectoryOnly))
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!string.IsNullOrWhiteSpace(excludedPath) &&
+                Path.GetFullPath(file).Equals(
+                    Path.GetFullPath(excludedPath),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var name = Path.GetFileName(file);
-            if (!name.Contains(token, StringComparison.OrdinalIgnoreCase))
+            if (name.EndsWith(
+                    ".download",
+                    StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var matches = false;
+
+            if (!string.IsNullOrWhiteSpace(fabricModId) &&
+                file.EndsWith(
+                    ".jar",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                matches = JarContainsFabricModId(
+                    file,
+                    fabricModId);
+            }
+            else
+            {
+                matches = name.Contains(
+                    token,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (!matches)
                 continue;
 
             var relativeDirectory = Path.GetRelativePath(
@@ -994,7 +1035,8 @@ public sealed class MinecraftIntegrationService
                 relativeDirectory,
                 name);
 
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            Directory.CreateDirectory(
+                Path.GetDirectoryName(destination)!);
 
             await using var input = File.OpenRead(file);
             await using var output = File.Create(destination);
@@ -1004,11 +1046,62 @@ public sealed class MinecraftIntegrationService
         }
     }
 
+    private static bool JarContainsFabricModId(
+        string jarPath,
+        string expectedModId)
+    {
+        try
+        {
+            using var archive = ZipFile.OpenRead(jarPath);
+            var metadata = archive.GetEntry("fabric.mod.json");
+            if (metadata == null)
+                return false;
+
+            using var stream = metadata.Open();
+            using var document = JsonDocument.Parse(stream);
+
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty(
+                    "id",
+                    out var idElement))
+            {
+                return string.Equals(
+                    idElement.GetString(),
+                    expectedModId,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (document.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in document.RootElement.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Object &&
+                        item.TryGetProperty("id", out var arrayId) &&
+                        string.Equals(
+                            arrayId.GetString(),
+                            expectedModId,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Unknown/corrupt JARs are never removed by filename fallback
+            // when an exact Fabric mod ID is available.
+        }
+
+        return false;
+    }
+
     private static void RestoreMatchingBackupFiles(
         string backup,
         string minecraftRoot,
         string destinationDirectory,
-        string token)
+        string token,
+        string? fabricModId)
     {
         var relativeDirectory = Path.GetRelativePath(
             minecraftRoot,
@@ -1030,9 +1123,20 @@ public sealed class MinecraftIntegrationService
                      SearchOption.TopDirectoryOnly))
         {
             var name = Path.GetFileName(file);
-            if (!name.Contains(
-                    token,
-                    StringComparison.OrdinalIgnoreCase))
+
+            var matches =
+                !string.IsNullOrWhiteSpace(fabricModId) &&
+                file.EndsWith(
+                    ".jar",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? JarContainsFabricModId(
+                        file,
+                        fabricModId)
+                    : name.Contains(
+                        token,
+                        StringComparison.OrdinalIgnoreCase);
+
+            if (!matches)
                 continue;
 
             File.Copy(
@@ -1801,7 +1905,8 @@ public sealed class MinecraftIntegrationService
     private sealed record ModrinthProject(
         string Name,
         string Slug,
-        string FileToken);
+        string FileToken,
+        string? FabricModId = null);
 
     private sealed record GitHubRelease(
         string Tag,
