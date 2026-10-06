@@ -489,6 +489,10 @@ public sealed class MinecraftIntegrationService
                         managedDestinations.Add(component.InstalledPath);
                         installed.Add(component);
                     }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         RestoreMatchingBackupFiles(
@@ -534,6 +538,10 @@ public sealed class MinecraftIntegrationService
 
                     managedDestinations.Add(spbr.InstalledPath);
                     installed.Add(spbr);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -756,7 +764,18 @@ public sealed class MinecraftIntegrationService
                         ? filenameElement.GetString() ?? ""
                         : "";
 
+                    var expectedExtension =
+                        string.IsNullOrWhiteSpace(loader)
+                            ? ".zip"
+                            : ".jar";
+
                     return !string.IsNullOrWhiteSpace(filename) &&
+                           filename.Equals(
+                               Path.GetFileName(filename),
+                               StringComparison.Ordinal) &&
+                           filename.EndsWith(
+                               expectedExtension,
+                               StringComparison.OrdinalIgnoreCase) &&
                            !ContainsAny(
                                filename,
                                "sources",
@@ -1011,6 +1030,10 @@ public sealed class MinecraftIntegrationService
                 }
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             AppLogger.Warn(
@@ -1109,6 +1132,10 @@ public sealed class MinecraftIntegrationService
                         sha256 = null;
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
