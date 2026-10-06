@@ -113,6 +113,47 @@ jobs:
             Write-Host "Bundled $($asset.Destination) • SHA-256 $actual"
           }
 
+      - name: Bundle Real-ESRGAN runtime models from vendored sources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $modelAssets = @(
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesrgan-x4plus.param"; Name = "realesrgan-x4plus.param"; GitBlobSha1 = "d14d62ebb815bdd522ed112e67695b3377f86ca0" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesrgan-x4plus.bin"; Name = "realesrgan-x4plus.bin"; GitBlobSha1 = "5cea94783710c25d6fffa9fe9b59999498aec3d4" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/spintexture/vendor/realesrgan/models/realesrnet-x4plus.param"; Name = "realesrnet-x4plus.param"; GitBlobSha1 = "d14d62ebb815bdd522ed112e67695b3377f86ca0" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/spintexture/vendor/realesrgan/models/realesrnet-x4plus.bin"; Name = "realesrnet-x4plus.bin"; GitBlobSha1 = "4f5b87990354b39b744adf25e36f4857065584a6" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.param"; Name = "realesrgan-x4plus-anime.param"; GitBlobSha1 = "6c98f9a1932603688683a6f0108cbdfcd6b3e680" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.bin"; Name = "realesrgan-x4plus-anime.bin"; GitBlobSha1 = "95201b7beeefaa2de45bc80f77f879f51d2fc534" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.param"; Name = "realesr-animevideov3-x2.param"; GitBlobSha1 = "42e774841c35c8bf0ffeb215bb40c61d4868be16" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.bin"; Name = "realesr-animevideov3-x2.bin"; GitBlobSha1 = "20691050e279557160fbef5fa3f45fafeeac5402" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.param"; Name = "realesr-animevideov3-x3.param"; GitBlobSha1 = "bf4718580cc40eac9ff34f730ca64053feaf7bf4" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.bin"; Name = "realesr-animevideov3-x3.bin"; GitBlobSha1 = "20691050e279557160fbef5fa3f45fafeeac5402" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.param"; Name = "realesr-animevideov3-x4.param"; GitBlobSha1 = "5b922cc388374b1152e01fa633bcab80b2448dae" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.bin"; Name = "realesr-animevideov3-x4.bin"; GitBlobSha1 = "20691050e279557160fbef5fa3f45fafeeac5402" }
+          )
+
+          $include = ($modelAssets.Source -join ",")
+          git lfs pull --include="$include" --exclude=""
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to materialize vendored Real-ESRGAN model files from Git LFS."
+          }
+
+          foreach ($asset in $modelAssets) {
+            if (!(Test-Path -LiteralPath $asset.Source)) {
+              throw "Vendored Real-ESRGAN model is missing: $($asset.Source)"
+            }
+
+            $actualBlob = (git hash-object -- $asset.Source).Trim().ToLowerInvariant()
+            if ($LASTEXITCODE -ne 0 -or $actualBlob -ne $asset.GitBlobSha1.ToLowerInvariant()) {
+              throw "Real-ESRGAN model fingerprint mismatch for $($asset.Source). Expected $($asset.GitBlobSha1), got $actualBlob."
+            }
+
+            $destination = Join-Path "release-assets" $asset.Name
+            Copy-Item -LiteralPath $asset.Source -Destination $destination -Force
+            Write-Host "Bundled $destination • git blob $actualBlob"
+          }
+
       - name: Bundle Caustica RTX from monorepo or manager release
         id: caustica
         shell: pwsh
@@ -234,7 +275,19 @@ jobs:
             "DlssNrManager-win-x64.zip",
             (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}"),
             "release-assets/ai-origin-primary-int8.onnx",
-            "release-assets/ai-origin-secondary-int8.onnx"
+            "release-assets/ai-origin-secondary-int8.onnx",
+            "release-assets/realesrgan-x4plus.param",
+            "release-assets/realesrgan-x4plus.bin",
+            "release-assets/realesrnet-x4plus.param",
+            "release-assets/realesrnet-x4plus.bin",
+            "release-assets/realesrgan-x4plus-anime.param",
+            "release-assets/realesrgan-x4plus-anime.bin",
+            "release-assets/realesr-animevideov3-x2.param",
+            "release-assets/realesr-animevideov3-x2.bin",
+            "release-assets/realesr-animevideov3-x3.param",
+            "release-assets/realesr-animevideov3-x3.bin",
+            "release-assets/realesr-animevideov3-x4.param",
+            "release-assets/realesr-animevideov3-x4.bin"
           )
 
           foreach ($optional in @(
@@ -281,6 +334,8 @@ jobs:
             release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
             release-assets/ai-origin-primary-int8.onnx
             release-assets/ai-origin-secondary-int8.onnx
+            release-assets/realesr*.param
+            release-assets/realesr*.bin
           fail_on_unmatched_files: false
           generate_release_notes: true
           make_latest: true
