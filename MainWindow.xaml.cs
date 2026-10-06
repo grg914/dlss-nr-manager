@@ -2931,6 +2931,29 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ToggleSoftwareRendering_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var software =
+            System.Windows.Media.RenderOptions.ProcessRenderMode !=
+            System.Windows.Interop.RenderMode.SoftwareOnly;
+
+        System.Windows.Media.RenderOptions.ProcessRenderMode =
+            software
+                ? System.Windows.Interop.RenderMode.SoftwareOnly
+                : System.Windows.Interop.RenderMode.Default;
+
+        SoftwareRenderingButton.Content = software
+            ? "Use hardware UI rendering"
+            : "Use software UI rendering";
+
+        AppLogger.Info(
+            software
+                ? "WPF software rendering enabled for this session."
+                : "WPF hardware rendering restored for this session.");
+    }
+
     private async void ManagerCheckUpdate_Click(
         object sender,
         RoutedEventArgs e)
