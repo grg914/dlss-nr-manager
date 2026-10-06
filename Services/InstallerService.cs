@@ -214,8 +214,12 @@ public sealed class InstallerService
                 workingScale,
                 enableNeuralRendering);
 
-            File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-version"), release.Tag);
-            File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-proxy"), proxy);
+            AtomicFile.WriteAllText(
+                Path.Combine(gameDir, ".dlssnr-manager-version"),
+                release.Tag);
+            AtomicFile.WriteAllText(
+                Path.Combine(gameDir, ".dlssnr-manager-proxy"),
+                proxy);
 
             var managedFiles = archiveRelativeFiles
                 .Where(x => !x.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase))
@@ -241,9 +245,11 @@ public sealed class InstallerService
                 managedFiles,
                 baselineBackup);
 
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 manifestPath,
-                JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
+                JsonSerializer.Serialize(
+                    manifest,
+                    new JsonSerializerOptions { WriteIndented = true }));
 
             return backup;
         }
@@ -315,7 +321,7 @@ public sealed class InstallerService
                 .ToList()
         };
 
-        File.WriteAllText(
+        AtomicFile.WriteAllText(
             manifestPath,
             JsonSerializer.Serialize(
                 updated,
