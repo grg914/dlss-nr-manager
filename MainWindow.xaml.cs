@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private IReadOnlyList<PcCleanupItem> _cleanupItems = [];
     private bool _isBusy;
     private int _stateRefreshVersion;
+    private CancellationTokenSource? _mediaOperationCts;
 
     private sealed record AdvancedSettingsSnapshot(
         int FpsType,
@@ -88,6 +89,9 @@ public partial class MainWindow : Window
 
         Closed += (_, _) =>
         {
+            try { _mediaOperationCts?.Cancel(); } catch { }
+            try { ExternalProcessTracker.KillAll(); } catch { }
+            _mediaOperationCts?.Dispose();
             _aiOrigin.Dispose();
             Application.Current.Shutdown();
             Environment.Exit(0);
@@ -2128,6 +2132,11 @@ public partial class MainWindow : Window
             MediaOutputBox.Text = output;
         }
 
+        _mediaOperationCts?.Cancel();
+        _mediaOperationCts?.Dispose();
+        _mediaOperationCts = new CancellationTokenSource();
+        var mediaCancellationToken = _mediaOperationCts.Token;
+
         try
         {
             MediaSetupButton.IsEnabled = false;
@@ -2160,7 +2169,8 @@ public partial class MainWindow : Window
                     source,
                     CaptureAiUpscaleOptions(output),
                     _media,
-                    progress);
+                    progress,
+                    mediaCancellationToken);
             }
             else if (mode == 2)
             {
@@ -2174,7 +2184,8 @@ public partial class MainWindow : Window
                         style,
                         intensity,
                         output),
-                    progress);
+                    progress,
+                    mediaCancellationToken);
 
                 MediaStatusText.Text =
                     "Step 2/2 • AI super-resolution…";
@@ -2183,7 +2194,8 @@ public partial class MainWindow : Window
                     nrIntermediate,
                     CaptureAiUpscaleOptions(output),
                     _media,
-                    progress);
+                    progress,
+                    mediaCancellationToken);
             }
             else
             {
@@ -2194,7 +2206,8 @@ public partial class MainWindow : Window
                         style,
                         intensity,
                         output),
-                    progress);
+                    progress,
+                    mediaCancellationToken);
             }
 
             MediaStatusText.Text = $"Complete • {result}";
@@ -2215,6 +2228,11 @@ public partial class MainWindow : Window
                 });
             }
         }
+        catch (OperationCanceledException)
+        {
+            MediaStatusText.Text = "Processing cancelled.";
+            AiUpscaleStatusText.Text = "Processing cancelled.";
+        }
         catch (Exception ex)
         {
             MediaStatusText.Text = $"Processing failed: {ex.Message}";
@@ -2228,6 +2246,9 @@ public partial class MainWindow : Window
         }
         finally
         {
+            try { ExternalProcessTracker.KillAll(); } catch { }
+            _mediaOperationCts?.Dispose();
+            _mediaOperationCts = null;
             MediaSetupButton.IsEnabled = true;
             MediaProcessButton.IsEnabled = true;
             AiUpscaleSetupButton.IsEnabled = true;
