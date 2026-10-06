@@ -1921,29 +1921,6 @@ public sealed class MinecraftIntegrationService
         }
     }
 
-    private static async Task BackupMatchingAsync(
-        string directory,
-        string backup,
-        string contains,
-        CancellationToken cancellationToken)
-    {
-        foreach (var file in Directory.EnumerateFiles(directory, "*.jar", SearchOption.TopDirectoryOnly))
-        {
-            var name = Path.GetFileName(file);
-            if (!name.Contains(contains, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var destination = Path.Combine(backup, name);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-
-            await using var input = File.OpenRead(file);
-            await using var output = File.Create(destination);
-            await input.CopyToAsync(output, cancellationToken);
-
-            File.Delete(file);
-        }
-    }
-
     private static void WriteManagedManifest(
         string root,
         IReadOnlyList<MinecraftComponentResult> components,
