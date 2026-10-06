@@ -59,7 +59,7 @@ public partial class MainWindow : Window
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
-            ? "Version v1.2.0"
+            ? "Version v1.3.0"
             : $"Version v{version.Major}.{version.Minor}.{version.Build}";
 
         Loaded += async (_, _) =>
