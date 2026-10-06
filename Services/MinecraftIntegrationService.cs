@@ -42,7 +42,7 @@ public sealed class MinecraftIntegrationService
 
     private const string FabricInstallerMavenBase =
         "https://maven.fabricmc.net/net/fabricmc/fabric-installer";
-    private const string CausticaRtxRepo = "AriesAlex/Caustica-RTX";
+    private const string CausticaRtxRepo = "grg914/Caustica-RTX";
 
     private readonly HttpClient _http = new();
 
