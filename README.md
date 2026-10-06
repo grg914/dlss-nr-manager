@@ -86,7 +86,7 @@ Useful ideas identified for future versions, but intentionally not rushed into v
 - Centralized ZIP extraction behind a bounded safe extractor with traversal protection, entry-count limits and a 4 GB expanded-size ceiling for downloaded component archives.
 - Self-update ZIPs now accept only `DlssNrManager.exe`, cap archive size/entry count, and no longer fall back to an arbitrary executable found in the archive.
 - Minecraft Scandi pack copies are now atomic, preventing a crash/interruption from leaving a partially written resource pack.
-- Updated the optional `ScandiTextureV1.zip` release fingerprint to the sanitized pack with Fresh Flower Pots removed: `BA6D6EB17F5D49CAF9F42976BCA524A28C8261576C740B3D5D1064F7C69F800E`.
+- Updated the optional `ScandiTextureV1.zip` release fingerprint to the sanitized pack with Fresh Flower Pots removed: `221D8A4B698120812B4ADDAA003EC5E67E2BD91513FAB6DABCF534FCF90151B0`.
 
 ## Previous v1.5.0 changes
 
