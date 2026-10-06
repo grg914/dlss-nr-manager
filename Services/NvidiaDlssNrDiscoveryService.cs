@@ -77,11 +77,13 @@ public sealed class NvidiaDlssNrDiscoveryService
 
         // A public usable integration needs both an API/header signal and a runtime DLL signal.
         // A single matching filename is not enough to claim support is deployable.
-        var hasHeader = found.Any(x =>
-            x.EndsWith(".h", StringComparison.OrdinalIgnoreCase));
+        var hasCausticaVulkanHeader = found.Contains(
+            "nvsdk_ngx_helpers_dlssnr_vk.h",
+            StringComparer.OrdinalIgnoreCase);
         var hasRuntime = found.Any(x =>
-            x.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
-        var ready = hasHeader && hasRuntime;
+            x.Equals("nvngx_dlssnr.dll", StringComparison.OrdinalIgnoreCase) ||
+            x.Equals("sl.dlss_nr.dll", StringComparison.OrdinalIgnoreCase));
+        var ready = hasCausticaVulkanHeader && hasRuntime;
 
         var summary = ready
             ? $"Public NVIDIA DLSS Neural Rendering files detected in official sources ({release.Tag})."
@@ -89,6 +91,7 @@ public sealed class NvidiaDlssNrDiscoveryService
 
         var details =
             $"Official sources checked: {DlssRepository}, {StreamlineRepository}. " +
+            "Caustica-ready requires nvsdk_ngx_helpers_dlssnr_vk.h plus an official DLSS-NR runtime. " +
             $"Found: {(found.Count == 0 ? "none" : string.Join(", ", found))}. " +
             $"Missing: {(missing.Count == 0 ? "none" : string.Join(", ", missing))}. " +
             "The manager never treats copied, renamed or unofficial DLLs as proof of DLSS-NR availability.";
