@@ -194,6 +194,41 @@ public sealed class DiagnosticService
                     "game/OptiScaler.log",
                     2500);
 
+                var renderer = RendererDetectionService.Detect(gameDir);
+                AddTextEntry(
+                    archive,
+                    "game/renderer-detection.txt",
+                    SanitizeUserPaths(
+                        renderer.Summary + Environment.NewLine +
+                        string.Join(
+                            Environment.NewLine,
+                            renderer.Candidates.Select(candidate =>
+                                $"{Path.GetFileName(candidate.Executable)} | {candidate.Api} | {candidate.Evidence}"))));
+
+                var history = GameHistoryService.Read(gameDir);
+                if (history.Count > 0)
+                {
+                    AddTextEntry(
+                        archive,
+                        "game/history.json",
+                        SanitizeUserPaths(
+                            JsonSerializer.Serialize(
+                                history,
+                                new JsonSerializerOptions { WriteIndented = true })));
+                }
+
+                var pending = FileTransactionJournal.ReadPending(gameDir);
+                if (pending != null)
+                {
+                    AddTextEntry(
+                        archive,
+                        "game/pending-transaction.json",
+                        SanitizeUserPaths(
+                            JsonSerializer.Serialize(
+                                pending,
+                                new JsonSerializerOptions { WriteIndented = true })));
+                }
+
                 var iniPath = Path.Combine(gameDir, "OptiScaler.ini");
                 if (File.Exists(iniPath))
                 {

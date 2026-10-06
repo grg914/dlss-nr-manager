@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private RtxCapabilities _gpuCapabilities = GpuCapabilityService.Evaluate(new("Unknown GPU", "Unknown", false));
     private ReleaseInfo? _release;
+    private IReadOnlyList<ReleaseInfo> _recentReleases = [];
     private string? _runtimePath;
     private ManagerReleaseInfo? _managerRelease;
     private DetectedGame? _selectedGame;
@@ -58,11 +59,26 @@ public partial class MainWindow : Window
         // Clean up media helpers left behind by an interrupted/older manager run.
         try { ExternalProcessTracker.KillAll(); } catch { }
 
+        var appPreferences = AppPreferencesService.Load();
+        if (appPreferences.SoftwareRendering)
+        {
+            System.Windows.Media.RenderOptions.ProcessRenderMode =
+                System.Windows.Interop.RenderMode.SoftwareOnly;
+        }
+
         InitializeComponent();
+
+        var scanSettings = ScanSettingsService.Load();
+        ScanAllDrivesCheck.IsChecked = scanSettings.ScanAllFixedDrives;
+
         _minecraftOneClick = new MinecraftOneClickService(_minecraft);
         _aiOrigin = new AiOriginDetectionService(_media);
 
         AppVersionText.Text = $"Version v{AppIdentity.VersionString}";
+        SoftwareRenderingButton.Content =
+            appPreferences.SoftwareRendering
+                ? "Use hardware UI rendering"
+                : "Use software UI rendering";
 
         Loaded += async (_, _) =>
         {
@@ -267,10 +283,32 @@ public partial class MainWindow : Window
         try
         {
             AvailableVersionText.Text = "Checking GitHub…";
-            _release = await _releases.GetLatestAsync(IsPrereleaseSelected());
+
+            _recentReleases = await _releases.GetRecentAsync();
+            var channelPrerelease = IsPrereleaseSelected();
+
+            var compatible = _recentReleases
+                .Where(release => channelPrerelease || !release.Prerelease)
+                .ToList();
+
+            _release = compatible.FirstOrDefault()
+                       ?? await _releases.GetLatestAsync(channelPrerelease);
+
+            var selectedTag = _release?.Tag;
+            OptiScalerBuildBox.ItemsSource = compatible;
+            if (_release != null)
+            {
+                OptiScalerBuildBox.SelectedItem =
+                    compatible.FirstOrDefault(item =>
+                        item.Tag.Equals(
+                            selectedTag,
+                            StringComparison.OrdinalIgnoreCase))
+                    ?? compatible.FirstOrDefault();
+            }
+
             AvailableVersionText.Text = _release == null
                 ? "No compatible ZIP release found"
-                : $"Available: {_release.Tag}";
+                : $"Selected: {_release.Tag} • {(_release.Prerelease ? "prerelease" : "stable")}";
         }
         catch (Exception ex)
         {
@@ -490,8 +528,11 @@ public partial class MainWindow : Window
 
         _selectedGame = game;
         GamePathBox.Text = game.TargetDirectory;
+        var renderer = await Task.Run(() =>
+            RendererDetectionService.Detect(game.TargetDirectory));
+
         CompatibilityText.Text =
-            $"{game.Confidence} compatibility • {game.Platform} • {game.Evidence}";
+            $"{game.Confidence} compatibility • {game.Platform} • {game.Evidence}\n{renderer.Summary}";
 
         SelectProxy(game.RecommendedProxy);
         TargetProcessBox.Text = "";
@@ -499,6 +540,20 @@ public partial class MainWindow : Window
 
         DiagnosticText.Text =
             "Run Diagnose game to verify the renderer signals, OptiScaler load state, DLSSNR runtime and loader conflicts.";
+
+        var preferredBuild =
+            GamePreferenceService.ReadOptiScalerBuild(
+                game.TargetDirectory);
+
+        if (!string.IsNullOrWhiteSpace(preferredBuild) &&
+            _recentReleases.FirstOrDefault(release =>
+                release.Tag.Equals(
+                    preferredBuild,
+                    StringComparison.OrdinalIgnoreCase)) is { } savedRelease)
+        {
+            OptiScalerBuildBox.SelectedItem = savedRelease;
+            _release = savedRelease;
+        }
 
         await RefreshStateAsync();
     }
@@ -742,6 +797,33 @@ public partial class MainWindow : Window
             (ProxyBox.SelectedItem as ComboBoxItem)?.Content?.ToString()
             ?? "dxgi.dll";
 
+        var currentState = await Task.Run(() =>
+            _installer.Inspect(gameDir, _gpu.Generation));
+        var rendererPreview = await Task.Run(() =>
+            RendererDetectionService.Detect(gameDir));
+        var preferredExecutable =
+            RendererDetectionService.ReadPreferredExecutable(gameDir)
+            ?? rendererPreview.Preferred?.Executable
+            ?? InstallerService.FindMainExecutable(gameDir);
+
+        var comparison =
+            $"BEFORE → AFTER\n" +
+            $"OptiScaler: {currentState.Version ?? "not installed"} → {_release.Tag}\n" +
+            $"Proxy: {currentState.ProxyName ?? "none"} → {proxy}\n" +
+            $"Renderer: {rendererPreview.Preferred?.Api ?? "unknown"}\n" +
+            $"Executable: {(preferredExecutable == null ? "unknown" : Path.GetFileName(preferredExecutable))}\n" +
+            $"NVIDIA runtime files: newer existing versions are preserved\n" +
+            $"Backup/transaction journal: enabled";
+
+        if (MessageBox.Show(
+                comparison + "\n\nApply these changes?",
+                "Review changes before installation",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
         try
         {
             var advanced = CaptureAdvancedSettings();
@@ -852,6 +934,193 @@ public partial class MainWindow : Window
         {
             SetBusy(false);
         }
+    }
+
+    private async void OptiScalerBuildBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (OptiScalerBuildBox.SelectedItem is not ReleaseInfo release)
+            return;
+
+        _release = release;
+        AvailableVersionText.Text =
+            $"Selected: {release.Tag} • {(release.Prerelease ? "prerelease" : "stable")}";
+
+        var gameDir = GamePathBox.Text;
+        if (!string.IsNullOrWhiteSpace(gameDir) && Directory.Exists(gameDir))
+        {
+            GamePreferenceService.WriteOptiScalerBuild(
+                gameDir,
+                release.Tag);
+
+            GameHistoryService.Append(
+                gameDir,
+                "Build selection",
+                $"Selected OptiScaler {release.Tag}.");
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private async void AddScanRoot_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Add a folder to DLSS NR Manager game scanning"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        ScanSettingsService.AddRoot(dialog.FolderName);
+        await ScanGamesAsync(forceRefresh: true);
+    }
+
+    private async void ClearScanRoots_Click(object sender, RoutedEventArgs e)
+    {
+        var current = ScanSettingsService.Load();
+        ScanSettingsService.Save(current with { CustomRoots = [] });
+        await ScanGamesAsync(forceRefresh: true);
+    }
+
+    private async void ScanAllDrivesCheck_Changed(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!IsLoaded)
+            return;
+
+        var current = ScanSettingsService.Load();
+        ScanSettingsService.Save(
+            current with
+            {
+                ScanAllFixedDrives =
+                    ScanAllDrivesCheck.IsChecked == true
+            });
+
+        await ScanGamesAsync(forceRefresh: true);
+    }
+
+    private void OpenSelectedGameFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
+            return;
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            ArgumentList = { gameDir },
+            UseShellExecute = true
+        });
+    }
+
+    private void CopySelectedGamePath_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(GamePathBox.Text))
+            Clipboard.SetText(GamePathBox.Text);
+    }
+
+    private void LaunchSelectedGame_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
+            return;
+
+        var executable =
+            RendererDetectionService.ReadPreferredExecutable(gameDir)
+            ?? RendererDetectionService.Detect(gameDir).Preferred?.Executable
+            ?? InstallerService.FindMainExecutable(gameDir);
+
+        if (executable == null)
+        {
+            MessageBox.Show(
+                "No game executable could be selected.",
+                "Launch game",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo(executable)
+        {
+            WorkingDirectory = Path.GetDirectoryName(executable)!,
+            UseShellExecute = true
+        });
+    }
+
+    private void ChooseExecutable_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
+            return;
+
+        var detection = RendererDetectionService.Detect(gameDir);
+        if (detection.Candidates.Count == 0)
+        {
+            MessageBox.Show(
+                "No renderer-aware executable was detected.",
+                "Choose executable",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Choose the real game executable",
+            InitialDirectory = gameDir,
+            Filter = "Executable files (*.exe)|*.exe",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        RendererDetectionService.SetPreferredExecutable(
+            gameDir,
+            dialog.FileName);
+
+        GameHistoryService.Append(
+            gameDir,
+            "Executable",
+            $"Preferred executable set to {Path.GetFileName(dialog.FileName)}.");
+
+        CompatibilityText.Text =
+            RendererDetectionService.Detect(gameDir).Summary;
+    }
+
+    private void ViewGameHistory_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
+            return;
+
+        var history = GameHistoryService.Read(gameDir);
+        var text = history.Count == 0
+            ? "No DLSS NR Manager history exists for this game yet."
+            : string.Join(
+                "\n",
+                history.Take(60).Select(entry =>
+                    $"{entry.At.LocalDateTime:g} • {entry.Action} • {entry.Summary}"));
+
+        MessageBox.Show(
+            text,
+            "Game history",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private async void ApplyPreset_Click(object sender, RoutedEventArgs e)
@@ -2689,6 +2958,32 @@ public partial class MainWindow : Window
         {
             MediaStatusText.Text = $"Component update failed: {ex.Message}";
         }
+    }
+
+    private void ToggleSoftwareRendering_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var software =
+            System.Windows.Media.RenderOptions.ProcessRenderMode !=
+            System.Windows.Interop.RenderMode.SoftwareOnly;
+
+        System.Windows.Media.RenderOptions.ProcessRenderMode =
+            software
+                ? System.Windows.Interop.RenderMode.SoftwareOnly
+                : System.Windows.Interop.RenderMode.Default;
+
+        AppPreferencesService.Save(
+            new AppPreferences(software));
+
+        SoftwareRenderingButton.Content = software
+            ? "Use hardware UI rendering"
+            : "Use software UI rendering";
+
+        AppLogger.Info(
+            software
+                ? "WPF software rendering enabled for this session."
+                : "WPF hardware rendering restored for this session.");
     }
 
     private async void ManagerCheckUpdate_Click(

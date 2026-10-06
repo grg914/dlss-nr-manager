@@ -36,6 +36,8 @@ public sealed class GameDetectionService
                 return cached;
         }
 
+        var settings = ScanSettingsService.Load();
+
         var apps = SafeDiscover("Steam", DetectSteamApps)
             .Concat(SafeDiscover("Epic", DetectEpicApps))
             .Concat(SafeDiscover("GOG", DetectGogApps))
@@ -44,6 +46,27 @@ public sealed class GameDetectionService
             .Concat(SafeDiscover("EA App", DetectEaApps))
             .Concat(SafeDiscover("Xbox App", LauncherGameDiscovery.DetectXboxApps))
             .Concat(SafeDiscover("Battle.net", DetectBattleNetApps))
+            .Concat(settings.CustomRoots
+                .Where(Directory.Exists)
+                .Select(root => (
+                    Name: Path.GetFileName(
+                        root.TrimEnd(
+                            Path.DirectorySeparatorChar,
+                            Path.AltDirectorySeparatorChar)),
+                    Platform: "Custom",
+                    Root: root,
+                    ArtworkUrl: (string?)null)))
+            .Concat(settings.ScanAllFixedDrives
+                ? DriveInfo.GetDrives()
+                    .Where(drive =>
+                        drive.IsReady &&
+                        drive.DriveType == DriveType.Fixed)
+                    .Select(drive => (
+                        Name: $"Drive {drive.Name}",
+                        Platform: "Drive scan",
+                        Root: drive.RootDirectory.FullName,
+                        ArtworkUrl: (string?)null))
+                : [])
             .Where(x => !string.IsNullOrWhiteSpace(x.Root) && Directory.Exists(x.Root))
             .GroupBy(x => x.Root, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
@@ -307,19 +330,36 @@ public sealed class GameDetectionService
         }
     }
 
+    private static readonly HashSet<string> SkipDirectories =
+        new(
+            new[]
+            {
+                ".git", "node_modules", "__Installer", "installer",
+                "installers", "redist", "_CommonRedist", "_redist",
+                "redistributables", "vcredist", "directx", "directx_redist",
+                "dotnet", "paks", "movies", "screenshots", "saved", "logs",
+                "downloads", "backup", "backups", "_backup", "old",
+                "original", "originals", "easyanticheat", "battleye",
+                "support", "_support", "prerequisites"
+            },
+            StringComparer.OrdinalIgnoreCase);
+
     private static bool ShouldSkipDirectory(string name)
-        => name.Equals(".git", StringComparison.OrdinalIgnoreCase)
-           || name.Equals("__Installer", StringComparison.OrdinalIgnoreCase)
-           || name.Equals("redist", StringComparison.OrdinalIgnoreCase)
-           || name.Equals("_CommonRedist", StringComparison.OrdinalIgnoreCase)
+        => SkipDirectories.Contains(name)
            || name.Contains("crash", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsLikelyLauncherOrInstaller(string fileName)
-        => fileName.Contains("launcher", StringComparison.OrdinalIgnoreCase)
-           || fileName.Contains("unins", StringComparison.OrdinalIgnoreCase)
-           || fileName.Contains("setup", StringComparison.OrdinalIgnoreCase)
-           || fileName.Contains("crash", StringComparison.OrdinalIgnoreCase)
-           || fileName.Contains("report", StringComparison.OrdinalIgnoreCase);
+    {
+        var stem = Path.GetFileNameWithoutExtension(fileName);
+        return new[]
+        {
+            "launcher", "unins", "setup", "install", "vcredist",
+            "vc_redist", "dxsetup", "crash", "report", "helper",
+            "service", "cleanup", "benchmark", "updater", "update",
+            "easyanticheat", "battleye", "redlauncher", "modorganizer"
+        }.Any(token =>
+            stem.Contains(token, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static int ConfidenceRank(string confidence)
         => confidence switch
