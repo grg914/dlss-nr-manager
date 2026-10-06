@@ -44,9 +44,22 @@ public sealed class MinecraftOneClickService
         var markerPath = Path.Combine(root, ".dlss-nr-manager-oneclick.json");
         if (File.Exists(markerPath))
         {
-            throw new InvalidOperationException(
-                "A one-click Minecraft DLSS / RTX installation is already tracked for this instance. " +
-                "Use Restore original before installing again.");
+            progress?.Report(
+                "Existing managed Minecraft RTX installation detected • restoring manager-owned changes before repair/update…");
+
+            try
+            {
+                RestoreOriginal(
+                    root,
+                    progress);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    "The existing managed Minecraft RTX installation could not be restored safely before repair. " +
+                    "Use Restore original and review the diagnostic log before retrying.",
+                    ex);
+            }
         }
 
         var backup = Path.Combine(
