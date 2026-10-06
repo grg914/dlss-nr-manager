@@ -405,37 +405,33 @@ public sealed class MinecraftIntegrationService
         {
             if (installFabricApi)
             {
-                progress?.Report($"Finding Fabric API for Minecraft {MinecraftVersion}…");
+                progress?.Report(
+                    $"Finding the latest Fabric API build for Minecraft {MinecraftVersion}…");
 
-                var fabricApi = await FindReleaseAsync(
-                    FabricApiRepo,
-                    r => r.Tag.Contains("+26.2", StringComparison.OrdinalIgnoreCase)
-                         || r.Name.Contains("[26.2]", StringComparison.OrdinalIgnoreCase)
-                         || r.Name.Contains("26.2", StringComparison.OrdinalIgnoreCase),
-                    includePrerelease: false,
-                    cancellationToken);
+                var fabricApi = await InstallModrinthProjectAsync(
+                    instance.RootDirectory,
+                    mods,
+                    backup,
+                    new ModrinthProject(
+                        "Fabric API",
+                        "fabric-api",
+                        "fabric-api"),
+                    loader: "fabric",
+                    progress,
+                    cancellationToken,
+                    requireReleaseBuild: true);
 
-                var asset = SelectAsset(
-                    fabricApi,
-                    name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                            && name.Contains("fabric-api", StringComparison.OrdinalIgnoreCase)
-                            && !ContainsAny(name, "sources", "dev", "javadoc"));
-
-                await BackupMatchingAsync(mods, backup, "fabric-api-", cancellationToken);
-
-                var destination = Path.Combine(mods, asset.Name);
-                managedDestinations.Add(destination);
-                await DownloadAssetAsync(asset, destination, progress, cancellationToken);
-
-                installed.Add(new MinecraftComponentResult(
-                    "Fabric API", fabricApi.Tag, destination, FabricApiRepo));
+                managedDestinations.Add(fabricApi.InstalledPath);
+                installed.Add(fabricApi);
             }
 
             progress?.Report("Finding latest compatible Caustica RTX release…");
 
             var caustica = await FindReleaseAsync(
                 CausticaRtxRepo,
-                r => !r.Draft,
+                r => ReleaseTargetsMinecraftVersion(
+                    r,
+                    MinecraftVersion),
                 allowPrereleaseCaustica,
                 cancellationToken);
 
@@ -656,7 +652,8 @@ public sealed class MinecraftIntegrationService
         ModrinthProject project,
         string? loader,
         IProgress<string>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool requireReleaseBuild = false)
     {
         var versionsUrl =
             $"https://api.modrinth.com/v2/project/{project.Slug}/version" +
@@ -680,7 +677,25 @@ public sealed class MinecraftIntegrationService
         JsonElement? selectedVersion = null;
         JsonElement? selectedFile = null;
 
-        foreach (var version in versions.RootElement.EnumerateArray())
+        var versionCandidates = versions.RootElement
+            .EnumerateArray()
+            .Where(version =>
+                !requireReleaseBuild ||
+                !version.TryGetProperty("version_type", out var typeElement) ||
+                string.Equals(
+                    typeElement.GetString(),
+                    "release",
+                    StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (versionCandidates.Count == 0 && requireReleaseBuild)
+        {
+            throw new InvalidOperationException(
+                $"No stable Modrinth release of {project.Name} was found for Minecraft {MinecraftVersion}" +
+                (string.IsNullOrWhiteSpace(loader) ? "." : $" / {loader}."));
+        }
+
+        foreach (var version in versionCandidates)
         {
             if (!version.TryGetProperty("files", out var files) ||
                 files.ValueKind != JsonValueKind.Array)
@@ -1066,7 +1081,41 @@ public sealed class MinecraftIntegrationService
             }
         }
 
-        return new GitHubRelease(tag, name, draft, prerelease, assets);
+        var body = element.TryGetProperty("body", out var bodyElement)
+            ? bodyElement.GetString() ?? ""
+            : "";
+
+        return new GitHubRelease(
+            tag,
+            name,
+            body,
+            draft,
+            prerelease,
+            assets);
+    }
+
+    private static bool ReleaseTargetsMinecraftVersion(
+        GitHubRelease release,
+        string minecraftVersion)
+    {
+        var escaped = System.Text.RegularExpressions.Regex.Escape(
+            minecraftVersion);
+
+        return System.Text.RegularExpressions.Regex.IsMatch(
+                   release.Tag,
+                   $@"(?<!\d){escaped}(?!\d)",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                   System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+               || System.Text.RegularExpressions.Regex.IsMatch(
+                   release.Name,
+                   $@"(?<!\d){escaped}(?!\d)",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                   System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+               || System.Text.RegularExpressions.Regex.IsMatch(
+                   release.Body,
+                   $@"(?<!\d){escaped}(?!\d)",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                   System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }
 
     private static bool DetectFabric(string root)
@@ -1505,6 +1554,7 @@ public sealed class MinecraftIntegrationService
     private sealed record GitHubRelease(
         string Tag,
         string Name,
+        string Body,
         bool Draft,
         bool Prerelease,
         IReadOnlyList<GitHubAsset> Assets);
