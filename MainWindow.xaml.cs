@@ -1663,7 +1663,7 @@ public partial class MainWindow : Window
                 ? "• install Lithium, FerriteCore, Krypton and Dynamic FPS from Modrinth\n"
                 : "") +
             (MinecraftSpbrCheck.IsChecked == true
-                ? "• install the SPBR LabPBR resource pack from Modrinth\n"
+                ? "• install the validated SPBRScandi resource pack\n"
                 : "") +
             "• temporarily move known conflicting renderer mods (Sodium, Iris, VulkanMod, Nvidium, Canvas, OptiFine/OptiFabric) into the backup\n" +
             "• add the Fabric launcher Java arguments required/recommended for the native renderer path\n\n" +
@@ -1682,7 +1682,7 @@ public partial class MainWindow : Window
             AppLogger.Info(
                 $"Minecraft one-click install requested. Instance='{instance.RootDirectory}', " +
                 $"performancePack={MinecraftPerformancePackCheck.IsChecked == true}, " +
-                $"SPBR={MinecraftSpbrCheck.IsChecked == true}.");
+                $"SPBRScandi={MinecraftSpbrCheck.IsChecked == true}.");
 
             MinecraftOneClickInstallButton.IsEnabled = false;
             MinecraftRestoreOriginalButton.IsEnabled = false;

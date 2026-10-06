@@ -18,7 +18,7 @@ public sealed class MinecraftOneClickService
     private readonly MinecraftIntegrationService _integration;
     private static readonly HttpClient PackHttp = CreatePackHttpClient();
     private const string ManagerRepository = "grg914/dlss-nr-manager";
-    private const string ScandiTextureAsset = "ScandiTextureV1.zip";
+    private const string SPBRScandiAsset = "SPBRScandi.zip";
     private const string ScandiShaderAsset = "ScandiShaderV2.zip";
     private const long MaxScandiPackDownloadBytes = 512L * 1024 * 1024;
 
@@ -159,7 +159,7 @@ public sealed class MinecraftOneClickService
                 installFabricApi,
                 allowPrereleaseCaustica,
                 installRtxPerformancePack,
-                installLabPbrResourcePack,
+                installLabPbrResourcePack: false,
                 progress,
                 cancellationToken);
 
@@ -169,6 +169,7 @@ public sealed class MinecraftOneClickService
             var scandiPacks = await InstallScandiPacksAsync(
                 root,
                 backup,
+                installLabPbrResourcePack,
                 progress,
                 cancellationToken);
 
@@ -202,9 +203,11 @@ public sealed class MinecraftOneClickService
                 "Caustica RTX provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and NVIDIA Reflex through its own renderer.",
                 "The project Caustica build also includes RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering controls.",
                 "Open Video Settings → Ray Tracing after first launch to choose DLSS quality, Frame Generation multiplier, Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look.",
-                scandiPacks.TextureInstalled
-                    ? "ScandiTextureV1 installed in resourcepacks."
-                    : "ScandiTextureV1 was not available beside the manager or in the latest manager release; RTX installation continued.",
+                installLabPbrResourcePack
+                    ? (scandiPacks.TextureInstalled
+                        ? "SPBRScandi (SPBR + validated Scandi visuals) installed in resourcepacks."
+                        : "SPBRScandi was requested but no verified replacement asset was available; RTX installation continued.")
+                    : "SPBRScandi installation was disabled by the user.",
                 scandiPacks.ShaderInstalled
                     ? "ScandiShaderV2 installed in shaderpacks for optional non-Caustica use. Caustica RTX uses the native ScandiShader RTX Look instead of Iris/OptiFine shader execution."
                     : "ScandiShaderV2 was not available beside the manager or in the latest manager release; Caustica's native ScandiShader RTX Look remains available."
@@ -255,15 +258,10 @@ public sealed class MinecraftOneClickService
 
             if (installLabPbrResourcePack)
             {
-                var spbrInstalled = setup.Components.Any(component =>
-                    component.Component.Equals(
-                        "SPBR LabPBR",
-                        StringComparison.OrdinalIgnoreCase));
-
                 notes.Add(
-                    spbrInstalled
-                        ? "SPBR LabPBR resource pack installed. Enable SPBR in Minecraft Resource Packs to use its PBR materials with Caustica RTX."
-                        : "Optional SPBR LabPBR resource pack was skipped. The core Caustica RTX installation remains valid.");
+                    scandiPacks.TextureInstalled
+                        ? "The default resource pack is the validated SPBR-based SPBRScandi hybrid. Enable SPBRScandi in Minecraft Resource Packs for SPBR PBR materials plus the safe Scandi sky/End/UI visuals."
+                        : "The optional SPBRScandi SPBR + Scandi resource pack was skipped. The core Caustica RTX installation remains valid.");
             }
 
             if (disabled.Count > 0)
@@ -500,22 +498,24 @@ public sealed class MinecraftOneClickService
     private static async Task<ScandiPackInstallResult> InstallScandiPacksAsync(
         string root,
         string backup,
+        bool installTexture,
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        var textureDestination = Path.Combine(root, "resourcepacks", ScandiTextureAsset);
+        var textureDestination = Path.Combine(root, "resourcepacks", SPBRScandiAsset);
         var shaderDestination = Path.Combine(root, "shaderpacks", ScandiShaderAsset);
 
-        BackupFile(textureDestination, Path.Combine(backup, "scandi-packs", "resourcepacks", ScandiTextureAsset));
+        if (installTexture)
+            BackupFile(textureDestination, Path.Combine(backup, "scandi-packs", "resourcepacks", SPBRScandiAsset));
         BackupFile(shaderDestination, Path.Combine(backup, "scandi-packs", "shaderpacks", ScandiShaderAsset));
 
         // Never treat an already-installed destination as the update source.
         // Doing so made a stale/broken Scandi pack self-reinstall forever and
         // prevented a newer bundled/release asset from replacing it.
-        var textureSource = FindLocalPack(ScandiTextureAsset);
+        var textureSource = installTexture ? FindLocalPack(SPBRScandiAsset) : null;
         var shaderSource = FindLocalPack(ScandiShaderAsset, "ScandiShaderV2(5).zip");
 
-        if (textureSource == null || shaderSource == null)
+        if ((installTexture && textureSource == null) || shaderSource == null)
         {
             try
             {
@@ -527,8 +527,8 @@ public sealed class MinecraftOneClickService
                     using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
                     if (json.RootElement.TryGetProperty("assets", out var assets))
                     {
-                        if (textureSource == null)
-                            textureSource = await DownloadReleaseAssetAsync(assets, ScandiTextureAsset, backup, cancellationToken);
+                        if (installTexture && textureSource == null)
+                            textureSource = await DownloadReleaseAssetAsync(assets, SPBRScandiAsset, backup, cancellationToken);
                         if (shaderSource == null)
                             shaderSource = await DownloadReleaseAssetAsync(assets, ScandiShaderAsset, backup, cancellationToken);
                     }
@@ -540,7 +540,7 @@ public sealed class MinecraftOneClickService
             }
         }
 
-        var textureInstalled = CopyPack(
+        var textureInstalled = installTexture && CopyPack(
             textureSource,
             textureDestination,
             zip => zip.GetEntry("pack.mcmeta") != null);
@@ -551,9 +551,9 @@ public sealed class MinecraftOneClickService
                 entry.FullName.StartsWith("shaders/", StringComparison.OrdinalIgnoreCase)));
 
         if (textureInstalled)
-            progress?.Report($"Installed {ScandiTextureAsset} → resourcepacks.");
-        else if (File.Exists(textureDestination))
-            progress?.Report($"Existing {ScandiTextureAsset} was preserved because no verified replacement asset was available.");
+            progress?.Report($"Installed {SPBRScandiAsset} → resourcepacks.");
+        else if (installTexture && File.Exists(textureDestination))
+            progress?.Report($"Existing {SPBRScandiAsset} was preserved because no verified replacement asset was available.");
 
         if (shaderInstalled)
             progress?.Report($"Installed {ScandiShaderAsset} → shaderpacks (kept disabled for the Caustica RTX profile).");
@@ -749,7 +749,7 @@ public sealed class MinecraftOneClickService
 
     private static void RestoreManagedScandiPacks(string root, string backup)
     {
-        var textureDestination = Path.Combine(root, "resourcepacks", ScandiTextureAsset);
+        var textureDestination = Path.Combine(root, "resourcepacks", SPBRScandiAsset);
         var shaderDestination = Path.Combine(root, "shaderpacks", ScandiShaderAsset);
         TryDeleteFile(textureDestination);
         TryDeleteFile(shaderDestination);
