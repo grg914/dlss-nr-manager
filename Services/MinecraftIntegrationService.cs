@@ -11,7 +11,17 @@ public sealed record MinecraftInstallCandidate(
     string RootDirectory,
     string Source,
     bool HasModsDirectory,
-    bool FabricDetected);
+    bool FabricDetected,
+    string? DetectedMinecraftVersion = null,
+    bool HasTargetMinecraftVersion = false)
+{
+    public string DisplayName =>
+        string.IsNullOrWhiteSpace(DetectedMinecraftVersion)
+            ? Name
+            : HasTargetMinecraftVersion
+                ? $"{Name} — Minecraft {DetectedMinecraftVersion} (target)"
+                : $"{Name} — Minecraft {DetectedMinecraftVersion}";
+}
 
 public sealed record MinecraftComponentResult(
     string Component,
@@ -60,12 +70,23 @@ public sealed class MinecraftIntegrationService
             if (!Directory.Exists(root) || !seen.Add(root))
                 return;
 
+            var versions = DetectMinecraftVersions(root);
+            var hasTarget = versions.Contains(
+                MinecraftVersion,
+                StringComparer.OrdinalIgnoreCase);
+
+            var detectedVersion = hasTarget
+                ? MinecraftVersion
+                : SelectBestMinecraftVersion(versions);
+
             result.Add(new MinecraftInstallCandidate(
                 name,
                 root,
                 source,
                 Directory.Exists(Path.Combine(root, "mods")),
-                DetectFabric(root)));
+                DetectFabric(root),
+                detectedVersion,
+                hasTarget));
         }
 
         var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -103,12 +124,166 @@ public sealed class MinecraftIntegrationService
         var full = Path.GetFullPath(root);
         ValidateInstance(full);
 
+        var versions = DetectMinecraftVersions(full);
+        var hasTarget = versions.Contains(
+            MinecraftVersion,
+            StringComparer.OrdinalIgnoreCase);
+
         return new MinecraftInstallCandidate(
             Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar)),
             full,
             "Manual",
             Directory.Exists(Path.Combine(full, "mods")),
-            DetectFabric(full));
+            DetectFabric(full),
+            hasTarget
+                ? MinecraftVersion
+                : SelectBestMinecraftVersion(versions),
+            hasTarget);
+    }
+
+    public static IReadOnlyList<string> DetectMinecraftVersions(
+        string root)
+    {
+        var versions = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var versionsRoot = Path.Combine(root, "versions");
+            if (Directory.Exists(versionsRoot))
+            {
+                foreach (var directory in Directory.EnumerateDirectories(
+                             versionsRoot,
+                             "*",
+                             SearchOption.TopDirectoryOnly))
+                {
+                    var name = Path.GetFileName(directory);
+
+                    if (name.Equals(
+                            MinecraftVersion,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        versions.Add(MinecraftVersion);
+                        continue;
+                    }
+
+                    var fabricMatch = System.Text.RegularExpressions.Regex.Match(
+                        name,
+                        @"fabric-loader-[^-]+-(?<mc>\d+\.\d+(?:\.\d+)?)$",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+                    if (fabricMatch.Success)
+                    {
+                        versions.Add(
+                            fabricMatch.Groups["mc"].Value);
+                        continue;
+                    }
+
+                    if (System.Text.RegularExpressions.Regex.IsMatch(
+                            name,
+                            @"^\d+\.\d+(?:\.\d+)?(?:[-+].*)?$",
+                            System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                    {
+                        var match =
+                            System.Text.RegularExpressions.Regex.Match(
+                                name,
+                                @"^\d+\.\d+(?:\.\d+)?",
+                                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+                        if (match.Success)
+                            versions.Add(match.Value);
+                    }
+                }
+            }
+
+            foreach (var metadataRoot in new[]
+            {
+                root,
+                Directory.GetParent(root)?.FullName
+            }.Where(path => !string.IsNullOrWhiteSpace(path)))
+            {
+                foreach (var metadata in new[]
+                {
+                    "mmc-pack.json",
+                    "instance.json",
+                    "profile.json",
+                    "minecraftinstance.json",
+                    "instance.cfg"
+                })
+                {
+                    var path = Path.Combine(metadataRoot!, metadata);
+                    if (!File.Exists(path))
+                        continue;
+
+                    var text = File.ReadAllText(path);
+
+                    // Prefer the exact target when it is referenced anywhere
+                    // in launcher metadata.
+                    if (System.Text.RegularExpressions.Regex.IsMatch(
+                            text,
+                            $@"(?<!\d){System.Text.RegularExpressions.Regex.Escape(MinecraftVersion)}(?!\d)",
+                            System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                    {
+                        versions.Add(MinecraftVersion);
+                    }
+
+                    // MultiMC/Prism mmc-pack.json exposes the Minecraft
+                    // component as uid net.minecraft with its own version.
+                    var minecraftComponent =
+                        System.Text.RegularExpressions.Regex.Match(
+                            text,
+                            @"""uid""\s*:\s*""net\.minecraft""[\s\S]{0,300}?""version""\s*:\s*""(?<version>\d+\.\d+(?:\.\d+)?)""",
+                            System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+                    if (minecraftComponent.Success)
+                    {
+                        versions.Add(
+                            minecraftComponent.Groups["version"].Value);
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return versions
+            .OrderByDescending(
+                version => version.Equals(
+                    MinecraftVersion,
+                    StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(
+                version => ParseLooseVersion(version))
+            .ThenByDescending(
+                version => version,
+                StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string? SelectBestMinecraftVersion(
+        IReadOnlyList<string> versions)
+        => versions
+            .OrderByDescending(
+                version => version.Equals(
+                    MinecraftVersion,
+                    StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(ParseLooseVersion)
+            .ThenByDescending(
+                version => version,
+                StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+    private static Version ParseLooseVersion(string value)
+    {
+        var numeric = value.Split(
+            '-',
+            '+',
+            StringSplitOptions.RemoveEmptyEntries)[0];
+
+        if (Version.TryParse(numeric, out var version))
+            return version;
+
+        return new Version(0, 0);
     }
 
     public Task<string> EnsureJava25RuntimeAsync(
