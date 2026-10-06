@@ -2,6 +2,9 @@ name: Release
 on:
   push:
     tags: [ 'v*' ]
+    paths:
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,30 +17,72 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
-      - name: Verify tag matches project version
+
+      - name: Resolve release version
+        id: version
         shell: pwsh
         run: |
           [xml]$project = Get-Content "DlssNrManager.csproj"
           $version = [string]$project.Project.PropertyGroup.Version
-          $tag = "${{ github.ref_name }}"
-          if ($tag -ne "v$version") {
-            throw "Release tag '$tag' does not match project version 'v$version'."
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "Project version is missing."
           }
+
+          $tag = "v$version"
+          if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne $tag) {
+            throw "Release tag '${{ github.ref_name }}' does not match project version '$tag'."
+          }
+
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Publish
         run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+
       - name: Create zip
         shell: pwsh
-        run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip
+        run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
+
+      - name: Validate optional Scandi release assets
+        shell: pwsh
+        run: |
+          $assets = @(
+            @{ Name = "ScandiTextureV1.zip"; Sha256 = "F8DD9A33FA19E7C3CEF5B8AC6568A1EC92ACE056D49826BC0C26BA25290CAC99" },
+            @{ Name = "ScandiShaderV2.zip";  Sha256 = "C2C1E9C531342CC314368146A963FC2FD7D4A414F67C971558FC5ECA89D329F9" }
+          )
+
+          foreach ($asset in $assets) {
+            $path = Join-Path "release-assets" $asset.Name
+            if (!(Test-Path $path)) {
+              Write-Host "Optional asset not present in repository checkout: $($asset.Name)"
+              continue
+            }
+
+            $actual = (Get-FileHash $path -Algorithm SHA256).Hash.ToUpperInvariant()
+            if ($actual -ne $asset.Sha256) {
+              throw "SHA-256 mismatch for $($asset.Name). Expected $($asset.Sha256), got $actual."
+            }
+
+            Write-Host "Validated $($asset.Name) • SHA-256 $actual"
+          }
+
       - uses: actions/upload-artifact@v4
         with:
           name: DlssNrManager-win-x64
           path: |
             publish/DlssNrManager.exe
             DlssNrManager-win-x64.zip
-      - uses: softprops/action-gh-release@v2
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: main
+          name: DLSS NR Manager v${{ steps.version.outputs.version }}
           files: |
             publish/DlssNrManager.exe
             DlssNrManager-win-x64.zip
+            release-assets/ScandiTextureV1.zip
+            release-assets/ScandiShaderV2.zip
+          fail_on_unmatched_files: false
           generate_release_notes: true
