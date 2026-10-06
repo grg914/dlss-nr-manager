@@ -138,54 +138,7 @@ jobs:
       - name: Build vendored Real-ESRGAN Windows engine
         shell: pwsh
         run: |
-          $sdkVersion = "1.4.363.0"
-          $sdkRoot = "C:\VulkanSDK\$sdkVersion"
-
-          if (!(Test-Path (Join-Path $sdkRoot "Include\vulkan\vulkan.h"))) {
-            winget install --id KhronosGroup.VulkanSDK --exact --version $sdkVersion --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to install Vulkan SDK $sdkVersion through winget."
-            }
-          }
-
-          if (!(Test-Path (Join-Path $sdkRoot "Include\vulkan\vulkan.h"))) {
-            throw "Vulkan SDK $sdkVersion was installed but expected headers are missing from $sdkRoot."
-          }
-
-          $env:VULKAN_SDK = $sdkRoot
-          $env:Path = "$sdkRoot\Bin;$env:Path"
-          $source = "third_party/Real-ESRGAN-ncnn-vulkan/src"
-          $build = "build-realesrgan"
-
-          if (!(Test-Path "$source/ncnn/CMakeLists.txt")) {
-            throw "Vendored ncnn source is missing."
-          }
-          if (!(Test-Path "$source/libwebp/CMakeLists.txt")) {
-            throw "Vendored libwebp source is missing."
-          }
-
-          cmake -S $source -B $build -A x64 "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Real-ESRGAN CMake configure failed."
-          }
-
-          cmake --build $build --config Release --parallel 2
-          if ($LASTEXITCODE -ne 0) {
-            throw "Real-ESRGAN build failed."
-          }
-
-          $exe = Join-Path $build "Release/realesrgan-ncnn-vulkan.exe"
-          if (!(Test-Path $exe)) {
-            throw "Real-ESRGAN executable was not generated."
-          }
-
-          $size = (Get-Item $exe).Length
-          if ($size -lt 256KB) {
-            throw "Real-ESRGAN executable is unexpectedly small: $size bytes."
-          }
-
-          Write-Host "Vendored Real-ESRGAN build verified: $exe ($size bytes)"
-
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: Real-ESRGAN-vendored-win-x64
