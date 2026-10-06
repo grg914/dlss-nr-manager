@@ -195,6 +195,8 @@ public sealed class MinecraftOneClickService
                     "Lithium",
                     "FerriteCore",
                     "Krypton",
+                    "C2ME",
+                    "BadOptimizations",
                     "Dynamic FPS"
                 };
 
@@ -546,7 +548,11 @@ public sealed class MinecraftOneClickService
             foreach (var required in new[]
             {
                 "-Xss16m",
-                "--enable-native-access=ALL-UNNAMED"
+                "--enable-native-access=ALL-UNNAMED",
+                "-XX:+UseCompactObjectHeaders",
+                "-XX:+AlwaysPreTouch",
+                "-XX:+UseStringDeduplication",
+                "-XX:+UseZGC"
             })
             {
                 if (!javaArgs.Contains(
