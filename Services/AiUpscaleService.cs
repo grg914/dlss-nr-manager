@@ -120,10 +120,13 @@ public sealed class AiUpscaleService
     private static string FfmpegExe => Path.Combine(MediaRoot, "tools", "ffmpeg.exe");
     private static string FfprobeExe => Path.Combine(MediaRoot, "tools", "ffprobe.exe");
 
-    public bool IsReady =>
+    public bool IsInstalled =>
         IsUsableFile(EngineExe, 256 * 1024) &&
-        _modelsVerified &&
         HasUsableModels(ModelsDirectory);
+
+    public bool IsReady =>
+        IsInstalled &&
+        _modelsVerified;
 
     public AiUpscaleService()
     {
