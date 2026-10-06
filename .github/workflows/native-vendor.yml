@@ -79,15 +79,19 @@ jobs:
             throw "Vulkan SDK $sdkVersion is missing expected library: $vulkanLib"
           }
 
+          $projectVulkanDir = "third_party\OptiScaler\OptiScaler\library\vulkan"
+          New-Item -ItemType Directory -Force -Path $projectVulkanDir | Out-Null
+          Copy-Item -LiteralPath $vulkanLib -Destination (Join-Path $projectVulkanDir "vulkan-1.lib") -Force
+
           "VULKAN_SDK=$sdkRoot" >> $env:GITHUB_ENV
-          "VULKAN_SDK_LIB=$($sdkRoot)\Lib" >> $env:GITHUB_ENV
           "$($sdkRoot)\Bin" >> $env:GITHUB_PATH
+
+          Write-Host "Pinned Vulkan import library staged for OptiScaler: $projectVulkanDir\vulkan-1.lib"
 
       - name: Build vendored OptiScaler
         shell: pwsh
         run: |
           $msbuild = "${{ steps.msbuild.outputs.path }}"
-          $env:LIB = "$env:VULKAN_SDK\Lib;$env:LIB"
           & $msbuild "third_party\OptiScaler\OptiScaler.sln" /m /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
           if ($LASTEXITCODE -ne 0) {
             throw "Vendored OptiScaler build failed."
