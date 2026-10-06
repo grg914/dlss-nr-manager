@@ -568,37 +568,107 @@ public sealed class AiUpscaleService
         string? expectedSha256,
         CancellationToken cancellationToken)
     {
-        using var response = await _http.GetAsync(
-            url,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-
-        response.EnsureSuccessStatusCode();
-
-        await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-        await using (var output = new FileStream(
-                         destination,
-                         FileMode.Create,
-                         FileAccess.Write,
-                         FileShare.None,
-                         128 * 1024,
-                         useAsync: true))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.Equals(
+                "github.com",
+                StringComparison.OrdinalIgnoreCase))
         {
-            await input.CopyToAsync(output, cancellationToken);
+            throw new InvalidDataException(
+                $"Unexpected Real-ESRGAN release URL: {url}");
         }
 
-        if (new FileInfo(destination).Length < 1024)
-            throw new InvalidDataException("Downloaded Real-ESRGAN archive is unexpectedly small.");
+        var temp = destination + ".download";
 
-        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        try
         {
-            var actual = await Sha256Async(destination, cancellationToken);
-            if (!actual.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
+            using var response = await _http.GetAsync(
+                uri,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            if (response.Content.Headers.ContentLength is > MaxEngineArchiveBytes)
             {
-                TryDeleteFile(destination);
                 throw new InvalidDataException(
-                    $"Real-ESRGAN archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
+                    "Real-ESRGAN archive exceeds the 1 GB safety limit.");
             }
+
+            await using (var input =
+                await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var output = new FileStream(
+                             temp,
+                             FileMode.Create,
+                             FileAccess.Write,
+                             FileShare.None,
+                             128 * 1024,
+                             useAsync: true))
+            {
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    MaxEngineArchiveBytes,
+                    cancellationToken);
+            }
+
+            if (new FileInfo(temp).Length < 1024)
+            {
+                throw new InvalidDataException(
+                    "Downloaded Real-ESRGAN archive is unexpectedly small.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                var actual = await Sha256Async(temp, cancellationToken);
+                if (!actual.Equals(
+                        expectedSha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"Real-ESRGAN archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
+                }
+            }
+
+            File.Move(temp, destination, true);
+        }
+        catch
+        {
+            TryDeleteFile(temp);
+            throw;
+        }
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes:N0}-byte safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
         }
     }
 
@@ -620,10 +690,27 @@ public sealed class AiUpscaleService
 
         using var zip = ZipFile.OpenRead(zipPath);
 
+        if (zip.Entries.Count > MaxArchiveEntries)
+        {
+            throw new InvalidDataException(
+                $"Real-ESRGAN archive contains too many entries ({zip.Entries.Count:N0}).");
+        }
+
+        long expandedBytes = 0;
+
         foreach (var entry in zip.Entries)
         {
             if (string.IsNullOrWhiteSpace(entry.Name))
                 continue;
+
+            expandedBytes = checked(
+                expandedBytes + Math.Max(0, entry.Length));
+
+            if (expandedBytes > MaxExtractedArchiveBytes)
+            {
+                throw new InvalidDataException(
+                    "Real-ESRGAN archive exceeds the 4 GB extracted-size safety limit.");
+            }
 
             var target = Path.GetFullPath(Path.Combine(
                 destination,
@@ -738,6 +825,13 @@ public sealed class AiUpscaleService
 
             response.EnsureSuccessStatusCode();
 
+            if (response.Content.Headers.ContentLength is long contentLength &&
+                contentLength != asset.ExpectedSize)
+            {
+                throw new InvalidDataException(
+                    $"Real-ESRGAN model '{asset.FileName}' HTTP size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {contentLength:N0}.");
+            }
+
             await using (var input =
                 await response.Content.ReadAsStreamAsync(
                     cancellationToken))
@@ -749,8 +843,10 @@ public sealed class AiUpscaleService
                 128 * 1024,
                 useAsync: true))
             {
-                await input.CopyToAsync(
+                await CopyWithLimitAsync(
+                    input,
                     output,
+                    asset.ExpectedSize,
                     cancellationToken);
             }
 
