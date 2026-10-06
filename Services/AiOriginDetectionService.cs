@@ -619,7 +619,9 @@ public sealed class AiOriginDetectionService : IDisposable
         return new InferenceSession(path, options);
     }
 
-    private static List<DenseTensor<float>> CreateImageTensors(string path)
+    private static ImageTensorSet CreateImageTensors(
+        string path,
+        AiOriginAnalysisMode mode)
     {
         using var stream = File.OpenRead(path);
         var decoder = BitmapDecoder.Create(
@@ -629,48 +631,71 @@ public sealed class AiOriginDetectionService : IDisposable
 
         BitmapSource source = decoder.Frames[0];
         if (source.Format != PixelFormats.Bgra32)
-            source = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
-
-        const int size = 224;
-        var scale = Math.Max(
-            (double)size / Math.Max(1, source.PixelWidth),
-            (double)size / Math.Max(1, source.PixelHeight));
-
-        var resized = new TransformedBitmap(
-            source,
-            new ScaleTransform(scale, scale));
-
-        var width = Math.Max(size, resized.PixelWidth);
-        var height = Math.Max(size, resized.PixelHeight);
-
-        // Three positions along the long dimension: protects portrait/landscape media
-        // from the severe 224x224 aspect-ratio distortion used by the old detector.
-        double[] positions = [0.15, 0.50, 0.85];
-        var tensors = new List<DenseTensor<float>>(positions.Length);
-
-        foreach (var position in positions)
         {
-            var maxX = Math.Max(0, width - size);
-            var maxY = Math.Max(0, height - size);
-
-            var x = width > height
-                ? (int)Math.Round(maxX * position)
-                : maxX / 2;
-            var y = height > width
-                ? (int)Math.Round(maxY * position)
-                : maxY / 2;
-
-            x = Math.Clamp(x, 0, maxX);
-            y = Math.Clamp(y, 0, maxY);
-
-            var crop = new CroppedBitmap(
-                resized,
-                new Int32Rect(x, y, size, size));
-
-            tensors.Add(ToTensor(crop));
+            source = new FormatConvertedBitmap(
+                source,
+                PixelFormats.Bgra32,
+                null,
+                0);
         }
 
-        return tensors;
+        const int size = 224;
+        var shortEdge = Math.Max(
+            1,
+            Math.Min(source.PixelWidth, source.PixelHeight));
+
+        var targetShortEdges = new List<int> { size };
+        if (mode == AiOriginAnalysisMode.Thorough &&
+            shortEdge >= 384)
+        {
+            targetShortEdges.Add(448);
+        }
+
+        double[] positions = [0.15, 0.50, 0.85];
+        var tensors = new List<DenseTensor<float>>(
+            targetShortEdges.Count * positions.Length);
+
+        foreach (var targetShortEdge in targetShortEdges)
+        {
+            var scale = Math.Max(
+                (double)targetShortEdge /
+                Math.Max(1, source.PixelWidth),
+                (double)targetShortEdge /
+                Math.Max(1, source.PixelHeight));
+
+            var resized = new TransformedBitmap(
+                source,
+                new ScaleTransform(scale, scale));
+
+            var width = Math.Max(size, resized.PixelWidth);
+            var height = Math.Max(size, resized.PixelHeight);
+
+            foreach (var position in positions)
+            {
+                var maxX = Math.Max(0, width - size);
+                var maxY = Math.Max(0, height - size);
+
+                var x = width > height
+                    ? (int)Math.Round(maxX * position)
+                    : maxX / 2;
+                var y = height > width
+                    ? (int)Math.Round(maxY * position)
+                    : maxY / 2;
+
+                x = Math.Clamp(x, 0, maxX);
+                y = Math.Clamp(y, 0, maxY);
+
+                var crop = new CroppedBitmap(
+                    resized,
+                    new Int32Rect(x, y, size, size));
+
+                tensors.Add(ToTensor(crop));
+            }
+        }
+
+        return new ImageTensorSet(
+            tensors,
+            shortEdge);
     }
 
     private static DenseTensor<float> ToTensor(BitmapSource source)
@@ -824,6 +849,20 @@ public sealed class AiOriginDetectionService : IDisposable
         }
     }
 
+    private static double StandardDeviation(
+        IReadOnlyList<double> values)
+    {
+        if (values.Count <= 1)
+            return 0;
+
+        var mean = values.Average();
+        var variance = values
+            .Select(value => (value - mean) * (value - mean))
+            .Average();
+
+        return Math.Sqrt(variance);
+    }
+
     private static double Median(IReadOnlyList<double> values)
     {
         if (values.Count == 0)
@@ -871,6 +910,19 @@ public sealed class AiOriginDetectionService : IDisposable
         _http.Dispose();
     }
 
-    private sealed record FrameScore(double PrimaryAi, double SecondaryAi);
-    private sealed record ProcessResult(int ExitCode, string Output, string Error);
+    private sealed record ImageTensorSet(
+        IReadOnlyList<DenseTensor<float>> Tensors,
+        int ShortEdge);
+
+    private sealed record FrameScore(
+        double PrimaryAi,
+        double SecondaryAi,
+        double PrimaryViewSpread,
+        double SecondaryViewSpread,
+        int InputShortEdge);
+
+    private sealed record ProcessResult(
+        int ExitCode,
+        string Output,
+        string Error);
 }
