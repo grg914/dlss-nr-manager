@@ -49,6 +49,7 @@ public partial class MainWindow : Window
     private bool _isBusy;
     private int _stateRefreshVersion;
     private CancellationTokenSource? _mediaOperationCts;
+    private CancellationTokenSource? _aiOriginCts;
 
     private sealed record AdvancedSettingsSnapshot(
         int FpsType,
@@ -111,8 +112,10 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             try { _mediaOperationCts?.Cancel(); } catch { }
+            try { _aiOriginCts?.Cancel(); } catch { }
             try { ExternalProcessTracker.Shutdown(); } catch { }
             _mediaOperationCts?.Dispose();
+            _aiOriginCts?.Dispose();
             _aiOrigin.Dispose();
         };
     }
@@ -2710,8 +2713,13 @@ public partial class MainWindow : Window
 
         try
         {
+            _aiOriginCts?.Cancel();
+            _aiOriginCts?.Dispose();
+            _aiOriginCts = new CancellationTokenSource();
+
             AiOriginSetupButton.IsEnabled = false;
             AiOriginAnalyzeButton.IsEnabled = false;
+            AiOriginCancelButton.IsEnabled = true;
             MediaProcessButton.IsEnabled = false;
 
             var progress = new Progress<string>(
@@ -2724,7 +2732,7 @@ public partial class MainWindow : Window
             var result = await _aiOrigin.AnalyzeAsync(
                 source,
                 progress,
-                default,
+                _aiOriginCts.Token,
                 mode);
 
             _lastAiOriginResult = result;
@@ -2761,6 +2769,10 @@ public partial class MainWindow : Window
                     ? MessageBoxImage.Warning
                     : MessageBoxImage.Information);
         }
+        catch (OperationCanceledException)
+        {
+            AiOriginStatusText.Text = "AI origin analysis cancelled.";
+        }
         catch (Exception ex)
         {
             AiOriginStatusText.Text =
@@ -2776,8 +2788,23 @@ public partial class MainWindow : Window
         {
             AiOriginSetupButton.IsEnabled = true;
             AiOriginAnalyzeButton.IsEnabled = true;
+            AiOriginCancelButton.IsEnabled = false;
             MediaProcessButton.IsEnabled = true;
+            _aiOriginCts?.Dispose();
+            _aiOriginCts = null;
         }
+    }
+
+    private void CancelAiOrigin_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            _aiOriginCts?.Cancel();
+            AiOriginStatusText.Text = "Cancelling AI origin analysis…";
+        }
+        catch { }
     }
 
     private void ExportAiOriginReport_Click(
