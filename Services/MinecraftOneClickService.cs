@@ -161,14 +161,56 @@ public sealed class MinecraftOneClickService
 
             if (installRtxPerformancePack)
             {
-                notes.Add(
-                    "Performance pack installed: Lithium, FerriteCore, Krypton and Dynamic FPS. These avoid replacing the world renderer, but Caustica is experimental so validate the first launch.");
+                var requestedPerformanceMods = new[]
+                {
+                    "Lithium",
+                    "FerriteCore",
+                    "Krypton",
+                    "Dynamic FPS"
+                };
+
+                var installedPerformanceMods = requestedPerformanceMods
+                    .Where(name =>
+                        setup.Components.Any(component =>
+                            component.Component.Equals(
+                                name,
+                                StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
+                if (installedPerformanceMods.Count > 0)
+                {
+                    notes.Add(
+                        "Performance mods installed: " +
+                        string.Join(", ", installedPerformanceMods) +
+                        ". These avoid replacing the world renderer; Caustica remains experimental, so validate the first launch.");
+                }
+
+                var skipped = requestedPerformanceMods
+                    .Except(
+                        installedPerformanceMods,
+                        StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (skipped.Count > 0)
+                {
+                    notes.Add(
+                        "Optional performance mods skipped: " +
+                        string.Join(", ", skipped) +
+                        ". The core Caustica RTX installation remains valid.");
+                }
             }
 
             if (installLabPbrResourcePack)
             {
+                var spbrInstalled = setup.Components.Any(component =>
+                    component.Component.Equals(
+                        "SPBR LabPBR",
+                        StringComparison.OrdinalIgnoreCase));
+
                 notes.Add(
-                    "SPBR LabPBR resource pack installed. Enable SPBR in Minecraft Resource Packs to use its PBR materials with Caustica RTX.");
+                    spbrInstalled
+                        ? "SPBR LabPBR resource pack installed. Enable SPBR in Minecraft Resource Packs to use its PBR materials with Caustica RTX."
+                        : "Optional SPBR LabPBR resource pack was skipped. The core Caustica RTX installation remains valid.");
             }
 
             if (disabled.Count > 0)
@@ -267,9 +309,6 @@ public sealed class MinecraftOneClickService
 
         var causticaNatives = Path.Combine(root, "caustica-streamline");
         TryDeleteDirectory(causticaNatives);
-
-        var stagedRuntime = Path.Combine(root, ".dlss-nr-manager-runtime");
-        TryDeleteDirectory(stagedRuntime);
 
         foreach (var relative in marker.CreatedFabricVersionDirectories)
         {
@@ -381,7 +420,13 @@ public sealed class MinecraftOneClickService
         IProgress<string>? progress)
     {
         if (!File.Exists(launcherProfilesPath))
+        {
+            AppLogger.Warn(
+                "launcher_profiles.json was not found; Fabric JVM arguments could not be patched automatically.");
+            progress?.Report(
+                "Warning: launcher_profiles.json was not found. Verify -Xss16m and --enable-native-access=ALL-UNNAMED manually in the launcher.");
             return;
+        }
 
         try
         {
@@ -434,10 +479,12 @@ public sealed class MinecraftOneClickService
                     "Fabric launcher profile updated with native-access and renderer-safe stack settings.");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Launchers with non-standard profile JSON remain usable; Caustica
-            // can still be configured manually in that launcher.
+            AppLogger.Warn(
+                $"Fabric launcher profile could not be patched automatically: {ex.Message}");
+            progress?.Report(
+                "Warning: Fabric launcher JVM arguments could not be patched automatically. Verify -Xss16m and --enable-native-access=ALL-UNNAMED manually.");
         }
     }
 
