@@ -1077,6 +1077,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="8"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
                       </Grid.ColumnDefinitions>
                       <TextBox Grid.Column="0"
                                x:Name="AiOriginSourceBox"
@@ -1089,6 +1091,11 @@
                               Style="{StaticResource CyanButton}"
                               Content="Add media"
                               Click="SelectAiOriginMedia_Click"/>
+                      <Button Grid.Column="4"
+                              x:Name="AiOriginClearMediaButton"
+                              Content="Remove"
+                              IsEnabled="False"
+                              Click="ClearAiOriginMedia_Click"/>
                     </Grid>
 
                     <Grid>
