@@ -1,6 +1,6 @@
 <!--
-DLSS NR Manager — WinToys navigation mockup
-Prototype only. Intended structure for migration of current MainWindow.xaml.
+DLSS NR Manager — DlssNrManager Menu navigation mockup
+Design reference for the production DlssNrManager Menu navigation.
 All currently exposed functional areas are represented as navigation destinations.
 -->
 <Window x:Class="DlssNrManager.MainWindow"
@@ -150,7 +150,7 @@ All currently exposed functional areas are represented as navigation destination
       <Border CornerRadius="16" BorderBrush="#26374A" BorderThickness="1"
               Background="#0D141D" Padding="24">
         <StackPanel>
-          <TextBlock Text="Prototype de navigation WinToys"
+          <TextBlock Text="DlssNrManager Menu"
                      FontSize="28" FontWeight="SemiBold"/>
           <TextBlock Text="Tous les contrôles actuellement exposés dans MainWindow.xaml sont mappés dans les pages du menu latéral."
                      Foreground="#93A8C3" Margin="0,8,0,0" TextWrapping="Wrap"/>

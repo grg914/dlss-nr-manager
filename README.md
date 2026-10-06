@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.4.2**.
+Current application version: **v1.5.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -22,18 +22,31 @@ Current application version: **v1.4.2**.
 
 <p align="center"><sub>Application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
 
-## UI navigation prototype
+## DlssNrManager Menu
 
-The repository includes a non-production WinToys-style navigation prototype:
+`MainWindow.xaml` now uses the production **DlssNrManager Menu** navigation: a fixed left-side menu replaces the previous single long scrolling dashboard while preserving every existing named control and event handler.
 
-- `docs/mockups/wintoys/index.html` — interactive browser mockup
-- `docs/mockups/wintoys/MainWindow_WinToys_Complete_Mockup.xaml` — WPF navigation skeleton and 1:1 inventory of the current controls
+Design references are kept under:
 
-The mockup is documentation only and is explicitly excluded from WPF compilation. It does **not** replace the current production `MainWindow.xaml` yet.
+- `docs/mockups/dlssnrmanager-menu/index.html` — interactive browser reference
+- `docs/mockups/dlssnrmanager-menu/MainWindow_DlssNrManager_Menu_Mockup.xaml` — WPF layout reference
 
-## What's new in v1.4.2
+The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
 
-- Added the complete **WinToys-style navigation prototype** under `docs/mockups/wintoys/`, mapping every control currently exposed by the production WPF window into focused pages: Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, Logs and Application.
+## What's new in v1.5.0
+
+- Replaced the production long-scroll dashboard with **DlssNrManager Menu**, a fixed left navigation layout.
+- Preserved all existing WPF named controls and all existing event handlers while moving them into focused pages.
+- Split **AI origin detection** into its own menu page without duplicating controls or logic.
+- Dedicated pages now exist for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application.
+- Increased the production window default width to 1440 px to accommodate the persistent navigation rail while retaining the existing minimum height and resizable custom window chrome.
+- Renamed the UI design references to **DlssNrManager Menu** and moved them to `docs/mockups/dlssnrmanager-menu/`.
+- The documentation XAML remains excluded from WPF compilation; only the production `MainWindow.xaml` is compiled.
+- The migration was validated by comparing the old/new XAML inventories: all original named controls and all original click/selection/value/title-bar handlers are still present exactly once.
+
+## Previous v1.4.2 changes
+
+- Added the complete **DlssNrManager Menu navigation reference** under `docs/mockups/dlssnrmanager-menu/`, mapping every control currently exposed by the production WPF window into focused pages: Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, Logs and Application.
 - Hardened external helper lifetime with a Windows **Job Object** using `KILL_ON_JOB_CLOSE`; manager-owned Real-ESRGAN, video2dlssnr, FFmpeg/ffprobe, Fabric/Java/WinGet and preflight helpers are also explicitly terminated on cancellation.
 - Added a **single-instance guard** to prevent concurrent installs or config mutations.
 - Removed the abrupt `Environment.Exit` shutdown path and centralized clean process/resource shutdown.
@@ -85,7 +98,7 @@ The mockup is documentation only and is explicitly excluded from WPF compilation
 - The availability check requires both an API/header signal and a runtime DLL signal before reporting a deployable public DLSS-NR integration; renamed or unofficial DLLs are never accepted as proof.
 - Added local **AI origin detection (beta)** for images and videos using an ONNX classifier, multi-frame FFmpeg sampling and generator/provenance metadata hints.
 - Added automatic ScandiTexture/ScandiShader staging support for the Minecraft RTX one-click flow, with ZIP validation and rollback.
-- Added support for the Caustica-adapted `ScandiTextureV1.zip` release asset and the native **ScandiShader RTX Look** path.
+- Added support for a locally supplied Caustica-adapted `ScandiTextureV1.zip` and the native **ScandiShader RTX Look** path. Public release-asset fallback is used only when an authorized matching asset exists.
 - Fixed modern FFmpeg video frame extraction by replacing legacy `-vsync` usage with `-fps_mode passthrough`.
 - Improved release automation so the current Windows x64 EXE/ZIP is published from CI.
 
@@ -229,7 +242,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - downloads only a tested `grg914/Caustica-RTX` prerelease produced from a green main-branch CI run and explicitly targeting Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
   - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
   - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica; if no compatible stable build is available, the core RTX installation continues
-  - stages the Caustica-adapted **ScandiTextureV1** resource pack and optional legacy ScandiShader archive when matching release assets are available; the RTX renderer itself uses Caustica's native ScandiShader RTX Look rather than Iris
+  - stages a locally supplied Caustica-adapted **ScandiTextureV1** resource pack (or an authorized matching release asset when available) and the optional legacy ScandiShader archive; the RTX renderer itself uses Caustica's native ScandiShader RTX Look rather than Iris
   - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
   - requires the official Minecraft Launcher to be closed while Fabric/profile files are modified
