@@ -27,7 +27,12 @@ public sealed class AiUpscaleService
 {
     private const string Repo = "xinntao/Real-ESRGAN-ncnn-vulkan";
 
+    private const long MaxEngineArchiveBytes = 1024L * 1024 * 1024;
+    private const long MaxExtractedArchiveBytes = 4L * 1024 * 1024 * 1024;
+    private const int MaxArchiveEntries = 100_000;
+
     private readonly HttpClient _http = new();
+    private bool _modelsVerified;
 
     public string RootDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -48,51 +53,63 @@ public sealed class AiUpscaleService
         new(
             "realesrgan-x4plus.param",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus.param",
-            116029),
+            116029,
+            "d14d62ebb815bdd522ed112e67695b3377f86ca0"),
         new(
             "realesrgan-x4plus.bin",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus.bin",
-            33424520),
+            33424520,
+            "5cea94783710c25d6fffa9fe9b59999498aec3d4"),
         new(
             "realesrnet-x4plus.param",
             "https://raw.githubusercontent.com/itsspin/spintexture/9f291a8aa2afed34fc42e76696c2ce8317cf2143/vendor/realesrgan/models/realesrnet-x4plus.param",
-            116029),
+            116029,
+            "d14d62ebb815bdd522ed112e67695b3377f86ca0"),
         new(
             "realesrnet-x4plus.bin",
             "https://raw.githubusercontent.com/itsspin/spintexture/9f291a8aa2afed34fc42e76696c2ce8317cf2143/vendor/realesrgan/models/realesrnet-x4plus.bin",
-            33424520),
+            33424520,
+            "4f5b87990354b39b744adf25e36f4857065584a6"),
         new(
             "realesrgan-x4plus-anime.param",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.param",
-            30290),
+            30290,
+            "6c98f9a1932603688683a6f0108cbdfcd6b3e680"),
         new(
             "realesrgan-x4plus-anime.bin",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.bin",
-            8943500),
+            8943500,
+            "95201b7beeefaa2de45bc80f77f879f51d2fc534"),
         new(
             "realesr-animevideov3-x2.param",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.param",
-            3173),
+            3173,
+            "42e774841c35c8bf0ffeb215bb40c61d4868be16"),
         new(
             "realesr-animevideov3-x2.bin",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.bin",
-            1247368),
+            1247368,
+            "20691050e279557160fbef5fa3f45fafeeac5402"),
         new(
             "realesr-animevideov3-x3.param",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.param",
-            3173),
+            3173,
+            "bf4718580cc40eac9ff34f730ca64053feaf7bf4"),
         new(
             "realesr-animevideov3-x3.bin",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.bin",
-            1247368),
+            1247368,
+            "20691050e279557160fbef5fa3f45fafeeac5402"),
         new(
             "realesr-animevideov3-x4.param",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.param",
-            3077),
+            3077,
+            "5b922cc388374b1152e01fa633bcab80b2448dae"),
         new(
             "realesr-animevideov3-x4.bin",
             "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.bin",
-            1247368)
+            1247368,
+            "20691050e279557160fbef5fa3f45fafeeac5402")
     ];
 
     private static string MediaRoot => Path.Combine(
@@ -105,6 +122,7 @@ public sealed class AiUpscaleService
 
     public bool IsReady =>
         File.Exists(EngineExe) &&
+        _modelsVerified &&
         HasUsableModels(ModelsDirectory);
 
     public AiUpscaleService()
@@ -197,6 +215,8 @@ public sealed class AiUpscaleService
             progress,
             cancellationToken);
 
+        _modelsVerified = true;
+
         if (!IsReady)
         {
             var missing = GetMissingModelFiles();
@@ -212,7 +232,10 @@ public sealed class AiUpscaleService
     }
 
     public void Reset()
-        => TryDeleteDirectory(RootDirectory);
+    {
+        _modelsVerified = false;
+        TryDeleteDirectory(RootDirectory);
+    }
 
     public async Task<string> UpscaleAsync(
         string source,
@@ -621,31 +644,50 @@ public sealed class AiUpscaleService
     {
         Directory.CreateDirectory(ModelsDirectory);
 
-        var missing = RequiredModels
-            .Where(asset =>
+        progress?.Report(
+            "Verifying Real-ESRGAN model integrity…");
+
+        var invalid = new List<ModelAsset>();
+
+        foreach (var asset in RequiredModels)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var path = Path.Combine(
+                ModelsDirectory,
+                asset.FileName);
+
+            if (!File.Exists(path) ||
+                new FileInfo(path).Length != asset.ExpectedSize)
             {
-                var path = Path.Combine(
-                    ModelsDirectory,
-                    asset.FileName);
+                invalid.Add(asset);
+                continue;
+            }
 
-                return !File.Exists(path) ||
-                       new FileInfo(path).Length != asset.ExpectedSize;
-            })
-            .ToList();
+            var actualGitBlobSha1 =
+                await GitBlobSha1Async(path, cancellationToken);
 
-        if (missing.Count == 0)
+            if (!actualGitBlobSha1.Equals(
+                    asset.ExpectedGitBlobSha1,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                invalid.Add(asset);
+            }
+        }
+
+        if (invalid.Count == 0)
         {
             progress?.Report(
-                "Real-ESRGAN model files already complete.");
+                "Real-ESRGAN model files verified.");
             return;
         }
 
         progress?.Report(
-            $"Downloading {missing.Count} missing Real-ESRGAN model file(s)…");
+            $"Repairing {invalid.Count} missing or changed Real-ESRGAN model file(s)…");
 
         var completed = 0;
 
-        foreach (var asset in missing)
+        foreach (var asset in invalid)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -661,7 +703,7 @@ public sealed class AiUpscaleService
             completed++;
 
             progress?.Report(
-                $"Real-ESRGAN models • {completed}/{missing.Count} • {asset.FileName}");
+                $"Real-ESRGAN models • {completed}/{invalid.Count} • {asset.FileName}");
         }
     }
 
@@ -722,6 +764,17 @@ public sealed class AiUpscaleService
                     $"Real-ESRGAN model '{asset.FileName}' size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {actualSize:N0}.");
             }
 
+            var actualGitBlobSha1 =
+                await GitBlobSha1Async(temp, cancellationToken);
+
+            if (!actualGitBlobSha1.Equals(
+                    asset.ExpectedGitBlobSha1,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Real-ESRGAN model '{asset.FileName}' content fingerprint mismatch.");
+            }
+
             File.Move(
                 temp,
                 destination,
@@ -732,6 +785,44 @@ public sealed class AiUpscaleService
             TryDeleteFile(temp);
             throw;
         }
+    }
+
+    private static async Task<string> GitBlobSha1Async(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            128 * 1024,
+            useAsync: true);
+
+        using var hash = IncrementalHash.CreateHash(
+            HashAlgorithmName.SHA1);
+
+        var header = System.Text.Encoding.ASCII.GetBytes(
+            $"blob {stream.Length}\0");
+        hash.AppendData(header);
+
+        var buffer = new byte[128 * 1024];
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            hash.AppendData(buffer, 0, read);
+        }
+
+        return Convert.ToHexString(
+                hash.GetHashAndReset())
+            .ToLowerInvariant();
     }
 
     private bool HasUsableModels(string? directory)
@@ -925,7 +1016,8 @@ public sealed class AiUpscaleService
     private sealed record ModelAsset(
         string FileName,
         string Url,
-        long ExpectedSize);
+        long ExpectedSize,
+        string ExpectedGitBlobSha1);
 
     private sealed record ReleaseAsset(string Tag, string Name, string Url, string? Sha256);
 }
