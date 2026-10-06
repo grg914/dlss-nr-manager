@@ -38,54 +38,75 @@ public sealed class AppUpdateService
         var downloadPath = Path.Combine(root, release.AssetName);
         var temp = downloadPath + ".download";
 
+        if (!Uri.TryCreate(
+                release.AssetUrl,
+                UriKind.Absolute,
+                out var assetUri) ||
+            !assetUri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !assetUri.Host.Equals(
+                "github.com",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected update asset URL: {release.AssetUrl}");
+        }
+
         progress?.Report($"Downloading DLSS NR Manager {release.Tag}…");
 
-        using (var response = await _http.GetAsync(
-                   release.AssetUrl,
-                   HttpCompletionOption.ResponseHeadersRead,
-                   cancellationToken))
+        try
         {
-            response.EnsureSuccessStatusCode();
+            using (var response = await _http.GetAsync(
+                       assetUri,
+                       HttpCompletionOption.ResponseHeadersRead,
+                       cancellationToken))
+            {
+                response.EnsureSuccessStatusCode();
 
-            await using var input =
-                await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using var output = new FileStream(
-                temp,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                128 * 1024,
-                useAsync: true);
+                await using var input =
+                    await response.Content.ReadAsStreamAsync(cancellationToken);
+                await using var output = new FileStream(
+                    temp,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    128 * 1024,
+                    useAsync: true);
 
-            await input.CopyToAsync(output, cancellationToken);
+                await input.CopyToAsync(output, cancellationToken);
+            }
+
+            if (new FileInfo(temp).Length < 128 * 1024)
+            {
+                throw new InvalidDataException(
+                    "The downloaded update package is unexpectedly small.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(release.Sha256))
+            {
+                progress?.Report("Verifying update SHA-256…");
+
+                await using var stream = File.OpenRead(temp);
+                var actual = Convert.ToHexString(
+                    await SHA256.HashDataAsync(stream, cancellationToken));
+
+                if (!actual.Equals(
+                        release.Sha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"Update SHA-256 mismatch. Expected {release.Sha256}, got {actual}.");
+                }
+            }
+
+            File.Move(temp, downloadPath, true);
         }
-
-        if (new FileInfo(temp).Length < 128 * 1024)
+        catch
         {
             TryDelete(temp);
-            throw new InvalidDataException(
-                "The downloaded update package is unexpectedly small.");
+            throw;
         }
-
-        if (!string.IsNullOrWhiteSpace(release.Sha256))
-        {
-            progress?.Report("Verifying update SHA-256…");
-
-            await using var stream = File.OpenRead(temp);
-            var actual = Convert.ToHexString(
-                await SHA256.HashDataAsync(stream, cancellationToken));
-
-            if (!actual.Equals(
-                    release.Sha256,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                TryDelete(temp);
-                throw new InvalidDataException(
-                    $"Update SHA-256 mismatch. Expected {release.Sha256}, got {actual}.");
-            }
-        }
-
-        File.Move(temp, downloadPath, true);
 
         var stagedExe = release.AssetName.EndsWith(
                 ".exe",
