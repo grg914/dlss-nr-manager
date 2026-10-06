@@ -25,7 +25,10 @@ public sealed record AiUpscaleOptions(
 
 public sealed class AiUpscaleService
 {
-    private const string Repo = "xinntao/Real-ESRGAN-ncnn-vulkan";
+    private const string ManagerLatestReleaseApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+    private const string EngineAssetName =
+        "realesrgan-ncnn-vulkan-windows-x64.zip";
 
     private const long MaxEngineArchiveBytes = 1024L * 1024 * 1024;
     private const long MaxExtractedArchiveBytes = 4L * 1024 * 1024 * 1024;
@@ -52,62 +55,62 @@ public sealed class AiUpscaleService
         // Windows release intentionally does not bundle NCNN model files.
         new(
             "realesrgan-x4plus.param",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrgan-x4plus.param",
             116029,
             "d14d62ebb815bdd522ed112e67695b3377f86ca0"),
         new(
             "realesrgan-x4plus.bin",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrgan-x4plus.bin",
             33424520,
             "5cea94783710c25d6fffa9fe9b59999498aec3d4"),
         new(
             "realesrnet-x4plus.param",
-            "https://raw.githubusercontent.com/itsspin/spintexture/9f291a8aa2afed34fc42e76696c2ce8317cf2143/vendor/realesrgan/models/realesrnet-x4plus.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrnet-x4plus.param",
             116029,
             "d14d62ebb815bdd522ed112e67695b3377f86ca0"),
         new(
             "realesrnet-x4plus.bin",
-            "https://raw.githubusercontent.com/itsspin/spintexture/9f291a8aa2afed34fc42e76696c2ce8317cf2143/vendor/realesrgan/models/realesrnet-x4plus.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrnet-x4plus.bin",
             33424520,
             "4f5b87990354b39b744adf25e36f4857065584a6"),
         new(
             "realesrgan-x4plus-anime.param",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrgan-x4plus-anime.param",
             30290,
             "6c98f9a1932603688683a6f0108cbdfcd6b3e680"),
         new(
             "realesrgan-x4plus-anime.bin",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrgan-x4plus-anime.bin",
             8943500,
             "95201b7beeefaa2de45bc80f77f879f51d2fc534"),
         new(
             "realesr-animevideov3-x2.param",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x2.param",
             3173,
             "42e774841c35c8bf0ffeb215bb40c61d4868be16"),
         new(
             "realesr-animevideov3-x2.bin",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x2.bin",
             1247368,
             "20691050e279557160fbef5fa3f45fafeeac5402"),
         new(
             "realesr-animevideov3-x3.param",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x3.param",
             3173,
             "bf4718580cc40eac9ff34f730ca64053feaf7bf4"),
         new(
             "realesr-animevideov3-x3.bin",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x3.bin",
             1247368,
             "20691050e279557160fbef5fa3f45fafeeac5402"),
         new(
             "realesr-animevideov3-x4.param",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x4.param",
             3077,
             "5b922cc388374b1152e01fa633bcab80b2448dae"),
         new(
             "realesr-animevideov3-x4.bin",
-            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x4.bin",
             1247368,
             "20691050e279557160fbef5fa3f45fafeeac5402")
     ];
@@ -154,15 +157,15 @@ public sealed class AiUpscaleService
         if (!IsUsableFile(EngineExe, 256 * 1024))
         {
             progress?.Report(
-                "Checking latest Real-ESRGAN NCNN Vulkan release…");
+                "Checking manager-owned Real-ESRGAN runtime…");
 
             using var release = await GetJsonAsync(
-                $"https://api.github.com/repos/{Repo}/releases/latest",
+                ManagerLatestReleaseApi,
                 cancellationToken);
 
             var asset = FindWindowsAsset(release)
                 ?? throw new InvalidOperationException(
-                    "No Windows ZIP was found in the latest Real-ESRGAN NCNN Vulkan release.");
+                    $"Manager release has no {EngineAssetName} asset.");
 
             engineTag = asset.Tag;
 
@@ -179,7 +182,7 @@ public sealed class AiUpscaleService
             try
             {
                 progress?.Report(
-                    $"Downloading Real-ESRGAN {asset.Tag}…");
+                    $"Downloading manager-owned Real-ESRGAN runtime from {asset.Tag}…");
 
                 await DownloadAsync(
                     asset.Url,
@@ -520,8 +523,9 @@ public sealed class AiUpscaleService
                 ? nameElement.GetString() ?? ""
                 : "";
 
-            if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
-                !name.Contains("windows", StringComparison.OrdinalIgnoreCase))
+            if (!name.Equals(
+                    EngineAssetName,
+                    StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var url = asset.TryGetProperty("browser_download_url", out var urlElement)
@@ -576,7 +580,7 @@ public sealed class AiUpscaleService
                 Uri.UriSchemeHttps,
                 StringComparison.OrdinalIgnoreCase) ||
             !uri.Host.Equals(
-                "raw.githubusercontent.com",
+                "github.com",
                 StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
