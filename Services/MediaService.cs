@@ -520,21 +520,25 @@ public sealed class MediaService
 
             response.EnsureSuccessStatusCode();
 
-            await using var input =
+            await using (var input =
                 await response.Content.ReadAsStreamAsync(
-                    cancellationToken);
-            await using var output = new FileStream(
+                    cancellationToken))
+            await using (var output = new FileStream(
                 temp,
                 FileMode.Create,
                 FileAccess.Write,
                 FileShare.None,
                 1024 * 128,
-                useAsync: true);
+                useAsync: true))
+            {
+                await input.CopyToAsync(
+                    output,
+                    cancellationToken);
+            }
 
-            await input.CopyToAsync(
-                output,
-                cancellationToken);
-
+            // The download stream must be closed before validation/hash/rename.
+            // On Windows FileShare.None otherwise makes the application lock its
+            // own *.download file and File.Move fails with ERROR_SHARING_VIOLATION.
             if (new FileInfo(temp).Length < 1024)
             {
                 throw new InvalidDataException(
