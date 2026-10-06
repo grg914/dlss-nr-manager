@@ -464,7 +464,7 @@ public sealed class MinecraftOneClickService
     private static HttpClient CreatePackHttpClient()
     {
         var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "1.2"));
+        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return http;
     }
