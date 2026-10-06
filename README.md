@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.4.1**.
+Current application version: **v1.4.2**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -22,7 +22,36 @@ Current application version: **v1.4.1**.
 
 <p align="center"><sub>Application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
 
-## What's new in v1.4.1
+## UI navigation prototype
+
+The repository includes a non-production WinToys-style navigation prototype:
+
+- `docs/mockups/wintoys/index.html` — interactive browser mockup
+- `docs/mockups/wintoys/MainWindow_WinToys_Complete_Mockup.xaml` — WPF navigation skeleton and 1:1 inventory of the current controls
+
+The mockup is documentation only and is explicitly excluded from WPF compilation. It does **not** replace the current production `MainWindow.xaml` yet.
+
+## What's new in v1.4.2
+
+- Added the complete **WinToys-style navigation prototype** under `docs/mockups/wintoys/`, mapping every control currently exposed by the production WPF window into focused pages: Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, Logs and Application.
+- Hardened external helper lifetime with a Windows **Job Object** using `KILL_ON_JOB_CLOSE`; manager-owned Real-ESRGAN, video2dlssnr, FFmpeg/ffprobe, Fabric/Java/WinGet and preflight helpers are also explicitly terminated on cancellation.
+- Added a **single-instance guard** to prevent concurrent installs or config mutations.
+- Removed the abrupt `Environment.Exit` shutdown path and centralized clean process/resource shutdown.
+- Fixed Windows download/file-lock races by closing download streams before hashing/moving release and NVIDIA Streamline files.
+- Hardened runtime trust: NVIDIA-signed x64 runtimes accepted at install are preserved in the managed manifest, changed/unverified runtimes are not silently re-enabled, and RTX 20/30/40 diagnostics no longer require Neural Rendering.
+- Removed sync-over-async hashing and made runtime validation cancellable.
+- Made OptiScaler INI parsing tolerant of whitespace/comments and able to add missing supported keys; Neural Rendering still requires the upstream `[DlssNr]` section.
+- Verifies both local AI-origin ONNX model hashes before the first inference session of each run.
+- Improved multi-GPU detection by selecting the highest supported RTX generation instead of the first NVIDIA registry entry.
+- Made ReShade downloads atomic, SHA-256 verified and restricted to the official HTTPS host.
+- Added bounded artwork downloads, orphan artwork cleanup, stale self-update cleanup and a six-hour cache for automatic component-update checks.
+- Isolated individual launcher discovery failures so one corrupt/inaccessible Steam/Epic/Xbox/etc. source does not abort the whole game scan.
+- Verifies GitHub release digests for Scandi pack downloads and validates the complete manual Minecraft DLSS package before staging any file.
+- Hardened managed paths against traversal and refuses destructive legacy uninstall when ownership cannot be established.
+- Supplemental NVIDIA files are now registered in the uninstall manifest and optional resource-staging failures no longer invalidate an otherwise successful base install.
+- GitHub Actions are pinned by commit SHA, build permissions are reduced, and release builds fail on compiler warnings.
+
+## Previous v1.4.1 changes
 
 - Reworked **AI origin detection** to reduce false positives on real photos and videos.
 - Replaced the single-model decision with a conservative **two-model ONNX ensemble**:
@@ -125,7 +154,7 @@ The logger is best-effort and is never allowed to prevent the application from s
 Validated compatibility hashes currently retained by the manager:
 
 - RTX 50 DLSSNR SHA-256: `E16BCF15E16E13F527491CDF7845B2FE6521A738D8F7C9C721866A8496E1FC8E`
-- RTX 20/30/40 compatibility runtime SHA-256: `E67DEE209320CDAFE0E93E45675D7AA34323A53ACC57A72B2E40A181581C989A`
+- Legacy RTX 20/30/40 compatibility-runtime SHA-256: `E67DEE209320CDAFE0E93E45675D7AA34323A53ACC57A72B2E40A181581C989A` (retained for older managed installs; general RTX 20/30/40 installs do **not** require a DLSS-NR runtime)
 
 ### PC Update Center
 
@@ -234,7 +263,7 @@ WorkingScale=1.0
 Style=1
 ```
 
-The manager only updates supported keys already present in the extracted upstream configuration.
+The manager updates supported keys in the upstream configuration and inserts missing supported keys when the target section exists. Neural Rendering is refused if the upstream package does not provide the required `[DlssNr]` section.
 
 ## Installation
 
@@ -314,4 +343,4 @@ dotnet restore
 dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
-GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` can create a GitHub Release with the executable and ZIP. The release workflow requires the Git tag to match the project version exactly, so v1.4.0 must be tagged as `v1.4.0`.
+GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` can create a GitHub Release with the executable and ZIP. The release workflow requires the Git tag to match the project version exactly; for example, project version `1.4.2` must use tag `v1.4.2`.
