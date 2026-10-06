@@ -109,13 +109,17 @@ public sealed class MinecraftPreflightService
                 MinecraftPreflightSeverity.Ready,
                 "Required Vulkan RT extensions are available: acceleration structure, ray-tracing pipeline and deferred host operations."));
         }
-        else if (vulkan.ProbeAvailable && isRtx && vulkanDriverRegistered)
+        else if (vulkan.ProbeAvailable &&
+                 isRtx &&
+                 (!string.IsNullOrWhiteSpace(nvidia.DriverVersion) ||
+                  vulkanDriverRegistered))
         {
             checks.Add(new(
                 "Vulkan ray tracing",
                 MinecraftPreflightSeverity.Warning,
-                "An NVIDIA RTX GPU and Vulkan driver are present, but vulkaninfo did not confirm every required RT extension. " +
+                "An NVIDIA RTX GPU and active NVIDIA driver are present, but vulkaninfo did not confirm every required RT extension. " +
                 $"Missing/unconfirmed: {string.Join(", ", vulkan.MissingExtensions)}. " +
+                $"Probe details: {vulkan.Details}. " +
                 "This can be a vulkaninfo/ICD selection false negative on multi-GPU systems. Installation may continue; Caustica startup is the final runtime capability test."));
         }
         else if (vulkan.ProbeAvailable)
