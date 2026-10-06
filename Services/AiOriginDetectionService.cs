@@ -14,6 +14,7 @@ namespace DlssNrManager.Services;
 
 public enum AiOriginAnalysisMode
 {
+    Quick,
     Balanced,
     Thorough
 }
@@ -165,39 +166,56 @@ public sealed class AiOriginDetectionService : IDisposable
 
         try
         {
-            using var response = await _http.GetAsync(
-                uri,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-            response.EnsureSuccessStatusCode();
+            await NetworkRetry.ExecuteAsync(
+                async (attempt, token) =>
+                {
+                    if (attempt > 1)
+                    {
+                        TryDeleteFile(temp);
+                        progress?.Report(
+                            $"Retrying {label} download ({attempt}/3)…");
+                    }
 
-            if (response.Content.Headers.ContentLength is > MaxModelDownloadBytes)
-            {
-                throw new InvalidDataException(
-                    "AI detector model exceeds the 256 MB safety limit.");
-            }
+                    using var response = await _http.GetAsync(
+                        uri,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        token);
+                    response.EnsureSuccessStatusCode();
 
-            await using (var input =
-                await response.Content.ReadAsStreamAsync(cancellationToken))
-            await using (var output = new FileStream(
-                             temp,
-                             FileMode.Create,
-                             FileAccess.Write,
-                             FileShare.None,
-                             128 * 1024,
-                             useAsync: true))
-            {
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    MaxModelDownloadBytes,
-                    cancellationToken);
-            }
+                    if (response.Content.Headers.ContentLength is > MaxModelDownloadBytes)
+                    {
+                        throw new InvalidDataException(
+                            "AI detector model exceeds the 256 MB safety limit.");
+                    }
 
-            var actual = await Sha256Async(temp, cancellationToken);
-            if (!actual.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException(
-                    $"AI detector SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
+                    await using (var input =
+                        await response.Content.ReadAsStreamAsync(token))
+                    await using (var output = new FileStream(
+                                     temp,
+                                     FileMode.Create,
+                                     FileAccess.Write,
+                                     FileShare.None,
+                                     128 * 1024,
+                                     useAsync: true))
+                    {
+                        await CopyWithLimitAsync(
+                            input,
+                            output,
+                            MaxModelDownloadBytes,
+                            token);
+                    }
+
+                    var actual = await Sha256Async(temp, token);
+                    if (!actual.Equals(
+                            expectedSha256,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException(
+                            $"AI detector SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
+                    }
+                },
+                cancellationToken,
+                attempts: 3);
 
             File.Move(temp, destination, true);
         }
@@ -294,16 +312,19 @@ public sealed class AiOriginDetectionService : IDisposable
 
         try
         {
-            var targetFrames = mode == AiOriginAnalysisMode.Thorough
-                ? 40
-                : 24;
+            var targetFrames = mode switch
+            {
+                AiOriginAnalysisMode.Quick => 8,
+                AiOriginAnalysisMode.Thorough => 24,
+                _ => 20
+            };
 
             var fps = duration > 0
                 ? Math.Clamp(targetFrames / duration, 0.02, 6.0)
                 : 1.0;
 
             progress?.Report(
-                $"Sampling up to {targetFrames} frames across the full video • {mode} mode…");
+                $"Sampling up to {targetFrames} uniform frames across the full video • {mode} mode…");
 
             var extraction = await RunAsync(
                 _media.FfmpegPath,
@@ -315,7 +336,7 @@ public sealed class AiOriginDetectionService : IDisposable
                     "-vf", $"fps={fps.ToString("0.########", CultureInfo.InvariantCulture)}",
                     "-frames:v", targetFrames.ToString(CultureInfo.InvariantCulture),
                     "-fps_mode", "passthrough",
-                    Path.Combine(session, "%04d.png")
+                    Path.Combine(session, "uniform-%04d.png")
                 ],
                 Path.GetDirectoryName(_media.FfmpegPath)!,
                 cancellationToken);
@@ -323,6 +344,33 @@ public sealed class AiOriginDetectionService : IDisposable
             if (extraction.ExitCode != 0)
                 throw new InvalidOperationException(
                     "FFmpeg video sampling failed.\n" + Tail(extraction.Error, 2200));
+
+            if (mode == AiOriginAnalysisMode.Thorough)
+            {
+                progress?.Report(
+                    "Adding scene-change frames for better temporal coverage…");
+
+                var sceneExtraction = await RunAsync(
+                    _media.FfmpegPath,
+                    [
+                        "-y",
+                        "-hide_banner",
+                        "-loglevel", "error",
+                        "-i", source,
+                        "-vf", "select=gt(scene\\,0.30)",
+                        "-frames:v", "12",
+                        "-fps_mode", "vfr",
+                        Path.Combine(session, "scene-%04d.png")
+                    ],
+                    Path.GetDirectoryName(_media.FfmpegPath)!,
+                    cancellationToken);
+
+                if (sceneExtraction.ExitCode != 0)
+                {
+                    AppLogger.Warn(
+                        "Scene-aware AI video sampling failed; continuing with uniform frames only.");
+                }
+            }
 
             var frames = Directory
                 .EnumerateFiles(session, "*.png")
@@ -426,10 +474,37 @@ public sealed class AiOriginDetectionService : IDisposable
         string verdict;
         double confidence;
 
-        if (generatorMarker)
+        var visualStrongAi =
+            primary >= 0.72 &&
+            secondary >= 0.72 &&
+            disagreement <= 0.25;
+
+        var visualStrongReal =
+            primary <= 0.30 &&
+            secondary <= 0.30;
+
+        if (generatorMarker && visualStrongAi)
         {
-            verdict = "AI generator metadata marker detected";
-            confidence = Math.Max(0.88, 1.0 - disagreement * 0.25);
+            verdict = "Likely AI-generated (metadata + visual evidence)";
+            confidence = Math.Clamp(
+                0.70 * Math.Min(primary, secondary) +
+                0.15 * viewConsistency +
+                0.15 * (1.0 - disagreement),
+                0.72,
+                0.95);
+        }
+        else if (generatorMarker && visualStrongReal)
+        {
+            verdict = "Generator metadata present / visual evidence conflicts";
+            confidence = 0.40;
+        }
+        else if (generatorMarker)
+        {
+            verdict = "Generator metadata present / origin uncertain";
+            confidence = Math.Clamp(
+                0.45 + 0.15 * ensemble,
+                0.45,
+                0.62);
         }
         else if (isVideo &&
                  primary >= 0.78 &&
@@ -521,8 +596,9 @@ public sealed class AiOriginDetectionService : IDisposable
         var notes =
             "Conservative local ensemble. A media item is only labelled likely AI when both independent detectors " +
             "strongly agree. Confidence is reduced when spatial views disagree, video frames are temporally inconsistent, " +
-            "or the source resolution is too low for reliable forensic cues. Balanced mode uses three aspect-preserving views; " +
-            "Thorough mode adds a higher-resolution view scale when the source supports it. Structured generator metadata is " +
+            "or the source resolution is too low for reliable forensic cues. Quick mode uses a model-native full-frame view, " +
+            "Balanced adds three aspect-preserving crops, and Thorough adds a second higher-resolution crop scale plus scene-aware " +
+            "video sampling. Structured generator metadata is supporting evidence only and cannot by itself prove AI origin. " +
             "distinguished from unverified raw markers. C2PA presence alone is not treated as proof of AI generation. " +
             "Compression, screenshots, heavy editing and new generators can still affect accuracy.";
 
@@ -534,9 +610,12 @@ public sealed class AiOriginDetectionService : IDisposable
             strongAiFrames,
             provenance,
             $"{PrimaryModelName} + {SecondaryModelName} • " +
-            (mode == AiOriginAnalysisMode.Thorough
-                ? "multi-scale 3+3-view ensemble"
-                : "3-view ensemble"),
+            (mode switch
+            {
+                AiOriginAnalysisMode.Quick => "model-native full-frame ensemble",
+                AiOriginAnalysisMode.Thorough => "full-frame + multi-scale crop ensemble",
+                _ => "full-frame + 3-crop ensemble"
+            }),
             notes,
             primary,
             secondary,
@@ -630,11 +709,18 @@ public sealed class AiOriginDetectionService : IDisposable
         string path,
         AiOriginAnalysisMode mode)
     {
-        using var stream = File.OpenRead(path);
+        using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            128 * 1024,
+            FileOptions.SequentialScan);
+
         var decoder = BitmapDecoder.Create(
             stream,
             BitmapCreateOptions.PreservePixelFormat,
-            BitmapCacheOption.OnLoad);
+            BitmapCacheOption.OnDemand);
 
         BitmapSource source = decoder.Frames[0];
         if (source.Format != PixelFormats.Bgra32)
@@ -647,62 +733,116 @@ public sealed class AiOriginDetectionService : IDisposable
         }
 
         const int size = 224;
+        const long maxPixels = 120_000_000;
+
+        var pixels =
+            (long)Math.Max(1, source.PixelWidth) *
+            Math.Max(1, source.PixelHeight);
+
+        if (pixels > maxPixels)
+        {
+            throw new InvalidDataException(
+                $"Image dimensions are too large for safe local analysis ({source.PixelWidth}x{source.PixelHeight}).");
+        }
+
         var shortEdge = Math.Max(
             1,
             Math.Min(source.PixelWidth, source.PixelHeight));
 
-        var targetShortEdges = new List<int> { size };
+        var tensors = new List<DenseTensor<float>>();
+
+        // Include the model-native 224x224 resize used by the original
+        // Hugging Face image processors so the ensemble stays calibrated
+        // to the models' training/inference convention.
+        tensors.Add(ToTensor(ResizeExact(source, size, size)));
+
+        if (mode == AiOriginAnalysisMode.Quick)
+        {
+            return new ImageTensorSet(
+                tensors,
+                shortEdge);
+        }
+
+        AddAspectPreservingCrops(
+            source,
+            size,
+            size,
+            [0.15, 0.50, 0.85],
+            tensors);
+
         if (mode == AiOriginAnalysisMode.Thorough &&
             shortEdge >= 384)
         {
-            targetShortEdges.Add(448);
-        }
-
-        double[] positions = [0.15, 0.50, 0.85];
-        var tensors = new List<DenseTensor<float>>(
-            targetShortEdges.Count * positions.Length);
-
-        foreach (var targetShortEdge in targetShortEdges)
-        {
-            var scale = Math.Max(
-                (double)targetShortEdge /
-                Math.Max(1, source.PixelWidth),
-                (double)targetShortEdge /
-                Math.Max(1, source.PixelHeight));
-
-            var resized = new TransformedBitmap(
+            AddAspectPreservingCrops(
                 source,
-                new ScaleTransform(scale, scale));
-
-            var width = Math.Max(size, resized.PixelWidth);
-            var height = Math.Max(size, resized.PixelHeight);
-
-            foreach (var position in positions)
-            {
-                var maxX = Math.Max(0, width - size);
-                var maxY = Math.Max(0, height - size);
-
-                var x = width > height
-                    ? (int)Math.Round(maxX * position)
-                    : maxX / 2;
-                var y = height > width
-                    ? (int)Math.Round(maxY * position)
-                    : maxY / 2;
-
-                x = Math.Clamp(x, 0, maxX);
-                y = Math.Clamp(y, 0, maxY);
-
-                var crop = new CroppedBitmap(
-                    resized,
-                    new Int32Rect(x, y, size, size));
-
-                tensors.Add(ToTensor(crop));
-            }
+                448,
+                size,
+                [0.15, 0.50, 0.85],
+                tensors);
         }
 
         return new ImageTensorSet(
             tensors,
             shortEdge);
+    }
+
+    private static BitmapSource ResizeExact(
+        BitmapSource source,
+        int width,
+        int height)
+    {
+        return new TransformedBitmap(
+            source,
+            new ScaleTransform(
+                (double)width / Math.Max(1, source.PixelWidth),
+                (double)height / Math.Max(1, source.PixelHeight)));
+    }
+
+    private static void AddAspectPreservingCrops(
+        BitmapSource source,
+        int targetShortEdge,
+        int cropSize,
+        IReadOnlyList<double> positions,
+        ICollection<DenseTensor<float>> tensors)
+    {
+        var scale = Math.Max(
+            (double)targetShortEdge /
+            Math.Max(1, source.PixelWidth),
+            (double)targetShortEdge /
+            Math.Max(1, source.PixelHeight));
+
+        var resized = new TransformedBitmap(
+            source,
+            new ScaleTransform(scale, scale));
+
+        var width = Math.Max(cropSize, resized.PixelWidth);
+        var height = Math.Max(cropSize, resized.PixelHeight);
+
+        foreach (var position in positions)
+        {
+            var maxX = Math.Max(0, width - cropSize);
+            var maxY = Math.Max(0, height - cropSize);
+
+            var x = width > height
+                ? (int)Math.Round(maxX * position)
+                : maxX / 2;
+            var y = height > width
+                ? (int)Math.Round(maxY * position)
+                : maxY / 2;
+
+            x = Math.Clamp(x, 0, maxX);
+            y = Math.Clamp(y, 0, maxY);
+
+            var crop = new CroppedBitmap(
+                resized,
+                new Int32Rect(
+                    x,
+                    y,
+                    cropSize,
+                    cropSize));
+
+            tensors.Add(ToTensor(crop));
+        }
     }
 
     private static DenseTensor<float> ToTensor(BitmapSource source)
