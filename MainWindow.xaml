@@ -797,10 +797,10 @@
                           <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                          <TextBlock Text="NVIDIA DLSS Neural Rendering availability"
+                          <TextBlock Text="NVIDIA DLSS / Streamline runtime"
                                      FontWeight="SemiBold"/>
                           <TextBlock x:Name="MinecraftNvidiaNrStatusText"
-                                     Text="Not checked yet."
+                                     Text="Not checked yet. Public NVIDIA runtime files can be downloaded for the selected instance."
                                      Foreground="{StaticResource Muted}"
                                      FontSize="10"
                                      TextWrapping="Wrap"
@@ -808,10 +808,10 @@
                         </StackPanel>
                         <Button Grid.Column="1"
                                 x:Name="MinecraftCheckNvidiaNrButton"
-                                Content="Check NVIDIA files"
+                                Content="Check &amp; download NVIDIA files"
                                 Click="CheckMinecraftNvidiaNr_Click"/>
                       </Grid>
-                      <TextBlock Text="Checks NVIDIA/DLSS and NVIDIA-RTX/Streamline, downloads the latest official Streamline package, and stages the public production DLLs for the selected Minecraft instance. DLSS-NR-specific files are reported as unavailable when NVIDIA does not publish them; unofficial or renamed DLLs are never substituted."
+                      <TextBlock Text="Downloads only missing official NVIDIA production runtime files for the selected Minecraft instance. Existing files are left untouched. DLSS Neural Rendering availability is reported separately and never blocks the normal Caustica RTX runtime."
                                  Foreground="{StaticResource Muted}"
                                  FontSize="10"
                                  TextWrapping="Wrap"
@@ -1175,8 +1175,9 @@
                                    FontSize="11"
                                    Margin="0,0,0,5"/>
                         <ComboBox x:Name="AiOriginModeBox">
-                          <ComboBoxItem Content="Balanced — faster" IsSelected="True"/>
-                          <ComboBoxItem Content="Thorough — multi-scale + more video frames"/>
+                          <ComboBoxItem Content="Quick — model-native view / short videos"/>
+                          <ComboBoxItem Content="Balanced — full-frame + spatial crops" IsSelected="True"/>
+                          <ComboBoxItem Content="Thorough — multi-scale + scene-aware video"/>
                         </ComboBox>
                       </StackPanel>
                       <StackPanel Grid.Column="2">
@@ -1216,6 +1217,11 @@
                             Margin="0,0,0,8"
                             Click="ExportAiOriginReport_Click"/>
 
+                    <TextBlock Text="Advisory forensic signal only. Current open detectors do not reliably generalize to every new generator; metadata can also be removed or spoofed. Prefer Uncertain when evidence conflicts."
+                               Foreground="{StaticResource Warning}"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,8"/>
                     <TextBlock x:Name="AiOriginStatusText"
                                Text="Detector not checked yet."
                                Foreground="{StaticResource Muted}"
