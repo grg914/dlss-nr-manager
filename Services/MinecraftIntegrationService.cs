@@ -53,7 +53,7 @@ public sealed class MinecraftIntegrationService
         _http.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue("DlssNrManager", "1.2"));
         _http.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            new MediaTypeWithQualityHeaderValue("application/json"));
     }
 
     public IReadOnlyList<MinecraftInstallCandidate> DetectInstances()
