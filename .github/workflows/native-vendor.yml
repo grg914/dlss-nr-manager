@@ -1,0 +1,97 @@
+name: Native Vendor Builds
+
+on:
+  pull_request:
+    paths:
+      - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
+      - 'third_party/OptiScaler/**'
+      - 'tools/build-realesrgan.ps1'
+      - '.github/workflows/native-vendor.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: native-vendor-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  realesrgan:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Build vendored Real-ESRGAN
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: Real-ESRGAN-vendored-win-x64
+          path: build-realesrgan/Release/realesrgan-ncnn-vulkan.exe
+          if-no-files-found: error
+
+  optiscaler:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Resolve MSBuild
+        id: msbuild
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (!(Test-Path -LiteralPath $vswhere)) {
+            throw "vswhere.exe was not found on the Windows runner."
+          }
+
+          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" |
+            Select-Object -First 1
+
+          if ([string]::IsNullOrWhiteSpace($msbuild) -or !(Test-Path -LiteralPath $msbuild)) {
+            throw "MSBuild could not be resolved from the installed Visual Studio instance."
+          }
+
+          "path=$msbuild" >> $env:GITHUB_OUTPUT
+          Write-Host "Using MSBuild: $msbuild"
+
+      - name: Build vendored OptiScaler
+        shell: pwsh
+        run: |
+          $msbuild = "${{ steps.msbuild.outputs.path }}"
+          & $msbuild "third_party\OptiScaler\OptiScaler.sln" /m /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) {
+            throw "Vendored OptiScaler build failed."
+          }
+
+          $package = "third_party\OptiScaler\x64\Release\a"
+          $dll = Join-Path $package "OptiScaler.dll"
+
+          if (!(Test-Path -LiteralPath $dll)) {
+            throw "OptiScaler.dll was not generated in the expected package directory."
+          }
+
+          $size = (Get-Item -LiteralPath $dll).Length
+          if ($size -lt 256KB) {
+            throw "OptiScaler.dll is unexpectedly small: $size bytes."
+          }
+
+          $licenseDir = Join-Path $package "Licenses"
+          if (!(Test-Path -LiteralPath $licenseDir)) {
+            throw "OptiScaler package is missing its license directory."
+          }
+
+          Write-Host "Vendored OptiScaler build verified: $dll ($size bytes)"
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: OptiScaler-vendored-win-x64
+          path: third_party/OptiScaler/x64/Release/a/
+          if-no-files-found: error
+          compression-level: 6
