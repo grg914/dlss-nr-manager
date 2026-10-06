@@ -63,6 +63,59 @@ function Get-LfsPointers {
     return $pointers
 }
 
+
+function Apply-RetentionPolicy {
+    param(
+        [Parameter(Mandatory=$true)]$Source,
+        [Parameter(Mandatory=$true)][string]$Target
+    )
+
+    if (-not $Source.retention) {
+        return
+    }
+
+    $removeGlobs = @($Source.retention.remove_globs)
+    $keepGlobs = @($Source.retention.keep_globs)
+    if ($removeGlobs.Count -eq 0) {
+        return
+    }
+
+    $prefix = [IO.Path]::GetFullPath($Target).TrimEnd(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+
+    Get-ChildItem -LiteralPath $Target -Recurse -File -Force -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            $full = [IO.Path]::GetFullPath($_.FullName)
+            if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+                return
+            }
+
+            $relative = $full.Substring($prefix.Length).Replace('\', '/')
+
+            $shouldRemove = $false
+            foreach ($glob in $removeGlobs) {
+                if ($relative -like [string]$glob) {
+                    $shouldRemove = $true
+                    break
+                }
+            }
+
+            if (-not $shouldRemove) {
+                return
+            }
+
+            foreach ($glob in $keepGlobs) {
+                if ($relative -like [string]$glob) {
+                    return
+                }
+            }
+
+            Write-Host "PRUNE $relative"
+            Remove-Item -LiteralPath $_.FullName -Force
+        }
+}
+
 function Test-ExistingImport {
     param(
         [Parameter(Mandatory=$true)][string]$Target,
@@ -104,6 +157,7 @@ function Normalize-ExistingImport {
         return
     }
 
+    Apply-RetentionPolicy -Source $Source -Target $target
     Remove-GitMetadata -Path $target
 
     $nestedGit = Get-ChildItem -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue |
@@ -152,7 +206,8 @@ function Import-Repo {
         [Parameter(Mandatory=$true)][string]$Url,
         [Parameter(Mandatory=$true)][string]$Ref,
         [Parameter(Mandatory=$true)][string]$Destination,
-        [string]$Group = "core"
+        [string]$Group = "core",
+        $Retention = $null
     )
 
     Assert-ImmutableRef -Id $Id -Ref $Ref
@@ -212,6 +267,7 @@ function Import-Repo {
             throw "robocopy failed with exit code $LASTEXITCODE"
         }
 
+        Apply-RetentionPolicy -Source ([pscustomobject]@{ retention = $Retention }) -Target $target
         Remove-GitMetadata -Path $target
 
         $nestedGit = Get-ChildItem -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue |
@@ -277,6 +333,7 @@ foreach ($source in @($Lock.sources)) {
         Ref = [string]$source.ref
         Destination = [string]$source.path
         Group = $group
+        Retention = $source.retention
     }
     Import-Repo @importArgs
 }
@@ -291,6 +348,7 @@ if ($IncludeRestrictedNvidiaSdk) {
             Ref = [string]$source.ref
             Destination = [string]$source.path
             Group = "local-only"
+            Retention = $source.retention
         }
         Import-Repo @importArgs
     }
