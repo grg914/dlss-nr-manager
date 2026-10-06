@@ -631,12 +631,12 @@
                                 IsChecked="True"
                                 Margin="0,0,18,6"/>
                       <CheckBox x:Name="MinecraftSpbrCheck"
-                                Content="SPBR LabPBR resource pack"
+                                Content="ScandiTexture SPBR + Scandi resource pack"
                                 IsChecked="True"
                                 Margin="0,0,18,6"/>
                     </WrapPanel>
 
-                    <TextBlock Text="Sodium and Iris are not installed in RTX mode: they replace/modify the rendering pipeline and can conflict with Caustica, which owns the Vulkan/path-traced renderer. The optional performance pack avoids renderer replacement; Caustica is experimental, so mod compatibility is still validated at launch. SPBR is the compatible LabPBR material pack for the DLSS/RTX path."
+                    <TextBlock Text="Sodium and Iris are not installed in RTX mode: they replace/modify the rendering pipeline and can conflict with Caustica, which owns the Vulkan/path-traced renderer. The optional performance pack avoids renderer replacement; Caustica is experimental, so mod compatibility is still validated at launch. The default ScandiTexture pack keeps the compatible SPBR LabPBR terrain/material base and adds the validated Scandi sky, End, GUI and visual assets without the terrain textures that caused RT artifacts."
                                Foreground="{StaticResource Warning}"
                                FontSize="10"
                                TextWrapping="Wrap"
