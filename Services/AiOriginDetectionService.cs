@@ -293,12 +293,16 @@ public sealed class AiOriginDetectionService : IDisposable
 
         try
         {
-            const int targetFrames = 32;
+            var targetFrames = mode == AiOriginAnalysisMode.Thorough
+                ? 40
+                : 24;
+
             var fps = duration > 0
-                ? Math.Clamp(targetFrames / duration, 0.025, 6.0)
+                ? Math.Clamp(targetFrames / duration, 0.02, 6.0)
                 : 1.0;
 
-            progress?.Report($"Sampling up to {targetFrames} frames across the full video…");
+            progress?.Report(
+                $"Sampling up to {targetFrames} frames across the full video • {mode} mode…");
 
             var extraction = await RunAsync(
                 _media.FfmpegPath,
@@ -327,15 +331,36 @@ public sealed class AiOriginDetectionService : IDisposable
             if (frames.Count == 0)
                 throw new InvalidOperationException("No frames were extracted for AI-origin analysis.");
 
-            var scores = new List<FrameScore>(frames.Count);
-            for (var i = 0; i < frames.Count; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                progress?.Report($"AI ensemble analysis • frame {i + 1}/{frames.Count}");
-                scores.Add(await ClassifyEnsembleAsync(frames[i], cancellationToken));
-            }
+            _ = GetPrimarySession();
+            _ = GetSecondarySession();
 
-            return BuildResult(scores, provenance, isVideo: true);
+            var scores = new FrameScore[frames.Count];
+            var completed = 0;
+            var parallelism = Math.Clamp(
+                Environment.ProcessorCount / 6,
+                1,
+                2);
+
+            await Parallel.ForEachAsync(
+                Enumerable.Range(0, frames.Count),
+                new ParallelOptions
+                {
+                    CancellationToken = cancellationToken,
+                    MaxDegreeOfParallelism = parallelism
+                },
+                async (index, token) =>
+                {
+                    scores[index] = await ClassifyEnsembleAsync(
+                        frames[index],
+                        token,
+                        mode);
+
+                    var done = Interlocked.Increment(ref completed);
+                    progress?.Report(
+                        $"AI ensemble analysis • frame {done}/{frames.Count}");
+                });
+
+            return BuildResult(scores, provenance, isVideo: true, mode);
         }
         finally
         {
@@ -346,7 +371,8 @@ public sealed class AiOriginDetectionService : IDisposable
     private AiOriginDetectionResult BuildResult(
         IReadOnlyList<FrameScore> scores,
         IReadOnlyList<string> provenance,
-        bool isVideo)
+        bool isVideo,
+        AiOriginAnalysisMode mode)
     {
         if (scores.Count == 0)
             throw new InvalidOperationException("AI detector produced no scores.");
@@ -354,6 +380,34 @@ public sealed class AiOriginDetectionService : IDisposable
         var primary = Median(scores.Select(x => x.PrimaryAi).ToList());
         var secondary = Median(scores.Select(x => x.SecondaryAi).ToList());
         var disagreement = Math.Abs(primary - secondary);
+
+        var viewSpread = Median(
+            scores.Select(x =>
+                Math.Max(
+                    x.PrimaryViewSpread,
+                    x.SecondaryViewSpread))
+                .ToList());
+
+        var viewConsistency = Math.Clamp(
+            1.0 - viewSpread / 0.35,
+            0,
+            1);
+
+        var frameEnsembles = scores
+            .Select(x => Math.Sqrt(
+                Math.Clamp(x.PrimaryAi, 0, 1) *
+                Math.Clamp(x.SecondaryAi, 0, 1)))
+            .ToList();
+
+        var temporalConsistency = isVideo
+            ? Math.Clamp(
+                1.0 - StandardDeviation(frameEnsembles) / 0.25,
+                0,
+                1)
+            : 1.0;
+
+        var shortEdge = Median(
+            scores.Select(x => (double)x.InputShortEdge).ToList());
 
         // Geometric mean intentionally punishes a one-model false positive.
         var ensemble = Math.Sqrt(Math.Clamp(primary, 0, 1) * Math.Clamp(secondary, 0, 1));
@@ -402,10 +456,18 @@ public sealed class AiOriginDetectionService : IDisposable
                 0,
                 0.98);
         }
-        else if (disagreement >= 0.35)
+        else if (disagreement >= 0.35 ||
+                 viewConsistency < 0.52 ||
+                 (isVideo && temporalConsistency < 0.42))
         {
             verdict = "Detector disagreement / uncertain";
-            confidence = Math.Clamp(0.25 + (1.0 - disagreement) * 0.25, 0.20, 0.50);
+            confidence = Math.Clamp(
+                0.20 +
+                (1.0 - disagreement) * 0.18 +
+                viewConsistency * 0.08 +
+                temporalConsistency * 0.08,
+                0.20,
+                0.52);
         }
         else if ((isVideo && strongRealRatio >= 0.55 && primary <= 0.45 && secondary <= 0.45) ||
                  (!isVideo && primary <= 0.30 && secondary <= 0.30))
@@ -441,11 +503,24 @@ public sealed class AiOriginDetectionService : IDisposable
         if (provenanceOnly && !generatorMarker)
             confidence = Math.Min(confidence, 0.90);
 
+        confidence *= 0.78 + 0.22 * viewConsistency;
+        if (isVideo)
+            confidence *= 0.82 + 0.18 * temporalConsistency;
+
+        if (shortEdge < 256)
+            confidence = Math.Min(confidence, 0.68);
+        if (shortEdge < 128)
+            confidence = Math.Min(confidence, 0.52);
+
+        confidence = Math.Clamp(confidence, 0, 0.98);
+
         var notes =
             "Conservative local ensemble. A media item is only labelled likely AI when both independent detectors " +
-            "strongly agree; video also requires consistent evidence across most sampled frames. Aspect ratio is preserved " +
-            "and three spatial crops are evaluated per frame to avoid portrait/landscape distortion false positives. " +
-            "C2PA presence alone is not treated as proof of AI generation. Compression, screenshots, heavy editing and new generators can still affect accuracy.";
+            "strongly agree. Confidence is reduced when spatial views disagree, video frames are temporally inconsistent, " +
+            "or the source resolution is too low for reliable forensic cues. Balanced mode uses three aspect-preserving views; " +
+            "Thorough mode adds a higher-resolution view scale when the source supports it. Structured generator metadata is " +
+            "distinguished from unverified raw markers. C2PA presence alone is not treated as proof of AI generation. " +
+            "Compression, screenshots, heavy editing and new generators can still affect accuracy.";
 
         return new AiOriginDetectionResult(
             verdict,
@@ -458,7 +533,10 @@ public sealed class AiOriginDetectionService : IDisposable
             notes,
             primary,
             secondary,
-            disagreement);
+            disagreement,
+            viewConsistency,
+            temporalConsistency,
+            mode.ToString());
     }
 
     private static bool IsStrongAiMarker(string marker)
@@ -466,26 +544,38 @@ public sealed class AiOriginDetectionService : IDisposable
 
     private async Task<FrameScore> ClassifyEnsembleAsync(
         string path,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AiOriginAnalysisMode mode)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         return await Task.Run(() =>
         {
-            var tensors = CreateImageTensors(path);
-            var primaryScores = new List<double>(tensors.Count);
-            var secondaryScores = new List<double>(tensors.Count);
+            var views = CreateImageTensors(path, mode);
+            var primaryScores = new List<double>(views.Tensors.Count);
+            var secondaryScores = new List<double>(views.Tensors.Count);
 
-            foreach (var tensor in tensors)
+            foreach (var tensor in views.Tensors)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                primaryScores.Add(RunClassifier(GetPrimarySession(), tensor, fakeIndex: 1));
-                secondaryScores.Add(RunClassifier(GetSecondarySession(), tensor, fakeIndex: 0));
+                primaryScores.Add(
+                    RunClassifier(
+                        GetPrimarySession(),
+                        tensor,
+                        fakeIndex: 1));
+                secondaryScores.Add(
+                    RunClassifier(
+                        GetSecondarySession(),
+                        tensor,
+                        fakeIndex: 0));
             }
 
             return new FrameScore(
                 Median(primaryScores),
-                Median(secondaryScores));
+                Median(secondaryScores),
+                StandardDeviation(primaryScores),
+                StandardDeviation(secondaryScores),
+                views.ShortEdge);
         }, cancellationToken);
     }
 
@@ -522,7 +612,7 @@ public sealed class AiOriginDetectionService : IDisposable
         var options = new SessionOptions
         {
             GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-            IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 2),
+            IntraOpNumThreads = Math.Clamp(Environment.ProcessorCount / 4, 1, 6),
             InterOpNumThreads = 1
         };
 
