@@ -83,9 +83,18 @@ public sealed class StreamlineRuntimeService
         ExtractSafe(tempZip, extract);
 
         var found = FindProductionFile(extract, "nvngx_dlssnr.dll")
-            ?? FindFile(extract, "nvngx_dlssnr.dll")
-            ?? throw new InvalidDataException(
-                "The Streamline release does not contain nvngx_dlssnr.dll.");
+            ?? FindFile(extract, "nvngx_dlssnr.dll");
+
+        if (found == null)
+        {
+            TryDeleteFile(tempZip);
+            TryDeleteDirectory(extract);
+            throw new InvalidOperationException(
+                "The current public NVIDIA Streamline release does not include nvngx_dlssnr.dll. " +
+                "DLSS Neural Rendering requires an NVIDIA-authorized DLSS-NR/NGX SDK runtime. " +
+                "DLSS NR Manager will not substitute an unofficial or patched vendor binary. " +
+                "Use Select DLSSNR DLL with an official compatible runtime supplied by NVIDIA.");
+        }
 
         File.Copy(found, runtime, true);
         File.WriteAllText(sourceMarker, asset.Url);
@@ -172,6 +181,7 @@ public sealed class StreamlineRuntimeService
                 names.AddRange(["sl.dlss_nr.dll", "nvngx_dlssnr.dll"]);
 
             var installed = new List<string>();
+            var missingRequested = new List<string>();
 
             try
             {
@@ -183,7 +193,10 @@ public sealed class StreamlineRuntimeService
                     var source = FindProductionFile(extract, name)
                                  ?? FindFile(extract, name);
                     if (source == null)
+                    {
+                        missingRequested.Add(name);
                         continue;
+                    }
 
                     var destination = Path.Combine(gameDirectory, name);
 
@@ -197,6 +210,16 @@ public sealed class StreamlineRuntimeService
 
                 progress?.Report(
                     $"Staged {installed.Count} NVIDIA Streamline/DLSS resource file(s) into the selected game.");
+
+                if (includeNeuralRendering &&
+                    missingRequested.Any(name =>
+                        name.Equals("sl.dlss_nr.dll", StringComparison.OrdinalIgnoreCase) ||
+                        name.Equals("nvngx_dlssnr.dll", StringComparison.OrdinalIgnoreCase)))
+                {
+                    progress?.Report(
+                        "DLSS Neural Rendering runtime was not present in the public Streamline package. " +
+                        "An NVIDIA-authorized DLSS-NR runtime/SDK is required for a real renderer integration.");
+                }
 
                 return installed;
             }
