@@ -65,8 +65,8 @@ public sealed class MinecraftPreflightService
         {
             checks.Add(new(
                 "Existing managed installation",
-                MinecraftPreflightSeverity.Unsupported,
-                "A previous one-click installation is still tracked. Use Restore original before installing again."));
+                MinecraftPreflightSeverity.Warning,
+                "A previous one-click installation is tracked. Install DLSS / RTX will repair/update it by restoring the manager-owned changes first, then applying the current stack. Restore original remains available if you want to remove the managed setup instead."));
         }
         else
         {
@@ -130,12 +130,16 @@ public sealed class MinecraftPreflightService
                 "Vulkan is present, but the required ray-tracing extensions were not confirmed and no trusted RTX + Vulkan-driver fallback was available. " +
                 $"Missing/unconfirmed: {string.Join(", ", vulkan.MissingExtensions)}."));
         }
-        else if (vulkanDriverRegistered && isRtx)
+        else if (isRtx &&
+                 (vulkanDriverRegistered ||
+                  !string.IsNullOrWhiteSpace(nvidia.DriverVersion)))
         {
             checks.Add(new(
                 "Vulkan ray tracing",
                 MinecraftPreflightSeverity.Warning,
-                "An NVIDIA RTX GPU and Vulkan driver are present, but vulkaninfo is unavailable. The installer can continue; Caustica startup is the final runtime capability test."));
+                "An NVIDIA RTX GPU and active NVIDIA driver are present, but vulkaninfo could not complete the RT capability probe. " +
+                $"Probe details: {vulkan.Details}. " +
+                "Installation may continue; Caustica startup is the final runtime capability test."));
         }
         else
         {
@@ -584,7 +588,7 @@ public sealed class MinecraftPreflightService
                 vulkanInfo,
                 [],
                 cancellationToken,
-                timeout: TimeSpan.FromSeconds(20));
+                timeout: TimeSpan.FromSeconds(45));
 
             var output = result.Output + "\n" + result.Error;
             if (result.ExitCode != 0 && string.IsNullOrWhiteSpace(output))
@@ -609,10 +613,23 @@ public sealed class MinecraftPreflightService
                 missing,
                 $"vulkaninfo exit code {result.ExitCode}");
         }
+        catch (OperationCanceledException)
+            when (!cancellationToken.IsCancellationRequested)
+        {
+            return new VulkanProbeResult(
+                false,
+                false,
+                required,
+                "vulkaninfo timed out before the extension probe completed");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             return new VulkanProbeResult(
-                true,
+                false,
                 false,
                 required,
                 $"vulkaninfo probe failed: {ex.Message}");
