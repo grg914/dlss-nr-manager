@@ -100,6 +100,7 @@ public sealed class MinecraftPreflightService
                     : $"Detected {gpuName}, but Caustica RTX's DLSS path requires an NVIDIA RTX GPU."));
 
         var vulkan = await ProbeVulkanRayTracingAsync(cancellationToken);
+        var vulkanDriverRegistered = HasVulkanDriverRegistration();
 
         if (vulkan.Supported)
         {
@@ -108,19 +109,29 @@ public sealed class MinecraftPreflightService
                 MinecraftPreflightSeverity.Ready,
                 "Required Vulkan RT extensions are available: acceleration structure, ray-tracing pipeline and deferred host operations."));
         }
+        else if (vulkan.ProbeAvailable && isRtx && vulkanDriverRegistered)
+        {
+            checks.Add(new(
+                "Vulkan ray tracing",
+                MinecraftPreflightSeverity.Warning,
+                "An NVIDIA RTX GPU and Vulkan driver are present, but vulkaninfo did not confirm every required RT extension. " +
+                $"Missing/unconfirmed: {string.Join(", ", vulkan.MissingExtensions)}. " +
+                "This can be a vulkaninfo/ICD selection false negative on multi-GPU systems. Installation may continue; Caustica startup is the final runtime capability test."));
+        }
         else if (vulkan.ProbeAvailable)
         {
             checks.Add(new(
                 "Vulkan ray tracing",
                 MinecraftPreflightSeverity.Unsupported,
-                "Vulkan is present, but the required ray-tracing extensions were not all reported by vulkaninfo."));
+                "Vulkan is present, but the required ray-tracing extensions were not confirmed and no trusted RTX + Vulkan-driver fallback was available. " +
+                $"Missing/unconfirmed: {string.Join(", ", vulkan.MissingExtensions)}."));
         }
-        else if (HasVulkanDriverRegistration())
+        else if (vulkanDriverRegistered && isRtx)
         {
             checks.Add(new(
                 "Vulkan ray tracing",
                 MinecraftPreflightSeverity.Warning,
-                "A Vulkan driver is registered, but vulkaninfo is unavailable so ray-tracing extensions could not be verified. The installer can continue, but first launch remains the final capability test."));
+                "An NVIDIA RTX GPU and Vulkan driver are present, but vulkaninfo is unavailable. The installer can continue; Caustica startup is the final runtime capability test."));
         }
         else
         {
@@ -536,12 +547,19 @@ public sealed class MinecraftPreflightService
         return null;
     }
 
-    private static async Task<(bool ProbeAvailable, bool Supported)> ProbeVulkanRayTracingAsync(
+    private static async Task<VulkanProbeResult> ProbeVulkanRayTracingAsync(
         CancellationToken cancellationToken)
     {
+        var required = new[]
+        {
+            "VK_KHR_acceleration_structure",
+            "VK_KHR_ray_tracing_pipeline",
+            "VK_KHR_deferred_host_operations"
+        };
+
         var vulkanInfo = FindExecutable("vulkaninfo.exe");
         if (vulkanInfo == null)
-            return (false, false);
+            return new VulkanProbeResult(false, false, required, "vulkaninfo.exe not found");
 
         try
         {
@@ -553,23 +571,34 @@ public sealed class MinecraftPreflightService
 
             var output = result.Output + "\n" + result.Error;
             if (result.ExitCode != 0 && string.IsNullOrWhiteSpace(output))
-                return (true, false);
-
-            var required = new[]
             {
-                "VK_KHR_acceleration_structure",
-                "VK_KHR_ray_tracing_pipeline",
-                "VK_KHR_deferred_host_operations"
-            };
+                return new VulkanProbeResult(
+                    true,
+                    false,
+                    required,
+                    $"vulkaninfo exited with code {result.ExitCode} and produced no output");
+            }
 
-            return (
+            var missing = required
+                .Where(extension =>
+                    !output.Contains(
+                        extension,
+                        StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            return new VulkanProbeResult(
                 true,
-                required.All(extension =>
-                    output.Contains(extension, StringComparison.OrdinalIgnoreCase)));
+                missing.Length == 0,
+                missing,
+                $"vulkaninfo exit code {result.ExitCode}");
         }
-        catch
+        catch (Exception ex)
         {
-            return (true, false);
+            return new VulkanProbeResult(
+                true,
+                false,
+                required,
+                $"vulkaninfo probe failed: {ex.Message}");
         }
     }
 
@@ -784,6 +813,12 @@ public sealed class MinecraftPreflightService
         Detected,
         OtherDetected
     }
+
+    private sealed record VulkanProbeResult(
+        bool ProbeAvailable,
+        bool Supported,
+        IReadOnlyList<string> MissingExtensions,
+        string Details);
 
     private sealed record ProcessResult(
         int ExitCode,
