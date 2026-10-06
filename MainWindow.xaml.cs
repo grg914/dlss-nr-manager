@@ -1126,6 +1126,88 @@ public partial class MainWindow : Window
             MessageBoxImage.Information);
     }
 
+    private async void VerifyManagedFiles_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) ||
+            !Directory.Exists(gameDir))
+        {
+            return;
+        }
+
+        try
+        {
+            VerifyManagedFilesButton.IsEnabled = false;
+            StatusText.Text = "Verifying managed file integrity…";
+
+            var result = await Task.Run(() =>
+                _integrity.Verify(gameDir));
+
+            var details = new List<string>
+            {
+                result.Summary
+            };
+
+            if (result.MissingFiles.Count > 0)
+            {
+                details.Add(
+                    "Missing:\n" +
+                    string.Join(
+                        "\n",
+                        result.MissingFiles.Take(20).Select(x => "• " + x)));
+            }
+
+            if (result.ChangedFiles.Count > 0)
+            {
+                details.Add(
+                    "Changed:\n" +
+                    string.Join(
+                        "\n",
+                        result.ChangedFiles.Take(20).Select(x => "• " + x)));
+            }
+
+            if (result.UnhashedFiles.Count > 0)
+            {
+                details.Add(
+                    "Legacy/unhashed:\n" +
+                    string.Join(
+                        "\n",
+                        result.UnhashedFiles.Take(20).Select(x => "• " + x)));
+            }
+
+            if (result.HasPendingTransaction)
+            {
+                details.Add(
+                    "An interrupted managed transaction is present. Refreshing the game state will attempt safe recovery when a valid backup exists.");
+            }
+
+            StatusText.Text = result.Summary;
+
+            MessageBox.Show(
+                string.Join("\n\n", details),
+                "Managed file integrity",
+                MessageBoxButton.OK,
+                result.Healthy
+                    ? MessageBoxImage.Information
+                    : MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Managed file integrity check failed.";
+            MessageBox.Show(
+                ex.Message,
+                "Managed file integrity",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            VerifyManagedFilesButton.IsEnabled = true;
+        }
+    }
+
     private async void ApplyPreset_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(GamePathBox.Text))
