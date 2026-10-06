@@ -19,6 +19,7 @@ public sealed class GpuDetectionService
             .Select(Parse)
             .Where(x => x.IsNvidia)
             .OrderByDescending(x => GenerationRank(x.Generation))
+            .ThenByDescending(x => ModelRank(x.Name))
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -113,6 +114,19 @@ public sealed class GpuDetectionService
                   "NVIDIA";
 
         return new(normalized, gen, true);
+    }
+
+    private static int ModelRank(string name)
+    {
+        var match = Regex.Match(
+            name,
+            @"\bRTX\s*(\d{4})\b",
+            RegexOptions.IgnoreCase);
+
+        return match.Success &&
+               int.TryParse(match.Groups[1].Value, out var model)
+            ? model
+            : 0;
     }
 
     private static int GenerationRank(string generation)
