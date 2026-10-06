@@ -353,7 +353,7 @@ public sealed class GameArtworkService
             if (_steamCatalog != null)
                 return _steamCatalog;
 
-            string jsonText;
+            string? jsonText = null;
             var fresh =
                 File.Exists(SteamCatalogCachePath) &&
                 DateTimeOffset.UtcNow -
@@ -362,9 +362,31 @@ public sealed class GameArtworkService
 
             if (fresh)
             {
-                jsonText = await File.ReadAllTextAsync(SteamCatalogCachePath, cancellationToken);
+                try
+                {
+                    jsonText = await File.ReadAllTextAsync(
+                        SteamCatalogCachePath,
+                        cancellationToken);
+
+                    // A partially-written or corrupt cache must not suppress artwork
+                    // lookups for a full day. Validate the expected shape before use.
+                    using var cachedJson = JsonDocument.Parse(jsonText);
+                    _ = cachedJson.RootElement
+                        .GetProperty("applist")
+                        .GetProperty("apps");
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    TryDelete(SteamCatalogCachePath);
+                    jsonText = null;
+                }
             }
-            else
+
+            if (jsonText == null)
             {
                 using var response = await _http.GetAsync(
                     "https://api.steampowered.com/ISteamApps/GetAppList/v2/",
@@ -376,7 +398,10 @@ public sealed class GameArtworkService
 
                 jsonText = await response.Content.ReadAsStringAsync(cancellationToken);
                 Directory.CreateDirectory(AppDataRoot);
-                await File.WriteAllTextAsync(SteamCatalogCachePath, jsonText, cancellationToken);
+                await AtomicFile.WriteAllTextAsync(
+                    SteamCatalogCachePath,
+                    jsonText,
+                    cancellationToken);
             }
 
             using var json = JsonDocument.Parse(jsonText);
