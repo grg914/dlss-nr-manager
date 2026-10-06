@@ -40,8 +40,33 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
 
+      - name: Restore
+        shell: pwsh
+        run: |
+          dotnet restore DlssNrManager.csproj
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj
+
+      - name: Run regression tests
+        run: dotnet test tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj -c Release --no-restore -p:TreatWarningsAsErrors=true
+
       - name: Publish
         run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -warnaserror -o publish
+
+      - name: Verify published application identity
+        shell: pwsh
+        run: |
+          if (!(Test-Path "publish/DlssNrManager.exe")) {
+            throw "DlssNrManager.exe was not generated."
+          }
+
+          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo(
+            (Resolve-Path "publish/DlssNrManager.exe")).FileVersion
+
+          if (-not $version.StartsWith("${{ steps.version.outputs.version }}")) {
+            throw "Published EXE version '$version' does not match release version '${{ steps.version.outputs.version }}'."
+          }
+
+          Write-Host "Published EXE version verified: $version"
 
       - name: Create zip
         shell: pwsh
