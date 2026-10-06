@@ -32,6 +32,8 @@ Current application version: **v1.2.0**.
 - Added Minecraft RTX preflight with **Ready / Warning / Unsupported** gating.
 - Added optional Minecraft performance pack: Lithium, FerriteCore, Krypton, C2ME, BadOptimizations and Dynamic FPS.
 - Added optional SPBR LabPBR resource pack for Caustica RTX materials.
+- Minecraft now installs the latest tested **grg914/Caustica-RTX** Minecraft 26.2 build produced from a green main-branch CI run.
+- The project Caustica build adds RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering / 3D-Guided Neural Rendering integration.
 - Added transactional Minecraft install/restore behavior and stronger rollback coverage.
 - Added in-app self-update from the latest GitHub Release with download validation, EXE version verification, automatic restart and previous-EXE rollback.
 - Improved NVIDIA Streamline resource staging for DLSS RR and Vulkan Reflex dependencies.
@@ -171,7 +173,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - resolves the latest stable Fabric Loader for Minecraft 26.2 from Fabric Meta (minimum supported: 0.19.3) and installs/updates it automatically on Mojang/Microsoft-style instances
   - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
   - downloads the latest stable Fabric API build for Minecraft 26.2 from Modrinth and verifies its SHA-512 hash
-  - downloads only a Caustica RTX prerelease that explicitly targets Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
+  - downloads only a tested `grg914/Caustica-RTX` prerelease produced from a green main-branch CI run and explicitly targeting Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
   - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
   - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica; if no compatible stable build is available, the core RTX installation continues
   - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
@@ -189,9 +191,9 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Local DLSS/Streamline ZIP and `nvngx_dlssnr.dll` staging remain available as advanced/manual tools
 - Minecraft resource documentation under `resources/minecraft/`
 
-Caustica RTX currently implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. It does **not** currently implement DLSS Neural Rendering / 3D-Guided Neural Rendering (the image-enhancement feature commonly associated with DLSS 5). NVIDIA documents Ray Reconstruction as an extension of the DLSS Super Resolution path: when RR is enabled it replaces the standalone SR reconstruction step while using the selected DLSS performance/quality mode. The manager therefore does **not** present fake SR or Neural Rendering toggles that only copy DLLs; those features must be implemented by the active renderer.
+The project Caustica RTX build implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex, and now contains a **capability-gated DLSS Neural Rendering / 3D-Guided Neural Rendering integration** in the renderer. The public build keeps a safe fallback when the feature-specific NVIDIA DLSS-NR SDK/runtime is unavailable; it does not fake Neural Rendering by merely copying DLLs. Real DLSS-NR execution still requires an NVIDIA-authorized compatible DLSS-NR/NGX SDK/runtime and supporting GPU/driver. Proprietary NVIDIA SDK binaries are not committed or redistributed.
 
-A source-level Caustica DLSS-NR integration contract and reference backend are maintained under `patches/caustica-dlss-nr/`. The implementation is intentionally capability-gated and requires an NVIDIA-authorized compatible DLSS-NR/NGX SDK/runtime; proprietary NVIDIA SDK binaries are not committed or redistributed by this project.
+The same build adds **RTX Performance Mode** and a native **ScandiShader RTX Look** converted into Caustica's display pipeline, avoiding Iris/Sodium renderer replacement while preserving the path-traced/DLSS pipeline. NVIDIA documents Ray Reconstruction as part of the DLSS reconstruction path; when RR is active it handles reconstruction using the selected quality/performance mode.
 
 **Sodium/Iris are intentionally not installed in the Caustica RTX profile.** Sodium and Iris modify/replace major portions of Minecraft's renderer/shader pipeline, while Caustica owns the Vulkan/path-traced world renderer. The manager keeps them in the conflict detector instead of presenting an unsupported "DLSS + Iris shaderpack" combination. For RTX visuals, use Caustica plus a LabPBR resource pack such as SPBR; for non-renderer performance gains, use the optional performance pack above. Caustica remains experimental, so final compatibility is still verified at runtime.
 
@@ -265,7 +267,7 @@ The project integrates or automates workflows around:
 - `NVIDIA-RTX/Streamline`
 - `FabricMC/fabric-installer`
 - `FabricMC/fabric-api`
-- `AriesAlex/Caustica-RTX`
+- `grg914/Caustica-RTX` (project fork; based on AriesAlex/Caustica-RTX)
 - Modrinth API projects: Lithium, FerriteCore, Krypton, Dynamic FPS and SPBR
 - `xinntao/Real-ESRGAN-ncnn-vulkan`
 
