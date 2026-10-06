@@ -8,6 +8,10 @@ namespace DlssNrManager.Services;
 
 public sealed class AppUpdateService
 {
+    private const long MaxUpdateDownloadBytes = 768L * 1024 * 1024;
+    private const long MaxUpdateExpandedBytes = 1024L * 1024 * 1024;
+    private const int MaxUpdateArchiveEntries = 256;
+
     private readonly HttpClient _http = new();
 
     public AppUpdateService()
@@ -64,6 +68,12 @@ public sealed class AppUpdateService
             {
                 response.EnsureSuccessStatusCode();
 
+                if (response.Content.Headers.ContentLength is > MaxUpdateDownloadBytes)
+                {
+                    throw new InvalidDataException(
+                        "The update package exceeds the 768 MB safety limit.");
+                }
+
                 await using var input =
                     await response.Content.ReadAsStreamAsync(cancellationToken);
                 await using var output = new FileStream(
@@ -74,7 +84,11 @@ public sealed class AppUpdateService
                     128 * 1024,
                     useAsync: true);
 
-                await input.CopyToAsync(output, cancellationToken);
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    MaxUpdateDownloadBytes,
+                    cancellationToken);
             }
 
             if (new FileInfo(temp).Length < 128 * 1024)
@@ -269,7 +283,7 @@ try {
 }
 """;
 
-        File.WriteAllText(scriptPath, script);
+        AtomicFile.WriteAllText(scriptPath, script);
 
         var startInfo = new ProcessStartInfo
         {
