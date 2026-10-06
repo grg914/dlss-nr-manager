@@ -40,7 +40,7 @@ jobs:
             ) | Out-Null
 
             if ($parseErrors.Count -gt 0) {
-              $parseErrors | ForEach-Object { Write-Error "$path: $($_.Message)" }
+              $parseErrors | ForEach-Object { Write-Error "${path}: $($_.Message)" }
               throw "PowerShell syntax validation failed for $path"
             }
           }
