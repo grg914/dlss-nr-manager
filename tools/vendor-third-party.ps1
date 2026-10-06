@@ -187,16 +187,33 @@ function Normalize-ExistingImport {
         }
     }
 
-    $metadata = [ordered]@{
-        id = $id
-        group = $Group
-        url = $url
-        ref = $ref
-        imported_at_utc = if ($importedAt) { $importedAt } else { [DateTime]::UtcNow.ToString("o") }
-        normalized_at_utc = [DateTime]::UtcNow.ToString("o")
-    } | ConvertTo-Json
+    $needsMetadataUpdate = $true
+    if (Test-Path -LiteralPath $sourcePath) {
+        try {
+            $existing = Get-Content -LiteralPath $sourcePath -Raw | ConvertFrom-Json
+            $needsMetadataUpdate =
+                $existing.id -ne $id -or
+                $existing.group -ne $Group -or
+                $existing.url -ne $url -or
+                $existing.ref -ne $ref
+        }
+        catch {
+            $needsMetadataUpdate = $true
+        }
+    }
 
-    Set-Content -LiteralPath $sourcePath -Value $metadata -Encoding UTF8
+    if ($needsMetadataUpdate) {
+        $metadata = [ordered]@{
+            id = $id
+            group = $Group
+            url = $url
+            ref = $ref
+            imported_at_utc = if ($importedAt) { $importedAt } else { [DateTime]::UtcNow.ToString("o") }
+        } | ConvertTo-Json
+
+        Set-Content -LiteralPath $sourcePath -Value $metadata -Encoding UTF8
+    }
+
     Write-Host "NORMALIZED $destination -> $ref"
 }
 
