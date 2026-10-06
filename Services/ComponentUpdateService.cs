@@ -25,28 +25,39 @@ public sealed class ComponentUpdateService
     public async Task<bool> EnsureMediaToolsLatestAsync(
         MediaService media,
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool forceRefresh = false)
     {
-        var remote = await GetRemoteStateAsync(cancellationToken);
         var local = LoadState();
+        if (!forceRefresh &&
+            media.IsReady &&
+            local is { CheckedAt: var checkedAt } &&
+            checkedAt != default &&
+            DateTimeOffset.UtcNow - checkedAt < TimeSpan.FromHours(6))
+        {
+            progress?.Report("Media components were checked recently.");
+            return false;
+        }
 
+        var remote = await GetRemoteStateAsync(cancellationToken);
         var changed =
             !media.IsReady ||
             !string.Equals(local?.ProcessorTag, remote.ProcessorTag, StringComparison.Ordinal) ||
             local?.FfmpegAssetId != remote.FfmpegAssetId;
 
-        if (!changed)
+        if (changed)
+        {
+            progress?.Report("Updating GitHub media components…");
+            await media.UpdateToolsAsync(progress, cancellationToken);
+            progress?.Report("GitHub media components updated.");
+        }
+        else
         {
             progress?.Report("GitHub components are up to date.");
-            return false;
         }
 
-        progress?.Report("Updating GitHub media components…");
-        await media.UpdateToolsAsync(progress, cancellationToken);
-
-        SaveState(remote);
-        progress?.Report("GitHub media components updated.");
-        return true;
+        SaveState(remote with { CheckedAt = DateTimeOffset.UtcNow });
+        return changed;
     }
 
     public async Task<ComponentState> GetRemoteStateAsync(
@@ -79,7 +90,10 @@ public sealed class ComponentUpdateService
             }
         }
 
-        return new ComponentState(processorTag, ffmpegAssetId);
+        return new ComponentState(
+            processorTag,
+            ffmpegAssetId,
+            DateTimeOffset.UtcNow);
     }
 
     private async Task<JsonDocument> GetJsonAsync(
@@ -130,4 +144,5 @@ public sealed class ComponentUpdateService
 
 public sealed record ComponentState(
     string ProcessorTag,
-    long FfmpegAssetId);
+    long FfmpegAssetId,
+    DateTimeOffset CheckedAt = default);
