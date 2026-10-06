@@ -20,8 +20,23 @@ public sealed class MediaService
     private const string FfmpegAsset = "ffmpeg-master-latest-win64-gpl.zip";
     private const string FfmpegApi =
         "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest";
+    private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
+    private const long MaxExtractedArchiveBytes = 4L * 1024 * 1024 * 1024;
+    private const int MaxArchiveEntries = 100_000;
 
     private readonly HttpClient _http = new();
+
+    public MediaService()
+    {
+        _http.Timeout = TimeSpan.FromMinutes(10);
+        _http.DefaultRequestHeaders.UserAgent.Add(
+            new ProductInfoHeaderValue(
+                "DlssNrManager",
+                AppIdentity.UserAgentVersion));
+        _http.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue(
+                "application/vnd.github+json"));
+    }
 
     public string RootDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -525,19 +540,30 @@ public sealed class MediaService
 
         try
         {
-            using var request =
-                new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.UserAgent.Add(
-                new ProductInfoHeaderValue(
-                    "DlssNrManager",
-                    "1.2"));
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                !uri.Scheme.Equals(
+                    Uri.UriSchemeHttps,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !uri.Host.Equals(
+                    "github.com",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Unexpected media-component release URL: {url}");
+            }
 
-            using var response = await _http.SendAsync(
-                request,
+            using var response = await _http.GetAsync(
+                uri,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
 
             response.EnsureSuccessStatusCode();
+
+            if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
+            {
+                throw new InvalidDataException(
+                    "Media component archive exceeds the 1 GB safety limit.");
+            }
 
             await using (var input =
                 await response.Content.ReadAsStreamAsync(
@@ -550,8 +576,10 @@ public sealed class MediaService
                 1024 * 128,
                 useAsync: true))
             {
-                await input.CopyToAsync(
+                await CopyWithLimitAsync(
+                    input,
                     output,
+                    MaxComponentDownloadBytes,
                     cancellationToken);
             }
 
@@ -607,10 +635,26 @@ public sealed class MediaService
             + Path.DirectorySeparatorChar;
 
         using var zip = ZipFile.OpenRead(zipPath);
+
+        if (zip.Entries.Count > MaxArchiveEntries)
+        {
+            throw new InvalidDataException(
+                $"Media component archive contains too many entries ({zip.Entries.Count:N0}).");
+        }
+
+        long expandedBytes = 0;
+
         foreach (var entry in zip.Entries)
         {
             if (string.IsNullOrWhiteSpace(entry.Name))
                 continue;
+
+            expandedBytes = checked(expandedBytes + Math.Max(0, entry.Length));
+            if (expandedBytes > MaxExtractedArchiveBytes)
+            {
+                throw new InvalidDataException(
+                    "Media component archive exceeds the 4 GB extracted-size safety limit.");
+            }
 
             var target = Path.GetFullPath(
                 Path.Combine(destination, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
@@ -621,6 +665,37 @@ public sealed class MediaService
 
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             entry.ExtractToFile(target, true);
+        }
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
         }
     }
 
