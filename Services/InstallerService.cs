@@ -431,6 +431,7 @@ public sealed class InstallerService
             throw new InvalidOperationException("OptiScaler.ini was not found for the selected game.");
 
         IniService.ApplyPreset(ini, workingScale, enableNeuralRendering);
+        RefreshManagedFileHash(gameDir, "OptiScaler.ini");
     }
 
     public void ApplyAdvancedSettings(
@@ -452,6 +453,8 @@ public sealed class InstallerService
             showFps,
             targetProcessName,
             loadReShade);
+
+        RefreshManagedFileHash(gameDir, "OptiScaler.ini");
     }
 
     public string CreateBackup(string gameDir)
@@ -877,6 +880,41 @@ public sealed class InstallerService
         {
             return false;
         }
+    }
+
+    private static void RefreshManagedFileHash(
+        string gameDir,
+        string relative)
+    {
+        var manifest = ReadManifest(gameDir);
+        if (manifest?.ManagedFiles == null ||
+            !manifest.ManagedFiles.Contains(
+                relative,
+                StringComparer.OrdinalIgnoreCase) ||
+            !TryResolveUnderRoot(gameDir, relative, out var path) ||
+            !File.Exists(path))
+        {
+            return;
+        }
+
+        var hashes = new Dictionary<string, string>(
+            manifest.ManagedFileHashes ??
+            new Dictionary<string, string>(),
+            StringComparer.OrdinalIgnoreCase)
+        {
+            [relative] = HashService.Sha256(path)
+        };
+
+        var updated = manifest with
+        {
+            ManagedFileHashes = hashes
+        };
+
+        AtomicFile.WriteAllText(
+            Path.Combine(gameDir, ManifestFile),
+            JsonSerializer.Serialize(
+                updated,
+                new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static async Task<IReadOnlyDictionary<string, string>> BuildManagedFileHashesAsync(
