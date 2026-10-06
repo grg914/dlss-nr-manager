@@ -34,6 +34,9 @@ public sealed class MediaService
     private string FfmpegExe => Path.Combine(ToolsDirectory, "ffmpeg.exe");
     private string FfprobeExe => Path.Combine(ToolsDirectory, "ffprobe.exe");
 
+    public string FfmpegPath => FfmpegExe;
+    public string FfprobePath => FfprobeExe;
+
     public bool IsReady =>
         File.Exists(ProcessorExe) &&
         File.Exists(FfmpegExe) &&
