@@ -55,13 +55,16 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        // Clean up media helpers left behind by an interrupted/older manager run.
+        try { ExternalProcessTracker.KillAll(); } catch { }
+
         InitializeComponent();
         _minecraftOneClick = new MinecraftOneClickService(_minecraft);
         _aiOrigin = new AiOriginDetectionService(_media);
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
-            ? "Version v1.3.0"
+            ? "Version v1.4.1"
             : $"Version v{version.Major}.{version.Minor}.{version.Build}";
 
         Loaded += async (_, _) =>
