@@ -681,6 +681,41 @@
                             Click="SelectMinecraftDlssNr_Click"/>
                   </Grid>
 
+                  <Border Background="#0E1620"
+                          BorderBrush="#25384C"
+                          BorderThickness="1"
+                          CornerRadius="7"
+                          Padding="10"
+                          Margin="0,0,0,10">
+                    <StackPanel>
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*"/>
+                          <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                          <TextBlock Text="NVIDIA DLSS Neural Rendering availability"
+                                     FontWeight="SemiBold"/>
+                          <TextBlock x:Name="MinecraftNvidiaNrStatusText"
+                                     Text="Not checked yet."
+                                     Foreground="{StaticResource Muted}"
+                                     FontSize="10"
+                                     TextWrapping="Wrap"
+                                     Margin="0,3,12,0"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                x:Name="MinecraftCheckNvidiaNrButton"
+                                Content="Check NVIDIA files"
+                                Click="CheckMinecraftNvidiaNr_Click"/>
+                      </Grid>
+                      <TextBlock Text="Checks only official NVIDIA/DLSS and NVIDIA-RTX/Streamline GitHub sources for public DLSS-NR headers/runtime files. It does not download unofficial DLLs or treat renamed files as support."
+                                 Foreground="{StaticResource Muted}"
+                                 FontSize="10"
+                                 TextWrapping="Wrap"
+                                 Margin="0,7,0,0"/>
+                    </StackPanel>
+                  </Border>
+
                   <WrapPanel Margin="0,0,0,10">
                     <CheckBox x:Name="MinecraftDlssSrCheck"
                               Content="DLSS Super Resolution"
