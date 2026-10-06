@@ -33,6 +33,16 @@ Design references are kept under:
 
 The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
 
+## Self-contained monorepo migration
+
+The project is migrating away from runtime/build dependencies on separate project repositories. The target source layout keeps **Caustica RTX** directly under `Caustica-RTX/` and mirrors redistributable dependencies under `third_party/`.
+
+Use `tools/vendor-third-party.ps1` to import pinned source snapshots without nested Git repositories. `third_party/DEPENDENCIES.lock.json` records the exact refs.
+
+The Minecraft installer now resolves Caustica only from **DLSS NR Manager releases**. Release automation prefers a local `Caustica-RTX/build/libs` production JAR and otherwise reuses a previously bundled Caustica JAR from this repository's own release history. It no longer queries the standalone `grg914/Caustica-RTX` release feed.
+
+A literal zero-external-toolchain build is not possible: Windows, GPU drivers, Minecraft, Java/MSVC/Vulkan tooling and license-restricted NVIDIA SDK inputs remain external prerequisites. NVIDIA/DLSS is therefore treated as a local-only build input rather than blindly vendored into the public repository.
+
 ## Download
 
 Use the latest GitHub Release for the Windows x64 single-file build. Current releases publish:
