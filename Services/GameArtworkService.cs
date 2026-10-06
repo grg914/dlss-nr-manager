@@ -38,6 +38,7 @@ public sealed class GameArtworkService
         _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
         _cache = LoadCache();
+        PruneArtworkFiles();
     }
 
     public void ClearCache()
@@ -174,6 +175,13 @@ public sealed class GameArtworkService
         var localUrl = remote == null
             ? null
             : await CacheRemoteArtworkAsync(key, remote, cancellationToken);
+
+        if (_cache.TryGetValue(key, out var previous) &&
+            !string.IsNullOrWhiteSpace(previous.Url) &&
+            !string.Equals(previous.Url, localUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            TryDeleteArtworkFile(previous.Url);
+        }
 
         _cache[key] = new ArtworkCacheEntry(localUrl, DateTimeOffset.UtcNow, ArtworkCacheVersion);
 
@@ -995,6 +1003,66 @@ public sealed class GameArtworkService
             @"[^a-z0-9]+",
             string.Empty,
             RegexOptions.CultureInvariant);
+    }
+
+    private void PruneArtworkFiles()
+    {
+        try
+        {
+            if (!Directory.Exists(ArtworkDirectory))
+                return;
+
+            var root = Path.GetFullPath(ArtworkDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+
+            var referenced = _cache.Values
+                .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                .Select(x =>
+                {
+                    try { return Path.GetFullPath(x.Url!); }
+                    catch { return string.Empty; }
+                })
+                .Where(x => x.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var cutoff = DateTime.UtcNow - TimeSpan.FromDays(2);
+
+            foreach (var file in Directory.EnumerateFiles(
+                         ArtworkDirectory,
+                         "*",
+                         SearchOption.TopDirectoryOnly))
+            {
+                if (referenced.Contains(Path.GetFullPath(file)))
+                    continue;
+
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(file) < cutoff)
+                        File.Delete(file);
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
+    private static void TryDeleteArtworkFile(string path)
+    {
+        try
+        {
+            var root = Path.GetFullPath(ArtworkDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            var full = Path.GetFullPath(path);
+
+            if (full.StartsWith(root, StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(full))
+            {
+                File.Delete(full);
+            }
+        }
+        catch { }
     }
 
     private static ConcurrentDictionary<string, ArtworkCacheEntry> LoadCache()
