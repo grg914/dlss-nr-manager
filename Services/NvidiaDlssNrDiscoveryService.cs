@@ -189,8 +189,18 @@ public sealed class NvidiaDlssNrDiscoveryService
         if (File.Exists(entryCache) &&
             DateTime.UtcNow - File.GetLastWriteTimeUtc(entryCache) < TimeSpan.FromHours(12))
         {
-            progress?.Report($"Using cached NVIDIA Streamline {release.Tag} package index…");
-            return await File.ReadAllLinesAsync(entryCache, cancellationToken);
+            var cachedEntries =
+                await File.ReadAllLinesAsync(entryCache, cancellationToken);
+
+            if (cachedEntries.Any(line =>
+                    !string.IsNullOrWhiteSpace(line)))
+            {
+                progress?.Report(
+                    $"Using cached NVIDIA Streamline {release.Tag} package index…");
+                return cachedEntries;
+            }
+
+            try { File.Delete(entryCache); } catch { }
         }
 
         progress?.Report($"Inspecting official NVIDIA Streamline {release.Tag} package…");
