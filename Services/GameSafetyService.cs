@@ -23,10 +23,16 @@ public static class GameSafetyService
         if (string.IsNullOrWhiteSpace(gameDirectory) || !Directory.Exists(gameDirectory))
             return new(false, [], "No anti-cheat scan was possible for the selected folder.");
 
+        var root = Path.GetFullPath(gameDirectory)
+            .TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+        var rootPrefix = root + Path.DirectorySeparatorChar;
+
         var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var queue = new Queue<(string Path, int Depth)>();
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        queue.Enqueue((gameDirectory, 0));
+        queue.Enqueue((root, 0));
 
         while (queue.Count > 0 && visited.Count < 700)
         {
@@ -64,7 +70,26 @@ public static class GameSafetyService
                         name.Equals("redist", StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    queue.Enqueue((child, depth + 1));
+                    try
+                    {
+                        var attributes = File.GetAttributes(child);
+                        if ((attributes & FileAttributes.ReparsePoint) != 0)
+                            continue;
+
+                        var fullChild = Path.GetFullPath(child);
+                        if (!fullChild.StartsWith(
+                                rootPrefix,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        queue.Enqueue((fullChild, depth + 1));
+                    }
+                    catch
+                    {
+                        // Inaccessible or malformed child paths are ignored.
+                    }
                 }
             }
             catch { }
