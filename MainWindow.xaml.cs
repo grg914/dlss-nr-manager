@@ -2094,6 +2094,27 @@ public partial class MainWindow : Window
             MediaIntensitySlider.IsEnabled = mode != 1;
     }
 
+    private void SelectAiOriginMedia_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select media for AI origin detection",
+            Filter =
+                "Supported media|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.webp;*.mp4;*.mkv;*.mov;*.avi;*.webm;*.m4v|" +
+                "Images|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.webp|" +
+                "Videos|*.mp4;*.mkv;*.mov;*.avi;*.webm;*.m4v|" +
+                "All files|*.*"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        AiOriginSourceBox.Text = dialog.FileName;
+        AiOriginStatusText.Text = _aiOrigin.IsReady
+            ? "Media selected • detector ready."
+            : "Media selected • set up the detector before analysis.";
+    }
+
     private async void SetupAiOrigin_Click(
         object sender,
         RoutedEventArgs e)
@@ -2132,7 +2153,7 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        var source = MediaSourceBox.Text;
+        var source = AiOriginSourceBox.Text;
         if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
         {
             MessageBox.Show(
