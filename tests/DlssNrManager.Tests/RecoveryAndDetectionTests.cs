@@ -226,6 +226,48 @@ public sealed class RecoveryAndDetectionTests : IDisposable
         Assert.Empty(integrity.ChangedFiles);
     }
 
+    [Theory]
+    [InlineData("OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip", "v0.7.7-pre0")]
+    [InlineData("OptiScaler-NR-v1.2.3-vendored-win-x64.zip", "v1.2.3")]
+    public void Manager_owned_optiscaler_asset_name_round_trips_tag(
+        string assetName,
+        string expectedTag)
+    {
+        Assert.True(
+            GitHubReleaseService.TryParseOptiScalerTag(
+                assetName,
+                out var tag));
+
+        Assert.Equal(expectedTag, tag);
+    }
+
+    [Theory]
+    [InlineData("OptiScaler-NR-v0.7.7-pre0.zip")]
+    [InlineData("OptiScaler-v0.7.7-pre0-vendored-win-x64.zip")]
+    [InlineData("DlssNrManager-win-x64.zip")]
+    public void Non_manager_optiscaler_asset_names_are_rejected(
+        string assetName)
+    {
+        Assert.False(
+            GitHubReleaseService.TryParseOptiScalerTag(
+                assetName,
+                out _));
+    }
+
+    [Theory]
+    [InlineData("v0.7.7-pre0", true)]
+    [InlineData("v0.7.7-rc1", true)]
+    [InlineData("v0.7.7-beta2", true)]
+    [InlineData("v0.7.7-dev", true)]
+    [InlineData("v0.7.7", false)]
+    [InlineData("v0.7.7-final", false)]
+    public void Optiscaler_prerelease_detection_tracks_source_tag(
+        string tag,
+        bool expected)
+        => Assert.Equal(
+            expected,
+            GitHubReleaseService.IsOptiScalerPrerelease(tag));
+
     [Fact]
     public async Task Network_retry_retries_only_transient_failures()
     {
