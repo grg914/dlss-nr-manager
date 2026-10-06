@@ -138,6 +138,12 @@
                                FontWeight="SemiBold"/>
                   </Border>
                 </StackPanel>
+                <TextBlock x:Name="GpuCompatibilityText"
+                           Text="Checking RTX feature compatibility…"
+                           Foreground="{StaticResource Muted}"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Margin="0,8,0,0"/>
               </StackPanel>
 
               <StackPanel Grid.Column="2"
@@ -427,6 +433,29 @@
                             IsChecked="True"
                             Margin="0,14,0,0"
                             ToolTip="Downloads the latest official NVIDIA Streamline release and copies only missing SR/FG/Reflex/NR runtime DLLs. Existing game DLLs are never overwritten."/>
+
+                  <Border Background="#26180A"
+                          BorderBrush="#8B5A16"
+                          BorderThickness="1"
+                          CornerRadius="9"
+                          Padding="11"
+                          Margin="0,14,0,0">
+                    <StackPanel>
+                      <TextBlock Text="Offline / single-player use only"
+                                 FontWeight="SemiBold"/>
+                      <TextBlock Text="Do not install graphics injection/modification files into multiplayer or anti-cheat-protected games unless the game developer explicitly allows it. Anti-cheat systems can treat injected proxy DLLs as tampering and account sanctions, including bans, are possible."
+                                 Foreground="{StaticResource Muted}"
+                                 TextWrapping="Wrap"
+                                 FontSize="11"
+                                 Margin="0,4,0,0"/>
+                      <TextBlock x:Name="GameSafetyText"
+                                 Text="Select a game to run the anti-cheat risk check."
+                                 Foreground="{StaticResource Muted}"
+                                 TextWrapping="Wrap"
+                                 FontSize="11"
+                                 Margin="0,6,0,0"/>
+                    </StackPanel>
+                  </Border>
 
                   <Grid Margin="0,16,0,0">
                     <Grid.ColumnDefinitions>
