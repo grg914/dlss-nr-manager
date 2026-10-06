@@ -80,6 +80,7 @@
       "path": "third_party/ReShade",
       "url": "https://github.com/crosire/reshade.git",
       "ref": "7bf9de8b33bcc76c3177007e65d73c72dd0f34c0",
+      "base_tag": "v6.8.0",
       "redistribution": "BSD-3-Clause"
     },
     {
