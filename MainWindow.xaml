@@ -380,7 +380,7 @@
                   </Grid>
 
                   <CheckBox x:Name="AutoNvidiaRuntimeCheck"
-                            Content="Automatically download the latest official NVIDIA Streamline DLSSNR runtime when needed"
+                            Content="Automatically check NVIDIA Streamline and use an official DLSSNR runtime when NVIDIA publishes one"
                             IsChecked="True"
                             Margin="0,9,0,0"/>
 
