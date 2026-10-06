@@ -36,9 +36,18 @@ public sealed class InstallerService
         var runtime = Path.Combine(gameDir, "nvngx_dlssnr.dll");
         string? hash = null;
         if (File.Exists(runtime))
-            hash = HashService.Sha256Async(runtime).GetAwaiter().GetResult();
+            hash = HashService.Sha256(runtime);
 
         var expected = ExpectedRuntimeHash(gpuGeneration);
+        var manifest = ReadManifest(gameDir);
+        var runtimeHashValid =
+            hash != null &&
+            (
+                (expected != null &&
+                 hash.Equals(expected, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(manifest?.RuntimeHash) &&
+                 hash.Equals(manifest.RuntimeHash, StringComparison.OrdinalIgnoreCase))
+            );
 
         var ini = Path.Combine(gameDir, "OptiScaler.ini");
         var forwarder = Path.Combine(gameDir, "nvngx.dll_dlssnr.dll");
@@ -79,7 +88,7 @@ public sealed class InstallerService
             ReadInstalledVersion(gameDir),
             File.Exists(runtime),
             hash,
-            expected != null && hash?.Equals(expected, StringComparison.OrdinalIgnoreCase) == true);
+            runtimeHashValid);
     }
 
     public async Task<string> InstallAsync(
