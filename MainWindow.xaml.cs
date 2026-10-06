@@ -104,7 +104,9 @@ public partial class MainWindow : Window
 
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "AI origin detector ready."
-            : "AI origin detector not installed yet.";
+            : _aiOrigin.IsInstalled
+                ? "AI origin detector installed • model verification pending."
+                : "AI origin detector not installed yet.";
 
         _cleanupItems = _pcCleanup.CreateDefaultItems();
         PcCleanupList.ItemsSource = _cleanupItems;
@@ -2652,7 +2654,9 @@ public partial class MainWindow : Window
         AiOriginClearMediaButton.IsEnabled = true;
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "Media selected • detector ready."
-            : "Media selected • set up the detector before analysis.";
+            : _aiOrigin.IsInstalled
+                ? "Media selected • models installed; verify them before analysis."
+                : "Media selected • set up the detector before analysis.";
     }
 
     private void ClearAiOriginMedia_Click(object sender, RoutedEventArgs e)
@@ -2661,7 +2665,9 @@ public partial class MainWindow : Window
         AiOriginClearMediaButton.IsEnabled = false;
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "No media selected • detector ready."
-            : "No media selected • detector not set up yet.";
+            : _aiOrigin.IsInstalled
+                ? "No media selected • detector installed, verification pending."
+                : "No media selected • detector not set up yet.";
     }
 
     private async void SetupAiOrigin_Click(
@@ -2676,9 +2682,12 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message => AiOriginStatusText.Text = message);
 
-            await _aiOrigin.SetupAsync(progress);
+            await _aiOrigin.SetupAsync(
+                progress,
+                CancellationToken.None,
+                forceVerify: true);
             AiOriginStatusText.Text =
-                "AI origin detector ready • two-model ONNX ensemble installed.";
+                "AI origin detector ready • both ONNX models verified by SHA-256.";
         }
         catch (Exception ex)
         {
