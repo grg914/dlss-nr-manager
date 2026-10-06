@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.IO.Compression;
 using System.Text.Json;
 
 namespace DlssNrManager.Services;
@@ -54,9 +55,15 @@ public sealed class NvidiaDlssNrDiscoveryService
         var streamlinePaths = await streamlineTreeTask;
         var release = await releaseTask;
 
+        var packageEntries = await ReadLatestStreamlinePackageEntriesAsync(
+            release,
+            progress,
+            cancellationToken);
+
         var searchable = dlssPaths
             .Concat(streamlinePaths)
-            .Concat(release.Assets)
+            .Concat(release.Assets.Select(x => x.Name))
+            .Concat(packageEntries)
             .ToArray();
 
         var found = RequiredSignals
@@ -124,7 +131,7 @@ public sealed class NvidiaDlssNrDiscoveryService
             .ToList();
     }
 
-    private async Task<(string Tag, IReadOnlyList<string> Assets)> ReadLatestReleaseAsync(
+    private async Task<ReleaseSnapshot> ReadLatestReleaseAsync(
         string repository,
         CancellationToken cancellationToken)
     {
@@ -138,13 +145,81 @@ public sealed class NvidiaDlssNrDiscoveryService
 
         var assets = release.RootElement.TryGetProperty("assets", out var assetArray)
             ? assetArray.EnumerateArray()
-                .Select(x => x.TryGetProperty("name", out var n) ? n.GetString() : null)
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Select(x => x!)
+                .Select(x => new ReleaseAsset(
+                    x.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                    x.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : ""))
+                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
                 .ToList()
             : [];
 
-        return (tag, assets);
+        return new ReleaseSnapshot(tag, assets);
+    }
+
+    private async Task<IReadOnlyList<string>> ReadLatestStreamlinePackageEntriesAsync(
+        ReleaseSnapshot release,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var asset = release.Assets
+            .Where(x => x.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            .Where(x => !x.Name.Contains("source", StringComparison.OrdinalIgnoreCase))
+            .Where(x => !x.Name.Contains("arm", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(x =>
+                x.Name.Contains("x64", StringComparison.OrdinalIgnoreCase) ||
+                x.Name.Contains("win64", StringComparison.OrdinalIgnoreCase))
+            .ThenBy(x => x.Name.Length)
+            .FirstOrDefault();
+
+        if (asset == null || string.IsNullOrWhiteSpace(asset.Url))
+            return [];
+
+        progress?.Report($"Inspecting official NVIDIA Streamline {release.Tag} package…");
+
+        var tempRoot = Path.Combine(
+            Path.GetTempPath(),
+            "DlssNrManager",
+            "nvidia-nr-discovery");
+        Directory.CreateDirectory(tempRoot);
+        var tempZip = Path.Combine(tempRoot, $"{Guid.NewGuid():N}.zip");
+
+        try
+        {
+            using var response = await _http.GetAsync(
+                asset.Url,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var output = new FileStream(
+                             tempZip,
+                             FileMode.Create,
+                             FileAccess.Write,
+                             FileShare.None,
+                             128 * 1024,
+                             useAsync: true))
+            {
+                await input.CopyToAsync(output, cancellationToken);
+            }
+
+            using var archive = ZipFile.OpenRead(tempZip);
+            return archive.Entries
+                .Select(entry => entry.FullName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToList();
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempZip))
+                    File.Delete(tempZip);
+            }
+            catch
+            {
+                // Discovery is read-only; cleanup failure must not change the result.
+            }
+        }
     }
 
     private async Task<JsonDocument> GetJsonAsync(
@@ -163,4 +238,7 @@ public sealed class NvidiaDlssNrDiscoveryService
             stream,
             cancellationToken: cancellationToken);
     }
+
+    private sealed record ReleaseAsset(string Name, string Url);
+    private sealed record ReleaseSnapshot(string Tag, IReadOnlyList<ReleaseAsset> Assets);
 }
