@@ -188,6 +188,45 @@ public sealed class RecoveryAndDetectionTests : IDisposable
     }
 
     [Fact]
+    public void Manager_owned_ini_edits_refresh_integrity_hash()
+    {
+        var ini = Path.Combine(_root, "OptiScaler.ini");
+        File.WriteAllText(
+            ini,
+            "[DlssNr]\nEnabled=true\nWorkingScale=1.0\n[Menu]\nShowFps=true\n");
+
+        var manifest = new InstallManifest(
+            "v-test",
+            "dxgi.dll",
+            "Game.exe",
+            "",
+            "",
+            DateTimeOffset.UtcNow,
+            ["OptiScaler.ini", ".dlssnr-manager-state.json"],
+            null,
+            new Dictionary<string, string>
+            {
+                ["OptiScaler.ini"] = HashService.Sha256(ini)
+            });
+
+        File.WriteAllText(
+            Path.Combine(_root, ".dlssnr-manager-state.json"),
+            System.Text.Json.JsonSerializer.Serialize(manifest));
+
+        var installer = new InstallerService();
+        installer.ApplyPreset(
+            _root,
+            "0.75",
+            enableNeuralRendering: true);
+
+        var integrity =
+            new ManagedInstallIntegrityService().Verify(_root);
+
+        Assert.True(integrity.Healthy);
+        Assert.Empty(integrity.ChangedFiles);
+    }
+
+    [Fact]
     public async Task Network_retry_retries_only_transient_failures()
     {
         var attempts = 0;
