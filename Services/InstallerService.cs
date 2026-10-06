@@ -440,6 +440,24 @@ public sealed class InstallerService
             return;
         }
 
+        var backupsRoot = Path.Combine(
+            gameDir,
+            ".dlssnr-manager-backups");
+        var managerEvidence =
+            File.Exists(Path.Combine(gameDir, ".dlssnr-manager-version")) ||
+            File.Exists(Path.Combine(gameDir, ".dlssnr-manager-proxy")) ||
+            Directory.Exists(backupsRoot);
+
+        if (!managerEvidence)
+        {
+            throw new InvalidOperationException(
+                "No DLSS NR Manager manifest, marker or backup was found. " +
+                "Refusing destructive legacy uninstall because the detected OptiScaler files may belong to a manual installation.");
+        }
+
+        if (preserveBackups)
+            _ = CreateBackup(gameDir);
+
         var managedProxy = ReadManagedProxy(gameDir);
 
         foreach (var p in ProxyNames)
