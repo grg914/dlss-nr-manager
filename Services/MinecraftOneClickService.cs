@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Net.Http.Headers;
 
 namespace DlssNrManager.Services;
 
@@ -13,6 +14,10 @@ public sealed record MinecraftOneClickResult(
 public sealed class MinecraftOneClickService
 {
     private readonly MinecraftIntegrationService _integration;
+    private static readonly HttpClient PackHttp = CreatePackHttpClient();
+    private const string ManagerRepository = "grg914/dlss-nr-manager";
+    private const string ScandiTextureAsset = "ScandiTextureV1.zip";
+    private const string ScandiShaderAsset = "ScandiShaderV2.zip";
 
     private static readonly string[] ConflictingRendererTokens =
     [
@@ -157,6 +162,13 @@ public sealed class MinecraftOneClickService
 
             completedSetup = setup;
 
+            progress?.Report("Installing ScandiCraft texture/shader packs for the Minecraft RTX profile…");
+            var scandiPacks = await InstallScandiPacksAsync(
+                root,
+                backup,
+                progress,
+                cancellationToken);
+
             var createdFabricVersions = SnapshotFabricVersionDirectories(root)
                 .Except(existingFabricVersions, StringComparer.OrdinalIgnoreCase)
                 .Select(path => Path.GetRelativePath(root, path))
@@ -186,7 +198,13 @@ public sealed class MinecraftOneClickService
                 "Minecraft graphics backend preference set to Vulkan.",
                 "Caustica RTX provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and NVIDIA Reflex through its own renderer.",
                 "The project Caustica build also includes RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering controls.",
-                "Open Video Settings → Ray Tracing after first launch to choose DLSS quality, Frame Generation multiplier, Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look."
+                "Open Video Settings → Ray Tracing after first launch to choose DLSS quality, Frame Generation multiplier, Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look.",
+                scandiPacks.TextureInstalled
+                    ? "ScandiTextureV1 installed in resourcepacks."
+                    : "ScandiTextureV1 was not available beside the manager or in the latest manager release; RTX installation continued.",
+                scandiPacks.ShaderInstalled
+                    ? "ScandiShaderV2 installed in shaderpacks for optional non-Caustica use. Caustica RTX uses the native ScandiShader RTX Look instead of Iris/OptiFine shader execution."
+                    : "ScandiShaderV2 was not available beside the manager or in the latest manager release; Caustica's native ScandiShader RTX Look remains available."
             };
 
             if (installRtxPerformancePack)
@@ -252,7 +270,7 @@ public sealed class MinecraftOneClickService
             }
 
             progress?.Report(
-                "Minecraft DLSS / RTX stack is installed. Launch the Fabric profile, then use Video Settings → Ray Tracing for DLSS/RR/FG/Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look.");
+                "Minecraft DLSS / RTX stack is installed. Scandi packs were staged when available. Launch the Fabric profile, then use Video Settings → Ray Tracing for DLSS/RR/FG/Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look.");
 
             return new MinecraftOneClickResult(
                 setup,
@@ -291,6 +309,8 @@ public sealed class MinecraftOneClickService
                             "resourcepacks"),
                         Path.Combine(root, "resourcepacks"));
                 }
+
+                RestoreManagedScandiPacks(root, backup);
 
                 RestoreFromBackup(
                     root,
@@ -385,6 +405,7 @@ public sealed class MinecraftOneClickService
             Path.Combine(root, "caustica-streamline"));
 
         RestoreMatchingConfig(root, backup);
+        RestoreManagedScandiPacks(root, backup);
 
         if (componentBackup != null && Directory.Exists(componentBackup))
         {
@@ -434,6 +455,130 @@ public sealed class MinecraftOneClickService
         }
 
         return moved;
+    }
+
+    private sealed record ScandiPackInstallResult(bool TextureInstalled, bool ShaderInstalled);
+
+    private static HttpClient CreatePackHttpClient()
+    {
+        var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "1.2"));
+        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        return http;
+    }
+
+    private static async Task<ScandiPackInstallResult> InstallScandiPacksAsync(
+        string root,
+        string backup,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var textureDestination = Path.Combine(root, "resourcepacks", ScandiTextureAsset);
+        var shaderDestination = Path.Combine(root, "shaderpacks", ScandiShaderAsset);
+
+        BackupFile(textureDestination, Path.Combine(backup, "scandi-packs", "resourcepacks", ScandiTextureAsset));
+        BackupFile(shaderDestination, Path.Combine(backup, "scandi-packs", "shaderpacks", ScandiShaderAsset));
+
+        var textureSource = FindLocalPack(ScandiTextureAsset);
+        var shaderSource = FindLocalPack(ScandiShaderAsset, "ScandiShaderV2(5).zip");
+
+        if (textureSource == null || shaderSource == null)
+        {
+            try
+            {
+                using var response = await PackHttp.GetAsync(
+                    $"https://api.github.com/repos/{ManagerRepository}/releases/latest",
+                    cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+                    if (json.RootElement.TryGetProperty("assets", out var assets))
+                    {
+                        if (textureSource == null)
+                            textureSource = await DownloadReleaseAssetAsync(assets, ScandiTextureAsset, backup, cancellationToken);
+                        if (shaderSource == null)
+                            shaderSource = await DownloadReleaseAssetAsync(assets, ScandiShaderAsset, backup, cancellationToken);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                progress?.Report($"Scandi pack release lookup skipped: {ex.Message}");
+            }
+        }
+
+        var textureInstalled = CopyPack(textureSource, textureDestination);
+        var shaderInstalled = CopyPack(shaderSource, shaderDestination);
+
+        if (textureInstalled)
+            progress?.Report($"Installed {ScandiTextureAsset} → resourcepacks.");
+        if (shaderInstalled)
+            progress?.Report($"Installed {ScandiShaderAsset} → shaderpacks (kept disabled for the Caustica RTX profile).");
+
+        return new ScandiPackInstallResult(textureInstalled, shaderInstalled);
+    }
+
+    private static string? FindLocalPack(params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var candidate = Path.Combine(AppContext.BaseDirectory, name);
+            if (File.Exists(candidate))
+                return candidate;
+        }
+        return null;
+    }
+
+    private static async Task<string?> DownloadReleaseAssetAsync(
+        JsonElement assets,
+        string assetName,
+        string backup,
+        CancellationToken cancellationToken)
+    {
+        foreach (var asset in assets.EnumerateArray())
+        {
+            if (!asset.TryGetProperty("name", out var name) ||
+                !assetName.Equals(name.GetString(), StringComparison.OrdinalIgnoreCase) ||
+                !asset.TryGetProperty("browser_download_url", out var urlElement))
+                continue;
+
+            var url = urlElement.GetString();
+            if (string.IsNullOrWhiteSpace(url))
+                return null;
+
+            var cache = Path.Combine(backup, "downloads", assetName);
+            Directory.CreateDirectory(Path.GetDirectoryName(cache)!);
+            await using var input = await PackHttp.GetStreamAsync(url, cancellationToken);
+            await using var output = File.Create(cache);
+            await input.CopyToAsync(output, cancellationToken);
+            return cache;
+        }
+        return null;
+    }
+
+    private static bool CopyPack(string? source, string destination)
+    {
+        if (source == null || !File.Exists(source))
+            return false;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        File.Copy(source, destination, true);
+        return true;
+    }
+
+    private static void RestoreManagedScandiPacks(string root, string backup)
+    {
+        var textureDestination = Path.Combine(root, "resourcepacks", ScandiTextureAsset);
+        var shaderDestination = Path.Combine(root, "shaderpacks", ScandiShaderAsset);
+        TryDeleteFile(textureDestination);
+        TryDeleteFile(shaderDestination);
+
+        RestoreTopLevelFiles(
+            Path.Combine(backup, "scandi-packs", "resourcepacks"),
+            Path.Combine(root, "resourcepacks"));
+        RestoreTopLevelFiles(
+            Path.Combine(backup, "scandi-packs", "shaderpacks"),
+            Path.Combine(root, "shaderpacks"));
     }
 
     private static void SetPreferredGraphicsBackend(string root, string backend)
