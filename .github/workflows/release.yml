@@ -75,7 +75,7 @@ jobs:
           # The texture fingerprint below is the validated SPBR-based Scandi-safe pack.
           # It keeps SPBR terrain/PBR assets and adds the verified Scandi sky/UI/effects set.
           $assets = @(
-            @{ Name = "ScandiTextureV1.zip"; Sha256 = "1BB19E99208E8826EABF7775FA06353E78A6EA449D43F12CD9D26EACF5BD9177" },
+            @{ Name = "SPBRScandi.zip"; Sha256 = "1BB19E99208E8826EABF7775FA06353E78A6EA449D43F12CD9D26EACF5BD9177" },
             @{ Name = "ScandiShaderV2.zip";  Sha256 = "C2C1E9C531342CC314368146A963FC2FD7D4A414F67C971558FC5ECA89D329F9" }
           )
 
@@ -112,7 +112,7 @@ jobs:
             publish/DlssNrManager.exe
             DlssNrManager-win-x64.zip
             SHA256SUMS.txt
-            release-assets/ScandiTextureV1.zip
+            release-assets/SPBRScandi.zip
             release-assets/ScandiShaderV2.zip
           fail_on_unmatched_files: false
           generate_release_notes: true
