@@ -92,27 +92,6 @@ jobs:
           "asset=$($asset.name)" >> $env:GITHUB_OUTPUT
           Write-Host "Bundled $($asset.name) from $($release.tag_name)"
 
-      - name: Generate SHA-256 checksums
-        shell: pwsh
-        run: |
-          $files = @(
-            "publish/DlssNrManager.exe",
-            "DlssNrManager-win-x64.zip",
-            (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}")
-          )
-
-          $lines = foreach ($file in $files) {
-            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $([System.IO.Path]::GetFileName($file))"
-          }
-
-          [System.IO.File]::WriteAllLines(
-            (Join-Path $PWD "SHA256SUMS.txt"),
-            $lines,
-            [System.Text.UTF8Encoding]::new($false))
-
-          Get-Content SHA256SUMS.txt
-
       - name: Reuse validated SPBRScandi release asset
         shell: pwsh
         env:
@@ -164,6 +143,36 @@ jobs:
 
             Write-Host "Validated $($asset.Name) • SHA-256 $actual"
           }
+
+      - name: Generate final SHA-256 checksums
+        shell: pwsh
+        run: |
+          $files = @(
+            "publish/DlssNrManager.exe",
+            "DlssNrManager-win-x64.zip",
+            (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}")
+          )
+
+          foreach ($optional in @(
+            "release-assets/SPBRScandi.zip",
+            "release-assets/ScandiShaderV2.zip"
+          )) {
+            if (Test-Path $optional) {
+              $files += $optional
+            }
+          }
+
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([System.IO.Path]::GetFileName($file))"
+          }
+
+          [System.IO.File]::WriteAllLines(
+            (Join-Path $PWD "SHA256SUMS.txt"),
+            $lines,
+            [System.Text.UTF8Encoding]::new($false))
+
+          Get-Content SHA256SUMS.txt
 
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
