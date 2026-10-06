@@ -12,20 +12,26 @@ public static class IniService
         var dlssNrSection = FindSection(lines, "DlssNr");
         if (dlssNrSection >= 0)
         {
-            SetIfPresent(lines, dlssNrSection, "Enabled", enableNeuralRendering ? "true" : "false");
-            SetIfPresent(lines, dlssNrSection, "RunBeforeSR", "true");
-            SetIfPresent(lines, dlssNrSection, "Passes", "1");
-            SetIfPresent(lines, dlssNrSection, "WorkingScale", workingScale);
-            SetIfPresent(lines, dlssNrSection, "Style", "1");
+            SetOrAdd(lines, dlssNrSection, "Enabled", enableNeuralRendering ? "true" : "false");
+            SetOrAdd(lines, dlssNrSection, "RunBeforeSR", "true");
+            SetOrAdd(lines, dlssNrSection, "Passes", "1");
+            SetOrAdd(lines, dlssNrSection, "WorkingScale", workingScale);
+            SetOrAdd(lines, dlssNrSection, "Style", "1");
+        }
+        else if (enableNeuralRendering)
+        {
+            throw new InvalidDataException(
+                "OptiScaler.ini does not contain the [DlssNr] section required for Neural Rendering. " +
+                "The selected OptiScaler package is not compatible with this preset.");
         }
 
         var menuSection = FindSection(lines, "Menu");
         if (menuSection >= 0)
         {
-            SetIfPresent(lines, menuSection, "OverlayMenu", "true");
-            SetIfPresent(lines, menuSection, "ShortcutKey", "0x79"); // VK_F10
-            SetIfPresent(lines, menuSection, "ShowFps", "true");
-            SetIfPresent(lines, menuSection, "FpsOverlayType", "1");
+            SetOrAdd(lines, menuSection, "OverlayMenu", "true");
+            SetOrAdd(lines, menuSection, "ShortcutKey", "0x79"); // VK_F10
+            SetOrAdd(lines, menuSection, "ShowFps", "true");
+            SetOrAdd(lines, menuSection, "FpsOverlayType", "1");
         }
 
         File.WriteAllLines(iniPath, lines);
@@ -47,17 +53,17 @@ public static class IniService
         var menuSection = FindSection(lines, "Menu");
         if (menuSection >= 0)
         {
-            SetIfPresent(lines, menuSection, "ShowFps", showFps ? "true" : "false");
-            SetIfPresent(lines, menuSection, "FpsOverlayType", Math.Clamp(fpsType, 0, 6).ToString());
-            SetIfPresent(lines, menuSection, "FpsOverlayPos", Math.Clamp(fpsPosition, 0, 3).ToString());
-            SetIfPresent(lines, menuSection, "OverlayMenu", "true");
-            SetIfPresent(lines, menuSection, "ShortcutKey", "0x79");
+            SetOrAdd(lines, menuSection, "ShowFps", showFps ? "true" : "false");
+            SetOrAdd(lines, menuSection, "FpsOverlayType", Math.Clamp(fpsType, 0, 6).ToString());
+            SetOrAdd(lines, menuSection, "FpsOverlayPos", Math.Clamp(fpsPosition, 0, 3).ToString());
+            SetOrAdd(lines, menuSection, "OverlayMenu", "true");
+            SetOrAdd(lines, menuSection, "ShortcutKey", "0x79");
         }
 
         var processSection = FindSection(lines, "ProcessFilter");
         if (processSection >= 0)
         {
-            SetIfPresent(
+            SetOrAdd(
                 lines,
                 processSection,
                 "TargetProcessName",
@@ -66,7 +72,7 @@ public static class IniService
 
         var pluginsSection = FindSection(lines, "Plugins");
         if (pluginsSection >= 0)
-            SetIfPresent(lines, pluginsSection, "LoadReshade", loadReShade ? "true" : "false");
+            SetOrAdd(lines, pluginsSection, "LoadReshade", loadReShade ? "true" : "false");
 
         File.WriteAllLines(iniPath, lines);
     }
@@ -84,10 +90,18 @@ public static class IniService
         for (var i = sectionIndex + 1; i < lines.Count && !lines[i].TrimStart().StartsWith("["); i++)
         {
             var value = lines[i].Trim();
-            if (!value.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase))
+            if (value.Length == 0 || value.StartsWith(';') || value.StartsWith('#'))
                 continue;
 
-            return value[(value.IndexOf('=') + 1)..].Trim();
+            var separator = value.IndexOf('=');
+            if (separator <= 0)
+                continue;
+
+            var candidateKey = value[..separator].Trim();
+            if (!candidateKey.Equals(key, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            return value[(separator + 1)..].Trim();
         }
 
         return null;
@@ -96,17 +110,32 @@ public static class IniService
     private static int FindSection(List<string> lines, string name)
         => lines.FindIndex(x => x.Trim().Equals($"[{name}]", StringComparison.OrdinalIgnoreCase));
 
-    private static void SetIfPresent(List<string> lines, int section, string key, string value)
+    private static void SetOrAdd(List<string> lines, int section, string key, string value)
     {
-        for (var i = section + 1; i < lines.Count && !lines[i].TrimStart().StartsWith("["); i++)
+        var insertAt = lines.Count;
+
+        for (var i = section + 1; i < lines.Count; i++)
         {
             var trimmed = lines[i].TrimStart();
-            if (!trimmed.StartsWith(key + "=", StringComparison.OrdinalIgnoreCase))
+            if (trimmed.StartsWith("["))
+            {
+                insertAt = i;
+                break;
+            }
+
+            if (trimmed.Length == 0 || trimmed.StartsWith(';') || trimmed.StartsWith('#'))
+                continue;
+
+            var separator = trimmed.IndexOf('=');
+            if (separator <= 0 ||
+                !trimmed[..separator].Trim().Equals(key, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var indent = lines[i][..(lines[i].Length - trimmed.Length)];
             lines[i] = $"{indent}{key}={value}";
             return;
         }
+
+        lines.Insert(insertAt, $"{key}={value}");
     }
 }
