@@ -1,12 +1,36 @@
 using DlssNrManager.Services;
+using System.Threading;
+using System.Windows;
 using System.Windows.Threading;
 
 namespace DlssNrManager;
 
-public partial class App : System.Windows.Application
+public partial class App : Application
 {
-    protected override void OnStartup(System.Windows.StartupEventArgs e)
+    private Mutex? _singleInstanceMutex;
+    private bool _ownsSingleInstanceMutex;
+
+    protected override void OnStartup(StartupEventArgs e)
     {
+        _singleInstanceMutex = new Mutex(
+            initiallyOwned: true,
+            name: @"Local\DlssNrManager.SingleInstance",
+            createdNew: out _ownsSingleInstanceMutex);
+
+        if (!_ownsSingleInstanceMutex)
+        {
+            MessageBox.Show(
+                "DLSS NR Manager is already running. Close the existing instance before starting another one.",
+                "DLSS NR Manager",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            _singleInstanceMutex.Dispose();
+            _singleInstanceMutex = null;
+            Shutdown(0);
+            return;
+        }
+
         AppLogger.Initialize();
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -18,13 +42,30 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
     }
 
-    protected override void OnExit(System.Windows.ExitEventArgs e)
+    protected override void OnExit(ExitEventArgs e)
     {
+        try
+        {
+            ExternalProcessTracker.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"External process shutdown cleanup failed: {ex.Message}");
+        }
+
         AppLogger.Info($"Application exiting with code {e.ApplicationExitCode}.");
 
         DispatcherUnhandledException -= OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
         TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
+
+        if (_ownsSingleInstanceMutex && _singleInstanceMutex != null)
+        {
+            try { _singleInstanceMutex.ReleaseMutex(); } catch { }
+        }
+
+        _singleInstanceMutex?.Dispose();
+        _singleInstanceMutex = null;
 
         base.OnExit(e);
     }
@@ -36,6 +77,8 @@ public partial class App : System.Windows.Application
         AppLogger.Error(
             "Unhandled WPF dispatcher exception.",
             e.Exception);
+
+        try { ExternalProcessTracker.KillAll(); } catch { }
 
         // Keep the default crash behavior. The log is diagnostic, not a
         // mechanism for hiding potentially corrupted application state.
@@ -49,6 +92,11 @@ public partial class App : System.Windows.Application
         AppLogger.Error(
             $"Unhandled AppDomain exception. IsTerminating={e.IsTerminating}.",
             e.ExceptionObject as Exception);
+
+        if (e.IsTerminating)
+        {
+            try { ExternalProcessTracker.KillAll(); } catch { }
+        }
     }
 
     private static void OnUnobservedTaskException(
@@ -59,7 +107,6 @@ public partial class App : System.Windows.Application
             "Unobserved task exception.",
             e.Exception);
 
-        // Logging is sufficient here; prevent finalizer-thread escalation.
         e.SetObserved();
     }
 }
