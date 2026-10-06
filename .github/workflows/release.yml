@@ -47,12 +47,58 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
 
+      - name: Bundle latest compatible Caustica RTX
+        id: caustica
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "DlssNrManager-Release"
+          }
+          $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/grg914/Caustica-RTX/releases?per_page=50"
+
+          $release = $releases | Where-Object {
+            -not $_.draft -and (("$($_.tag_name) $($_.name) $($_.body)") -match "(?<!\d)26\.2(?!\d)")
+          } | Select-Object -First 1
+
+          if (-not $release) {
+            throw "No compatible Caustica RTX Minecraft 26.2 release was found."
+          }
+
+          $asset = $release.assets | Where-Object {
+            $_.name -match "(?i)caustica.*\.jar$" -and
+            $_.name -notmatch "(?i)(sources|dev|javadoc)"
+          } | Select-Object -First 1
+
+          if (-not $asset) {
+            throw "Compatible Caustica release '$($release.tag_name)' has no production JAR asset."
+          }
+
+          $destination = Join-Path "release-assets" $asset.name
+          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $destination
+
+          if ($asset.digest -and $asset.digest.StartsWith("sha256:")) {
+            $expected = $asset.digest.Substring(7)
+            $actual = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected.ToLowerInvariant()) {
+              throw "Caustica SHA-256 mismatch. Expected $expected, got $actual."
+            }
+          }
+
+          "asset=$($asset.name)" >> $env:GITHUB_OUTPUT
+          Write-Host "Bundled $($asset.name) from $($release.tag_name)"
+
       - name: Generate SHA-256 checksums
         shell: pwsh
         run: |
           $files = @(
             "publish/DlssNrManager.exe",
-            "DlssNrManager-win-x64.zip"
+            "DlssNrManager-win-x64.zip",
+            (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}")
           )
 
           $lines = foreach ($file in $files) {
@@ -114,6 +160,7 @@ jobs:
             SHA256SUMS.txt
             release-assets/SPBRScandi.zip
             release-assets/ScandiShaderV2.zip
+            release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
           fail_on_unmatched_files: false
           generate_release_notes: true
           make_latest: true
