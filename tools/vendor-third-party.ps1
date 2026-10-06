@@ -1,5 +1,6 @@
 param(
     [switch]$Replace,
+    [switch]$NormalizeExisting,
     [switch]$IncludeMinecraftSources,
     [switch]$IncludeRestrictedNvidiaSdk
 )
@@ -81,6 +82,68 @@ function Test-ExistingImport {
     catch {
         return $false
     }
+}
+
+
+function Normalize-ExistingImport {
+    param(
+        [Parameter(Mandatory=$true)]$Source,
+        [Parameter(Mandatory=$true)][string]$Group
+    )
+
+    $id = [string]$Source.id
+    $url = [string]$Source.url
+    $ref = [string]$Source.ref
+    $destination = [string]$Source.path
+    $target = Join-Path $Root $destination
+
+    Assert-ImmutableRef -Id $id -Ref $ref
+
+    if (!(Test-Path -LiteralPath $target)) {
+        Write-Warning "SKIP $destination (folder not present)"
+        return
+    }
+
+    Remove-GitMetadata -Path $target
+
+    $nestedGit = Get-ChildItem -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq ".git" } |
+        Select-Object -First 1
+    if ($nestedGit) {
+        throw "Nested Git metadata remains after normalization: $($nestedGit.FullName)"
+    }
+
+    $lfsPointers = @(Get-LfsPointers -Path $target)
+    if ($lfsPointers.Count -gt 0) {
+        $sample = ($lfsPointers | Select-Object -First 5) -join ", "
+        throw "Unmaterialized Git LFS pointer(s) remain in '$destination'. Example(s): $sample"
+    }
+
+    $sourcePath = Join-Path $target "SOURCE.json"
+    $importedAt = $null
+    if (Test-Path -LiteralPath $sourcePath) {
+        try {
+            $existing = Get-Content -LiteralPath $sourcePath -Raw | ConvertFrom-Json
+            if ($existing.imported_at_utc) {
+                $importedAt = [string]$existing.imported_at_utc
+            }
+        }
+        catch {
+            # Replace invalid provenance metadata below.
+        }
+    }
+
+    $metadata = [ordered]@{
+        id = $id
+        group = $Group
+        url = $url
+        ref = $ref
+        imported_at_utc = if ($importedAt) { $importedAt } else { [DateTime]::UtcNow.ToString("o") }
+        normalized_at_utc = [DateTime]::UtcNow.ToString("o")
+    } | ConvertTo-Json
+
+    Set-Content -LiteralPath $sourcePath -Value $metadata -Encoding UTF8
+    Write-Host "NORMALIZED $destination -> $ref"
 }
 
 function Import-Repo {
@@ -179,6 +242,25 @@ function Import-Repo {
             Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
+}
+
+
+if ($NormalizeExisting) {
+    foreach ($source in @($Lock.sources)) {
+        $group = if ($source.group) { [string]$source.group } else { "core" }
+        Normalize-ExistingImport -Source $source -Group $group
+    }
+
+    if ($IncludeRestrictedNvidiaSdk) {
+        foreach ($source in @($Lock.local_only)) {
+            Normalize-ExistingImport -Source $source -Group "local-only"
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Existing vendored tree normalized."
+    Write-Host "Run tools/verify-self-contained.ps1 again before committing."
+    exit 0
 }
 
 foreach ($source in @($Lock.sources)) {
