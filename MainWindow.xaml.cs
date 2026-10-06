@@ -1911,14 +1911,49 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message => MinecraftNvidiaNrStatusText.Text = message);
 
+            var instance = SelectedMinecraftInstance();
+            IReadOnlyList<string> staged = [];
+
+            if (instance != null)
+            {
+                var runtimeDirectory = Path.Combine(
+                    instance.RootDirectory,
+                    ".dlss-nr-manager-runtime");
+                Directory.CreateDirectory(runtimeDirectory);
+
+                staged = await _streamline.StageSelectedResourcesAsync(
+                    runtimeDirectory,
+                    includeSuperResolution: true,
+                    includeFrameGeneration: true,
+                    includeReflex: true,
+                    includeNeuralRendering: true,
+                    progress);
+
+                AppLogger.Info(
+                    $"NVIDIA Streamline official resource staging completed: {staged.Count} file(s) added to '{runtimeDirectory}'.");
+            }
+
             var result = await _nvidiaNrDiscovery.CheckAsync(progress);
 
-            MinecraftNvidiaNrStatusText.Text = result.Summary;
+            var stagingSummary = instance == null
+                ? "No Minecraft instance is selected, so the official package was inspected but no files were staged."
+                : staged.Count == 0
+                    ? "Official Streamline package checked; no new production DLLs needed staging."
+                    : $"Downloaded/staged {staged.Count} official NVIDIA production DLL(s) into .dlss-nr-manager-runtime.";
+
+            MinecraftNvidiaNrStatusText.Text =
+                result.PublicSdkReady
+                    ? $"{result.Summary} {stagingSummary}"
+                    : $"{stagingSummary} DLSS-NR-specific public files are still missing upstream.";
 
             MessageBox.Show(
+                stagingSummary + Environment.NewLine + Environment.NewLine +
                 result.Summary + Environment.NewLine + Environment.NewLine +
-                result.Details,
-                "NVIDIA DLSS Neural Rendering availability",
+                result.Details + Environment.NewLine + Environment.NewLine +
+                "Important: DLSS NR Manager only downloads files actually published by NVIDIA. " +
+                "If nvsdk_ngx_helpers_dlssnr_vk.h, sl_dlss_nr.h, nvngx_dlssnr.dll or sl.dlss_nr.dll " +
+                "are absent from NVIDIA's public repositories/releases, the manager cannot manufacture or rename substitutes.",
+                "NVIDIA DLSS / Streamline files",
                 MessageBoxButton.OK,
                 result.PublicSdkReady
                     ? MessageBoxImage.Information
