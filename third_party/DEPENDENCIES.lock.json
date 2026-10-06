@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "generated_for": "DLSS NR Manager self-contained monorepo migration",
+  "sources": [
+    {
+      "id": "caustica",
+      "path": "Caustica-RTX",
+      "url": "https://github.com/grg914/Caustica-RTX.git",
+      "ref": "27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a",
+      "redistribution": "GPL-3.0 source; preserve license"
+    },
+    {
+      "id": "streamline",
+      "path": "third_party/NVIDIA-Streamline",
+      "url": "https://github.com/NVIDIA-RTX/Streamline.git",
+      "ref": "2122257e0fce486f91b385aa63b9a09b0a34b363",
+      "redistribution": "MIT root source; preserve third-party notices"
+    },
+    {
+      "id": "optiscaler",
+      "path": "third_party/OptiScaler",
+      "url": "https://github.com/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass.git",
+      "ref": "1bd39091337cc07ba961c8e59ded57e21dc95b18",
+      "redistribution": "GPL-3.0"
+    },
+    {
+      "id": "video2dlssnr",
+      "path": "third_party/video2dlssnr",
+      "url": "https://github.com/DaniilSokolyuk/video2dlssnr.git",
+      "ref": "9e1bbfa5a700d0cd63b224ab6d95581bfe7ec959",
+      "redistribution": "MIT"
+    },
+    {
+      "id": "ffmpeg-builds",
+      "path": "third_party/FFmpeg-Builds",
+      "url": "https://github.com/BtbN/FFmpeg-Builds.git",
+      "ref": "9acad4a9ef1583096af7836cc1e9c8cbcb4d3950",
+      "redistribution": "MIT build scripts; FFmpeg binary license depends on config"
+    },
+    {
+      "id": "ffmpeg",
+      "path": "third_party/FFmpeg",
+      "url": "https://github.com/FFmpeg/FFmpeg.git",
+      "ref": "9008db55d29631ae4ec62d46edea77c840ce0663",
+      "redistribution": "LGPL/GPL depending on build"
+    },
+    {
+      "id": "realesrgan",
+      "path": "third_party/Real-ESRGAN-ncnn-vulkan",
+      "url": "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git",
+      "ref": "37026f49824c5cf84062e7c6a5dd71445dcf610f",
+      "redistribution": "MIT"
+    },
+    {
+      "id": "realesrgan-model-source-a",
+      "path": "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py",
+      "url": "https://github.com/Tohrusky/realesrgan-ncnn-py.git",
+      "ref": "900c0549a2fb3481b71d0369253522519308f1f2",
+      "redistribution": "preserve upstream notices"
+    },
+    {
+      "id": "realesrgan-model-source-b",
+      "path": "third_party/Real-ESRGAN-model-sources/spintexture",
+      "url": "https://github.com/itsspin/spintexture.git",
+      "ref": "9f291a8aa2afed34fc42e76696c2ce8317cf2143",
+      "redistribution": "preserve upstream notices"
+    },
+    {
+      "id": "reshade",
+      "path": "third_party/ReShade",
+      "url": "https://github.com/crosire/reshade.git",
+      "ref": "7bf9de8b33bcc76c3177007e65d73c72dd0f34c0",
+      "redistribution": "BSD-3-Clause"
+    },
+    {
+      "id": "ai-primary",
+      "path": "third_party/ai-models/ai-image-detection-ONNX",
+      "url": "https://huggingface.co/onnx-community/ai-image-detection-ONNX",
+      "ref": "e3cfe99f2841930a040a6281682c10c989965603",
+      "redistribution": "Apache-2.0"
+    },
+    {
+      "id": "ai-secondary",
+      "path": "third_party/ai-models/ai-image-detect-distilled-ONNX",
+      "url": "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX",
+      "ref": "7f067e23521eeb6d6525221af82c613fb746aaff",
+      "redistribution": "MIT"
+    }
+  ],
+  "local_only": [
+    {
+      "id": "nvidia-dlss-sdk",
+      "path": "third_party-local/NVIDIA-DLSS",
+      "url": "https://github.com/NVIDIA/DLSS.git",
+      "ref": "v310.7.0",
+      "reason": "RTX SDK license restricts standalone redistribution; keep local unless separately cleared"
+    }
+  ]
+}
