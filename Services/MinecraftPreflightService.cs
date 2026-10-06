@@ -238,8 +238,8 @@ public sealed class MinecraftPreflightService
         checks.Add(launcherRunning
             ? new MinecraftPreflightCheck(
                 "Minecraft Launcher process",
-                MinecraftPreflightSeverity.Warning,
-                "Minecraft Launcher is currently running. Close it completely before Install DLSS / RTX so Fabric and launcher_profiles.json can be updated safely.")
+                MinecraftPreflightSeverity.Unsupported,
+                "Minecraft Launcher is currently running. Close it completely, then run the preflight again. Fabric and launcher profile files must not be modified while the launcher is active.")
             : new MinecraftPreflightCheck(
                 "Minecraft Launcher process",
                 MinecraftPreflightSeverity.Ready,
