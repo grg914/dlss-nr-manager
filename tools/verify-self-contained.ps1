@@ -10,6 +10,22 @@ if (!(Test-Path -LiteralPath $LockPath)) {
 
 $Lock = Get-Content -LiteralPath $LockPath -Raw | ConvertFrom-Json
 
+function Get-RelativePathCompat {
+    param(
+        [Parameter(Mandatory=$true)][string]$BasePath,
+        [Parameter(Mandatory=$true)][string]$TargetPath
+    )
+
+    $baseFull = [IO.Path]::GetFullPath($BasePath).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    $targetFull = [IO.Path]::GetFullPath($TargetPath)
+
+    if ($targetFull.StartsWith($baseFull, [StringComparison]::OrdinalIgnoreCase)) {
+        return $targetFull.Substring($baseFull.Length)
+    }
+
+    return $targetFull
+}
+
 $missing = @()
 $metadataIssues = @()
 $mutableRefs = @()
@@ -69,11 +85,11 @@ foreach ($source in @($Lock.sources)) {
     Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -eq ".git" } |
         ForEach-Object {
-            $nestedGit += [IO.Path]::GetRelativePath($Root, $_.FullName)
+            $nestedGit += Get-RelativePathCompat -BasePath $Root -TargetPath $_.FullName
         }
 
     Find-LfsPointers -Path $path | ForEach-Object {
-        $lfsPointers += [IO.Path]::GetRelativePath($Root, $_)
+        $lfsPointers += Get-RelativePathCompat -BasePath $Root -TargetPath $_
     }
 }
 
@@ -125,7 +141,7 @@ foreach ($file in $scanFiles | Sort-Object FullName -Unique) {
         foreach ($pattern in $patterns) {
             if ($line -like "*$pattern*") {
                 $references += [pscustomobject]@{
-                    File = [IO.Path]::GetRelativePath($Root, $file.FullName)
+                    File = Get-RelativePathCompat -BasePath $Root -TargetPath $file.FullName
                     Line = $lineNumber
                     Pattern = $pattern
                     Text = $line.Trim()
