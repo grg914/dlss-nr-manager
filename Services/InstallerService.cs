@@ -12,6 +12,8 @@ public sealed class InstallerService
     public static readonly string Rtx2040Hash = "E67DEE209320CDAFE0E93E45675D7AA34323A53ACC57A72B2E40A181581C989A";
 
     private const string ManifestFile = ".dlssnr-manager-state.json";
+    private const long MaxExtractedArchiveBytes = 4L * 1024 * 1024 * 1024;
+    private const int MaxArchiveEntries = 100_000;
     private static readonly string[] ProxyNames =
     [
         "dbghelp.dll", "dxgi.dll", "d3d12.dll", "winmm.dll",
