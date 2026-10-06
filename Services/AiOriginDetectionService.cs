@@ -57,8 +57,10 @@ public sealed class AiOriginDetectionService : IDisposable
 
     private readonly MediaService _media;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(20) };
+    private readonly SemaphoreSlim _setupLock = new(1, 1);
     private InferenceSession? _primarySession;
     private InferenceSession? _secondarySession;
+    private bool _modelsVerified;
 
     public string RootDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -81,25 +83,40 @@ public sealed class AiOriginDetectionService : IDisposable
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        Directory.CreateDirectory(RootDirectory);
+        await _setupLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_modelsVerified)
+            {
+                progress?.Report("AI origin detector ready.");
+                return;
+            }
 
-        await EnsureModelAsync(
-            PrimaryModelPath,
-            PrimaryModelUrl,
-            PrimaryModelSha256,
-            "primary detector (~87 MB)",
-            progress,
-            cancellationToken);
+            Directory.CreateDirectory(RootDirectory);
 
-        await EnsureModelAsync(
-            SecondaryModelPath,
-            SecondaryModelUrl,
-            SecondaryModelSha256,
-            "secondary cross-check detector (~15 MB)",
-            progress,
-            cancellationToken);
+            await EnsureModelAsync(
+                PrimaryModelPath,
+                PrimaryModelUrl,
+                PrimaryModelSha256,
+                "primary detector (~87 MB)",
+                progress,
+                cancellationToken);
 
-        progress?.Report("AI origin detector ready • 2-model local ensemble installed.");
+            await EnsureModelAsync(
+                SecondaryModelPath,
+                SecondaryModelUrl,
+                SecondaryModelSha256,
+                "secondary cross-check detector (~15 MB)",
+                progress,
+                cancellationToken);
+
+            _modelsVerified = true;
+            progress?.Report("AI origin detector ready • 2-model local ensemble verified.");
+        }
+        finally
+        {
+            _setupLock.Release();
+        }
     }
 
     private async Task EnsureModelAsync(
@@ -164,7 +181,7 @@ public sealed class AiOriginDetectionService : IDisposable
         if (!File.Exists(source))
             throw new FileNotFoundException("Media file was not found.", source);
 
-        if (!IsReady)
+        if (!_modelsVerified)
             await SetupAsync(progress, cancellationToken);
 
         var extension = Path.GetExtension(source).ToLowerInvariant();
@@ -687,6 +704,7 @@ public sealed class AiOriginDetectionService : IDisposable
     {
         _primarySession?.Dispose();
         _secondarySession?.Dispose();
+        _setupLock.Dispose();
         _http.Dispose();
     }
 
