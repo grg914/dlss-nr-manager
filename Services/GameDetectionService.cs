@@ -431,9 +431,12 @@ public sealed class GameDetectionService
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(CachePath)!);
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 CachePath,
-                JsonSerializer.Serialize(new ScanCache(DateTimeOffset.UtcNow, games.ToList()),
+                JsonSerializer.Serialize(
+                    new ScanCache(
+                        DateTimeOffset.UtcNow,
+                        games.ToList()),
                     new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { }
@@ -536,10 +539,11 @@ public sealed class GameDetectionService
 
         foreach (var file in SafeEnumerateFiles(manifestDir, "*.item"))
         {
-            JsonDocument? json = null;
+            (string Name, string Root)? detected = null;
+
             try
             {
-                json = JsonDocument.Parse(File.ReadAllText(file));
+                using var json = JsonDocument.Parse(File.ReadAllText(file));
                 var root = json.RootElement;
                 if (!root.TryGetProperty("InstallLocation", out var installLocation))
                     continue;
@@ -553,12 +557,20 @@ public sealed class GameDetectionService
                     ? displayName.GetString()!
                     : Path.GetFileName(path);
 
-                yield return (name, "Epic", path, null);
+                if (!string.IsNullOrWhiteSpace(name))
+                    detected = (name, path);
             }
-            finally
+            catch
             {
-                json?.Dispose();
+                // A single corrupt Epic manifest must not abort the entire game scan.
             }
+
+            if (detected.HasValue)
+                yield return (
+                    detected.Value.Name,
+                    "Epic",
+                    detected.Value.Root,
+                    null);
         }
     }
 
