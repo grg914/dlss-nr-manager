@@ -49,23 +49,23 @@ public sealed class GameDetectionService
             .Concat(settings.CustomRoots
                 .Where(Directory.Exists)
                 .Select(root => (
-                    Path.GetFileName(
+                    Name: Path.GetFileName(
                         root.TrimEnd(
                             Path.DirectorySeparatorChar,
                             Path.AltDirectorySeparatorChar)),
-                    "Custom",
-                    root,
-                    (string?)null)))
+                    Platform: "Custom",
+                    Root: root,
+                    ArtworkUrl: (string?)null)))
             .Concat(settings.ScanAllFixedDrives
                 ? DriveInfo.GetDrives()
                     .Where(drive =>
                         drive.IsReady &&
                         drive.DriveType == DriveType.Fixed)
                     .Select(drive => (
-                        $"Drive {drive.Name}",
-                        "Drive scan",
-                        drive.RootDirectory.FullName,
-                        (string?)null))
+                        Name: $"Drive {drive.Name}",
+                        Platform: "Drive scan",
+                        Root: drive.RootDirectory.FullName,
+                        ArtworkUrl: (string?)null))
                 : [])
             .Where(x => !string.IsNullOrWhiteSpace(x.Root) && Directory.Exists(x.Root))
             .GroupBy(x => x.Root, StringComparer.OrdinalIgnoreCase)
