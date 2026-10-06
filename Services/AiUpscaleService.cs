@@ -318,7 +318,10 @@ public sealed class AiUpscaleService
                     "-loglevel", "error",
                     "-i", source,
                     "-map", "0:v:0",
-                    "-vsync", "0",
+                    // FFmpeg removed/deprecated the legacy global -vsync switch in recent builds.
+                    // Use the per-output modern equivalent so every decoded source frame is preserved
+                    // without FFmpeg duplicating/dropping frames before Real-ESRGAN processes them.
+                    "-fps_mode", "passthrough",
                     Path.Combine(inputFrames, "%08d.png")
                 },
                 Path.GetDirectoryName(FfmpegExe)!,
