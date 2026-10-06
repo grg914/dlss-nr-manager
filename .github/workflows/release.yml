@@ -6,6 +6,10 @@ on:
     paths:
       - 'DlssNrManager.csproj'
       - '.github/workflows/release.yml'
+      - 'tools/build-realesrgan.ps1'
+      - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
+      - 'third_party/Real-ESRGAN-model-sources/**'
+      - 'third_party/ai-models/**'
   workflow_dispatch:
 
 permissions:
@@ -72,6 +76,34 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
 
+      - name: Build and package vendored Real-ESRGAN Windows engine
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
+          if ($LASTEXITCODE -ne 0) {
+            throw "Vendored Real-ESRGAN build tool failed."
+          }
+
+          $packageDir = "release-assets/realesrgan-ncnn-vulkan-windows-x64"
+          $zip = "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+
+          Copy-Item "build-realesrgan/Release/realesrgan-ncnn-vulkan.exe" $packageDir -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/LICENSE" (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt" (Join-Path $packageDir "LICENSE-ncnn.txt") -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING" (Join-Path $packageDir "LICENSE-libwebp.txt") -Force
+
+          $vcomp = "$env:WINDIR\System32\vcomp140.dll"
+          if (Test-Path -LiteralPath $vcomp) {
+            Copy-Item -LiteralPath $vcomp -Destination $packageDir -Force
+          }
+
+          Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
+          if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 256KB) {
+            throw "Real-ESRGAN release package was not generated correctly."
+          }
+
+          Write-Host "Packaged manager-owned Real-ESRGAN runtime: $zip"
       - name: Bundle AI detector runtime models from vendored LFS sources
         shell: pwsh
         run: |
@@ -274,6 +306,7 @@ jobs:
             "publish/DlssNrManager.exe",
             "DlssNrManager-win-x64.zip",
             (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}"),
+            "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ai-origin-primary-int8.onnx",
             "release-assets/ai-origin-secondary-int8.onnx",
             "release-assets/realesrgan-x4plus.param",
@@ -332,6 +365,7 @@ jobs:
             release-assets/SPBRScandi.zip
             release-assets/ScandiShaderV2.zip
             release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
+            release-assets/realesrgan-ncnn-vulkan-windows-x64.zip
             release-assets/ai-origin-primary-int8.onnx
             release-assets/ai-origin-secondary-int8.onnx
             release-assets/realesr*.param
