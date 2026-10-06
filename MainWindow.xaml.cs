@@ -1412,6 +1412,31 @@ public partial class MainWindow : Window
     private MinecraftInstallCandidate? SelectedMinecraftInstance()
         => MinecraftInstanceBox.SelectedItem as MinecraftInstallCandidate;
 
+    private bool RefreshMinecraftInstallState()
+    {
+        var instance = SelectedMinecraftInstance();
+        var installed = instance != null &&
+                        _minecraftOneClick.IsInstalled(instance.RootDirectory);
+
+        MinecraftOneClickInstallButton.Content = installed
+            ? "DLSS / RTX installed"
+            : "Install DLSS / RTX";
+
+        MinecraftOneClickInstallButton.IsEnabled =
+            !installed &&
+            (_minecraftPreflightResult?.CanInstall ?? true);
+
+        MinecraftRestoreOriginalButton.IsEnabled = installed;
+
+        if (installed && instance != null)
+        {
+            MinecraftStatusText.Text =
+                $"Minecraft DLSS / RTX is already installed for {instance.DisplayName}.";
+        }
+
+        return installed;
+    }
+
     private async void MinecraftInstanceBox_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
@@ -1419,7 +1444,9 @@ public partial class MainWindow : Window
         if (SelectedMinecraftInstance() == null)
             return;
 
+        RefreshMinecraftInstallState();
         await RunMinecraftPreflightAsync(showDialogOnFailure: false);
+        RefreshMinecraftInstallState();
     }
 
     private async void RunMinecraftPreflight_Click(
@@ -1500,7 +1527,12 @@ public partial class MainWindow : Window
                     return $"{icon} {check.Name}: {check.Details}";
                 }));
 
-            MinecraftOneClickInstallButton.IsEnabled = result.CanInstall;
+            var alreadyInstalled = _minecraftOneClick.IsInstalled(instance.RootDirectory);
+            MinecraftOneClickInstallButton.IsEnabled = result.CanInstall && !alreadyInstalled;
+            MinecraftOneClickInstallButton.Content = alreadyInstalled
+                ? "DLSS / RTX installed"
+                : "Install DLSS / RTX";
+            MinecraftRestoreOriginalButton.IsEnabled = alreadyInstalled;
 
             if (showDialogOnFailure ||
                 result.Status == MinecraftPreflightSeverity.Unsupported)
@@ -1551,8 +1583,7 @@ public partial class MainWindow : Window
         {
             MinecraftPreflightButton.IsEnabled = true;
 
-            if (_minecraftPreflightResult?.CanInstall == true)
-                MinecraftOneClickInstallButton.IsEnabled = true;
+            RefreshMinecraftInstallState();
         }
     }
 
@@ -1563,6 +1594,16 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 "Select a Minecraft Java instance first.",
+                "Minecraft DLSS / RTX",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (RefreshMinecraftInstallState())
+        {
+            MessageBox.Show(
+                "Minecraft DLSS / RTX is already installed for this instance. Use Restore original if you want to remove the managed installation first.",
                 "Minecraft DLSS / RTX",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -1691,6 +1732,7 @@ public partial class MainWindow : Window
                 MessageBoxImage.Information);
 
             ScanMinecraft_Click(sender, e);
+            RefreshMinecraftInstallState();
         }
         catch (Exception ex)
         {
@@ -1709,8 +1751,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            MinecraftOneClickInstallButton.IsEnabled = true;
-            MinecraftRestoreOriginalButton.IsEnabled = true;
+            RefreshMinecraftInstallState();
         }
     }
 
@@ -1758,6 +1799,7 @@ public partial class MainWindow : Window
 
             MinecraftStatusText.Text =
                 "Minecraft instance restored to its original pre-install state.";
+            RefreshMinecraftInstallState();
 
             MessageBox.Show(
                 "Minecraft has been restored from the one-click backup.",
