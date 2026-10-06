@@ -2032,7 +2032,7 @@ public sealed class MinecraftIntegrationService
                 .ToList(),
             Path.GetRelativePath(root, backup));
 
-        File.WriteAllText(
+        AtomicFile.WriteAllText(
             Path.Combine(root, ".dlss-nr-manager-minecraft.json"),
             JsonSerializer.Serialize(
                 manifest,
