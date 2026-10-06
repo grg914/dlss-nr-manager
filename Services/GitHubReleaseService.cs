@@ -82,26 +82,84 @@ public sealed class GitHubReleaseService
         return null;
     }
 
-    public async Task DownloadAsync(string url, string destination, string? expectedSha256 = null)
+    public async Task DownloadAsync(
+        string url,
+        string destination,
+        string? expectedSha256 = null,
+        CancellationToken cancellationToken = default)
     {
-        using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
-
-        await using (var source = await response.Content.ReadAsStreamAsync())
-        await using (var target = File.Create(destination))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.Equals(
+                "github.com",
+                StringComparison.OrdinalIgnoreCase))
         {
-            await source.CopyToAsync(target);
+            throw new InvalidDataException(
+                $"Unexpected GitHub release asset URL: {url}");
         }
 
-        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        var temp = destination + ".download";
+
+        try
         {
-            var actual = await HashService.Sha256Async(destination);
-            if (!actual.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
+            using var response = await _http.GetAsync(
+                uri,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            await using var source =
+                await response.Content.ReadAsStreamAsync(
+                    cancellationToken);
+            await using var target = new FileStream(
+                temp,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                128 * 1024,
+                useAsync: true);
+
+            await source.CopyToAsync(
+                target,
+                cancellationToken);
+
+            if (new FileInfo(temp).Length < 1024)
             {
-                try { File.Delete(destination); } catch { }
                 throw new InvalidDataException(
-                    $"Downloaded OptiScaler archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
+                    "Downloaded GitHub release asset is unexpectedly small.");
             }
+
+            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                var actual =
+                    await HashService.Sha256Async(temp);
+
+                if (!actual.Equals(
+                        expectedSha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"Downloaded OptiScaler archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
+                }
+            }
+
+            File.Move(
+                temp,
+                destination,
+                true);
+        }
+        catch
+        {
+            try
+            {
+                if (File.Exists(temp))
+                    File.Delete(temp);
+            }
+            catch { }
+
+            throw;
         }
     }
 
