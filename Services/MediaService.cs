@@ -665,6 +665,13 @@ public sealed class MediaService
         }
     }
 
+    private static void ExtractSafe(
+        string zipPath,
+        string destination)
+        => SafeZip.Extract(
+            zipPath,
+            destination);
+
     private static async Task CopyWithLimitAsync(
         Stream input,
         Stream output,
