@@ -560,7 +560,7 @@
                 <StackPanel>
                   <TextBlock Text="Open-source renderer stack"
                              FontWeight="SemiBold"/>
-                  <TextBlock Text="Downloads Fabric Installer from the official Fabric Maven, Fabric API/optional mods from Modrinth, and Caustica RTX from its compatible upstream GitHub release. No JAR is bundled in DLSS NR Manager."
+                  <TextBlock Text="Downloads Fabric Installer from the official Fabric Maven, Fabric API/optional mods from Modrinth, and the latest tested Minecraft 26.2 Caustica RTX ScandiCraft build from grg914/Caustica-RTX. No JAR is bundled in DLSS NR Manager."
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
                              FontSize="11"
@@ -574,7 +574,7 @@
                                 IsEnabled="False"
                                 Margin="0,0,18,0"/>
                       <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
-                                Content="Caustica RTX prerelease (currently required)"
+                                Content="Latest tested Caustica RTX 26.2 build"
                                 IsChecked="True"
                                 IsEnabled="False"/>
                     </StackPanel>
@@ -625,7 +625,7 @@
                              FontSize="10"
                              TextWrapping="Wrap"
                              Margin="0,9,0,0"
-                             Text="One-click install runs the RTX preflight first, then backs up the instance, forces Minecraft 26.2 to prefer Vulkan, installs/updates Fabric Loader when needed, installs Fabric API + Caustica RTX, disables conflicting renderer mods into the backup, and patches the Fabric launcher profile for native access. Unsupported preflight results block installation; warnings require explicit confirmation."/>
+                             Text="One-click install runs the RTX preflight first, then backs up the instance, forces Minecraft 26.2 to prefer Vulkan, installs/updates Fabric Loader when needed, installs Fabric API + the latest tested Caustica RTX 26.2 build, disables conflicting renderer mods into the backup, and patches the Fabric launcher profile for native access. The Caustica build includes RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering support. Unsupported preflight results block installation; warnings require explicit confirmation."/>
                 </StackPanel>
               </Border>
 
