@@ -122,7 +122,11 @@ public sealed class MediaService
                     $"Latest {ProcessorRepo} release has no {ProcessorAsset} asset.");
 
             var zip = Path.Combine(RootDirectory, ProcessorAsset);
-            await DownloadAsync(asset, zip, cancellationToken);
+            await DownloadAsync(
+                asset.Url,
+                zip,
+                asset.Sha256,
+                cancellationToken);
             ExtractSafe(zip, ProcessorDirectory);
             File.Delete(zip);
 
@@ -145,7 +149,11 @@ public sealed class MediaService
                 Directory.Delete(temp, true);
 
             Directory.CreateDirectory(temp);
-            await DownloadAsync(asset, zip, cancellationToken);
+            await DownloadAsync(
+                asset.Url,
+                zip,
+                asset.Sha256,
+                cancellationToken);
             ExtractSafe(zip, temp);
 
             var ffmpeg = FindFile(temp, "ffmpeg.exe");
@@ -438,22 +446,51 @@ public sealed class MediaService
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
     }
 
-    private static string? FindAsset(JsonDocument release, string assetName)
+    private static ReleaseAsset? FindAsset(
+        JsonDocument release,
+        string assetName)
     {
-        if (!release.RootElement.TryGetProperty("assets", out var assets))
+        if (!release.RootElement.TryGetProperty(
+                "assets",
+                out var assets))
             return null;
 
         foreach (var asset in assets.EnumerateArray())
         {
             if (!asset.TryGetProperty("name", out var name) ||
-                !asset.TryGetProperty("browser_download_url", out var url))
+                !asset.TryGetProperty(
+                    "browser_download_url",
+                    out var url))
                 continue;
 
-            if (string.Equals(
+            if (!string.Equals(
                     name.GetString(),
                     assetName,
                     StringComparison.OrdinalIgnoreCase))
-                return url.GetString();
+                continue;
+
+            var downloadUrl = url.GetString();
+            if (string.IsNullOrWhiteSpace(downloadUrl))
+                return null;
+
+            string? sha256 = null;
+            if (asset.TryGetProperty(
+                    "digest",
+                    out var digestElement))
+            {
+                var digest = digestElement.GetString();
+                if (!string.IsNullOrWhiteSpace(digest) &&
+                    digest.StartsWith(
+                        "sha256:",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    sha256 = digest["sha256:".Length..];
+                }
+            }
+
+            return new ReleaseAsset(
+                downloadUrl,
+                sha256);
         }
 
         return null;
@@ -462,29 +499,82 @@ public sealed class MediaService
     private async Task DownloadAsync(
         string url,
         string destination,
+        string? expectedSha256,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
+        var temp = destination + ".download";
 
-        using var response = await _http.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
+        try
+        {
+            using var request =
+                new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.UserAgent.Add(
+                new ProductInfoHeaderValue(
+                    "DlssNrManager",
+                    "1.2"));
 
-        response.EnsureSuccessStatusCode();
+            using var response = await _http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
 
-        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var output = new FileStream(
-            destination,
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None,
-            1024 * 128,
-            useAsync: true);
+            response.EnsureSuccessStatusCode();
 
-        await input.CopyToAsync(output, cancellationToken);
+            await using var input =
+                await response.Content.ReadAsStreamAsync(
+                    cancellationToken);
+            await using var output = new FileStream(
+                temp,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                1024 * 128,
+                useAsync: true);
+
+            await input.CopyToAsync(
+                output,
+                cancellationToken);
+
+            if (new FileInfo(temp).Length < 1024)
+            {
+                throw new InvalidDataException(
+                    "Downloaded media component archive is unexpectedly small.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                await using var stream = File.OpenRead(temp);
+                var actual = Convert.ToHexString(
+                    await System.Security.Cryptography.SHA256
+                        .HashDataAsync(
+                            stream,
+                            cancellationToken));
+
+                if (!actual.Equals(
+                        expectedSha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"Media component SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
+                }
+            }
+
+            File.Move(
+                temp,
+                destination,
+                true);
+        }
+        catch
+        {
+            try
+            {
+                if (File.Exists(temp))
+                    File.Delete(temp);
+            }
+            catch { }
+
+            throw;
+        }
     }
 
     private static void ExtractSafe(string zipPath, string destination)
@@ -598,6 +688,10 @@ public sealed class MediaService
 
     private static string Tail(string value, int max)
         => value.Length <= max ? value : value[^max..];
+
+    private sealed record ReleaseAsset(
+        string Url,
+        string? Sha256);
 
     private sealed record VideoProbe(int Width, int Height, double Fps);
     private sealed record ProcessResult(int ExitCode, string Output, string Error);
