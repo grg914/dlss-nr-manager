@@ -2398,24 +2398,26 @@ public partial class MainWindow : Window
             var result = await _nvidiaNrDiscovery.CheckAsync(progress);
 
             var stagingSummary = instance == null
-                ? "No Minecraft instance is selected, so the official package was inspected but no files were staged."
+                ? "Select a Minecraft instance to download and stage NVIDIA runtime files."
                 : staged.Count == 0
-                    ? "Official Streamline package checked; no new production DLLs needed staging."
-                    : $"Downloaded/staged {staged.Count} official NVIDIA production DLL(s) into .dlss-nr-manager-runtime.";
+                    ? "NVIDIA runtime files are already up to date."
+                    : $"Downloaded {staged.Count} missing official NVIDIA runtime file(s).";
+
+            var neuralRenderingSummary = result.PublicSdkReady
+                ? $"DLSS Neural Rendering: official public runtime detected ({result.StreamlineVersion})."
+                : $"DLSS Neural Rendering: not publicly available from NVIDIA yet ({result.StreamlineVersion}).";
 
             MinecraftNvidiaNrStatusText.Text =
-                result.PublicSdkReady
-                    ? $"{result.Summary} {stagingSummary}"
-                    : $"{stagingSummary} DLSS-NR-specific public files are still missing upstream.";
+                $"{stagingSummary} {neuralRenderingSummary}";
 
             MessageBox.Show(
                 stagingSummary + Environment.NewLine + Environment.NewLine +
-                result.Summary + Environment.NewLine + Environment.NewLine +
-                result.Details + Environment.NewLine + Environment.NewLine +
-                "Important: DLSS NR Manager only downloads files actually published by NVIDIA. " +
-                "If nvsdk_ngx_helpers_dlssnr_vk.h, sl_dlss_nr.h, nvngx_dlssnr.dll or sl.dlss_nr.dll " +
-                "are absent from NVIDIA's public repositories/releases, the manager cannot manufacture or rename substitutes.",
-                "NVIDIA DLSS / Streamline files",
+                neuralRenderingSummary +
+                (instance == null
+                    ? Environment.NewLine + Environment.NewLine +
+                      "No files were changed because no Minecraft instance is selected."
+                    : string.Empty),
+                "NVIDIA runtime files",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -2427,7 +2429,7 @@ public partial class MainWindow : Window
 
             MessageBox.Show(
                 ex.Message,
-                "NVIDIA DLSS Neural Rendering check failed",
+                "NVIDIA runtime check failed",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -2725,9 +2727,12 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message => AiOriginStatusText.Text = message);
 
-            var mode = AiOriginModeBox.SelectedIndex == 1
-                ? AiOriginAnalysisMode.Thorough
-                : AiOriginAnalysisMode.Balanced;
+            var mode = AiOriginModeBox.SelectedIndex switch
+            {
+                0 => AiOriginAnalysisMode.Quick,
+                2 => AiOriginAnalysisMode.Thorough,
+                _ => AiOriginAnalysisMode.Balanced
+            };
 
             var result = await _aiOrigin.AnalyzeAsync(
                 source,
