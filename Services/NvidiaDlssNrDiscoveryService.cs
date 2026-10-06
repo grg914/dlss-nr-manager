@@ -34,7 +34,7 @@ public sealed class NvidiaDlssNrDiscoveryService
     public NvidiaDlssNrDiscoveryService()
     {
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "1.3"));
+            new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
