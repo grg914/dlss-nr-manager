@@ -197,12 +197,16 @@
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="36"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Margin="{Binding Padding, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                   VerticalAlignment="Center"
-                                   Foreground="#F4F7FB"
-                                   Text="{Binding SelectedItem.Content, RelativeSource={RelativeSource AncestorType=ComboBox}, FallbackValue=Select}"
-                                   TextTrimming="CharacterEllipsis"/>
+                        <ContentPresenter Grid.Column="0"
+                                          Margin="{Binding Padding, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Stretch"
+                                          RecognizesAccessKey="True"
+                                          Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}, TargetNullValue=Select}"
+                                          ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                          ContentTemplateSelector="{Binding ItemTemplateSelector, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                          TextElement.Foreground="#F4F7FB"
+                                          SnapsToDevicePixels="True"/>
                         <Path Grid.Column="1"
                               Width="9" Height="5"
                               HorizontalAlignment="Center"
