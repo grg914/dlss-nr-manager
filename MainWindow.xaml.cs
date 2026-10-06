@@ -344,7 +344,7 @@ public partial class MainWindow : Window
             ? $"DLSSNR runtime: not required on {_gpu.Generation} • Neural Rendering is not supported by this GPU generation"
             : !state.RuntimePresent
                 ? "DLSSNR runtime: missing • other supported DLSS features can still be installed"
-                : $"DLSSNR runtime: {(state.RuntimeHashValid ? "valid known hash" : "NVIDIA runtime present")} • {state.RuntimeHash}";
+                : $"DLSSNR runtime: {(state.RuntimeHashValid ? "validated installed runtime" : "present but unverified/changed")} • {state.RuntimeHash}";
 
         InstallButton.IsEnabled = !state.Installed && _gpuCapabilities.IsSupportedRtx;
         UpdateButton.IsEnabled = state.Installed && _gpuCapabilities.IsSupportedRtx;
@@ -540,11 +540,20 @@ public partial class MainWindow : Window
                 ? $"trusted signature{(string.IsNullOrWhiteSpace(validation.Publisher) ? "" : $" • {validation.Publisher}")}"
                 : "signature not trusted/available";
 
+            if (!validation.Trusted)
+            {
+                _runtimePath = null;
+                RuntimePathText.Text =
+                    "Runtime rejected • it is neither a known validated build nor a trusted x64 NVIDIA-signed runtime.\n" +
+                    $"SHA-256: {validation.Hash}\nAuthenticode: {signature}";
+                return;
+            }
+
             RuntimePathText.Text =
                 $"{Path.GetFileName(_runtimePath)}\n" +
-                $"Version: {validation.FileVersion ?? "unknown"} • {(validation.Is64Bit ? "x64" : "not x64")}\n" +
+                $"Version: {validation.FileVersion ?? "unknown"} • x64\n" +
                 $"SHA-256: {validation.Hash}\n" +
-                $"{(validation.HashValid ? "Expected runtime hash ✓" : "Runtime hash mismatch ✕")}\n" +
+                $"{(validation.HashValid ? "Known validated runtime hash ✓" : "Trusted NVIDIA-signed runtime ✓")}\n" +
                 $"Authenticode: {signature}";
         }
         catch (Exception ex)
@@ -771,11 +780,15 @@ public partial class MainWindow : Window
         try
         {
             var capabilities = GpuCapabilityService.Evaluate(_gpu);
-            var neuralRuntimePresent = File.Exists(Path.Combine(GamePathBox.Text, "nvngx_dlssnr.dll"));
+            var gameDir = GamePathBox.Text;
+            var state = await Task.Run(() =>
+                _installer.Inspect(gameDir, _gpu.Generation));
             await Task.Run(() => _installer.ApplyPreset(
-                GamePathBox.Text,
+                gameDir,
                 GetSelectedWorkingScale(),
-                capabilities.NeuralRendering && neuralRuntimePresent));
+                capabilities.NeuralRendering &&
+                state.RuntimePresent &&
+                state.RuntimeHashValid));
             MessageBox.Show(
                 "Preset applied. Restart the game if it is currently running.",
                 "DLSS NR Manager",
