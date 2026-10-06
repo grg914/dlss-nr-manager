@@ -683,7 +683,7 @@
                 <StackPanel>
                   <TextBlock Text="Local NVIDIA DLSS / Streamline runtime"
                              FontWeight="SemiBold"/>
-                  <TextBlock Text="Proprietary NVIDIA binaries are never downloaded from this repository. Select your own package or nvngx_dlssnr.dll; the manager validates and stages them locally for compatible providers."
+                  <TextBlock Text="Public NVIDIA binaries are downloaded only from official NVIDIA/DLSS or NVIDIA-RTX/Streamline GitHub releases. DLSS-NR-specific files that NVIDIA has not published are never replaced with renamed or unofficial DLLs; you can still select an official local runtime when you have one."
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
                              FontSize="11"
