@@ -520,17 +520,35 @@ public sealed class MinecraftOneClickService
             try
             {
                 using var response = await PackHttp.GetAsync(
-                    $"https://api.github.com/repos/{ManagerRepository}/releases/latest",
+                    $"https://api.github.com/repos/{ManagerRepository}/releases?per_page=20",
                     cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
                     using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-                    if (json.RootElement.TryGetProperty("assets", out var assets))
+                    if (json.RootElement.ValueKind == JsonValueKind.Array)
                     {
-                        if (installTexture && textureSource == null)
-                            textureSource = await DownloadReleaseAssetAsync(assets, SPBRScandiAsset, backup, cancellationToken);
-                        if (shaderSource == null)
-                            shaderSource = await DownloadReleaseAssetAsync(assets, ScandiShaderAsset, backup, cancellationToken);
+                        foreach (var release in json.RootElement.EnumerateArray())
+                        {
+                            if (!release.TryGetProperty("assets", out var assets))
+                                continue;
+
+                            if (installTexture && textureSource == null)
+                                textureSource = await DownloadReleaseAssetAsync(
+                                    assets,
+                                    SPBRScandiAsset,
+                                    backup,
+                                    cancellationToken);
+
+                            if (shaderSource == null)
+                                shaderSource = await DownloadReleaseAssetAsync(
+                                    assets,
+                                    ScandiShaderAsset,
+                                    backup,
+                                    cancellationToken);
+
+                            if ((!installTexture || textureSource != null) && shaderSource != null)
+                                break;
+                        }
                     }
                 }
             }
