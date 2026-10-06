@@ -146,8 +146,8 @@
       "group": "minecraft",
       "path": "third_party/minecraft/ferritecore",
       "url": "https://github.com/malte0811/FerriteCore.git",
-      "ref": "193585ebaf63dad37678519814e635d4a490f7ab",
-      "source_branch": "main",
+      "ref": "0cef1f2add1f1329aa6e690e8e292acd625c5c6d",
+      "source_branch": "26.1",
       "redistribution": "MIT"
     },
     {
