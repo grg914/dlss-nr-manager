@@ -17,7 +17,7 @@ public sealed class ComponentUpdateService
     {
         _http.Timeout = TimeSpan.FromSeconds(12);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "0.8"));
+            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
@@ -42,8 +42,7 @@ public sealed class ComponentUpdateService
         }
 
         progress?.Report("Updating GitHub media components…");
-        media.ResetTools();
-        await media.SetupAsync(progress, cancellationToken);
+        await media.UpdateToolsAsync(progress, cancellationToken);
 
         SaveState(remote);
         progress?.Report("GitHub media components updated.");

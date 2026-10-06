@@ -99,8 +99,23 @@ public sealed class InstallerService
             ?? throw new InvalidOperationException("Unsupported or undetected NVIDIA RTX generation.");
 
         var validation = await RuntimeValidationService.ValidateAsync(runtimePath, gpu.Generation);
-        if (!validation.Hash.Equals(expected, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"DLSSNR runtime SHA-256 mismatch. Expected {expected}, got {validation.Hash}.");
+
+        var knownHash =
+            validation.Hash.Equals(expected, StringComparison.OrdinalIgnoreCase);
+
+        var trustedNvidiaSignedRuntime =
+            validation.Is64Bit &&
+            validation.SignatureValid &&
+            !string.IsNullOrWhiteSpace(validation.Publisher) &&
+            validation.Publisher.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase);
+
+        if (!knownHash && !trustedNvidiaSignedRuntime)
+        {
+            throw new InvalidOperationException(
+                "DLSSNR runtime validation failed. The runtime must either match a known validated SHA-256 " +
+                "or be a trusted x64 NVIDIA-signed runtime from the official Streamline package. " +
+                $"SHA-256: {validation.Hash}; Publisher: {validation.Publisher ?? "unknown"}.");
+        }
 
         if (!validation.Is64Bit)
             throw new InvalidOperationException("The selected DLSSNR runtime is not a 64-bit PE DLL.");
@@ -141,7 +156,7 @@ public sealed class InstallerService
             await releases.DownloadAsync(release.ZipUrl, zip, release.ZipSha256);
 
             var extract = Path.Combine(temp, "extract");
-            ZipFile.ExtractToDirectory(zip, extract);
+            ExtractSafe(zip, extract);
 
             var sourceRoot = Directory.GetFiles(extract, "OptiScaler.dll", SearchOption.AllDirectories)
                 .Select(Path.GetDirectoryName)
@@ -448,6 +463,33 @@ public sealed class InstallerService
             : gpuGeneration is "RTX 20" or "RTX 30" or "RTX 40"
                 ? Rtx2040Hash
                 : null;
+
+    private static void ExtractSafe(string zipPath, string destination)
+    {
+        Directory.CreateDirectory(destination);
+
+        var root = Path.GetFullPath(destination)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
+
+        using var archive = ZipFile.OpenRead(zipPath);
+        foreach (var entry in archive.Entries)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Name))
+                continue;
+
+            var target = Path.GetFullPath(Path.Combine(
+                destination,
+                entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
+
+            if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(
+                    $"Unsafe archive entry: {entry.FullName}");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            entry.ExtractToFile(target, overwrite: true);
+        }
+    }
 
     private static void RollbackFailedInstall(
         string gameDir,

@@ -12,6 +12,7 @@ public partial class MainWindow : Window
     private readonly GameDetectionService _games = new();
     private readonly GpuDetectionService _gpus = new();
     private readonly GitHubReleaseService _releases = new();
+    private readonly AppUpdateService _appUpdater = new();
     private readonly InstallerService _installer = new();
     private readonly DiagnosticService _diagnostics = new();
     private readonly GameArtworkService _artwork = new();
@@ -22,16 +23,22 @@ public partial class MainWindow : Window
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftDlssPackageService _minecraftDlss = new();
+    private readonly MinecraftPreflightService _minecraftPreflight = new();
+    private readonly MinecraftOneClickService _minecraftOneClick;
+    private readonly StreamlineRuntimeService _streamline = new();
+    private readonly PcCleanupService _pcCleanup = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private ReleaseInfo? _release;
     private string? _runtimePath;
-    private string? _managerUpdateUrl;
+    private ManagerReleaseInfo? _managerRelease;
     private DetectedGame? _selectedGame;
     private IReadOnlyList<DetectedGame> _detectedGames = [];
     private IReadOnlyList<MinecraftInstallCandidate> _minecraftInstances = [];
+    private MinecraftPreflightResult? _minecraftPreflightResult;
     private string? _minecraftDlssZipPath;
     private string? _minecraftDlssNrPath;
+    private IReadOnlyList<PcCleanupItem> _cleanupItems = [];
     private bool _isBusy;
     private int _stateRefreshVersion;
 
@@ -45,10 +52,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _minecraftOneClick = new MinecraftOneClickService(_minecraft);
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
-            ? "Version v0.8.1"
+            ? "Version v1.2.0"
             : $"Version v{version.Major}.{version.Minor}.{version.Build}";
 
         Loaded += async (_, _) =>
@@ -67,6 +75,9 @@ public partial class MainWindow : Window
             ? "AI Upscale engine ready."
             : "AI Upscale engine not installed yet.";
 
+        _cleanupItems = _pcCleanup.CreateDefaultItems();
+        PcCleanupList.ItemsSource = _cleanupItems;
+
         Closed += (_, _) =>
         {
             Application.Current.Shutdown();
@@ -76,13 +87,17 @@ public partial class MainWindow : Window
 
     private async Task InitializeAsync()
     {
+        using var scope = AppLogger.Scope("MainWindow.InitializeAsync");
+
         _gpu = _gpus.Detect();
         GpuText.Text = $"{_gpu.Name}  •  {_gpu.Generation}";
+        AppLogger.Info($"GPU detected: {_gpu.Name} • {_gpu.Generation}");
 
         await Task.WhenAll(
             RefreshReleaseAsync(),
             ScanGamesAsync(forceRefresh: false),
-            CheckManagerUpdateAsync());
+            CheckManagerUpdateAsync(),
+            RefreshMinecraftCausticaBuildAsync());
 
         await RefreshStateAsync();
 
@@ -95,8 +110,40 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                AppLogger.Error(
+                    "Automatic media component update check failed.",
+                    ex);
                 MediaStatusText.Text = $"Automatic component update check failed: {ex.Message}";
             }
+        }
+
+        // Reaching this point means the updated application completed its
+        // normal startup path. Only now discard the previous executable.
+        _appUpdater.CleanupSuccessfulUpdateBackup();
+        AppLogger.Info("Application initialization completed successfully.");
+    }
+
+    private async Task RefreshMinecraftCausticaBuildAsync()
+    {
+        try
+        {
+            MinecraftCausticaBuildText.Text =
+                "Checking tested Caustica RTX build…";
+
+            var build = await _minecraft.GetLatestCausticaBuildLabelAsync();
+
+            MinecraftCausticaBuildText.Text =
+                build == null
+                    ? "Caustica RTX build: no compatible Minecraft 26.2 release found"
+                    : $"Caustica RTX build: {build}";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn(
+                $"Caustica build check failed: {ex.Message}");
+
+            MinecraftCausticaBuildText.Text =
+                "Caustica RTX build: check unavailable";
         }
     }
 
@@ -143,6 +190,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            AppLogger.Error("Installed-game scan failed.", ex);
             CompatibilityText.Text = $"Game scan failed: {ex.Message}";
             StatusText.Text = "Game scan failed";
         }
@@ -154,16 +202,37 @@ public partial class MainWindow : Window
 
     private async Task CheckManagerUpdateAsync()
     {
-        var latest = await _releases.GetLatestManagerReleaseAsync();
-        if (latest.Version == null)
-            return;
+        _managerRelease = await _releases.GetLatestManagerReleaseInfoAsync();
 
-        var current = typeof(MainWindow).Assembly.GetName().Version ?? new Version(0, 0, 0);
-        if (latest.Version <= current)
-            return;
+        AppLogger.Info(
+            _managerRelease == null
+                ? "Manager update check: no published release detected."
+                : $"Manager update check: latest published {_managerRelease.Tag}.");
 
-        _managerUpdateUrl = latest.Url;
-        ManagerUpdateButton.Content = $"Update v{latest.Version}";
+        var current =
+            typeof(MainWindow).Assembly.GetName().Version
+            ?? new Version(0, 0, 0);
+
+        if (_managerRelease == null)
+        {
+            AppVersionText.Text =
+                $"Version v{current.Major}.{current.Minor}.{current.Build} • no published update";
+            ManagerUpdateButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (_managerRelease.Version <= current)
+        {
+            AppVersionText.Text =
+                $"Version v{current.Major}.{current.Minor}.{current.Build} • latest";
+            ManagerUpdateButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        AppVersionText.Text =
+            $"Version v{current.Major}.{current.Minor}.{current.Build} • update available";
+        ManagerUpdateButton.Content =
+            $"Download & install v{_managerRelease.Version}";
         ManagerUpdateButton.Visibility = Visibility.Visible;
     }
 
@@ -257,6 +326,38 @@ public partial class MainWindow : Window
     {
         await ScanGamesAsync(forceRefresh: true);
         await RefreshStateAsync();
+    }
+
+    private void OpenDiagnosticLogs_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppLogger.LogDirectory);
+
+            Process.Start(new ProcessStartInfo(
+                "explorer.exe",
+                $"\"{AppLogger.LogDirectory}\"")
+            {
+                UseShellExecute = true
+            });
+
+            AppLogger.Info(
+                $"Opened diagnostic log directory: {AppLogger.LogDirectory}");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error(
+                "Unable to open diagnostic log directory.",
+                ex);
+
+            MessageBox.Show(
+                $"Log path:\n{AppLogger.LogPath}\n\n{ex.Message}",
+                "Diagnostic logs",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private async void ClearArtworkCache_Click(object sender, RoutedEventArgs e)
@@ -430,14 +531,40 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath))
-        {
-            MessageBox.Show("Select your nvngx_dlssnr.dll first.");
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(GamePathBox.Text))
             return;
+
+        if (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath))
+        {
+            if (AutoNvidiaRuntimeCheck.IsChecked != true)
+            {
+                MessageBox.Show(
+                    "Select nvngx_dlssnr.dll or enable automatic NVIDIA Streamline runtime download.");
+                return;
+            }
+
+            try
+            {
+                RuntimePathText.Text = "Downloading official NVIDIA Streamline runtime…";
+                var progress = new Progress<string>(message => RuntimePathText.Text = message);
+                var runtime = await _streamline.EnsureLatestDlssNrAsync(
+                    _gpu.Generation,
+                    progress);
+
+                _runtimePath = runtime.RuntimePath;
+                RuntimePathText.Text =
+                    $"{Path.GetFileName(runtime.RuntimePath)} • NVIDIA Streamline {runtime.Version} • official GitHub release";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Unable to prepare the official NVIDIA runtime.\n\n{ex.Message}",
+                    "NVIDIA Streamline runtime",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return;
+            }
+        }
 
         if (_selectedGame is { Confidence: not "Validated" })
         {
@@ -480,6 +607,25 @@ public partial class MainWindow : Window
                 _releases);
 
             var gameDir = GamePathBox.Text;
+
+            if (AutoNvidiaResourcesCheck.IsChecked == true)
+            {
+                var resourceProgress = new Progress<string>(
+                    message => RuntimePathText.Text = message);
+
+                var staged = await _streamline.StageSelectedResourcesAsync(
+                    gameDir,
+                    includeSuperResolution: true,
+                    includeFrameGeneration: true,
+                    includeReflex: true,
+                    includeNeuralRendering: true,
+                    resourceProgress);
+
+                RuntimePathText.Text =
+                    staged.Count == 0
+                        ? "NVIDIA resources checked • game already had the required files."
+                        : $"Added {staged.Count} missing official NVIDIA Streamline/DLSS resource file(s).";
+            }
             await Task.Run(() => ApplyAdvancedSettings(gameDir, advanced));
 
             if (InstallReShadeAddonCheck.IsChecked == true)
@@ -616,6 +762,60 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void WingetUpdateAll_Click(object sender, RoutedEventArgs e)
+    {
+        var answer = MessageBox.Show(
+            "Update all applications currently matched by WinGet?\n\n" +
+            "This runs winget upgrade --all. Third-party installers may open, request administrator rights, " +
+            "or restart applications. Drivers, Windows Update, BIOS and firmware are not installed by this action.",
+            "WinGet update all",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            WingetUpdateButton.IsEnabled = false;
+            PcUpdateScanButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => PcUpdateStatusText.Text = message);
+
+            var result = await _pcUpdates.UpdateAllWingetAsync(progress);
+            PcUpdateStatusText.Text = "WinGet update completed. Rescanning…";
+
+            var scan = await _pcUpdates.ScanAsync(
+                forceRefresh: true,
+                progress);
+
+            PcUpdateList.ItemsSource = scan.Items;
+            PcUpdateStatusText.Text =
+                $"WinGet update completed • rescanned {scan.ScannedAt.LocalDateTime:g} • {scan.Items.Count} entries";
+
+            MessageBox.Show(
+                result,
+                "WinGet update result",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            PcUpdateStatusText.Text = $"WinGet update failed: {ex.Message}";
+            MessageBox.Show(
+                ex.Message,
+                "WinGet update failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            WingetUpdateButton.IsEnabled = true;
+            PcUpdateScanButton.IsEnabled = true;
+        }
+    }
+
     private void ClearPcUpdateCache_Click(object sender, RoutedEventArgs e)
     {
         _pcUpdates.ClearCache();
@@ -659,6 +859,123 @@ public partial class MainWindow : Window
                 "PC Update Center",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+        }
+    }
+
+    private async void AnalyzePcCleanup_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            PcCleanupAnalyzeButton.IsEnabled = false;
+            PcCleanupCleanButton.IsEnabled = false;
+            PcCleanupStatusText.Text = "Analyzing caches…";
+
+            var progress = new Progress<string>(
+                message => PcCleanupStatusText.Text = message);
+
+            _cleanupItems = await _pcCleanup.AnalyzeAsync(
+                _cleanupItems,
+                progress);
+
+            PcCleanupList.ItemsSource = null;
+            PcCleanupList.ItemsSource = _cleanupItems;
+
+            var total = _cleanupItems.Sum(x => x.Bytes);
+            var files = _cleanupItems.Sum(x => x.FileCount);
+            var skipped = _cleanupItems.Sum(x => x.SkippedCount);
+
+            PcCleanupStatusText.Text =
+                $"Analysis complete • {files:N0} files • {PcCleanupService.FormatBytes(total)} reclaimable";
+
+            PcCleanupTotalText.Text =
+                $"Analyzed total: {PcCleanupService.FormatBytes(total)}" +
+                (skipped > 0 ? $" • {skipped:N0} inaccessible/locked entries skipped" : "");
+        }
+        catch (Exception ex)
+        {
+            PcCleanupStatusText.Text = $"Cache analysis failed: {ex.Message}";
+        }
+        finally
+        {
+            PcCleanupAnalyzeButton.IsEnabled = true;
+            PcCleanupCleanButton.IsEnabled = true;
+        }
+    }
+
+    private async void CleanPcCleanup_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _cleanupItems.Where(x => x.IsSelected).ToList();
+        if (selected.Count == 0)
+        {
+            MessageBox.Show(
+                "Select at least one cache category.",
+                "PC Cleanup",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var knownBytes = selected.Sum(x => x.Bytes);
+        var selectedNames = string.Join(
+            "\n",
+            selected.Select(x => $"• {x.Name}"));
+
+        var answer = MessageBox.Show(
+            "Delete the selected temporary/cache files?\n\n" +
+            selectedNames +
+            $"\n\nCurrently analyzed size: {PcCleanupService.FormatBytes(knownBytes)}\n\n" +
+            "Games and applications may rebuild shader caches after cleanup. " +
+            "Locked or inaccessible files will be skipped.",
+            "Clean selected caches",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            PcCleanupAnalyzeButton.IsEnabled = false;
+            PcCleanupCleanButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => PcCleanupStatusText.Text = message);
+
+            var result = await _pcCleanup.CleanAsync(
+                _cleanupItems,
+                progress);
+
+            PcCleanupStatusText.Text =
+                $"Cleanup complete • {result.DeletedFiles:N0} files • " +
+                $"{PcCleanupService.FormatBytes(result.DeletedBytes)} removed" +
+                (result.SkippedFiles > 0
+                    ? $" • {result.SkippedFiles:N0} locked/inaccessible skipped"
+                    : "");
+
+            _cleanupItems = await _pcCleanup.AnalyzeAsync(
+                _cleanupItems,
+                progress);
+
+            PcCleanupList.ItemsSource = null;
+            PcCleanupList.ItemsSource = _cleanupItems;
+
+            var remaining = _cleanupItems.Sum(x => x.Bytes);
+            PcCleanupTotalText.Text =
+                $"Remaining analyzed cache: {PcCleanupService.FormatBytes(remaining)}";
+        }
+        catch (Exception ex)
+        {
+            PcCleanupStatusText.Text = $"Cleanup failed: {ex.Message}";
+            MessageBox.Show(
+                ex.Message,
+                "PC Cleanup",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            PcCleanupAnalyzeButton.IsEnabled = true;
+            PcCleanupCleanButton.IsEnabled = true;
         }
     }
 
@@ -758,11 +1075,31 @@ public partial class MainWindow : Window
             MinecraftInstanceBox.ItemsSource = _minecraftInstances;
 
             if (_minecraftInstances.Count > 0)
-                MinecraftInstanceBox.SelectedIndex = 0;
+            {
+                var preferred = _minecraftInstances
+                    .FirstOrDefault(instance =>
+                        instance.HasTargetMinecraftVersion)
+                    ?? _minecraftInstances.First();
 
-            MinecraftStatusText.Text = _minecraftInstances.Count == 0
-                ? "No Minecraft Java instance was detected. Use Choose folder for a custom launcher instance."
-                : $"Detected {_minecraftInstances.Count} Minecraft instance(s).";
+                MinecraftInstanceBox.SelectedItem = preferred;
+
+                AppLogger.Info(
+                    "Minecraft scan detected: " +
+                    string.Join(
+                        " | ",
+                        _minecraftInstances.Select(instance =>
+                            $"{instance.DisplayName} @ {instance.RootDirectory}")));
+
+                MinecraftStatusText.Text =
+                    preferred.HasTargetMinecraftVersion
+                        ? $"Detected {_minecraftInstances.Count} instance(s). Selected {preferred.DisplayName} automatically."
+                        : $"Detected {_minecraftInstances.Count} instance(s). Minecraft {MinecraftIntegrationService.MinecraftVersion} was not found; selected {preferred.DisplayName}.";
+            }
+            else
+            {
+                MinecraftStatusText.Text =
+                    "No Minecraft Java instance was detected. Use Choose folder for a custom launcher instance.";
+            }
         }
         catch (Exception ex)
         {
@@ -796,7 +1133,7 @@ public partial class MainWindow : Window
             MinecraftInstanceBox.SelectedItem = candidate;
 
             MinecraftStatusText.Text =
-                $"Selected {candidate.RootDirectory} • Fabric: {(candidate.FabricDetected ? "detected" : "not detected")}";
+                $"Selected {candidate.DisplayName} • {candidate.RootDirectory} • Fabric: {(candidate.FabricDetected ? "detected" : "not detected")}";
         }
         catch (Exception ex)
         {
@@ -811,61 +1148,224 @@ public partial class MainWindow : Window
     private MinecraftInstallCandidate? SelectedMinecraftInstance()
         => MinecraftInstanceBox.SelectedItem as MinecraftInstallCandidate;
 
-    private async void InstallMinecraftFabric_Click(object sender, RoutedEventArgs e)
+    private async void MinecraftInstanceBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (SelectedMinecraftInstance() == null)
+            return;
+
+        await RunMinecraftPreflightAsync(showDialogOnFailure: false);
+    }
+
+    private async void RunMinecraftPreflight_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        await RunMinecraftPreflightAsync(showDialogOnFailure: true);
+    }
+
+    private async Task<MinecraftPreflightResult?> RunMinecraftPreflightAsync(
+        bool showDialogOnFailure)
     {
         var instance = SelectedMinecraftInstance();
         if (instance == null)
         {
-            MessageBox.Show("Select a Minecraft instance first.");
-            return;
+            MinecraftPreflightSummaryText.Text =
+                "Select a Minecraft Java instance first.";
+            MinecraftPreflightDetailsText.Text =
+                "No preflight has been run.";
+
+            if (showDialogOnFailure)
+            {
+                MessageBox.Show(
+                    "Select a Minecraft Java instance first.",
+                    "Minecraft RTX preflight",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+
+            return null;
         }
-
-        var answer = MessageBox.Show(
-            $"Install Fabric Loader {MinecraftIntegrationService.MinimumFabricLoader} " +
-            $"for Minecraft {MinecraftIntegrationService.MinecraftVersion}?\n\n" +
-            "The official Fabric Installer is downloaded from FabricMC's GitHub release. Restart Minecraft Launcher afterwards.",
-            "Install Fabric",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (answer != MessageBoxResult.Yes)
-            return;
 
         try
         {
-            var progress = new Progress<string>(
-                message => MinecraftStatusText.Text = message);
+            MinecraftPreflightButton.IsEnabled = false;
+            MinecraftOneClickInstallButton.IsEnabled = false;
+            MinecraftPreflightSummaryText.Text = "Running RTX preflight…";
+            MinecraftPreflightDetailsText.Text =
+                "Checking GPU, NVIDIA driver, Vulkan RT, Java, Minecraft/Fabric versions, renderer conflicts and write access.";
 
-            await _minecraft.LaunchFabricInstallerAsync(
-                instance.RootDirectory,
-                progress);
+            AppLogger.Info(
+                $"Minecraft RTX preflight started. Instance='{instance.RootDirectory}'.");
 
-            ScanMinecraft_Click(sender, e);
+            var result = await _minecraftPreflight.RunAsync(instance);
+            _minecraftPreflightResult = result;
+
+            AppLogger.Info(
+                $"Minecraft RTX preflight result: {result.Summary}. " +
+                string.Join(
+                    " | ",
+                    result.Checks.Select(check =>
+                        $"{check.Severity}:{check.Name}={check.Details}")));
+
+            MinecraftPreflightSummaryText.Text =
+                $"Preflight: {result.Summary}";
+
+            var resourceKey = result.Status switch
+            {
+                MinecraftPreflightSeverity.Ready => "Accent",
+                MinecraftPreflightSeverity.Warning => "Warning",
+                _ => "Danger"
+            };
+
+            MinecraftPreflightSummaryText.Foreground =
+                (System.Windows.Media.Brush)FindResource(resourceKey);
+
+            MinecraftPreflightDetailsText.Text = string.Join(
+                "\n",
+                result.Checks.Select(check =>
+                {
+                    var icon = check.Severity switch
+                    {
+                        MinecraftPreflightSeverity.Ready => "✓",
+                        MinecraftPreflightSeverity.Warning => "!",
+                        _ => "×"
+                    };
+
+                    return $"{icon} {check.Name}: {check.Details}";
+                }));
+
+            MinecraftOneClickInstallButton.IsEnabled = result.CanInstall;
+
+            if (showDialogOnFailure ||
+                result.Status == MinecraftPreflightSeverity.Unsupported)
+            {
+                var message = string.Join(
+                    "\n\n",
+                    result.Checks.Select(check =>
+                        $"{check.Severity} — {check.Name}\n{check.Details}"));
+
+                MessageBox.Show(
+                    $"Overall status: {result.Summary}\n\n{message}",
+                    "Minecraft RTX preflight",
+                    MessageBoxButton.OK,
+                    result.Status == MinecraftPreflightSeverity.Unsupported
+                        ? MessageBoxImage.Error
+                        : result.Status == MinecraftPreflightSeverity.Warning
+                            ? MessageBoxImage.Warning
+                            : MessageBoxImage.Information);
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
-            MinecraftStatusText.Text = $"Fabric install failed: {ex.Message}";
-            MessageBox.Show(
-                ex.Message,
-                "Fabric install failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            AppLogger.Error(
+                $"Minecraft RTX preflight failed for '{instance.RootDirectory}'.",
+                ex);
+
+            _minecraftPreflightResult = null;
+            MinecraftPreflightSummaryText.Text = "Preflight failed";
+            MinecraftPreflightSummaryText.Foreground =
+                (System.Windows.Media.Brush)FindResource("Danger");
+            MinecraftPreflightDetailsText.Text = ex.Message;
+            MinecraftOneClickInstallButton.IsEnabled = false;
+
+            if (showDialogOnFailure)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Minecraft RTX preflight failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+
+            return null;
+        }
+        finally
+        {
+            MinecraftPreflightButton.IsEnabled = true;
+
+            if (_minecraftPreflightResult?.CanInstall == true)
+                MinecraftOneClickInstallButton.IsEnabled = true;
         }
     }
 
-    private async void InstallMinecraftRtx_Click(object sender, RoutedEventArgs e)
+    private async void InstallMinecraftOneClick_Click(object sender, RoutedEventArgs e)
     {
         var instance = SelectedMinecraftInstance();
         if (instance == null)
         {
-            MessageBox.Show("Select a Minecraft instance first.");
+            MessageBox.Show(
+                "Select a Minecraft Java instance first.",
+                "Minecraft DLSS / RTX",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             return;
         }
 
+        var preflight = await RunMinecraftPreflightAsync(
+            showDialogOnFailure: false);
+
+        if (preflight == null)
+            return;
+
+        if (!preflight.CanInstall)
+        {
+            var blockers = string.Join(
+                "\n",
+                preflight.Checks
+                    .Where(check =>
+                        check.Severity == MinecraftPreflightSeverity.Unsupported)
+                    .Select(check => $"• {check.Name}: {check.Details}"));
+
+            MessageBox.Show(
+                "Installation is blocked by the RTX preflight:\n\n" + blockers,
+                "Minecraft RTX unsupported",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
+
+        if (preflight.Status == MinecraftPreflightSeverity.Warning)
+        {
+            var warnings = string.Join(
+                "\n",
+                preflight.Checks
+                    .Where(check =>
+                        check.Severity == MinecraftPreflightSeverity.Warning)
+                    .Select(check => $"• {check.Name}: {check.Details}"));
+
+            if (MessageBox.Show(
+                    "The RTX preflight found warnings:\n\n" +
+                    warnings +
+                    "\n\nThe installer can automatically fix some of these items. Continue?",
+                    "Minecraft RTX preflight warning",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+        }
+
         var warning = MessageBox.Show(
-            "This installs or updates only the manager-controlled Fabric API and Caustica RTX JARs. " +
-            "Caustica replaces the world renderer and may conflict with Sodium, Iris or another Vulkan/world-renderer replacement.\n\nContinue?",
-            "Enable Minecraft RTX stack",
+            "One-click installation will:\n\n" +
+            "• back up the current Minecraft instance state\n" +
+            "• force Minecraft 26.2 to prefer Vulkan\n" +
+            "• verify Java 25 x64 and install Eclipse Temurin 25 with WinGet automatically if needed\n" +
+            "• install Fabric automatically if it is missing\n" +
+            "• install/update Fabric API and Caustica RTX\n" +
+            (MinecraftPerformancePackCheck.IsChecked == true
+                ? "• install Lithium, FerriteCore, Krypton and Dynamic FPS from Modrinth\n"
+                : "") +
+            (MinecraftSpbrCheck.IsChecked == true
+                ? "• install the SPBR LabPBR resource pack from Modrinth\n"
+                : "") +
+            "• temporarily move known conflicting renderer mods (Sodium, Iris, VulkanMod, Nvidium, Canvas, OptiFine/OptiFabric) into the backup\n" +
+            "• add the Fabric launcher Java arguments required/recommended for the native renderer path\n\n" +
+            "Caustica RTX provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and NVIDIA Reflex. " +
+            "Ray Reconstruction uses DLSS performance/quality modes and, when enabled, replaces the standalone Super Resolution reconstruction step. " +
+            "A full Restore original action is created before changes. Continue?",
+            "Install Minecraft DLSS / RTX",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
 
@@ -874,30 +1374,154 @@ public partial class MainWindow : Window
 
         try
         {
-            var progress = new Progress<string>(
-                message => MinecraftStatusText.Text = message);
+            AppLogger.Info(
+                $"Minecraft one-click install requested. Instance='{instance.RootDirectory}', " +
+                $"performancePack={MinecraftPerformancePackCheck.IsChecked == true}, " +
+                $"SPBR={MinecraftSpbrCheck.IsChecked == true}.");
 
-            var result = await _minecraft.InstallMinecraftRtxAsync(
+            MinecraftOneClickInstallButton.IsEnabled = false;
+            MinecraftRestoreOriginalButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message =>
+                {
+                    MinecraftStatusText.Text = message;
+                    AppLogger.Info($"Minecraft: {message}");
+                });
+
+            var result = await _minecraftOneClick.InstallAsync(
                 instance,
-                MinecraftInstallFabricApiCheck.IsChecked == true,
-                MinecraftAllowPrereleaseCheck.IsChecked == true,
+                installFabricApi: true,
+                allowPrereleaseCaustica: true,
+                installRtxPerformancePack:
+                    MinecraftPerformancePackCheck.IsChecked == true,
+                installLabPbrResourcePack:
+                    MinecraftSpbrCheck.IsChecked == true,
                 progress);
 
+            AppLogger.Info(
+                "Minecraft one-click install completed successfully: " +
+                string.Join(
+                    ", ",
+                    result.Setup.Components.Select(
+                        component => $"{component.Component} {component.Version}")));
+
             MinecraftStatusText.Text =
-                "Minecraft RTX stack installed • " +
+                "Minecraft DLSS / RTX ready • " +
                 string.Join(
                     " • ",
-                    result.Components.Select(
-                        x => $"{x.Component} {x.Version}"));
+                    result.Setup.Components.Select(
+                        component => $"{component.Component} {component.Version}"));
+
+            var notes =
+                string.Join("\n", result.Notes.Select(note => $"• {note}"));
+
+            MessageBox.Show(
+                "Installation completed.\n\n" +
+                notes +
+                "\n\nLaunch the Fabric profile. In Minecraft, open Options → Video Settings → Ray Tracing " +
+                "to choose DLSS quality, Frame Generation/MFG multiplier and Reflex mode. " +
+                "The manager already sets preferredGraphicsBackend to Vulkan.",
+                "Minecraft DLSS / RTX ready",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            ScanMinecraft_Click(sender, e);
         }
         catch (Exception ex)
         {
-            MinecraftStatusText.Text = $"Minecraft RTX install failed: {ex.Message}";
+            AppLogger.Error(
+                $"Minecraft one-click install failed for '{instance.RootDirectory}'.",
+                ex);
+
+            MinecraftStatusText.Text =
+                $"Minecraft one-click install failed: {ex.Message}";
+
             MessageBox.Show(
                 ex.Message,
-                "Minecraft RTX install failed",
+                "Minecraft DLSS / RTX install failed",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+        }
+        finally
+        {
+            MinecraftOneClickInstallButton.IsEnabled = true;
+            MinecraftRestoreOriginalButton.IsEnabled = true;
+        }
+    }
+
+    private void RestoreMinecraftOriginal_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null)
+        {
+            MessageBox.Show(
+                "Select the Minecraft instance to restore first.",
+                "Restore Minecraft",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var answer = MessageBox.Show(
+            "Restore this Minecraft instance to the state saved immediately before the one-click DLSS / RTX installation?\n\n" +
+            "This removes manager-installed Caustica/Fabric API files, restores the previous options and launcher profile, " +
+            "restores renderer mods that were moved to the backup, removes Caustica native/runtime output and removes Fabric version folders only when they were created by the one-click installation.",
+            "Restore original Minecraft",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            AppLogger.Info(
+                $"Minecraft restore requested. Instance='{instance.RootDirectory}'.");
+
+            MinecraftOneClickInstallButton.IsEnabled = false;
+            MinecraftRestoreOriginalButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => MinecraftStatusText.Text = message);
+
+            _minecraftOneClick.RestoreOriginal(
+                instance.RootDirectory,
+                progress);
+
+            AppLogger.Info(
+                $"Minecraft restore completed successfully. Instance='{instance.RootDirectory}'.");
+
+            MinecraftStatusText.Text =
+                "Minecraft instance restored to its original pre-install state.";
+
+            MessageBox.Show(
+                "Minecraft has been restored from the one-click backup.",
+                "Restore complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+
+            ScanMinecraft_Click(sender, e);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error(
+                $"Minecraft restore failed for '{instance.RootDirectory}'.",
+                ex);
+
+            MinecraftStatusText.Text =
+                $"Minecraft restore failed: {ex.Message}";
+
+            MessageBox.Show(
+                ex.Message,
+                "Minecraft restore failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            MinecraftOneClickInstallButton.IsEnabled = true;
+            MinecraftRestoreOriginalButton.IsEnabled = true;
         }
     }
 
@@ -914,33 +1538,6 @@ public partial class MainWindow : Window
                 "Minecraft Launcher",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-        }
-    }
-
-    private void RemoveMinecraftRtx_Click(object sender, RoutedEventArgs e)
-    {
-        var instance = SelectedMinecraftInstance();
-        if (instance == null)
-        {
-            MessageBox.Show("Select a Minecraft instance first.");
-            return;
-        }
-
-        if (MessageBox.Show(
-                "Remove only Minecraft RTX files tracked by DLSS NR Manager? Backups are preserved.",
-                "Remove Minecraft RTX",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) != MessageBoxResult.Yes)
-            return;
-
-        try
-        {
-            _minecraft.UninstallManagedMinecraftRtx(instance.RootDirectory);
-            MinecraftStatusText.Text = "Managed Minecraft RTX files removed.";
-        }
-        catch (Exception ex)
-        {
-            MinecraftStatusText.Text = $"Minecraft RTX removal failed: {ex.Message}";
         }
     }
 
@@ -1451,12 +2048,91 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ManagerUpdate_Click(object sender, RoutedEventArgs e)
+    private async void ManagerUpdate_Click(
+        object sender,
+        RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(_managerUpdateUrl))
+        if (_managerRelease == null)
+        {
+            await CheckManagerUpdateAsync();
+            if (_managerRelease == null)
+            {
+                MessageBox.Show(
+                    "No published DLSS NR Manager update is currently available.",
+                    "DLSS NR Manager update",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+        }
+
+        var current =
+            typeof(MainWindow).Assembly.GetName().Version
+            ?? new Version(0, 0, 0);
+
+        if (_managerRelease.Version <= current)
+        {
+            MessageBox.Show(
+                $"DLSS NR Manager v{current.Major}.{current.Minor}.{current.Build} is already the latest published version.",
+                "DLSS NR Manager update",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            ManagerUpdateButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (MessageBox.Show(
+                $"Download and install DLSS NR Manager v{_managerRelease.Version}?\n\n" +
+                "The update is downloaded from this project's latest GitHub Release, " +
+                "validated, then the app closes, replaces its executable and restarts automatically.",
+                "Install DLSS NR Manager update",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
-        Process.Start(new ProcessStartInfo(_managerUpdateUrl) { UseShellExecute = true });
+        try
+        {
+            ManagerUpdateButton.IsEnabled = false;
+            ManagerUpdateButton.Content =
+                $"Downloading v{_managerRelease.Version}…";
+
+            var progress = new Progress<string>(
+                message => ManagerUpdateButton.Content = message);
+
+            AppLogger.Info(
+                $"Application update requested: {_managerRelease.Tag}.");
+
+            var staged = await _appUpdater.DownloadAndStageAsync(
+                _managerRelease,
+                progress);
+
+            ManagerUpdateButton.Content = "Restarting to update…";
+
+            AppLogger.Info(
+                $"Application update staged successfully at '{staged}'. Restarting.");
+
+            _appUpdater.ApplyAndRestart(
+                staged,
+                _managerRelease.Version);
+
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error(
+                "Application self-update failed.",
+                ex);
+
+            ManagerUpdateButton.IsEnabled = true;
+            ManagerUpdateButton.Content =
+                $"Retry update v{_managerRelease.Version}";
+
+            MessageBox.Show(
+                ex.Message,
+                "DLSS NR Manager update failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

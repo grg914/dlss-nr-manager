@@ -9,7 +9,9 @@
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResize"
-        Background="{StaticResource AppBackground}">
+        Background="{StaticResource AppBackground}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="48"
                         ResizeBorderThickness="7"
@@ -40,7 +42,10 @@
 
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
           <Border Width="28" Height="28" CornerRadius="7" ClipToBounds="True" Margin="0,0,10,0">
-            <Image Source="assets/branding/logo.png" Stretch="UniformToFill"/>
+            <Image Source="assets/branding/logo.png"
+                   Stretch="UniformToFill"
+                   RenderOptions.BitmapScalingMode="Fant"
+                   SnapsToDevicePixels="True"/>
           </Border>
           <TextBlock Text="DLSS NR Manager"
                      FontSize="14"
@@ -92,7 +97,10 @@
                       BorderBrush="#28465A"
                       BorderThickness="1"
                       ClipToBounds="True">
-                <Image Source="assets/branding/logo.png" Stretch="UniformToFill"/>
+                <Image Source="assets/branding/logo.png"
+                   Stretch="UniformToFill"
+                   RenderOptions.BitmapScalingMode="Fant"
+                   SnapsToDevicePixels="True"/>
               </Border>
 
               <StackPanel Grid.Column="1"
@@ -147,6 +155,10 @@
                 <Button Content="Clear cover cache"
                         Margin="0,8,0,0"
                         Click="ClearArtworkCache_Click"/>
+                <Button Content="Open diagnostic logs"
+                        Margin="0,8,0,0"
+                        ToolTip="%LOCALAPPDATA%\DlssNrManager\logs"
+                        Click="OpenDiagnosticLogs_Click"/>
                 <Button Content="Delete local app data"
                         Margin="0,8,0,0"
                         ToolTip="%LOCALAPPDATA%\DlssNrManager"
@@ -350,8 +362,13 @@
                             Click="Diagnose_Click"/>
                   </Grid>
 
+                  <CheckBox x:Name="AutoNvidiaRuntimeCheck"
+                            Content="Automatically download the latest official NVIDIA Streamline DLSSNR runtime when needed"
+                            IsChecked="True"
+                            Margin="0,9,0,0"/>
+
                   <TextBlock x:Name="RuntimePathText"
-                             Margin="0,9,0,0"
+                             Margin="0,7,0,0"
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
                              FontSize="11"/>
@@ -404,6 +421,12 @@
                                  FontSize="11"/>
                     </StackPanel>
                   </Grid>
+
+                  <CheckBox x:Name="AutoNvidiaResourcesCheck"
+                            Content="Add missing official NVIDIA Streamline/DLSS resources to the selected game"
+                            IsChecked="True"
+                            Margin="0,14,0,0"
+                            ToolTip="Downloads the latest official NVIDIA Streamline release and copies only missing SR/FG/Reflex/NR runtime DLLs. Existing game DLLs are never overwritten."/>
 
                   <Grid Margin="0,16,0,0">
                     <Grid.ColumnDefinitions>
@@ -460,7 +483,7 @@
             <StackPanel>
               <TextBlock Text="Minecraft Java RTX"
                          Style="{StaticResource SectionTitle}"/>
-              <TextBlock Text="Minecraft 26.2 • Fabric • Caustica RTX • optional user-provided DLSS/Streamline runtime"
+              <TextBlock Text="Minecraft 26.2 • one-click Vulkan path tracing • DLSS Ray Reconstruction • Frame Generation/MFG • Reflex"
                          Style="{StaticResource SectionSubtitle}"
                          Margin="0,4,0,14"/>
 
@@ -479,7 +502,8 @@
                 </Grid.ColumnDefinitions>
 
                 <ComboBox x:Name="MinecraftInstanceBox"
-                          DisplayMemberPath="Name"/>
+                          DisplayMemberPath="DisplayName"
+                          SelectionChanged="MinecraftInstanceBox_SelectionChanged"/>
 
                 <Button Grid.Column="2"
                         Content="Scan"
@@ -497,50 +521,119 @@
                       Padding="11"
                       Margin="0,0,0,12">
                 <StackPanel>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="RTX preflight"
+                                 FontWeight="SemiBold"/>
+                      <TextBlock x:Name="MinecraftPreflightSummaryText"
+                                 Text="Select an instance to run compatibility checks."
+                                 Foreground="{StaticResource Muted}"
+                                 FontSize="11"
+                                 Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            x:Name="MinecraftPreflightButton"
+                            Content="Run preflight"
+                            Click="RunMinecraftPreflight_Click"
+                            Margin="12,0,0,0"/>
+                  </Grid>
+
+                  <TextBlock x:Name="MinecraftPreflightDetailsText"
+                             Text="Checks: NVIDIA RTX GPU, driver, Vulkan RT, Java 25, Minecraft 26.2, Fabric Loader 0.19.3+, renderer conflicts and write access."
+                             Foreground="{StaticResource Muted}"
+                             TextWrapping="Wrap"
+                             FontSize="10"
+                             Margin="0,9,0,0"/>
+                </StackPanel>
+              </Border>
+
+              <Border Background="#0B121A"
+                      BorderBrush="#1D2A39"
+                      BorderThickness="1"
+                      CornerRadius="9"
+                      Padding="11"
+                      Margin="0,0,0,12">
+                <StackPanel>
                   <TextBlock Text="Open-source renderer stack"
                              FontWeight="SemiBold"/>
-                  <TextBlock Text="Downloads Fabric Installer, Fabric API and Caustica RTX directly from their upstream GitHub releases. No JAR is bundled in DLSS NR Manager."
+                  <TextBlock Text="Downloads Fabric Installer from the official Fabric Maven, Fabric API/optional mods from Modrinth, and the latest tested Minecraft 26.2 Caustica RTX ScandiCraft build from grg914/Caustica-RTX. No JAR is bundled in DLSS NR Manager."
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
                              FontSize="11"
                              Margin="0,4,0,8"/>
 
-                  <StackPanel Orientation="Horizontal">
-                    <CheckBox x:Name="MinecraftInstallFabricApiCheck"
-                              Content="Install/update Fabric API"
-                              IsChecked="True"
-                              Margin="0,0,18,0"/>
-                    <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
-                              Content="Allow Caustica prereleases"
-                              IsChecked="True"/>
+                  <TextBlock x:Name="MinecraftCausticaBuildText"
+                             Text="Checking tested Caustica RTX build…"
+                             Foreground="{StaticResource Accent}"
+                             FontSize="10"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,8"/>
+
+                  <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                      <CheckBox x:Name="MinecraftInstallFabricApiCheck"
+                                Content="Fabric API (required)"
+                                IsChecked="True"
+                                IsEnabled="False"
+                                Margin="0,0,18,0"/>
+                      <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
+                                Content="Latest tested Caustica RTX 26.2 build"
+                                IsChecked="True"
+                                IsEnabled="False"/>
+                    </StackPanel>
+
+                    <WrapPanel Margin="0,8,0,0">
+                      <CheckBox x:Name="MinecraftPerformancePackCheck"
+                                Content="Performance pack without renderer replacement (Lithium + FerriteCore + Krypton + Dynamic FPS)"
+                                IsChecked="True"
+                                Margin="0,0,18,6"/>
+                      <CheckBox x:Name="MinecraftSpbrCheck"
+                                Content="SPBR LabPBR resource pack"
+                                IsChecked="True"
+                                Margin="0,0,18,6"/>
+                    </WrapPanel>
+
+                    <TextBlock Text="Sodium and Iris are not installed in RTX mode: they replace/modify the rendering pipeline and can conflict with Caustica, which owns the Vulkan/path-traced renderer. The optional performance pack avoids renderer replacement; Caustica is experimental, so mod compatibility is still validated at launch. SPBR is the compatible LabPBR material pack for the DLSS/RTX path."
+                               Foreground="{StaticResource Warning}"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"/>
                   </StackPanel>
 
                   <Grid Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="1.3*"/>
                       <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="1.1*"/>
                       <ColumnDefinition Width="8"/>
                       <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <Button Grid.Column="0"
-                            Style="{StaticResource CyanButton}"
-                            Content="Install Fabric"
-                            Click="InstallMinecraftFabric_Click"/>
-                    <Button Grid.Column="2"
+                            x:Name="MinecraftOneClickInstallButton"
                             Style="{StaticResource PrimaryButton}"
-                            Content="Enable RTX stack"
-                            Click="InstallMinecraftRtx_Click"/>
+                            Content="Install DLSS / RTX"
+                            Click="InstallMinecraftOneClick_Click"/>
+                    <Button Grid.Column="2"
+                            x:Name="MinecraftRestoreOriginalButton"
+                            Style="{StaticResource DangerButton}"
+                            Content="Restore original"
+                            Click="RestoreMinecraftOriginal_Click"/>
                     <Button Grid.Column="4"
                             Content="Open Launcher"
                             Click="OpenMinecraftLauncher_Click"/>
-                    <Button Grid.Column="6"
-                            Content="Remove managed RTX"
-                            Click="RemoveMinecraftRtx_Click"/>
                   </Grid>
+
+                  <TextBlock Foreground="{StaticResource Muted}"
+                             FontSize="10"
+                             TextWrapping="Wrap"
+                             Margin="0,9,0,0"
+                             Text="One-click install runs the RTX preflight first, then backs up the instance, forces Minecraft 26.2 to prefer Vulkan, installs/updates Fabric Loader when needed, installs Fabric API + the latest tested Caustica RTX 26.2 build, disables conflicting renderer mods into the backup, and patches the Fabric launcher profile for native access. The Caustica build includes RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering support. Unsupported preflight results block installation; warnings require explicit confirmation."/>
                 </StackPanel>
               </Border>
 
@@ -637,7 +730,7 @@
                          FontSize="11"
                          Margin="0,10,0,0"/>
 
-              <TextBlock Text="Renderer warning: do not automatically combine multiple world-renderer replacements. Staging a DLL does not by itself activate DLSS in Minecraft; the active renderer/provider must support that NVIDIA API."
+              <TextBlock Text="Caustica RTX currently provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. DLSS Super Resolution is not falsely enabled by copying DLLs: it requires renderer support. The one-click installer relies on Caustica's implemented NVIDIA path and keeps the manual runtime tools below as advanced staging only."
                          Foreground="{StaticResource Warning}"
                          TextWrapping="Wrap"
                          FontSize="10"
@@ -910,6 +1003,11 @@
                           Style="{StaticResource CyanButton}"
                           Content="Scan PC updates"
                           Click="ScanPcUpdates_Click"/>
+                  <Button x:Name="WingetUpdateButton"
+                          Style="{StaticResource PrimaryButton}"
+                          Content="WinGet update all"
+                          Margin="8,0,0,0"
+                          Click="WingetUpdateAll_Click"/>
                   <Button Content="Clear scan cache"
                           Margin="8,0,0,0"
                           Click="ClearPcUpdateCache_Click"/>
@@ -1003,7 +1101,104 @@
                          FontSize="10"
                          TextWrapping="Wrap"
                          Margin="0,9,0,0"
-                         Text="Safety: detection only. DLSS NR Manager never installs software, drivers, Windows updates or firmware from this panel. Actions only open official vendor, Microsoft Store, Windows Update or Microsoft WinGet source pages."/>
+                         Text="PC scans remain read-only. The only install action in this panel is WinGet update all, which runs only after explicit confirmation. Driver, Windows Update, firmware and BIOS actions still only open official pages/settings."/>
+            </StackPanel>
+          </Border>
+
+          <!-- PC Cleanup -->
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                  <TextBlock Text="PC Cleanup"
+                             Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="Analyze and clean safe Windows temporary caches and NVIDIA shader caches"
+                             Style="{StaticResource SectionSubtitle}"
+                             Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                  <Button x:Name="PcCleanupAnalyzeButton"
+                          Style="{StaticResource CyanButton}"
+                          Content="Analyze caches"
+                          Click="AnalyzePcCleanup_Click"/>
+                  <Button x:Name="PcCleanupCleanButton"
+                          Style="{StaticResource PrimaryButton}"
+                          Content="Clean selected"
+                          Margin="8,0,0,0"
+                          Click="CleanPcCleanup_Click"/>
+                </StackPanel>
+              </Grid>
+
+              <TextBlock x:Name="PcCleanupStatusText"
+                         Text="Select the cache groups to analyze or clean."
+                         Foreground="{StaticResource Muted}"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Margin="0,12,0,8"/>
+
+              <Border Background="#0A1017"
+                      BorderBrush="#1D2A39"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      Padding="7">
+                <ItemsControl x:Name="PcCleanupList">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border BorderBrush="#182432"
+                              BorderThickness="0,0,0,1"
+                              Padding="7,9">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="130"/>
+                          </Grid.ColumnDefinitions>
+
+                          <CheckBox Grid.Column="0"
+                                    IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                    VerticalAlignment="Center"/>
+
+                          <StackPanel Grid.Column="1">
+                            <TextBlock Text="{Binding Name}"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding Details}"
+                                       Foreground="{StaticResource Muted}"
+                                       FontSize="10"
+                                       TextWrapping="Wrap"
+                                       Margin="0,3,0,0"/>
+                          </StackPanel>
+
+                          <TextBlock Grid.Column="2"
+                                     Text="{Binding SizeText}"
+                                     Foreground="{StaticResource Accent2}"
+                                     FontWeight="SemiBold"
+                                     HorizontalAlignment="Right"
+                                     VerticalAlignment="Center"/>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </Border>
+
+              <TextBlock x:Name="PcCleanupTotalText"
+                         Text="Analyzed total: 0 B"
+                         Foreground="{StaticResource Muted}"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Margin="0,9,0,0"/>
+
+              <TextBlock Foreground="{StaticResource Muted}"
+                         FontSize="10"
+                         TextWrapping="Wrap"
+                         Margin="0,5,0,0"
+                         Text="Targets are intentionally limited to known cache/temp directories: current-user temp, Windows Temp, DirectX shader cache, NVIDIA DXCache, GLCache and NV_Cache. Locked files and inaccessible locations are skipped. Browser data, documents, downloads, registry entries, restore points and Windows Update storage are never touched."/>
             </StackPanel>
           </Border>
 

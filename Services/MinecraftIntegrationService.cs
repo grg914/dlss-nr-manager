@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -11,7 +12,17 @@ public sealed record MinecraftInstallCandidate(
     string RootDirectory,
     string Source,
     bool HasModsDirectory,
-    bool FabricDetected);
+    bool FabricDetected,
+    string? DetectedMinecraftVersion = null,
+    bool HasTargetMinecraftVersion = false)
+{
+    public string DisplayName =>
+        string.IsNullOrWhiteSpace(DetectedMinecraftVersion)
+            ? Name
+            : HasTargetMinecraftVersion
+                ? $"{Name} — Minecraft {DetectedMinecraftVersion} (target)"
+                : $"{Name} — Minecraft {DetectedMinecraftVersion}";
+}
 
 public sealed record MinecraftComponentResult(
     string Component,
@@ -29,9 +40,9 @@ public sealed class MinecraftIntegrationService
     public const string MinecraftVersion = "26.2";
     public const string MinimumFabricLoader = "0.19.3";
 
-    private const string FabricApiRepo = "FabricMC/fabric-api";
-    private const string FabricInstallerRepo = "FabricMC/fabric-installer";
-    private const string CausticaRtxRepo = "AriesAlex/Caustica-RTX";
+    private const string FabricInstallerMavenBase =
+        "https://maven.fabricmc.net/net/fabricmc/fabric-installer";
+    private const string CausticaRtxRepo = "grg914/Caustica-RTX";
 
     private readonly HttpClient _http = new();
 
@@ -39,9 +50,9 @@ public sealed class MinecraftIntegrationService
     {
         _http.Timeout = TimeSpan.FromMinutes(10);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "0.9"));
+            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
         _http.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            new MediaTypeWithQualityHeaderValue("application/json"));
     }
 
     public IReadOnlyList<MinecraftInstallCandidate> DetectInstances()
@@ -60,12 +71,23 @@ public sealed class MinecraftIntegrationService
             if (!Directory.Exists(root) || !seen.Add(root))
                 return;
 
+            var versions = DetectMinecraftVersions(root);
+            var hasTarget = versions.Contains(
+                MinecraftVersion,
+                StringComparer.OrdinalIgnoreCase);
+
+            var detectedVersion = hasTarget
+                ? MinecraftVersion
+                : SelectBestMinecraftVersion(versions);
+
             result.Add(new MinecraftInstallCandidate(
                 name,
                 root,
                 source,
                 Directory.Exists(Path.Combine(root, "mods")),
-                DetectFabric(root)));
+                DetectFabric(root),
+                detectedVersion,
+                hasTarget));
         }
 
         var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -103,12 +125,203 @@ public sealed class MinecraftIntegrationService
         var full = Path.GetFullPath(root);
         ValidateInstance(full);
 
+        var versions = DetectMinecraftVersions(full);
+        var hasTarget = versions.Contains(
+            MinecraftVersion,
+            StringComparer.OrdinalIgnoreCase);
+
         return new MinecraftInstallCandidate(
             Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar)),
             full,
             "Manual",
             Directory.Exists(Path.Combine(full, "mods")),
-            DetectFabric(full));
+            DetectFabric(full),
+            hasTarget
+                ? MinecraftVersion
+                : SelectBestMinecraftVersion(versions),
+            hasTarget);
+    }
+
+    public static IReadOnlyList<string> DetectMinecraftVersions(
+        string root)
+    {
+        var versions = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var versionsRoot = Path.Combine(root, "versions");
+            if (Directory.Exists(versionsRoot))
+            {
+                foreach (var directory in Directory.EnumerateDirectories(
+                             versionsRoot,
+                             "*",
+                             SearchOption.TopDirectoryOnly))
+                {
+                    var name = Path.GetFileName(directory);
+
+                    if (name.Equals(
+                            MinecraftVersion,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        versions.Add(MinecraftVersion);
+                        continue;
+                    }
+
+                    var fabricMatch = System.Text.RegularExpressions.Regex.Match(
+                        name,
+                        @"fabric-loader-[^-]+-(?<mc>\d+\.\d+(?:\.\d+)?)$",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+                    if (fabricMatch.Success)
+                    {
+                        versions.Add(
+                            fabricMatch.Groups["mc"].Value);
+                        continue;
+                    }
+
+                    if (System.Text.RegularExpressions.Regex.IsMatch(
+                            name,
+                            @"^\d+\.\d+(?:\.\d+)?(?:[-+].*)?$",
+                            System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                    {
+                        var match =
+                            System.Text.RegularExpressions.Regex.Match(
+                                name,
+                                @"^\d+\.\d+(?:\.\d+)?",
+                                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+                        if (match.Success)
+                            versions.Add(match.Value);
+                    }
+                }
+            }
+
+            foreach (var metadataRoot in new[]
+            {
+                root,
+                Directory.GetParent(root)?.FullName
+            }.Where(path => !string.IsNullOrWhiteSpace(path)))
+            {
+                foreach (var metadata in new[]
+                {
+                    "mmc-pack.json",
+                    "instance.json",
+                    "profile.json",
+                    "minecraftinstance.json",
+                    "instance.cfg"
+                })
+                {
+                    var path = Path.Combine(metadataRoot!, metadata);
+                    if (!File.Exists(path))
+                        continue;
+
+                    var text = File.ReadAllText(path);
+
+                    // Prefer the exact target when it is referenced anywhere
+                    // in launcher metadata.
+                    if (System.Text.RegularExpressions.Regex.IsMatch(
+                            text,
+                            $@"(?<!\d){System.Text.RegularExpressions.Regex.Escape(MinecraftVersion)}(?!\d)",
+                            System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                    {
+                        versions.Add(MinecraftVersion);
+                    }
+
+                    // MultiMC/Prism mmc-pack.json exposes the Minecraft
+                    // component as uid net.minecraft with its own version.
+                    var minecraftComponent =
+                        System.Text.RegularExpressions.Regex.Match(
+                            text,
+                            @"""uid""\s*:\s*""net\.minecraft""[\s\S]{0,300}?""version""\s*:\s*""(?<version>\d+\.\d+(?:\.\d+)?)""",
+                            System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+                    if (minecraftComponent.Success)
+                    {
+                        versions.Add(
+                            minecraftComponent.Groups["version"].Value);
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return versions
+            .OrderByDescending(
+                version => version.Equals(
+                    MinecraftVersion,
+                    StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(
+                version => ParseLooseVersion(version))
+            .ThenByDescending(
+                version => version,
+                StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string? SelectBestMinecraftVersion(
+        IReadOnlyList<string> versions)
+        => versions
+            .OrderByDescending(
+                version => version.Equals(
+                    MinecraftVersion,
+                    StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(ParseLooseVersion)
+            .ThenByDescending(
+                version => version,
+                StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+    private static Version ParseLooseVersion(string value)
+    {
+        var numeric = value.Split(
+            '-',
+            '+',
+            StringSplitOptions.RemoveEmptyEntries)[0];
+
+        if (Version.TryParse(numeric, out var version))
+            return version;
+
+        return new Version(0, 0);
+    }
+
+    public Task<string> EnsureJava25RuntimeAsync(
+        string minecraftRoot,
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
+        => EnsureJava25Async(
+            minecraftRoot,
+            progress,
+            cancellationToken);
+
+    public async Task<string?> GetLatestCausticaBuildLabelAsync(
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var release = await FindReleaseAsync(
+                CausticaRtxRepo,
+                r => ReleaseTargetsMinecraftVersion(
+                    r,
+                    MinecraftVersion),
+                includePrerelease: true,
+                cancellationToken);
+
+            var asset = release.Assets.FirstOrDefault(candidate =>
+                candidate.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
+                && candidate.Name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
+                && !ContainsAny(candidate.Name, "sources", "dev", "javadoc"));
+
+            return asset == null
+                ? $"{release.Tag} • no bundled JAR asset"
+                : $"{release.Tag} • {asset.Name}";
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task LaunchFabricInstallerAsync(
@@ -118,22 +331,24 @@ public sealed class MinecraftIntegrationService
     {
         ValidateInstance(minecraftRoot);
 
-        var java = FindJavaExecutable()
-            ?? throw new InvalidOperationException(
-                "Java was not found. Minecraft 26.2/Fabric requires a suitable Java 25 runtime.");
+        if (Process.GetProcessesByName("MinecraftLauncher").Length > 0)
+        {
+            throw new InvalidOperationException(
+                "Minecraft Launcher is currently running. Close it completely before installing Fabric so launcher_profiles.json cannot be overwritten while DLSS NR Manager is updating the instance.");
+        }
 
-        var release = await FindReleaseAsync(
-            FabricInstallerRepo,
-            _ => true,
-            includePrerelease: false,
+        var java = await EnsureJava25Async(
+            minecraftRoot,
+            progress,
             cancellationToken);
 
-        var asset = SelectAsset(
-            release,
-            name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                    && name.Contains("fabric-installer", StringComparison.OrdinalIgnoreCase)
-                    && !name.Contains("sources", StringComparison.OrdinalIgnoreCase)
-                    && !name.Contains("javadoc", StringComparison.OrdinalIgnoreCase));
+        var installerPackage = await GetLatestFabricInstallerAsync(
+            progress,
+            cancellationToken);
+
+        var loaderVersion = await GetRecommendedFabricLoaderAsync(
+            progress,
+            cancellationToken);
 
         var installerRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -142,11 +357,21 @@ public sealed class MinecraftIntegrationService
             "fabric-installer");
 
         Directory.CreateDirectory(installerRoot);
-        var installer = Path.Combine(installerRoot, asset.Name);
 
-        await DownloadAssetAsync(asset, installer, progress, cancellationToken);
+        var installer = Path.Combine(
+            installerRoot,
+            installerPackage.FileName);
 
-        progress?.Report($"Installing Fabric Loader {MinimumFabricLoader} for Minecraft {MinecraftVersion}…");
+        await DownloadAndVerifyAsync(
+            installerPackage.DownloadUrl,
+            installer,
+            installerPackage.Sha256,
+            progress,
+            $"Fabric Installer {installerPackage.Version}",
+            cancellationToken);
+
+        progress?.Report(
+            $"Installing Fabric Loader {loaderVersion} for Minecraft {MinecraftVersion} using Fabric Installer {installerPackage.Version}…");
 
         var psi = new ProcessStartInfo(java)
         {
@@ -162,9 +387,21 @@ public sealed class MinecraftIntegrationService
             "client",
             "-dir", minecraftRoot,
             "-mcversion", MinecraftVersion,
-            "-loader", MinimumFabricLoader
+            "-loader", loaderVersion
         })
             psi.ArgumentList.Add(arg);
+
+        var launcherType = DetectPreferredFabricLauncherType(
+            minecraftRoot);
+
+        if (!string.IsNullOrWhiteSpace(launcherType))
+        {
+            psi.ArgumentList.Add("-launcher");
+            psi.ArgumentList.Add(launcherType);
+
+            progress?.Report(
+                $"Fabric profile target: {launcherType}.");
+        }
 
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Could not start Fabric Installer.");
@@ -180,19 +417,62 @@ public sealed class MinecraftIntegrationService
         progress?.Report("Fabric Loader installation finished. Restart Minecraft Launcher before continuing.");
     }
 
+    private static string? DetectPreferredFabricLauncherType(
+        string minecraftRoot)
+    {
+        var win32 = Path.Combine(
+            minecraftRoot,
+            "launcher_profiles.json");
+        var microsoftStore = Path.Combine(
+            minecraftRoot,
+            "launcher_profiles_microsoft_store.json");
+
+        var hasWin32 = File.Exists(win32);
+        var hasStore = File.Exists(microsoftStore);
+
+        if (hasWin32 && !hasStore)
+            return "win32";
+
+        if (hasStore && !hasWin32)
+            return "microsoft_store";
+
+        if (hasWin32 && hasStore)
+        {
+            try
+            {
+                return File.GetLastWriteTimeUtc(microsoftStore) >=
+                       File.GetLastWriteTimeUtc(win32)
+                    ? "microsoft_store"
+                    : "win32";
+            }
+            catch
+            {
+                // Prefer the modern launcher when both profile stores exist.
+                return "microsoft_store";
+            }
+        }
+
+        return null;
+    }
+
     public async Task<MinecraftSetupResult> InstallMinecraftRtxAsync(
         MinecraftInstallCandidate instance,
         bool installFabricApi,
         bool allowPrereleaseCaustica,
+        bool installRtxPerformancePack,
+        bool installLabPbrResourcePack,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ValidateInstance(instance.RootDirectory);
 
-        if (!DetectFabric(instance.RootDirectory))
+        var fabric = MinecraftPreflightService.DetectFabricLoader(instance.RootDirectory);
+        if (!fabric.ForMinecraft262 ||
+            fabric.Version == null ||
+            fabric.Version < Version.Parse(MinimumFabricLoader))
         {
             throw new InvalidOperationException(
-                "Fabric Loader was not detected for this instance. Install Fabric first and restart the Minecraft Launcher.");
+                $"Fabric Loader {MinimumFabricLoader}+ for Minecraft {MinecraftVersion} was not detected.");
         }
 
         var mods = Path.Combine(instance.RootDirectory, "mods");
@@ -202,66 +482,205 @@ public sealed class MinecraftIntegrationService
             instance.RootDirectory,
             ".dlss-nr-manager-backups",
             "minecraft",
-            DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss"));
+            DateTimeOffset.Now.ToString("yyyyMMdd-HHmmssfff"));
         Directory.CreateDirectory(backup);
 
         var installed = new List<MinecraftComponentResult>();
+        var managedDestinations = new List<string>();
 
-        if (installFabricApi)
+        try
         {
-            progress?.Report($"Finding Fabric API for Minecraft {MinecraftVersion}…");
+            if (installFabricApi)
+            {
+                progress?.Report(
+                    $"Finding the latest Fabric API build for Minecraft {MinecraftVersion}…");
 
-            var fabric = await FindReleaseAsync(
-                FabricApiRepo,
-                r => r.Tag.Contains("+26.2", StringComparison.OrdinalIgnoreCase)
-                     || r.Name.Contains("[26.2]", StringComparison.OrdinalIgnoreCase)
-                     || r.Name.Contains("26.2", StringComparison.OrdinalIgnoreCase),
-                includePrerelease: false,
+                var fabricApi = await InstallModrinthProjectAsync(
+                    instance.RootDirectory,
+                    mods,
+                    backup,
+                    new ModrinthProject(
+                        "Fabric API",
+                        "fabric-api",
+                        "fabric-api",
+                        "fabric-api"),
+                    loader: "fabric",
+                    progress,
+                    cancellationToken,
+                    requireReleaseBuild: true);
+
+                managedDestinations.Add(fabricApi.InstalledPath);
+                installed.Add(fabricApi);
+            }
+
+            progress?.Report("Finding latest compatible Caustica RTX release…");
+
+            var caustica = await FindReleaseAsync(
+                CausticaRtxRepo,
+                r => ReleaseTargetsMinecraftVersion(
+                    r,
+                    MinecraftVersion),
+                allowPrereleaseCaustica,
                 cancellationToken);
 
-            var asset = SelectAsset(
-                fabric,
+            var causticaAsset = SelectAsset(
+                caustica,
                 name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                        && name.Contains("fabric-api", StringComparison.OrdinalIgnoreCase)
+                        && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
                         && !ContainsAny(name, "sources", "dev", "javadoc"));
 
-            await BackupMatchingAsync(mods, backup, "fabric-api-", cancellationToken);
+            await BackupMatchingFileAsync(
+                instance.RootDirectory,
+                mods,
+                backup,
+                "caustica",
+                "caustica",
+                excludedPath: null,
+                cancellationToken);
 
-            var destination = Path.Combine(mods, asset.Name);
-            await DownloadAssetAsync(asset, destination, progress, cancellationToken);
+            var causticaDestination = Path.Combine(mods, causticaAsset.Name);
+            managedDestinations.Add(causticaDestination);
+            await DownloadAssetAsync(
+                causticaAsset,
+                causticaDestination,
+                progress,
+                cancellationToken);
+
+            if (!FabricJarSupportsMinecraftVersion(
+                    causticaDestination,
+                    "caustica",
+                    MinecraftVersion))
+            {
+                throw new InvalidDataException(
+                    $"Downloaded Caustica RTX JAR does not declare compatibility with Minecraft {MinecraftVersion}.");
+            }
 
             installed.Add(new MinecraftComponentResult(
-                "Fabric API", fabric.Tag, destination, FabricApiRepo));
+                "Caustica RTX", caustica.Tag, causticaDestination, CausticaRtxRepo));
+
+            if (installRtxPerformancePack)
+            {
+                progress?.Report("Installing RTX-safe Minecraft performance mods…");
+
+                foreach (var project in new[]
+                {
+                    new ModrinthProject("Lithium", "lithium", "lithium", "lithium"),
+                    new ModrinthProject("FerriteCore", "ferrite-core", "ferritecore", "ferritecore"),
+                    new ModrinthProject("Krypton", "krypton", "krypton", "krypton"),
+                    new ModrinthProject("C2ME", "c2me-fabric", "c2me", "c2me"),
+                    new ModrinthProject("BadOptimizations", "badoptimizations", "badoptimizations", "badoptimizations"),
+                    new ModrinthProject("Dynamic FPS", "dynamic-fps", "dynamic-fps", "dynamic_fps")
+                })
+                {
+                    try
+                    {
+                        var component = await InstallModrinthProjectAsync(
+                            instance.RootDirectory,
+                            mods,
+                            backup,
+                            project,
+                            loader: "fabric",
+                            progress,
+                            cancellationToken,
+                            requireReleaseBuild: true);
+
+                        managedDestinations.Add(component.InstalledPath);
+                        installed.Add(component);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        RestoreMatchingBackupFiles(
+                            backup,
+                            instance.RootDirectory,
+                            mods,
+                            project.FileToken,
+                            project.FabricModId);
+
+                        AppLogger.Warn(
+                            $"Optional Minecraft mod {project.Name} was skipped: {ex.Message}");
+                        progress?.Report(
+                            $"Optional {project.Name} skipped: {ex.Message}");
+                    }
+                }
+            }
+
+            if (installLabPbrResourcePack)
+            {
+                progress?.Report("Installing SPBR LabPBR resource pack for Caustica RTX…");
+
+                var resourcePacks = Path.Combine(
+                    instance.RootDirectory,
+                    "resourcepacks");
+                Directory.CreateDirectory(resourcePacks);
+
+                var spbrProject =
+                    new ModrinthProject(
+                        "SPBR LabPBR",
+                        "spbr",
+                        "spbr");
+
+                try
+                {
+                    var spbr = await InstallModrinthProjectAsync(
+                        instance.RootDirectory,
+                        resourcePacks,
+                        backup,
+                        spbrProject,
+                        loader: null,
+                        progress,
+                        cancellationToken,
+                        requireReleaseBuild: true);
+
+                    managedDestinations.Add(spbr.InstalledPath);
+                    installed.Add(spbr);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    RestoreMatchingBackupFiles(
+                        backup,
+                        instance.RootDirectory,
+                        resourcePacks,
+                        spbrProject.FileToken,
+                        spbrProject.FabricModId);
+
+                    AppLogger.Warn(
+                        $"Optional Minecraft resource pack SPBR was skipped: {ex.Message}");
+                    progress?.Report(
+                        $"Optional SPBR LabPBR skipped: {ex.Message}");
+                }
+            }
+
+            WriteManagedManifest(instance.RootDirectory, installed, backup);
+
+            progress?.Report(
+                "Minecraft RTX components installed. Start the Fabric profile and enable the renderer's Vulkan/RTX option if required.");
+
+            return new MinecraftSetupResult(instance, installed, backup);
         }
+        catch
+        {
+            foreach (var destination in managedDestinations)
+                TryDelete(destination);
 
-        progress?.Report("Finding latest compatible Caustica RTX release…");
+            RestoreBackupJars(backup, mods);
+            RestoreBackupDirectory(
+                Path.Combine(backup, "extra", "mods"),
+                mods);
+            RestoreBackupDirectory(
+                Path.Combine(backup, "extra", "resourcepacks"),
+                Path.Combine(instance.RootDirectory, "resourcepacks"));
 
-        var caustica = await FindReleaseAsync(
-            CausticaRtxRepo,
-            r => !r.Draft,
-            allowPrereleaseCaustica,
-            cancellationToken);
-
-        var causticaAsset = SelectAsset(
-            caustica,
-            name => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                    && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
-                    && !ContainsAny(name, "sources", "dev", "javadoc"));
-
-        await BackupMatchingAsync(mods, backup, "caustica", cancellationToken);
-
-        var causticaDestination = Path.Combine(mods, causticaAsset.Name);
-        await DownloadAssetAsync(causticaAsset, causticaDestination, progress, cancellationToken);
-
-        installed.Add(new MinecraftComponentResult(
-            "Caustica RTX", caustica.Tag, causticaDestination, CausticaRtxRepo));
-
-        WriteManagedManifest(instance.RootDirectory, installed, backup);
-
-        progress?.Report(
-            "Minecraft RTX components installed. Start the Fabric profile and enable the renderer's Vulkan/RTX option if required.");
-
-        return new MinecraftSetupResult(instance, installed, backup);
+            TryDelete(Path.Combine(instance.RootDirectory, ".dlss-nr-manager-minecraft.json"));
+            throw;
+        }
     }
 
     public void UninstallManagedMinecraftRtx(string minecraftRoot)
@@ -316,21 +735,39 @@ public sealed class MinecraftIntegrationService
         bool includePrerelease,
         CancellationToken cancellationToken)
     {
-        using var json = await GetJsonAsync(
-            $"https://api.github.com/repos/{repository}/releases?per_page=40",
-            cancellationToken);
+        const int pageSize = 100;
+        const int maxPages = 5;
 
-        foreach (var item in json.RootElement.EnumerateArray())
+        for (var page = 1; page <= maxPages; page++)
         {
-            var release = ParseRelease(item);
-            if (release.Draft || (!includePrerelease && release.Prerelease))
-                continue;
+            using var json = await GetJsonAsync(
+                $"https://api.github.com/repos/{repository}/releases?per_page={pageSize}&page={page}",
+                cancellationToken);
 
-            if (predicate(release))
-                return release;
+            if (json.RootElement.ValueKind != JsonValueKind.Array)
+                break;
+
+            var count = 0;
+
+            foreach (var item in json.RootElement.EnumerateArray())
+            {
+                count++;
+
+                var release = ParseRelease(item);
+                if (release.Draft ||
+                    (!includePrerelease && release.Prerelease))
+                    continue;
+
+                if (predicate(release))
+                    return release;
+            }
+
+            if (count < pageSize)
+                break;
         }
 
-        throw new InvalidOperationException($"No compatible release was found in {repository}.");
+        throw new InvalidOperationException(
+            $"No compatible release was found in {repository} after checking up to {pageSize * maxPages} releases.");
     }
 
     private static GitHubAsset SelectAsset(
@@ -380,6 +817,725 @@ public sealed class MinecraftIntegrationService
         }
 
         File.Move(temp, destination, true);
+    }
+
+    private async Task<MinecraftComponentResult> InstallModrinthProjectAsync(
+        string minecraftRoot,
+        string destinationDirectory,
+        string backup,
+        ModrinthProject project,
+        string? loader,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken,
+        bool requireReleaseBuild = false)
+    {
+        var versionsUrl =
+            $"https://api.modrinth.com/v2/project/{project.Slug}/version" +
+            $"?game_versions={Uri.EscapeDataString("[\"" + MinecraftVersion + "\"]")}" +
+            (string.IsNullOrWhiteSpace(loader)
+                ? ""
+                : $"&loaders={Uri.EscapeDataString("[\"" + loader + "\"]")}");
+
+        using var versions = await GetJsonAsync(
+            versionsUrl,
+            cancellationToken);
+
+        if (versions.RootElement.ValueKind != JsonValueKind.Array ||
+            versions.RootElement.GetArrayLength() == 0)
+        {
+            throw new InvalidOperationException(
+                $"No Modrinth build of {project.Name} was found for Minecraft {MinecraftVersion}" +
+                (string.IsNullOrWhiteSpace(loader) ? "." : $" / {loader}."));
+        }
+
+        JsonElement? selectedVersion = null;
+        JsonElement? selectedFile = null;
+
+        var versionCandidates = versions.RootElement
+            .EnumerateArray()
+            .Where(version =>
+                !requireReleaseBuild ||
+                !version.TryGetProperty("version_type", out var typeElement) ||
+                string.Equals(
+                    typeElement.GetString(),
+                    "release",
+                    StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (versionCandidates.Count == 0 && requireReleaseBuild)
+        {
+            throw new InvalidOperationException(
+                $"No stable Modrinth release of {project.Name} was found for Minecraft {MinecraftVersion}" +
+                (string.IsNullOrWhiteSpace(loader) ? "." : $" / {loader}."));
+        }
+
+        foreach (var version in versionCandidates)
+        {
+            if (!version.TryGetProperty("files", out var files) ||
+                files.ValueKind != JsonValueKind.Array)
+                continue;
+
+            var candidates = files.EnumerateArray()
+                .Where(file =>
+                {
+                    var filename = file.TryGetProperty("filename", out var filenameElement)
+                        ? filenameElement.GetString() ?? ""
+                        : "";
+
+                    var expectedExtension =
+                        string.IsNullOrWhiteSpace(loader)
+                            ? ".zip"
+                            : ".jar";
+
+                    return !string.IsNullOrWhiteSpace(filename) &&
+                           filename.Equals(
+                               Path.GetFileName(filename),
+                               StringComparison.Ordinal) &&
+                           filename.EndsWith(
+                               expectedExtension,
+                               StringComparison.OrdinalIgnoreCase) &&
+                           !ContainsAny(
+                               filename,
+                               "sources",
+                               "source",
+                               "dev",
+                               "javadoc");
+                })
+                .ToList();
+
+            var primary = candidates.FirstOrDefault(file =>
+                file.TryGetProperty("primary", out var primaryElement) &&
+                primaryElement.ValueKind == JsonValueKind.True);
+
+            var chosen = primary.ValueKind != JsonValueKind.Undefined
+                ? primary
+                : candidates.FirstOrDefault();
+
+            if (chosen.ValueKind == JsonValueKind.Undefined)
+                continue;
+
+            selectedVersion = version;
+            selectedFile = chosen;
+            break;
+        }
+
+        if (selectedVersion == null || selectedFile == null)
+        {
+            throw new InvalidOperationException(
+                $"Modrinth returned no downloadable file for {project.Name}.");
+        }
+
+        var file = selectedFile.Value;
+        var filename = file.GetProperty("filename").GetString()
+            ?? throw new InvalidDataException(
+                $"Modrinth file name is missing for {project.Name}.");
+
+        var url = file.GetProperty("url").GetString()
+            ?? throw new InvalidDataException(
+                $"Modrinth download URL is missing for {project.Name}.");
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var downloadUri) ||
+            !downloadUri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !(downloadUri.Host.Equals(
+                  "cdn.modrinth.com",
+                  StringComparison.OrdinalIgnoreCase) ||
+              downloadUri.Host.Equals(
+                  "api.modrinth.com",
+                  StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidDataException(
+                $"Unexpected Modrinth download origin for {project.Name}: {url}");
+        }
+
+        var versionNumber = selectedVersion.Value.TryGetProperty(
+                "version_number",
+                out var versionElement)
+            ? versionElement.GetString() ?? "unknown"
+            : "unknown";
+
+        string? sha512 = null;
+        if (file.TryGetProperty("hashes", out var hashes) &&
+            hashes.TryGetProperty("sha512", out var sha512Element))
+        {
+            sha512 = sha512Element.GetString();
+        }
+
+        if (string.IsNullOrWhiteSpace(sha512) ||
+            sha512.Length != 128 ||
+            !sha512.All(Uri.IsHexDigit))
+        {
+            throw new InvalidDataException(
+                $"Modrinth did not provide a valid SHA-512 hash for {project.Name}.");
+        }
+
+        var destination = Path.Combine(destinationDirectory, filename);
+        var temp = destination + ".download";
+        progress?.Report($"Downloading {project.Name} {versionNumber}…");
+
+        try
+        {
+            using (var response = await _http.GetAsync(
+                       downloadUri,
+                       HttpCompletionOption.ResponseHeadersRead,
+                       cancellationToken))
+            {
+                response.EnsureSuccessStatusCode();
+
+                await using var input =
+                    await response.Content.ReadAsStreamAsync(cancellationToken);
+                await using var output = new FileStream(
+                    temp,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    128 * 1024,
+                    useAsync: true);
+
+                await input.CopyToAsync(output, cancellationToken);
+            }
+
+            await using (var stream = File.OpenRead(temp))
+            {
+                var actual = Convert.ToHexString(
+                    await SHA512.HashDataAsync(stream, cancellationToken));
+
+                if (!actual.Equals(
+                        sha512,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"SHA-512 mismatch for {project.Name}. " +
+                        $"Expected {sha512}, got {actual}.");
+                }
+            }
+
+            await BackupMatchingFileAsync(
+                minecraftRoot,
+                destinationDirectory,
+                backup,
+                project.FileToken,
+                project.FabricModId,
+                temp,
+                cancellationToken);
+
+            File.Move(temp, destination, true);
+        }
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
+
+        return new MinecraftComponentResult(
+            project.Name,
+            versionNumber,
+            destination,
+            $"Modrinth:{project.Slug}");
+    }
+
+    private static async Task BackupMatchingFileAsync(
+        string minecraftRoot,
+        string directory,
+        string backup,
+        string token,
+        string? fabricModId,
+        string? excludedPath,
+        CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(directory))
+            return;
+
+        foreach (var file in Directory.EnumerateFiles(
+                     directory,
+                     "*",
+                     SearchOption.TopDirectoryOnly))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!string.IsNullOrWhiteSpace(excludedPath) &&
+                Path.GetFullPath(file).Equals(
+                    Path.GetFullPath(excludedPath),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var name = Path.GetFileName(file);
+            if (name.EndsWith(
+                    ".download",
+                    StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var matches = false;
+
+            if (!string.IsNullOrWhiteSpace(fabricModId) &&
+                file.EndsWith(
+                    ".jar",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                matches = JarContainsFabricModId(
+                    file,
+                    fabricModId);
+            }
+            else
+            {
+                matches = name.Contains(
+                    token,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (!matches)
+                continue;
+
+            var relativeDirectory = Path.GetRelativePath(
+                minecraftRoot,
+                directory);
+
+            var destination = Path.Combine(
+                backup,
+                "extra",
+                relativeDirectory,
+                name);
+
+            Directory.CreateDirectory(
+                Path.GetDirectoryName(destination)!);
+
+            await using var input = File.OpenRead(file);
+            await using var output = File.Create(destination);
+            await input.CopyToAsync(output, cancellationToken);
+
+            File.Delete(file);
+        }
+    }
+
+    private static bool FabricJarSupportsMinecraftVersion(
+        string jarPath,
+        string expectedModId,
+        string minecraftVersion)
+    {
+        try
+        {
+            using var archive = ZipFile.OpenRead(jarPath);
+            var metadata = archive.GetEntry("fabric.mod.json");
+            if (metadata == null)
+                return false;
+
+            using var stream = metadata.Open();
+            using var document = JsonDocument.Parse(stream);
+
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                return false;
+
+            if (!document.RootElement.TryGetProperty(
+                    "id",
+                    out var idElement) ||
+                !string.Equals(
+                    idElement.GetString(),
+                    expectedModId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!document.RootElement.TryGetProperty(
+                    "depends",
+                    out var depends) ||
+                depends.ValueKind != JsonValueKind.Object ||
+                !depends.TryGetProperty(
+                    "minecraft",
+                    out var minecraftConstraint))
+            {
+                return false;
+            }
+
+            return MinecraftConstraintIncludesVersion(
+                minecraftConstraint,
+                minecraftVersion);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool MinecraftConstraintIncludesVersion(
+        JsonElement constraint,
+        string minecraftVersion)
+    {
+        if (constraint.ValueKind == JsonValueKind.String)
+        {
+            var value = constraint.GetString()?.Trim();
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            if (value == "*")
+                return true;
+
+            if (value.Equals(
+                    minecraftVersion,
+                    StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Support common Fabric metadata alternatives such as
+            // ">=26.2 <26.3" without pretending to implement the entire
+            // Fabric semantic-version grammar.
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                value,
+                $@"(?<![0-9.]){System.Text.RegularExpressions.Regex.Escape(minecraftVersion)}(?![0-9.])",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        }
+
+        if (constraint.ValueKind == JsonValueKind.Array)
+        {
+            return constraint
+                .EnumerateArray()
+                .Any(item =>
+                    MinecraftConstraintIncludesVersion(
+                        item,
+                        minecraftVersion));
+        }
+
+        return false;
+    }
+
+    private static bool JarContainsFabricModId(
+        string jarPath,
+        string expectedModId)
+    {
+        try
+        {
+            using var archive = ZipFile.OpenRead(jarPath);
+            var metadata = archive.GetEntry("fabric.mod.json");
+            if (metadata == null)
+                return false;
+
+            using var stream = metadata.Open();
+            using var document = JsonDocument.Parse(stream);
+
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                document.RootElement.TryGetProperty(
+                    "id",
+                    out var idElement))
+            {
+                return string.Equals(
+                    idElement.GetString(),
+                    expectedModId,
+                    StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (document.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in document.RootElement.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Object &&
+                        item.TryGetProperty("id", out var arrayId) &&
+                        string.Equals(
+                            arrayId.GetString(),
+                            expectedModId,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Unknown/corrupt JARs are never removed by filename fallback
+            // when an exact Fabric mod ID is available.
+        }
+
+        return false;
+    }
+
+    private static void RestoreMatchingBackupFiles(
+        string backup,
+        string minecraftRoot,
+        string destinationDirectory,
+        string token,
+        string? fabricModId)
+    {
+        var relativeDirectory = Path.GetRelativePath(
+            minecraftRoot,
+            destinationDirectory);
+
+        var source = Path.Combine(
+            backup,
+            "extra",
+            relativeDirectory);
+
+        if (!Directory.Exists(source))
+            return;
+
+        Directory.CreateDirectory(destinationDirectory);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     source,
+                     "*",
+                     SearchOption.TopDirectoryOnly))
+        {
+            var name = Path.GetFileName(file);
+
+            var matches =
+                !string.IsNullOrWhiteSpace(fabricModId) &&
+                file.EndsWith(
+                    ".jar",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? JarContainsFabricModId(
+                        file,
+                        fabricModId)
+                    : name.Contains(
+                        token,
+                        StringComparison.OrdinalIgnoreCase);
+
+            if (!matches)
+                continue;
+
+            File.Copy(
+                file,
+                Path.Combine(destinationDirectory, name),
+                true);
+        }
+    }
+
+    private async Task<string> GetRecommendedFabricLoaderAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        progress?.Report(
+            $"Checking Fabric Meta for the recommended loader for Minecraft {MinecraftVersion}…");
+
+        try
+        {
+            using var json = await GetJsonAsync(
+                $"https://meta.fabricmc.net/v2/versions/loader/{MinecraftVersion}",
+                cancellationToken);
+
+            if (json.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in json.RootElement.EnumerateArray())
+                {
+                    if (!entry.TryGetProperty("loader", out var loader) ||
+                        !loader.TryGetProperty("version", out var versionElement))
+                        continue;
+
+                    var version = versionElement.GetString();
+                    var stable =
+                        loader.TryGetProperty("stable", out var stableElement) &&
+                        stableElement.ValueKind == JsonValueKind.True;
+
+                    if (!stable ||
+                        string.IsNullOrWhiteSpace(version) ||
+                        !Version.TryParse(version, out var parsed) ||
+                        parsed < Version.Parse(MinimumFabricLoader))
+                        continue;
+
+                    progress?.Report(
+                        $"Fabric Loader {version} selected for Minecraft {MinecraftVersion}.");
+                    return version;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn(
+                $"Fabric Meta loader lookup failed; falling back to {MinimumFabricLoader}: {ex.Message}");
+        }
+
+        progress?.Report(
+            $"Fabric Meta lookup unavailable; using minimum compatible Fabric Loader {MinimumFabricLoader}.");
+        return MinimumFabricLoader;
+    }
+
+    private async Task<FabricInstallerPackage> GetLatestFabricInstallerAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        progress?.Report(
+            "Checking Fabric Meta for the latest stable installer…");
+
+        using var json = await GetJsonAsync(
+            "https://meta.fabricmc.net/v2/versions/installer",
+            cancellationToken);
+
+        if (json.RootElement.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidDataException(
+                "Fabric Meta returned an invalid installer response.");
+        }
+
+        foreach (var item in json.RootElement.EnumerateArray())
+        {
+            var stable =
+                item.TryGetProperty("stable", out var stableElement) &&
+                stableElement.ValueKind == JsonValueKind.True;
+
+            if (!stable)
+                continue;
+
+            var version =
+                item.TryGetProperty("version", out var versionElement)
+                    ? versionElement.GetString()
+                    : null;
+
+            var downloadUrl =
+                item.TryGetProperty("url", out var urlElement)
+                    ? urlElement.GetString()
+                    : null;
+
+            if (string.IsNullOrWhiteSpace(version) ||
+                string.IsNullOrWhiteSpace(downloadUrl) ||
+                !Uri.TryCreate(
+                    downloadUrl,
+                    UriKind.Absolute,
+                    out var uri) ||
+                !uri.Scheme.Equals(
+                    Uri.UriSchemeHttps,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !uri.Host.Equals(
+                    "maven.fabricmc.net",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var fileName = Path.GetFileName(uri.LocalPath);
+            if (string.IsNullOrWhiteSpace(fileName) ||
+                !fileName.EndsWith(
+                    ".jar",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string? sha256 = null;
+
+            try
+            {
+                using var hashResponse = await _http.GetAsync(
+                    downloadUrl + ".sha256",
+                    cancellationToken);
+
+                if (hashResponse.IsSuccessStatusCode)
+                {
+                    sha256 = (
+                        await hashResponse.Content.ReadAsStringAsync(
+                            cancellationToken))
+                        .Trim()
+                        .Split(
+                            new[] { ' ', '\t', '\r', '\n' },
+                            StringSplitOptions.RemoveEmptyEntries)
+                        .FirstOrDefault();
+
+                    if (string.IsNullOrWhiteSpace(sha256) ||
+                        sha256.Length != 64 ||
+                        !sha256.All(Uri.IsHexDigit))
+                    {
+                        sha256 = null;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn(
+                    $"Fabric Installer SHA-256 sidecar lookup failed: {ex.Message}");
+            }
+
+            return new FabricInstallerPackage(
+                version,
+                fileName,
+                downloadUrl,
+                sha256);
+        }
+
+        throw new InvalidOperationException(
+            "Fabric Meta did not return a stable Fabric Installer.");
+    }
+
+    private async Task DownloadAndVerifyAsync(
+        string url,
+        string destination,
+        string? expectedSha256,
+        IProgress<string>? progress,
+        string componentName,
+        CancellationToken cancellationToken)
+    {
+        var temp = destination + ".download";
+
+        try
+        {
+            progress?.Report($"Downloading {componentName}…");
+
+            using (var response = await _http.GetAsync(
+                       url,
+                       HttpCompletionOption.ResponseHeadersRead,
+                       cancellationToken))
+            {
+                response.EnsureSuccessStatusCode();
+
+                await using var input =
+                    await response.Content.ReadAsStreamAsync(
+                        cancellationToken);
+                await using var output = new FileStream(
+                    temp,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    128 * 1024,
+                    useAsync: true);
+
+                await input.CopyToAsync(
+                    output,
+                    cancellationToken);
+            }
+
+            if (new FileInfo(temp).Length < 100 * 1024)
+            {
+                throw new InvalidDataException(
+                    $"{componentName} download is unexpectedly small.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                await using var stream = File.OpenRead(temp);
+                var actual = Convert.ToHexString(
+                    await SHA256.HashDataAsync(
+                        stream,
+                        cancellationToken));
+
+                if (!actual.Equals(
+                        expectedSha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"{componentName} SHA-256 mismatch. " +
+                        $"Expected {expectedSha256}, got {actual}.");
+                }
+
+                progress?.Report(
+                    $"{componentName} SHA-256 verified.");
+            }
+
+            File.Move(
+                temp,
+                destination,
+                overwrite: true);
+        }
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
     }
 
     private async Task<JsonDocument> GetJsonAsync(
@@ -435,26 +1591,49 @@ public sealed class MinecraftIntegrationService
             }
         }
 
-        return new GitHubRelease(tag, name, draft, prerelease, assets);
+        var body = element.TryGetProperty("body", out var bodyElement)
+            ? bodyElement.GetString() ?? ""
+            : "";
+
+        return new GitHubRelease(
+            tag,
+            name,
+            body,
+            draft,
+            prerelease,
+            assets);
+    }
+
+    private static bool ReleaseTargetsMinecraftVersion(
+        GitHubRelease release,
+        string minecraftVersion)
+    {
+        var escaped = System.Text.RegularExpressions.Regex.Escape(
+            minecraftVersion);
+
+        return System.Text.RegularExpressions.Regex.IsMatch(
+                   release.Tag,
+                   $@"(?<!\d){escaped}(?!\d)",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                   System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+               || System.Text.RegularExpressions.Regex.IsMatch(
+                   release.Name,
+                   $@"(?<!\d){escaped}(?!\d)",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                   System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+               || System.Text.RegularExpressions.Regex.IsMatch(
+                   release.Body,
+                   $@"(?<!\d){escaped}(?!\d)",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                   System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }
 
     private static bool DetectFabric(string root)
     {
-        var versions = Path.Combine(root, "versions");
-
-        try
-        {
-            if (Directory.Exists(versions) &&
-                Directory.EnumerateDirectories(versions)
-                    .Select(Path.GetFileName)
-                    .Any(name => name?.Contains(
-                        "fabric-loader",
-                        StringComparison.OrdinalIgnoreCase) == true))
-                return true;
-        }
-        catch { }
-
-        return false;
+        var fabric = MinecraftPreflightService.DetectFabricLoader(root);
+        return fabric.ForMinecraft262 &&
+               fabric.Version != null &&
+               fabric.Version >= Version.Parse(MinimumFabricLoader);
     }
 
     private static void AddChildren(
@@ -479,18 +1658,110 @@ public sealed class MinecraftIntegrationService
         catch { }
     }
 
-    private static string? FindJavaExecutable()
+    private static async Task<string> EnsureJava25Async(
+        string minecraftRoot,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
     {
+        var java = await FindJava25ExecutableAsync(
+            minecraftRoot,
+            cancellationToken);
+
+        if (java != null)
+            return java;
+
+        var winget = FindOnPath("winget.exe");
+        if (winget == null)
+        {
+            throw new InvalidOperationException(
+                "Java 25 was not found and WinGet is unavailable. " +
+                "Install an x64 Java 25 runtime (for example Eclipse Temurin 25), then retry.");
+        }
+
+        progress?.Report(
+            "Java 25 is missing. Installing Eclipse Temurin 25 automatically with WinGet…");
+
+        foreach (var packageId in new[]
+        {
+            "EclipseAdoptium.Temurin.25.JRE",
+            "EclipseAdoptium.Temurin.25.JDK"
+        })
+        {
+            if (await TryInstallWingetPackageAsync(
+                    winget,
+                    packageId,
+                    cancellationToken))
+            {
+                java = await FindJava25ExecutableAsync(
+                    minecraftRoot,
+                    cancellationToken);
+
+                if (java != null)
+                {
+                    progress?.Report("Java 25 installed and verified.");
+                    return java;
+                }
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Java 25 could not be installed or verified automatically. " +
+            "Install Eclipse Temurin 25 x64 manually, then retry.");
+    }
+
+    private static async Task<string?> FindJava25ExecutableAsync(
+        string minecraftRoot,
+        CancellationToken cancellationToken)
+    {
+        var candidates = new List<string>();
+
+        void AddCandidate(string? path)
+        {
+            if (!string.IsNullOrWhiteSpace(path) &&
+                File.Exists(path) &&
+                !candidates.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                candidates.Add(path);
+            }
+        }
+
         var javaHome = Environment.GetEnvironmentVariable("JAVA_HOME");
         if (!string.IsNullOrWhiteSpace(javaHome))
         {
-            var candidate = Path.Combine(javaHome, "bin", "javaw.exe");
-            if (File.Exists(candidate))
-                return candidate;
+            AddCandidate(Path.Combine(javaHome, "bin", "java.exe"));
+            AddCandidate(Path.Combine(javaHome, "bin", "javaw.exe"));
+        }
 
-            candidate = Path.Combine(javaHome, "bin", "java.exe");
-            if (File.Exists(candidate))
-                return candidate;
+        foreach (var pathRoot in (Environment.GetEnvironmentVariable("PATH") ?? "")
+                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            AddCandidate(Path.Combine(pathRoot, "java.exe"));
+            AddCandidate(Path.Combine(pathRoot, "javaw.exe"));
+        }
+
+        foreach (var runtimeRoot in new[]
+        {
+            Path.Combine(minecraftRoot, "runtime"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                ".minecraft",
+                "runtime")
+        })
+        {
+            if (!Directory.Exists(runtimeRoot))
+                continue;
+
+            try
+            {
+                foreach (var candidate in Directory.EnumerateFiles(
+                             runtimeRoot,
+                             "java.exe",
+                             SearchOption.AllDirectories))
+                {
+                    AddCandidate(candidate);
+                }
+            }
+            catch { }
         }
 
         foreach (var root in new[]
@@ -499,7 +1770,14 @@ public sealed class MinecraftIntegrationService
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
         })
         {
-            foreach (var vendor in new[] { "Java", "Eclipse Adoptium", "Microsoft", "Zulu" })
+            foreach (var vendor in new[]
+            {
+                "Java",
+                "Eclipse Adoptium",
+                "Microsoft",
+                "Zulu",
+                "Amazon Corretto"
+            })
             {
                 var vendorRoot = Path.Combine(root, vendor);
                 if (!Directory.Exists(vendorRoot))
@@ -507,42 +1785,187 @@ public sealed class MinecraftIntegrationService
 
                 try
                 {
-                    var candidate = Directory.EnumerateFiles(
-                            vendorRoot,
-                            "javaw.exe",
-                            SearchOption.AllDirectories)
-                        .FirstOrDefault();
-
-                    if (candidate != null)
-                        return candidate;
+                    foreach (var candidate in Directory.EnumerateFiles(
+                                 vendorRoot,
+                                 "java.exe",
+                                 SearchOption.AllDirectories))
+                    {
+                        AddCandidate(candidate);
+                    }
                 }
                 catch { }
             }
         }
 
+        foreach (var candidate in candidates)
+        {
+            if (await IsJavaMajorVersionAsync(candidate, 25, cancellationToken))
+                return candidate;
+        }
+
         return null;
     }
 
-    private static async Task BackupMatchingAsync(
-        string directory,
-        string backup,
-        string contains,
+    private static string? FindOnPath(string executable)
+    {
+        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "")
+                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            try
+            {
+                var candidate = Path.Combine(directory, executable);
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+            catch { }
+        }
+
+        var windowsApps = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Microsoft",
+            "WindowsApps",
+            executable);
+
+        return File.Exists(windowsApps) ? windowsApps : null;
+    }
+
+    private static async Task<bool> TryInstallWingetPackageAsync(
+        string winget,
+        string packageId,
         CancellationToken cancellationToken)
     {
-        foreach (var file in Directory.EnumerateFiles(directory, "*.jar", SearchOption.TopDirectoryOnly))
+        try
         {
-            var name = Path.GetFileName(file);
-            if (!name.Contains(contains, StringComparison.OrdinalIgnoreCase))
-                continue;
+            var psi = new ProcessStartInfo(winget)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
 
-            var destination = Path.Combine(backup, name);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            foreach (var arg in new[]
+            {
+                "install",
+                "--id", packageId,
+                "--exact",
+                "--source", "winget",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+                "--silent",
+                "--disable-interactivity"
+            })
+            {
+                psi.ArgumentList.Add(arg);
+            }
 
-            await using var input = File.OpenRead(file);
-            await using var output = File.Create(destination);
-            await input.CopyToAsync(output, cancellationToken);
+            using var process = Process.Start(psi);
+            if (process == null)
+                return false;
 
-            File.Delete(file);
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+            await process.WaitForExitAsync(cancellationToken);
+            await stdoutTask;
+            await stderrTask;
+
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> IsJavaMajorVersionAsync(
+        string javaExecutable,
+        int expectedMajor,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(javaExecutable)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            psi.ArgumentList.Add("-version");
+
+            using var process = Process.Start(psi);
+            if (process == null)
+                return false;
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+            await process.WaitForExitAsync(cancellationToken);
+
+            var versionText = (await stdoutTask) + "\n" + (await stderrTask);
+            if (process.ExitCode != 0)
+                return false;
+
+            var firstQuote = versionText.IndexOf('"');
+            if (firstQuote < 0)
+                return false;
+
+            var secondQuote = versionText.IndexOf('"', firstQuote + 1);
+            if (secondQuote <= firstQuote)
+                return false;
+
+            var version = versionText[(firstQuote + 1)..secondQuote];
+            var firstPart = version.Split('.', '-', '+')[0];
+
+            return int.TryParse(firstPart, out var major) &&
+                   major == expectedMajor;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void RestoreBackupDirectory(
+        string source,
+        string destination)
+    {
+        if (!Directory.Exists(source))
+            return;
+
+        Directory.CreateDirectory(destination);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     source,
+                     "*",
+                     SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var target = Path.Combine(destination, relative);
+
+            Directory.CreateDirectory(
+                Path.GetDirectoryName(target)!);
+            File.Copy(file, target, true);
+        }
+    }
+
+    private static void RestoreBackupJars(
+        string backup,
+        string mods)
+    {
+        if (!Directory.Exists(backup))
+            return;
+
+        Directory.CreateDirectory(mods);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     backup,
+                     "*.jar",
+                     SearchOption.TopDirectoryOnly))
+        {
+            var destination = Path.Combine(mods, Path.GetFileName(file));
+            File.Copy(file, destination, true);
         }
     }
 
@@ -604,9 +2027,22 @@ public sealed class MinecraftIntegrationService
         catch { }
     }
 
+    private sealed record FabricInstallerPackage(
+        string Version,
+        string FileName,
+        string DownloadUrl,
+        string? Sha256);
+
+    private sealed record ModrinthProject(
+        string Name,
+        string Slug,
+        string FileToken,
+        string? FabricModId = null);
+
     private sealed record GitHubRelease(
         string Tag,
         string Name,
+        string Body,
         bool Draft,
         bool Prerelease,
         IReadOnlyList<GitHubAsset> Assets);

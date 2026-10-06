@@ -39,9 +39,61 @@ public sealed class AiUpscaleService
         FindFile(RootDirectory, "realesrgan-ncnn-vulkan.exe") ?? "";
 
     private string ModelsDirectory =>
-        Directory.Exists(Path.Combine(RootDirectory, "models"))
-            ? Path.Combine(RootDirectory, "models")
-            : FindDirectory(RootDirectory, "models") ?? "";
+        Path.Combine(RootDirectory, "models");
+
+    private static readonly ModelAsset[] RequiredModels =
+    [
+        // Pinned immutable GitHub commits. The current upstream v0.2.0
+        // Windows release intentionally does not bundle NCNN model files.
+        new(
+            "realesrgan-x4plus.param",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus.param",
+            116029),
+        new(
+            "realesrgan-x4plus.bin",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus.bin",
+            33424520),
+        new(
+            "realesrnet-x4plus.param",
+            "https://raw.githubusercontent.com/itsspin/spintexture/9f291a8aa2afed34fc42e76696c2ce8317cf2143/vendor/realesrgan/models/realesrnet-x4plus.param",
+            116029),
+        new(
+            "realesrnet-x4plus.bin",
+            "https://raw.githubusercontent.com/itsspin/spintexture/9f291a8aa2afed34fc42e76696c2ce8317cf2143/vendor/realesrgan/models/realesrnet-x4plus.bin",
+            33424520),
+        new(
+            "realesrgan-x4plus-anime.param",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.param",
+            30290),
+        new(
+            "realesrgan-x4plus-anime.bin",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.bin",
+            8943500),
+        new(
+            "realesr-animevideov3-x2.param",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.param",
+            3173),
+        new(
+            "realesr-animevideov3-x2.bin",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.bin",
+            1247368),
+        new(
+            "realesr-animevideov3-x3.param",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.param",
+            3173),
+        new(
+            "realesr-animevideov3-x3.bin",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.bin",
+            1247368),
+        new(
+            "realesr-animevideov3-x4.param",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.param",
+            3077),
+        new(
+            "realesr-animevideov3-x4.bin",
+            "https://raw.githubusercontent.com/Tohrusky/realesrgan-ncnn-py/900c0549a2fb3481b71d0369253522519308f1f2/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.bin",
+            1247368)
+    ];
 
     private static string MediaRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -53,13 +105,13 @@ public sealed class AiUpscaleService
 
     public bool IsReady =>
         File.Exists(EngineExe) &&
-        Directory.Exists(ModelsDirectory);
+        HasUsableModels(ModelsDirectory);
 
     public AiUpscaleService()
     {
         _http.Timeout = TimeSpan.FromMinutes(10);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "0.9"));
+            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
@@ -76,52 +128,87 @@ public sealed class AiUpscaleService
 
         Directory.CreateDirectory(RootDirectory);
 
-        progress?.Report("Checking latest Real-ESRGAN NCNN Vulkan release…");
-        using var release = await GetJsonAsync(
-            $"https://api.github.com/repos/{Repo}/releases/latest",
-            cancellationToken);
+        string engineTag = "existing";
 
-        var asset = FindWindowsAsset(release)
-            ?? throw new InvalidOperationException(
-                "No Windows ZIP was found in the latest Real-ESRGAN NCNN Vulkan release.");
-
-        var zipPath = Path.Combine(RootDirectory, "realesrgan-windows.zip");
-        var extractDir = Path.Combine(RootDirectory, "_extract");
-
-        TryDeleteDirectory(extractDir);
-        Directory.CreateDirectory(extractDir);
-
-        progress?.Report($"Downloading Real-ESRGAN {asset.Tag}…");
-        await DownloadAsync(asset.Url, zipPath, asset.Sha256, cancellationToken);
-
-        progress?.Report("Extracting AI Upscale engine…");
-        ExtractSafe(zipPath, extractDir);
-
-        var exe = FindFile(extractDir, "realesrgan-ncnn-vulkan.exe")
-            ?? throw new InvalidOperationException(
-                "Real-ESRGAN executable was not found after extraction.");
-
-        var engineFolder = Path.GetDirectoryName(exe)!;
-
-        foreach (var file in Directory.EnumerateFiles(
-                     engineFolder,
-                     "*",
-                     SearchOption.AllDirectories))
+        if (!File.Exists(EngineExe))
         {
-            var relative = Path.GetRelativePath(engineFolder, file);
-            var destination = Path.Combine(RootDirectory, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            File.Copy(file, destination, true);
+            progress?.Report(
+                "Checking latest Real-ESRGAN NCNN Vulkan release…");
+
+            using var release = await GetJsonAsync(
+                $"https://api.github.com/repos/{Repo}/releases/latest",
+                cancellationToken);
+
+            var asset = FindWindowsAsset(release)
+                ?? throw new InvalidOperationException(
+                    "No Windows ZIP was found in the latest Real-ESRGAN NCNN Vulkan release.");
+
+            engineTag = asset.Tag;
+
+            var zipPath = Path.Combine(
+                RootDirectory,
+                "realesrgan-windows.zip");
+            var extractDir = Path.Combine(
+                RootDirectory,
+                "_extract");
+
+            TryDeleteDirectory(extractDir);
+            Directory.CreateDirectory(extractDir);
+
+            try
+            {
+                progress?.Report(
+                    $"Downloading Real-ESRGAN {asset.Tag}…");
+
+                await DownloadAsync(
+                    asset.Url,
+                    zipPath,
+                    asset.Sha256,
+                    cancellationToken);
+
+                progress?.Report(
+                    "Extracting AI Upscale engine…");
+
+                ExtractSafe(zipPath, extractDir);
+
+                _ = FindFile(
+                        extractDir,
+                        "realesrgan-ncnn-vulkan.exe")
+                    ?? throw new InvalidOperationException(
+                        "Real-ESRGAN executable was not found after extraction.");
+
+                CopyDirectoryContents(
+                    extractDir,
+                    RootDirectory);
+            }
+            finally
+            {
+                TryDeleteDirectory(extractDir);
+                TryDeleteFile(zipPath);
+            }
+        }
+        else
+        {
+            progress?.Report(
+                "Real-ESRGAN executable already present • repairing models only…");
         }
 
-        TryDeleteDirectory(extractDir);
-        TryDeleteFile(zipPath);
+        await EnsureRequiredModelsAsync(
+            progress,
+            cancellationToken);
 
         if (!IsReady)
-            throw new InvalidOperationException(
-                "Real-ESRGAN installation completed, but its executable or models could not be located.");
+        {
+            var missing = GetMissingModelFiles();
 
-        progress?.Report($"AI Upscale engine ready • Real-ESRGAN {asset.Tag}.");
+            throw new InvalidOperationException(
+                "Real-ESRGAN setup did not produce a complete engine. " +
+                $"Executable: {(File.Exists(EngineExe) ? EngineExe : "not found")}; " +
+                $"missing models: {(missing.Count == 0 ? "none" : string.Join(", ", missing))}.");
+        }
+
+        progress?.Report(
+            $"AI Upscale engine ready • Real-ESRGAN {engineTag} • {RequiredModels.Length} model files verified.");
     }
 
     public void Reset()
@@ -525,6 +612,179 @@ public sealed class AiUpscaleService
         }
     }
 
+    private async Task EnsureRequiredModelsAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(ModelsDirectory);
+
+        var missing = RequiredModels
+            .Where(asset =>
+            {
+                var path = Path.Combine(
+                    ModelsDirectory,
+                    asset.FileName);
+
+                return !File.Exists(path) ||
+                       new FileInfo(path).Length != asset.ExpectedSize;
+            })
+            .ToList();
+
+        if (missing.Count == 0)
+        {
+            progress?.Report(
+                "Real-ESRGAN model files already complete.");
+            return;
+        }
+
+        progress?.Report(
+            $"Downloading {missing.Count} missing Real-ESRGAN model file(s)…");
+
+        var completed = 0;
+
+        foreach (var asset in missing)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var destination = Path.Combine(
+                ModelsDirectory,
+                asset.FileName);
+
+            await DownloadModelAsync(
+                asset,
+                destination,
+                cancellationToken);
+
+            completed++;
+
+            progress?.Report(
+                $"Real-ESRGAN models • {completed}/{missing.Count} • {asset.FileName}");
+        }
+    }
+
+    private async Task DownloadModelAsync(
+        ModelAsset asset,
+        string destination,
+        CancellationToken cancellationToken)
+    {
+        if (!Uri.TryCreate(
+                asset.Url,
+                UriKind.Absolute,
+                out var uri) ||
+            !uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.Equals(
+                "raw.githubusercontent.com",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected Real-ESRGAN model URL: {asset.Url}");
+        }
+
+        var temp = destination + ".download";
+
+        try
+        {
+            using var response = await _http.GetAsync(
+                uri,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            await using (var input =
+                await response.Content.ReadAsStreamAsync(
+                    cancellationToken))
+            await using (var output = new FileStream(
+                temp,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                128 * 1024,
+                useAsync: true))
+            {
+                await input.CopyToAsync(
+                    output,
+                    cancellationToken);
+            }
+
+            // Close the FileShare.None writer before size validation and
+            // File.Move. Keeping it alive causes a Windows sharing violation
+            // and leaves the model set incomplete.
+            var actualSize = new FileInfo(temp).Length;
+            if (actualSize != asset.ExpectedSize)
+            {
+                throw new InvalidDataException(
+                    $"Real-ESRGAN model '{asset.FileName}' size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {actualSize:N0}.");
+            }
+
+            File.Move(
+                temp,
+                destination,
+                true);
+        }
+        catch
+        {
+            TryDeleteFile(temp);
+            throw;
+        }
+    }
+
+    private bool HasUsableModels(string? directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) ||
+            !Directory.Exists(directory))
+            return false;
+
+        return RequiredModels.All(asset =>
+        {
+            var path = Path.Combine(
+                directory,
+                asset.FileName);
+
+            return File.Exists(path) &&
+                   new FileInfo(path).Length == asset.ExpectedSize;
+        });
+    }
+
+    private List<string> GetMissingModelFiles()
+        => RequiredModels
+            .Where(asset =>
+            {
+                var path = Path.Combine(
+                    ModelsDirectory,
+                    asset.FileName);
+
+                return !File.Exists(path) ||
+                       new FileInfo(path).Length != asset.ExpectedSize;
+            })
+            .Select(asset => asset.FileName)
+            .ToList();
+
+    private static void CopyDirectoryContents(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     source,
+                     "*",
+                     SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var target = Path.Combine(destination, relative);
+
+            // Temporary setup artifacts are managed separately.
+            if (relative.Equals(
+                    "realesrgan-windows.zip",
+                    StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target, true);
+        }
+    }
+
     private static string MakeUniquePath(string requested)
     {
         if (!File.Exists(requested))
@@ -646,5 +906,10 @@ public sealed class AiUpscaleService
                 : value[^max..].Trim();
 
     private sealed record ProcessResult(int ExitCode, string Output, string Error);
+    private sealed record ModelAsset(
+        string FileName,
+        string Url,
+        long ExpectedSize);
+
     private sealed record ReleaseAsset(string Tag, string Name, string Url, string? Sha256);
 }

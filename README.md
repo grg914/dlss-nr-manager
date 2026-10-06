@@ -8,68 +8,198 @@
   <img src="assets/branding/hero.png" alt="DLSS NR Manager banner" width="100%" />
 </p>
 
-A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** fork.
+A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v0.8.0**.
+Current application version: **v1.2.0**.
 
-> Supports automatic candidate detection across **Steam, Epic, GOG, Ubisoft Connect, EA App, Xbox App and Battle.net**, with upstream-validated profiles for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy, plus NVIDIA RTX 20/30/40/50 GPUs.
+> Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, NVIDIA RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/Capture%20d'%C3%A9cran%202026-10-05%20204315.png" alt="DLSS NR Manager running with Cyberpunk 2077 detected and OptiScaler DLSS Neural Rendering installed" width="100%" />
+  <img src="docs/screenshots/Capture%20d'%C3%A9cran%202026-10-05%20204315.png" alt="DLSS NR Manager Windows dashboard" width="100%" />
 </p>
 
-<p align="center"><sub>Real DLSS NR Manager v0.7.0 application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
+<p align="center"><sub>Application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
 
-The application now uses the dark WPF dashboard shown above, with game detection, installation state, GPU/runtime validation, Neural Rendering presets, diagnostics and media processing integrated into the same interface.
+## What's new in v1.2.0
+
+- Added persistent application diagnostics under `%LOCALAPPDATA%\DlssNrManager\logs\`.
+- Logs startup/runtime environment, GPU detection, application update checks, Minecraft RTX preflight results, one-click install progress, restore operations and failures.
+- Captures unhandled WPF, AppDomain and background-task exceptions with full stack traces and inner exceptions.
+- Rotates the main log at 5 MB into `dlss-nr-manager.previous.log` so diagnostics remain bounded.
+- Added **Open diagnostic logs** in the main window for quick access before sending a bug report.
+- Added Minecraft RTX preflight with **Ready / Warning / Unsupported** gating.
+- Added optional Minecraft performance pack: Lithium, FerriteCore, Krypton, C2ME, BadOptimizations and Dynamic FPS.
+- Added optional SPBR LabPBR resource pack for Caustica RTX materials.
+- Minecraft now installs the latest tested **grg914/Caustica-RTX** Minecraft 26.2 build produced from a green main-branch CI run.
+- The project Caustica build adds RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering / 3D-Guided Neural Rendering integration.
+- Added transactional Minecraft install/restore behavior and stronger rollback coverage.
+- Added in-app self-update from the latest GitHub Release with download validation, EXE version verification, automatic restart and previous-EXE rollback.
+- Improved NVIDIA Streamline resource staging for DLSS RR and Vulkan Reflex dependencies.
+- Improved Real-ESRGAN setup/repair and media-component update rollback.
+- Hardened PC Cleanup against filesystem junction/reparse-point traversal.
+- Improved the Windows icon pipeline using the sharp branding PNG, progressive downsampling and exact multi-resolution ICO frames.
 
 ## Features
 
+### Game detection and DLSS Neural Rendering
+
 - WPF / .NET 8, Windows x64
 - Self-contained single-file executable
-- Installed-game scanning through Steam, Epic, GOG, Ubisoft Connect, EA App, Xbox App and Battle.net sources
-- Bounded scanner concurrency (4 workers) and a short-lived local scan cache to keep startup responsive
+- Installed-game scanning through Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net
 - Compatibility confidence: Validated / Probable / Candidate
-- Upstream-validated target paths for Cyberpunk 2077, Baldur's Gate 3 and Hogwarts Legacy
-- Heuristic detection using DLSS / Streamline / XeSS / FidelityFX runtime signals
 - Manual game-folder selection fallback
 - NVIDIA GPU and RTX-generation detection
 - Stable/prerelease selection from the upstream OptiScaler-DLSSNR fork
-- Downloads the complete upstream release archive
-- Never downloads or redistributes the proprietary `nvngx_dlssnr.dll` runtime
-- Requires the user to select their own runtime and validates SHA-256, PE x64 architecture, file version and Authenticode trust
-- Verifies the downloaded upstream OptiScaler ZIP against the SHA-256 digest published by GitHub Releases when available
-- RTX 50 expected SHA-256: `E16BCF15E16E13F527491CDF7845B2FE6521A738D8F7C9C721866A8496E1FC8E`
-- RTX 20/30/40 compatibility-runtime SHA-256: `E67DEE209320CDAFE0E93E45675D7AA34323A53ACC57A72B2E40A181581C989A`
-- Full managed-install backup before changes, including destination collisions from the extracted OptiScaler package
-- Install, update, restore and uninstall
-- Detects existing proxy DLLs and refuses to overwrite unknown loaders silently
-- Cyberpunk proxy recommendation: `dbghelp.dll`; `dxgi.dll` fallback
-- Integrated `OptiScaler.log` viewer with large-log truncation
-- Per-game **Diagnose** report: temporal-upscaler signals, proxy, runtime state, OptiScaler load evidence, DLSSNR running evidence and loader conflicts
-- Tracks the installed release, proxy, game executable hash, runtime hash and install date in a local manager manifest
-- Detects when the game executable changed after DLSS NR was installed
-- Neural Rendering preset only edits keys that already exist in the current upstream INI
-- OptiScaler overlay is forced on with F10 (`ShortcutKey=0x79`)
-- Configurable FPS overlay detail and position
-- Optional `TargetProcessName` filtering and OptiScaler-managed ReShade loading
-- Checks GitHub Releases for newer DLSS NR Manager versions
-- Game cover artwork in the library, including Steam and best-effort artwork resolution for Epic, EA App, Battle.net, Ubisoft Connect, GOG and Xbox App
-- Dedicated cover fallbacks for Battlefield 6 / BF6 and Call of Duty: Black Ops 6 / BO6
-- Artwork is downloaded into `%LOCALAPPDATA%\\DlssNrManager\\artwork` so non-Steam launchers use stable local cover files; the UI includes a **Clear cover cache** action
-- Integrated **Media Neural Rendering** for local images and videos
-- Media engine setup downloads `video2dlssnr` and FFmpeg from their upstream GitHub releases instead of bundling them
-- Media output presets: Native, 2× and 4K
-- Media Neural Rendering styles: Default, Natural and Cinematic, with adjustable intensity
-- Video processing keeps audio and uses NVENC HEVC encoding when available
-- Optional verified ReShade installer with **full add-on support** for the selected game
-- Automatic GitHub component checks update `video2dlssnr` and FFmpeg when their upstream release assets change
-- Multi-resolution Windows icon is generated from the HD PNG logo before compilation using high-quality Fant scaling
+- Full managed-install backup before game-directory changes
+- Install, update, restore and uninstall flows
+- Proxy conflict detection; unknown proxy DLLs are never silently overwritten
+- Integrated `OptiScaler.log` viewer and per-game compatibility diagnostics
+- Persistent application log with exception stack traces and one-click access to the log folder
+- Neural Rendering presets plus advanced OptiScaler overlay/process settings
+- Game cover artwork with Steam and multi-provider fallback resolution
+- Dedicated Battlefield 6 / BF6 artwork handling
+- Local artwork cache with **Clear cover cache**
+- Multi-resolution Windows application icon generated from the sharp branding PNG before compilation, with exact Windows DPI frames and progressive downsampling
+- In-app version check against the latest GitHub Release
+- One-click self-update: downloads the newest published EXE/ZIP, verifies GitHub SHA-256 when available, validates executable version metadata, replaces the running EXE after shutdown and restarts automatically
+
+### Application diagnostics and logs
+
+DLSS NR Manager writes a persistent diagnostic log to:
+
+```text
+%LOCALAPPDATA%\DlssNrManager\logs\dlss-nr-manager.log
+```
+
+When the file reaches 5 MB, the previous log is retained as:
+
+```text
+%LOCALAPPDATA%\DlssNrManager\logs\dlss-nr-manager.previous.log
+```
+
+The log is designed for end-to-end troubleshooting and records timestamps, application version, OS/framework/process architecture, GPU detection, update checks, Minecraft RTX preflight results, Minecraft installation/restore progress and exception stack traces. Use **Open diagnostic logs** in the application and send the latest `dlss-nr-manager.log` when reporting a runtime problem.
+
+The logger is best-effort and is never allowed to prevent the application from starting or shutting down.
+
+### Automatic NVIDIA runtime/resources
+
+- Optional automatic download of the latest official **NVIDIA-RTX/Streamline** GitHub release
+- Looks for `nvngx_dlssnr.dll` in the official package when no local runtime is selected; if the current public Streamline release does not contain it, the manager reports that an NVIDIA-authorized DLSS-NR runtime must be supplied instead of pretending provisioning succeeded
+- Validates x64 architecture and NVIDIA Authenticode publisher before use
+- Existing known SHA-256 runtime fingerprints remain accepted
+- Can add missing Streamline/DLSS runtime resources to the selected game:
+  - `sl.interposer.dll`
+  - `sl.common.dll`
+  - `sl.dlss.dll` / `nvngx_dlss.dll`
+  - `sl.dlss_d.dll` / `nvngx_dlssd.dll` for DLSS Ray Reconstruction when supported by the renderer
+  - `sl.dlss_g.dll` / `nvngx_dlssg.dll`
+  - `sl.reflex.dll` plus `NvLowLatencyVk.dll` when present for the Vulkan Reflex path
+  - `sl.dlss_nr.dll` / `nvngx_dlssnr.dll` when present in the selected Streamline package
+- Existing vendor DLLs in a game are not overwritten by the resource-completion step
+- NVIDIA binaries are **not committed to this repository**
+
+Validated compatibility hashes currently retained by the manager:
+
+- RTX 50 DLSSNR SHA-256: `E16BCF15E16E13F527491CDF7845B2FE6521A738D8F7C9C721866A8496E1FC8E`
+- RTX 20/30/40 compatibility runtime SHA-256: `E67DEE209320CDAFE0E93E45675D7AA34323A53ACC57A72B2E40A181581C989A`
+
+### PC Update Center
+
+- Scans installed software for available updates using WinGet
+- Merges `winget upgrade` and `winget list --upgrade-available` results
+- Optional Chocolatey `outdated` detection when Chocolatey is installed
+- Scans Windows Update for Windows, driver and firmware updates
+- Reads connected-device driver metadata when Windows Update exposes it
+- Detects NVIDIA GPU/driver version through `nvidia-smi` when available
+- Reports whether Windows Update currently offers a newer NVIDIA display driver
+- Links to the official NVIDIA driver page for the definitive Game Ready / Studio check
+- **WinGet update all** button with explicit confirmation before running `winget upgrade --all`
+- WinGet action never installs BIOS/firmware or Windows Update items
+- UTF-8-safe PowerShell/Windows Update parsing for localized Windows installations
+
+### PC Cleanup
+
+Safe, explicit cache analysis and cleanup inspired by system-cleaner workflows:
+
+- Current-user temporary files
+- Windows Temp
+- DirectX shader cache
+- NVIDIA DXCache
+- NVIDIA GLCache
+- NVIDIA legacy `NV_Cache`
+- Per-category selection
+- Analyze total reclaimable size before deletion
+- Locked/in-use and inaccessible files are skipped
+- Cache directories are preserved; only contents are cleaned
+- Re-analysis after cleanup shows remaining cache size
+
+The cleaner intentionally does **not** touch browser profiles, documents, downloads, registry entries, restore points, Recycle Bin data or Windows Update storage.
+
+### Media Neural Rendering and AI Upscale
+
+- Local image/video Neural Rendering
+- Media engine downloads `video2dlssnr` and FFmpeg from upstream releases
+- Native, 2× and 4K media output presets
+- Default / Natural / Cinematic Neural Rendering styles
+- Real-ESRGAN NCNN Vulkan AI Upscale
+- AI Upscale 2× / 3× / 4×
+- General, conservative, illustration/anime and anime-video/Minecraft models
+- Optional TTA and tile-size controls
+- Combined **Neural Rendering + AI Upscale** processing mode
+- Video audio is preserved during processing
+
+### Minecraft Java RTX
+
+- Minecraft Java 26.2 profile
+- Detects vanilla and common custom launcher instances
+- Optional manual instance selection
+- **RTX preflight** runs before any instance modification and reports **Ready / Warning / Unsupported** for:
+  - NVIDIA RTX GPU detection
+  - NVIDIA driver presence/version
+  - Vulkan ray-tracing capability when `vulkaninfo` is available, with Vulkan-driver fallback detection
+  - Java 25
+  - Minecraft 26.2
+  - Fabric Loader 0.19.3+
+  - known renderer conflicts
+  - instance write access
+- **Install DLSS / RTX** one-click workflow:
+  - blocks on unsupported preflight results and requires explicit confirmation for warnings
+  - creates an application-managed backup snapshot before changing the instance
+  - sets `preferredGraphicsBackend:"vulkan"`
+  - verifies Java 25 x64 before Fabric/Caustica setup
+  - installs Eclipse Temurin 25 automatically with WinGet when Java 25 is missing
+  - resolves the latest stable Fabric Loader for Minecraft 26.2 from Fabric Meta (minimum supported: 0.19.3) and installs/updates it automatically on Mojang/Microsoft-style instances
+  - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
+  - downloads the latest stable Fabric API build for Minecraft 26.2 from Modrinth and verifies its SHA-512 hash
+  - downloads only a tested `grg914/Caustica-RTX` prerelease produced from a green main-branch CI run and explicitly targeting Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
+  - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
+  - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica; if no compatible stable build is available, the core RTX installation continues
+  - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
+  - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
+  - requires the official Minecraft Launcher to be closed while Fabric/profile files are modified
+  - patches the Mojang launcher Fabric profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`, and surfaces a warning instead of silently hiding profile-patch failures
+  - warns when a third-party launcher manages JVM arguments separately
+  - relies on Caustica RTX's implemented Vulkan/NVIDIA path for path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex
+- **Restore original** reverses the one-click changes:
+  - removes manager-installed Caustica/Fabric API files
+  - restores `options.txt` and the previous launcher profile
+  - restores renderer mods moved into the backup
+  - restores previous Caustica config/native data when it existed
+  - removes Fabric version directories only when the one-click installer created them
+- Local DLSS/Streamline ZIP and `nvngx_dlssnr.dll` staging remain available as advanced/manual tools
+- Minecraft resource documentation under `resources/minecraft/`
+
+The project Caustica RTX build implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex, and now contains a **capability-gated DLSS Neural Rendering / 3D-Guided Neural Rendering integration** in the renderer. The public build keeps a safe fallback when the feature-specific NVIDIA DLSS-NR SDK/runtime is unavailable; it does not fake Neural Rendering by merely copying DLLs. Real DLSS-NR execution still requires an NVIDIA-authorized compatible DLSS-NR/NGX SDK/runtime and supporting GPU/driver. Proprietary NVIDIA SDK binaries are not committed or redistributed.
+
+The same build adds **RTX Performance Mode** and a native **ScandiShader RTX Look** converted into Caustica's display pipeline, avoiding Iris/Sodium renderer replacement while preserving the path-traced/DLSS pipeline. NVIDIA documents Ray Reconstruction as part of the DLSS reconstruction path; when RR is active it handles reconstruction using the selected quality/performance mode.
+
+**Sodium/Iris are intentionally not installed in the Caustica RTX profile.** Sodium and Iris modify/replace major portions of Minecraft's renderer/shader pipeline, while Caustica owns the Vulkan/path-traced world renderer. The manager keeps them in the conflict detector instead of presenting an unsupported "DLSS + Iris shaderpack" combination. For RTX visuals, use Caustica plus a LabPBR resource pack such as SPBR; for non-renderer performance gains, use the optional performance pack above. Caustica remains experimental, so final compatibility is still verified at runtime.
 
 ## Default Neural Rendering preset
 
-For the current upstream INI the manager sets the following conservative Neural Rendering defaults under `[DlssNr]`:
+For the current upstream INI the manager applies conservative defaults under `[DlssNr]`:
 
 ```ini
 Enabled=true
@@ -79,57 +209,78 @@ WorkingScale=1.0
 Style=1
 ```
 
-The upstream configuration documents `Style=1` as **Natural**. The manager does not create unsupported keys; it only updates keys present in the extracted `OptiScaler.ini`.
+The manager only updates supported keys already present in the extracted upstream configuration.
 
 ## Installation
 
 1. Download the Windows x64 artifact/release.
 2. Close the target game and its launcher.
 3. Run `DlssNrManager.exe`.
-4. Select a detected game or choose the executable folder manually.
-5. Select your separately obtained `nvngx_dlssnr.dll`.
-6. Confirm the runtime validation for the detected RTX generation.
-7. Review the recommended proxy and run **Diagnose game** if the title is not upstream-validated.
-8. Click **Install**.
+4. Select a detected game or choose its executable folder manually.
+5. Leave **Automatically download the latest official NVIDIA Streamline DLSSNR runtime** enabled, or manually select your own `nvngx_dlssnr.dll`.
+6. Review the runtime validation and recommended proxy.
+7. Run **Diagnose game** when compatibility is not upstream-validated.
+8. Optionally keep **Add missing official NVIDIA Streamline/DLSS resources** enabled.
+9. Click **Install**.
 
-The manager installs into the selected game's executable folder. Cyberpunk 2077 uses the upstream-validated `bin\x64` target and `dbghelp.dll` recommendation.
+The manager downloads OptiScaler from its upstream release, creates a backup, validates runtime components and then installs into the selected executable directory.
+
+## PC Update Center
+
+**Scan PC updates** performs read-only discovery across WinGet, Windows Update, connected-device driver metadata, firmware metadata and NVIDIA driver state.
+
+**WinGet update all** is the only software-install action in this panel. It requires explicit confirmation and runs:
+
+```powershell
+winget upgrade --all --include-unknown --include-pinned
+```
+
+Driver, Windows Update, BIOS and firmware entries continue to open official vendor/Microsoft destinations instead of being installed automatically.
+
+## PC Cleanup
+
+Use **Analyze caches** first to calculate file counts and reclaimable storage. Select or deselect categories, then use **Clean selected**.
+
+Shader caches are disposable performance caches. Games and GPU drivers rebuild them after cleanup, so the first launch after cleaning can temporarily compile shaders again.
 
 ## Loader compatibility
 
-Cyberpunk installations using **Cyber Engine Tweaks (CET), RED4ext, ReShade or other DLL loaders** can already own common proxy names. DLSS NR Manager will not silently overwrite a proxy DLL it cannot identify as OptiScaler.
+Games using ReShade, script extenders or other DLL loaders may already own common proxy names. DLSS NR Manager does not silently replace an unknown proxy DLL.
 
-Upstream specifically validates `dbghelp.dll` for Cyberpunk. `dxgi.dll` is the recommended fallback. Avoid `d3d12.dll` when Cyberpunk Ray Reconstruction becomes unavailable/greyed out because upstream documents a Streamline conflict resolved by switching to `dxgi.dll`.
+For Cyberpunk 2077, `dbghelp.dll` remains the upstream-validated recommendation with `dxgi.dll` as a fallback when appropriate.
 
-The manager detects common loader conflicts and can ask OptiScaler to load `ReShade64.dll`, but it still avoids silently rewriting arbitrary third-party loader chains.
+## Runtime and third-party licensing
 
-## Media Neural Rendering
+DLSS NR Manager does not store NVIDIA proprietary binaries in this source repository.
 
-The **Media Neural Rendering** section applies the same experimental Neural Rendering technology to local image and video files without modifying a game installation.
+When automatic runtime provisioning is enabled, the application downloads the selected runtime resources directly from NVIDIA's official `NVIDIA-RTX/Streamline` GitHub release assets and validates the runtime before use. Users may instead supply a local runtime.
 
-For images, the manager drives `video2dlssnr.exe` directly. For videos, FFmpeg decodes frames to RGBA, `video2dlssnr` processes the frames, and FFmpeg encodes the result with NVENC while preserving an audio track.
+OptiScaler, NVIDIA Streamline/DLSS, Fabric, Caustica RTX, Real-ESRGAN, FFmpeg, video2dlssnr, ReShade and other third-party components retain their respective licenses and ownership.
 
-The media engine is downloaded on demand into the user's LocalAppData folder. DLSS NR Manager does not bundle `video2dlssnr`, FFmpeg, or proprietary NVIDIA Neural Rendering runtime files inside its executable.
+DLSS NR Manager itself is MIT licensed.
 
-## Runtime licensing
+## Upstream components
 
-`nvngx_dlssnr.dll` is not distributed by this project. You must supply it yourself. DLSS NR Manager only verifies the selected file and copies it locally into the game directory.
+The project integrates or automates workflows around:
 
-## Upstream
-
-This project automates installation of:
 - `wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass`
-
-OptiScaler and NVIDIA components retain their respective licenses and ownership. DLSS NR Manager itself is MIT licensed.
+- `NVIDIA-RTX/Streamline`
+- `FabricMC/fabric-installer`
+- `FabricMC/fabric-api`
+- `grg914/Caustica-RTX` (project fork; based on AriesAlex/Caustica-RTX)
+- Modrinth API projects: Lithium, FerriteCore, Krypton, Dynamic FPS and SPBR
+- `xinntao/Real-ESRGAN-ncnn-vulkan`
 
 ## Limitations
 
-- Automatic compatibility remains evidence-based. `Validated` means the target path is explicitly documented upstream; `Probable` and `Candidate` still require in-game verification.
-- Ubisoft, EA, Xbox and Battle.net discovery is best-effort because launcher metadata formats and permissions can change.
-- GPU detection relies on Windows display-adapter registry data.
-- The manager does not download or redistribute the proprietary DLSSNR runtime.
-- Authenticode is an additional trust signal; the known compatibility runtime for older RTX generations may not have the same signature properties as NVIDIA's RTX 50 runtime.
+- Automatic game compatibility remains evidence-based; non-validated titles require in-game verification.
+- Launcher metadata formats and permissions can change.
+- Windows Update may lag behind NVIDIA's newest Game Ready/Studio driver, so the official NVIDIA page remains the authoritative vendor check.
+- Some temporary/cache files are locked while Windows, games or drivers are running and will be skipped.
+- Cleaning shader caches can make the next game launch spend time rebuilding shaders.
+- Automatic runtime provisioning depends on the layout/content of NVIDIA's upstream Streamline release assets.
 - The manager does not silently chain arbitrary third-party proxy loaders.
-- The manager should not be used to inject mods into anti-cheat protected multiplayer games.
+- Avoid injecting graphics modifications into anti-cheat-protected multiplayer games unless explicitly supported.
 
 ## Build
 
@@ -138,4 +289,4 @@ dotnet restore
 dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
-GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` also create a GitHub Release with the executable and ZIP.
+GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` can create a GitHub Release with the executable and ZIP. The release workflow requires the Git tag to match the project version exactly, so v1.2.0 must be tagged as `v1.2.0`.

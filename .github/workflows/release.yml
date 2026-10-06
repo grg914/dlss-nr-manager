@@ -10,10 +10,20 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
+      - name: Verify tag matches project version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content "DlssNrManager.csproj"
+          $version = [string]$project.Project.PropertyGroup.Version
+          $tag = "${{ github.ref_name }}"
+          if ($tag -ne "v$version") {
+            throw "Release tag '$tag' does not match project version 'v$version'."
+          }
+
       - name: Publish
         run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
       - name: Create zip

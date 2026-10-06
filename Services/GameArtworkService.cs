@@ -35,7 +35,7 @@ public sealed class GameArtworkService
     public GameArtworkService()
     {
         _http.Timeout = TimeSpan.FromSeconds(25);
-        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "0.8"));
+        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "1.2"));
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
         _cache = LoadCache();
     }
