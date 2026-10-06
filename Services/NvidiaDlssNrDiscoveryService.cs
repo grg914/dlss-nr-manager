@@ -176,6 +176,22 @@ public sealed class NvidiaDlssNrDiscoveryService
         if (asset == null || string.IsNullOrWhiteSpace(asset.Url))
             return [];
 
+        var cacheRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DlssNrManager",
+            "nvidia-nr-discovery");
+        Directory.CreateDirectory(cacheRoot);
+        var safeTag = string.Concat(release.Tag.Select(ch =>
+            Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
+        var entryCache = Path.Combine(cacheRoot, safeTag + ".entries.txt");
+
+        if (File.Exists(entryCache) &&
+            DateTime.UtcNow - File.GetLastWriteTimeUtc(entryCache) < TimeSpan.FromHours(12))
+        {
+            progress?.Report($"Using cached NVIDIA Streamline {release.Tag} package index…");
+            return await File.ReadAllLinesAsync(entryCache, cancellationToken);
+        }
+
         progress?.Report($"Inspecting official NVIDIA Streamline {release.Tag} package…");
 
         var tempRoot = Path.Combine(
@@ -206,10 +222,13 @@ public sealed class NvidiaDlssNrDiscoveryService
             }
 
             using var archive = ZipFile.OpenRead(tempZip);
-            return archive.Entries
+            var entries = archive.Entries
                 .Select(entry => entry.FullName)
                 .Where(name => !string.IsNullOrWhiteSpace(name))
                 .ToList();
+
+            await File.WriteAllLinesAsync(entryCache, entries, cancellationToken);
+            return entries;
         }
         finally
         {
