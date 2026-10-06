@@ -30,7 +30,7 @@ Current application version: **v1.2.0**.
 - Rotates the main log at 5 MB into `dlss-nr-manager.previous.log` so diagnostics remain bounded.
 - Added **Open diagnostic logs** in the main window for quick access before sending a bug report.
 - Added Minecraft RTX preflight with **Ready / Warning / Unsupported** gating.
-- Added optional Minecraft performance pack: Lithium, FerriteCore, Krypton and Dynamic FPS.
+- Added optional Minecraft performance pack: Lithium, FerriteCore, Krypton, C2ME, BadOptimizations and Dynamic FPS.
 - Added optional SPBR LabPBR resource pack for Caustica RTX materials.
 - Added transactional Minecraft install/restore behavior and stronger rollback coverage.
 - Added in-app self-update from the latest GitHub Release with download validation, EXE version verification, automatic restart and previous-EXE rollback.
@@ -172,7 +172,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
   - downloads the latest stable Fabric API build for Minecraft 26.2 from Modrinth and verifies its SHA-512 hash
   - downloads only a Caustica RTX prerelease that explicitly targets Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
-  - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
+  - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
   - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica; if no compatible stable build is available, the core RTX installation continues
   - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
