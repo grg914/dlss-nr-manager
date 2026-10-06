@@ -47,6 +47,26 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
 
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: |
+          $files = @(
+            "publish/DlssNrManager.exe",
+            "DlssNrManager-win-x64.zip"
+          )
+
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([System.IO.Path]::GetFileName($file))"
+          }
+
+          [System.IO.File]::WriteAllLines(
+            (Join-Path $PWD "SHA256SUMS.txt"),
+            $lines,
+            [System.Text.UTF8Encoding]::new($false))
+
+          Get-Content SHA256SUMS.txt
+
       - name: Validate optional Scandi release assets
         shell: pwsh
         run: |
@@ -55,7 +75,7 @@ jobs:
           # The texture fingerprint below is the sanitized pack with
           # Fresh Flower Pots removed.
           $assets = @(
-            @{ Name = "ScandiTextureV1.zip"; Sha256 = "BA6D6EB17F5D49CAF9F42976BCA524A28C8261576C740B3D5D1064F7C69F800E" },
+            @{ Name = "ScandiTextureV1.zip"; Sha256 = "221D8A4B698120812B4ADDAA003EC5E67E2BD91513FAB6DABCF534FCF90151B0" },
             @{ Name = "ScandiShaderV2.zip";  Sha256 = "C2C1E9C531342CC314368146A963FC2FD7D4A414F67C971558FC5ECA89D329F9" }
           )
 
@@ -80,6 +100,7 @@ jobs:
           path: |
             publish/DlssNrManager.exe
             DlssNrManager-win-x64.zip
+            SHA256SUMS.txt
 
       - name: Create or update GitHub release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
@@ -90,6 +111,7 @@ jobs:
           files: |
             publish/DlssNrManager.exe
             DlssNrManager-win-x64.zip
+            SHA256SUMS.txt
             release-assets/ScandiTextureV1.zip
             release-assets/ScandiShaderV2.zip
           fail_on_unmatched_files: false

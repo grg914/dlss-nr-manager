@@ -1,3 +1,6 @@
+using System.IO.Compression;
+using System.Text;
+using System.Text.Json;
 using DlssNrManager.Models;
 
 namespace DlssNrManager.Services;
@@ -119,6 +122,195 @@ public sealed class DiagnosticService
                     : "Configuration needs attention before the selected DLSS feature set can be considered ready.";
 
         return new(summary, lines, ready, loaded, nrRunning);
+    }
+
+    public string CreateSupportBundle(
+        string gameDir,
+        GpuInfo gpu,
+        InstallState state,
+        string destinationZip)
+    {
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
+            throw new DirectoryNotFoundException("The selected game folder does not exist.");
+
+        if (string.IsNullOrWhiteSpace(destinationZip))
+            throw new ArgumentException("A destination ZIP path is required.", nameof(destinationZip));
+
+        var destination = Path.GetFullPath(destinationZip);
+        var directory = Path.GetDirectoryName(destination)
+            ?? throw new InvalidOperationException("The diagnostics destination has no parent directory.");
+
+        Directory.CreateDirectory(directory);
+
+        var temp = destination + ".tmp-" + Guid.NewGuid().ToString("N");
+        var report = Diagnose(gameDir, gpu, state);
+
+        try
+        {
+            using (var stream = new FileStream(
+                       temp,
+                       FileMode.CreateNew,
+                       FileAccess.ReadWrite,
+                       FileShare.None))
+            using (var archive = new ZipArchive(
+                       stream,
+                       ZipArchiveMode.Create,
+                       leaveOpen: false))
+            {
+                var summary = new StringBuilder()
+                    .AppendLine("DLSS NR Manager support bundle")
+                    .AppendLine($"Created: {DateTimeOffset.Now:O}")
+                    .AppendLine($"Version: {AppIdentity.VersionString}")
+                    .AppendLine($"OS: {Environment.OSVersion.VersionString}")
+                    .AppendLine($"Process architecture: {Environment.Is64BitProcess switch { true => "x64", false => "x86" }}")
+                    .AppendLine()
+                    .AppendLine(report.Summary)
+                    .AppendLine()
+                    .AppendJoin(
+                        Environment.NewLine,
+                        report.Lines.Select(line => "• " + line))
+                    .ToString();
+
+                AddTextEntry(
+                    archive,
+                    "diagnostic-report.txt",
+                    SanitizeUserPaths(summary));
+
+                AddFileTailIfPresent(
+                    archive,
+                    AppLogger.LogPath,
+                    "logs/dlss-nr-manager.log",
+                    2500);
+
+                AddFileTailIfPresent(
+                    archive,
+                    AppLogger.PreviousLogPath,
+                    "logs/dlss-nr-manager.previous.log",
+                    2500);
+
+                AddFileTailIfPresent(
+                    archive,
+                    Path.Combine(gameDir, "OptiScaler.log"),
+                    "game/OptiScaler.log",
+                    2500);
+
+                var iniPath = Path.Combine(gameDir, "OptiScaler.ini");
+                if (File.Exists(iniPath))
+                {
+                    try
+                    {
+                        AddTextEntry(
+                            archive,
+                            "game/OptiScaler.ini",
+                            SanitizeUserPaths(File.ReadAllText(iniPath)));
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Warn($"Unable to add OptiScaler.ini to diagnostics bundle: {ex.Message}");
+                    }
+                }
+
+                var manifest = InstallerService.ReadManifest(gameDir);
+                if (manifest != null)
+                {
+                    AddTextEntry(
+                        archive,
+                        "game/install-manifest.json",
+                        SanitizeUserPaths(
+                            JsonSerializer.Serialize(
+                                manifest,
+                                new JsonSerializerOptions { WriteIndented = true })));
+                }
+            }
+
+            File.Move(temp, destination, overwrite: true);
+            return destination;
+        }
+        finally
+        {
+            TryDelete(temp);
+        }
+    }
+
+    private static void AddFileTailIfPresent(
+        ZipArchive archive,
+        string path,
+        string entryName,
+        int maxLines)
+    {
+        if (!File.Exists(path))
+            return;
+
+        try
+        {
+            var lines = ReadTail(path, maxLines);
+            if (lines.Length == 0)
+                return;
+
+            AddTextEntry(
+                archive,
+                entryName,
+                SanitizeUserPaths(string.Join(Environment.NewLine, lines)));
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Unable to add {Path.GetFileName(path)} to diagnostics bundle: {ex.Message}");
+        }
+    }
+
+    private static void AddTextEntry(
+        ZipArchive archive,
+        string entryName,
+        string content)
+    {
+        var entry = archive.CreateEntry(
+            entryName,
+            CompressionLevel.Optimal);
+
+        using var writer = new StreamWriter(
+            entry.Open(),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        writer.Write(content);
+    }
+
+    private static string SanitizeUserPaths(string value)
+    {
+        foreach (var (path, token) in new[]
+                 {
+                     (
+                         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                         "%USERPROFILE%"),
+                     (
+                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                         "%LOCALAPPDATA%"),
+                     (
+                         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                         "%APPDATA%")
+                 }
+                 .Where(item => !string.IsNullOrWhiteSpace(item.Item1))
+                 .OrderByDescending(item => item.Item1.Length))
+        {
+            value = value.Replace(
+                path,
+                token,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        return value;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // Diagnostics cleanup is best-effort.
+        }
     }
 
     private static List<string> DetectLoaderConflicts(

@@ -666,7 +666,7 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    RuntimePathText.Text = "Downloading official NVIDIA Streamline DLSSNR runtime…";
+                    RuntimePathText.Text = "Checking the official NVIDIA Streamline package for a published DLSSNR runtime…";
                     var progress = new Progress<string>(message => RuntimePathText.Text = message);
                     var runtime = await _streamline.EnsureLatestDlssNrAsync(
                         _gpu.Generation,
@@ -1208,6 +1208,74 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ExportDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        var game = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(game) || !Directory.Exists(game))
+        {
+            MessageBox.Show(
+                "Select a valid game folder before exporting diagnostics.",
+                "Support bundle",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save DLSS NR Manager support bundle",
+            Filter = "ZIP archive (*.zip)|*.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            FileName = $"DlssNrManager-support-{DateTime.Now:yyyyMMdd-HHmmss}.zip"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            ExportDiagnosticsButton.IsEnabled = false;
+            DiagnosticText.Text = "Collecting sanitized diagnostics…";
+
+            var gpu = _gpu;
+            var destination = dialog.FileName;
+            var bundle = await Task.Run(() =>
+            {
+                var state = _installer.Inspect(game, gpu.Generation);
+                return _diagnostics.CreateSupportBundle(
+                    game,
+                    gpu,
+                    state,
+                    destination);
+            });
+
+            DiagnosticText.Text =
+                $"Support bundle saved.\n{bundle}\n\n" +
+                "User-profile paths are sanitized and large logs are tail-limited.";
+
+            MessageBox.Show(
+                "Support bundle created successfully.",
+                "DLSS NR Manager",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticText.Text = $"Support bundle failed: {ex.Message}";
+            AppLogger.Error("Support bundle export failed.", ex);
+            MessageBox.Show(
+                ex.Message,
+                "Support bundle failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            ExportDiagnosticsButton.IsEnabled = true;
+        }
+    }
+
     private async void Restore_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1344,6 +1412,31 @@ public partial class MainWindow : Window
     private MinecraftInstallCandidate? SelectedMinecraftInstance()
         => MinecraftInstanceBox.SelectedItem as MinecraftInstallCandidate;
 
+    private bool RefreshMinecraftInstallState()
+    {
+        var instance = SelectedMinecraftInstance();
+        var installed = instance != null &&
+                        _minecraftOneClick.IsInstalled(instance.RootDirectory);
+
+        MinecraftOneClickInstallButton.Content = installed
+            ? "DLSS / RTX installed"
+            : "Install DLSS / RTX";
+
+        MinecraftOneClickInstallButton.IsEnabled =
+            !installed &&
+            (_minecraftPreflightResult?.CanInstall ?? true);
+
+        MinecraftRestoreOriginalButton.IsEnabled = installed;
+
+        if (installed && instance != null)
+        {
+            MinecraftStatusText.Text =
+                $"Minecraft DLSS / RTX is already installed for {instance.DisplayName}.";
+        }
+
+        return installed;
+    }
+
     private async void MinecraftInstanceBox_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
@@ -1351,7 +1444,9 @@ public partial class MainWindow : Window
         if (SelectedMinecraftInstance() == null)
             return;
 
+        RefreshMinecraftInstallState();
         await RunMinecraftPreflightAsync(showDialogOnFailure: false);
+        RefreshMinecraftInstallState();
     }
 
     private async void RunMinecraftPreflight_Click(
@@ -1432,7 +1527,12 @@ public partial class MainWindow : Window
                     return $"{icon} {check.Name}: {check.Details}";
                 }));
 
-            MinecraftOneClickInstallButton.IsEnabled = result.CanInstall;
+            var alreadyInstalled = _minecraftOneClick.IsInstalled(instance.RootDirectory);
+            MinecraftOneClickInstallButton.IsEnabled = result.CanInstall && !alreadyInstalled;
+            MinecraftOneClickInstallButton.Content = alreadyInstalled
+                ? "DLSS / RTX installed"
+                : "Install DLSS / RTX";
+            MinecraftRestoreOriginalButton.IsEnabled = alreadyInstalled;
 
             if (showDialogOnFailure ||
                 result.Status == MinecraftPreflightSeverity.Unsupported)
@@ -1483,8 +1583,7 @@ public partial class MainWindow : Window
         {
             MinecraftPreflightButton.IsEnabled = true;
 
-            if (_minecraftPreflightResult?.CanInstall == true)
-                MinecraftOneClickInstallButton.IsEnabled = true;
+            RefreshMinecraftInstallState();
         }
     }
 
@@ -1495,6 +1594,16 @@ public partial class MainWindow : Window
         {
             MessageBox.Show(
                 "Select a Minecraft Java instance first.",
+                "Minecraft DLSS / RTX",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (RefreshMinecraftInstallState())
+        {
+            MessageBox.Show(
+                "Minecraft DLSS / RTX is already installed for this instance. Use Restore original if you want to remove the managed installation first.",
                 "Minecraft DLSS / RTX",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -1623,6 +1732,7 @@ public partial class MainWindow : Window
                 MessageBoxImage.Information);
 
             ScanMinecraft_Click(sender, e);
+            RefreshMinecraftInstallState();
         }
         catch (Exception ex)
         {
@@ -1641,8 +1751,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            MinecraftOneClickInstallButton.IsEnabled = true;
-            MinecraftRestoreOriginalButton.IsEnabled = true;
+            RefreshMinecraftInstallState();
         }
     }
 
@@ -1690,6 +1799,7 @@ public partial class MainWindow : Window
 
             MinecraftStatusText.Text =
                 "Minecraft instance restored to its original pre-install state.";
+            RefreshMinecraftInstallState();
 
             MessageBox.Show(
                 "Minecraft has been restored from the one-click backup.",
@@ -1801,18 +1911,51 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message => MinecraftNvidiaNrStatusText.Text = message);
 
+            var instance = SelectedMinecraftInstance();
+            IReadOnlyList<string> staged = [];
+
+            if (instance != null)
+            {
+                var runtimeDirectory = Path.Combine(
+                    instance.RootDirectory,
+                    ".dlss-nr-manager-runtime");
+                Directory.CreateDirectory(runtimeDirectory);
+
+                staged = await _streamline.StageSelectedResourcesAsync(
+                    runtimeDirectory,
+                    includeSuperResolution: true,
+                    includeFrameGeneration: true,
+                    includeReflex: true,
+                    includeNeuralRendering: true,
+                    progress);
+
+                AppLogger.Info(
+                    $"NVIDIA Streamline official resource staging completed: {staged.Count} file(s) added to '{runtimeDirectory}'.");
+            }
+
             var result = await _nvidiaNrDiscovery.CheckAsync(progress);
 
-            MinecraftNvidiaNrStatusText.Text = result.Summary;
+            var stagingSummary = instance == null
+                ? "No Minecraft instance is selected, so the official package was inspected but no files were staged."
+                : staged.Count == 0
+                    ? "Official Streamline package checked; no new production DLLs needed staging."
+                    : $"Downloaded/staged {staged.Count} official NVIDIA production DLL(s) into .dlss-nr-manager-runtime.";
+
+            MinecraftNvidiaNrStatusText.Text =
+                result.PublicSdkReady
+                    ? $"{result.Summary} {stagingSummary}"
+                    : $"{stagingSummary} DLSS-NR-specific public files are still missing upstream.";
 
             MessageBox.Show(
+                stagingSummary + Environment.NewLine + Environment.NewLine +
                 result.Summary + Environment.NewLine + Environment.NewLine +
-                result.Details,
-                "NVIDIA DLSS Neural Rendering availability",
+                result.Details + Environment.NewLine + Environment.NewLine +
+                "Important: DLSS NR Manager only downloads files actually published by NVIDIA. " +
+                "If nvsdk_ngx_helpers_dlssnr_vk.h, sl_dlss_nr.h, nvngx_dlssnr.dll or sl.dlss_nr.dll " +
+                "are absent from NVIDIA's public repositories/releases, the manager cannot manufacture or rename substitutes.",
+                "NVIDIA DLSS / Streamline files",
                 MessageBoxButton.OK,
-                result.PublicSdkReady
-                    ? MessageBoxImage.Information
-                    : MessageBoxImage.Warning);
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
@@ -2026,6 +2169,37 @@ public partial class MainWindow : Window
             MediaIntensitySlider.IsEnabled = mode != 1;
     }
 
+    private void SelectAiOriginMedia_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select media for AI origin detection",
+            Filter =
+                "Supported media|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.webp;*.mp4;*.mkv;*.mov;*.avi;*.webm;*.m4v|" +
+                "Images|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.webp|" +
+                "Videos|*.mp4;*.mkv;*.mov;*.avi;*.webm;*.m4v|" +
+                "All files|*.*"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        AiOriginSourceBox.Text = dialog.FileName;
+        AiOriginClearMediaButton.IsEnabled = true;
+        AiOriginStatusText.Text = _aiOrigin.IsReady
+            ? "Media selected • detector ready."
+            : "Media selected • set up the detector before analysis.";
+    }
+
+    private void ClearAiOriginMedia_Click(object sender, RoutedEventArgs e)
+    {
+        AiOriginSourceBox.Clear();
+        AiOriginClearMediaButton.IsEnabled = false;
+        AiOriginStatusText.Text = _aiOrigin.IsReady
+            ? "No media selected • detector ready."
+            : "No media selected • detector not set up yet.";
+    }
+
     private async void SetupAiOrigin_Click(
         object sender,
         RoutedEventArgs e)
@@ -2064,7 +2238,7 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        var source = MediaSourceBox.Text;
+        var source = AiOriginSourceBox.Text;
         if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
         {
             MessageBox.Show(

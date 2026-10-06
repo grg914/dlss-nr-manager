@@ -380,7 +380,7 @@
                   </Grid>
 
                   <CheckBox x:Name="AutoNvidiaRuntimeCheck"
-                            Content="Automatically download the latest official NVIDIA Streamline DLSSNR runtime when needed"
+                            Content="Automatically check NVIDIA Streamline and use an official DLSSNR runtime when NVIDIA publishes one"
                             IsChecked="True"
                             Margin="0,9,0,0"/>
 
@@ -683,7 +683,7 @@
                 <StackPanel>
                   <TextBlock Text="Local NVIDIA DLSS / Streamline runtime"
                              FontWeight="SemiBold"/>
-                  <TextBlock Text="Proprietary NVIDIA binaries are never downloaded from this repository. Select your own package or nvngx_dlssnr.dll; the manager validates and stages them locally for compatible providers."
+                  <TextBlock Text="Public NVIDIA binaries are downloaded only from official NVIDIA/DLSS or NVIDIA-RTX/Streamline GitHub releases. DLSS-NR-specific files that NVIDIA has not published are never replaced with renamed or unofficial DLLs; you can still select an official local runtime when you have one."
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
                              FontSize="11"
@@ -746,7 +746,7 @@
                                 Content="Check NVIDIA files"
                                 Click="CheckMinecraftNvidiaNr_Click"/>
                       </Grid>
-                      <TextBlock Text="Checks only official NVIDIA/DLSS and NVIDIA-RTX/Streamline GitHub sources for public DLSS-NR headers/runtime files. It does not download unofficial DLLs or treat renamed files as support."
+                      <TextBlock Text="Checks NVIDIA/DLSS and NVIDIA-RTX/Streamline, downloads the latest official Streamline package, and stages the public production DLLs for the selected Minecraft instance. DLSS-NR-specific files are reported as unavailable when NVIDIA does not publish them; unofficial or renamed DLLs are never substituted."
                                  Foreground="{StaticResource Muted}"
                                  FontSize="10"
                                  TextWrapping="Wrap"
@@ -1068,6 +1068,36 @@
                                TextWrapping="Wrap"
                                Margin="0,3,0,10"/>
 
+                    <TextBlock Text="Media to analyze"
+                               Foreground="{StaticResource Muted}"
+                               FontSize="11"
+                               Margin="0,0,0,5"/>
+                    <Grid Margin="0,0,0,10">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+                      <TextBox Grid.Column="0"
+                               x:Name="AiOriginSourceBox"
+                               MinHeight="32"
+                               VerticalContentAlignment="Center"
+                               IsReadOnly="True"
+                               ToolTip="Independent source used only by AI origin detection."/>
+                      <Button Grid.Column="2"
+                              x:Name="AiOriginSelectMediaButton"
+                              Style="{StaticResource CyanButton}"
+                              Content="Add media"
+                              Click="SelectAiOriginMedia_Click"/>
+                      <Button Grid.Column="4"
+                              x:Name="AiOriginClearMediaButton"
+                              Content="Remove"
+                              IsEnabled="False"
+                              Click="ClearAiOriginMedia_Click"/>
+                    </Grid>
+
                     <Grid>
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -1080,8 +1110,8 @@
                               Click="SetupAiOrigin_Click"/>
                       <Button Grid.Column="2"
                               x:Name="AiOriginAnalyzeButton"
-                              Style="{StaticResource CyanButton}"
-                              Content="Analyze selected media"
+                              Style="{StaticResource PrimaryButton}"
+                              Content="Analyze media"
                               Click="AnalyzeAiOrigin_Click"/>
                     </Grid>
 
@@ -1345,6 +1375,13 @@
                            Foreground="{StaticResource Muted}"
                            TextWrapping="Wrap"
                            Margin="0,6,0,0"/>
+                <Button x:Name="ExportDiagnosticsButton"
+                        Style="{StaticResource CyanButton}"
+                        Content="Save support bundle"
+                        HorizontalAlignment="Left"
+                        Margin="0,14,0,0"
+                        ToolTip="Exports sanitized manager/game diagnostics to a ZIP you choose."
+                        Click="ExportDiagnostics_Click"/>
               </StackPanel>
             </Grid>
           </Border></Grid></ScrollViewer></TabItem>

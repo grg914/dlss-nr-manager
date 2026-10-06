@@ -136,20 +136,49 @@ public sealed class StreamlineRuntimeService
         var asset = SelectReleaseZip(release)
             ?? throw new InvalidDataException("No Streamline SDK ZIP was found.");
 
+        var versionRoot = Path.Combine(RootDirectory, Sanitize(tag));
+        var zip = Path.Combine(versionRoot, "streamline-sdk.zip");
         var work = Path.Combine(Path.GetTempPath(), "DlssNrManager", "streamline", Guid.NewGuid().ToString("N"));
-        var zip = Path.Combine(work, "streamline.zip");
         var extract = Path.Combine(work, "extract");
+        Directory.CreateDirectory(versionRoot);
         Directory.CreateDirectory(work);
 
         try
         {
-            progress?.Report($"Downloading NVIDIA Streamline {tag} resources…");
-            await DownloadAsync(
-                asset.Url,
-                zip,
-                asset.Sha256,
-                cancellationToken);
-            ExtractSafe(zip, extract);
+            if (!File.Exists(zip))
+            {
+                progress?.Report($"Downloading NVIDIA Streamline {tag} resources…");
+                await DownloadAsync(
+                    asset.Url,
+                    zip,
+                    asset.Sha256,
+                    cancellationToken);
+            }
+            else
+            {
+                progress?.Report($"Using cached NVIDIA Streamline {tag} package…");
+            }
+
+            try
+            {
+                ExtractSafe(zip, extract);
+            }
+            catch (Exception ex) when (
+                File.Exists(zip) &&
+                ex is InvalidDataException or IOException)
+            {
+                progress?.Report(
+                    $"Cached NVIDIA Streamline package is invalid; downloading a clean {tag} copy…");
+                TryDeleteDirectory(extract);
+                TryDeleteFile(zip);
+
+                await DownloadAsync(
+                    asset.Url,
+                    zip,
+                    asset.Sha256,
+                    cancellationToken);
+                ExtractSafe(zip, extract);
+            }
 
             var names = new List<string> { "sl.interposer.dll", "sl.common.dll" };
             if (includeSuperResolution)

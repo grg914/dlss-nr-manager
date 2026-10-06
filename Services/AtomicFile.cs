@@ -29,6 +29,33 @@ public static class AtomicFile
         }
     }
 
+    public static async Task WriteAllTextAsync(
+        string path,
+        string content,
+        CancellationToken cancellationToken = default)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+            Directory.CreateDirectory(directory);
+
+        var temp = path + ".tmp-" + Guid.NewGuid().ToString("N");
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                temp,
+                content,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                cancellationToken);
+
+            File.Move(temp, path, overwrite: true);
+        }
+        finally
+        {
+            TryDelete(temp);
+        }
+    }
+
     public static void WriteAllLines(
         string path,
         IEnumerable<string> lines)

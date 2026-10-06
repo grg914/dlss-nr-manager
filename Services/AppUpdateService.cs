@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -319,56 +318,13 @@ try {
 
         Directory.CreateDirectory(extract);
 
-        var normalizedRoot = Path.GetFullPath(extract)
-            .TrimEnd(
-                Path.DirectorySeparatorChar,
-                Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-
-        using (var archive = ZipFile.OpenRead(zipPath))
-        {
-            const int maxEntries = 200;
-            const long maxExpandedBytes = 1024L * 1024 * 1024;
-
-            if (archive.Entries.Count > maxEntries)
-            {
-                throw new InvalidDataException(
-                    $"The update ZIP contains too many entries ({archive.Entries.Count}).");
-            }
-
-            long expandedBytes = 0;
-
-            foreach (var entry in archive.Entries)
-            {
-                if (string.IsNullOrWhiteSpace(entry.Name))
-                    continue;
-
-                expandedBytes += Math.Max(0, entry.Length);
-                if (expandedBytes > maxExpandedBytes)
-                {
-                    throw new InvalidDataException(
-                        "The update ZIP expands beyond the 1 GB safety limit.");
-                }
-
-                var target = Path.GetFullPath(Path.Combine(
-                    extract,
-                    entry.FullName.Replace(
-                        '/',
-                        Path.DirectorySeparatorChar)));
-
-                if (!target.StartsWith(
-                        normalizedRoot,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidDataException(
-                        $"Unsafe update archive entry: {entry.FullName}");
-                }
-
-                Directory.CreateDirectory(
-                    Path.GetDirectoryName(target)!);
-                entry.ExtractToFile(target, overwrite: true);
-            }
-        }
+        // Reuse the same hardened extractor as component installs so update
+        // archives get identical traversal, entry-count and expansion guards.
+        SafeZip.Extract(
+            zipPath,
+            extract,
+            MaxUpdateArchiveEntries,
+            MaxUpdateExpandedBytes);
 
         return Directory.EnumerateFiles(
                 extract,

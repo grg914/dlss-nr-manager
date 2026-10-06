@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.5.1**.
+Current application version: **v2.0.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -33,6 +33,43 @@ Design references are kept under:
 
 The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
 
+## Download
+
+Use the latest GitHub Release for the Windows x64 single-file build. Each v2 release publishes:
+
+- `DlssNrManager.exe`
+- `DlssNrManager-win-x64.zip`
+- `SHA256SUMS.txt` for independent SHA-256 verification
+
+## What's new in v2.0.0
+
+v2.0 is a reliability, diagnostics and workflow release built on the v1.5 audit work.
+
+- **AI detection is now independent from Media Neural.** The **Détection IA** page has its own **Add media** picker, its own selected-media field, and a **Remove** action. Selecting or clearing media here no longer changes the Media Neural source.
+- **Minecraft RTX now detects an existing managed installation.** The main action changes from **Install DLSS / RTX** to **DLSS / RTX installed**, is disabled to prevent stacking another install over it, and **Restore original** remains available.
+- **Check & download NVIDIA files** now downloads the latest public x64 **NVIDIA-RTX/Streamline** release directly from NVIDIA's GitHub release, stages the public production SR/RR/FG/Reflex resources into the selected Minecraft instance's managed runtime directory, then reports which DLSS-NR-specific files are still absent upstream. The manager never fabricates, renames or substitutes an unofficial DLSS-NR DLL/header.
+- Added **Save support bundle** under Diagnostics. It creates a ZIP containing a sanitized compatibility report, tail-limited manager logs, OptiScaler log/config and the managed install manifest when available. User-profile paths are replaced with environment tokens before export.
+- Hardened game discovery so recursive probing does **not follow Windows junctions/reparse points**, preventing accidental scans outside a game tree and reducing duplicate I/O.
+- Simplified update extraction to use the shared **SafeZip** path with the same traversal, entry-count and expanded-size protections used by component installs.
+- Steam artwork catalog caching now detects corrupt/partial cache data, discards it and rewrites the cache atomically.
+- Added asynchronous atomic text writes for large network-backed cache updates.
+- Release automation now emits **SHA256SUMS.txt** beside the EXE and ZIP.
+- Retained the v1.5.1 hardening for bounded downloads, model integrity, helper-process cleanup, anti-cheat fail-closed behavior, atomic pack deployment and self-update validation.
+- Minecraft Scandi pack repair/update no longer reuses an already-installed destination ZIP as its own update source, preventing a stale/broken local copy from reinstalling itself indefinitely.
+- Caustica RTX compatibility work is tracked separately in `grg914/Caustica-RTX`: ScandiShader now receives a stronger SDR/HDR-safe grade, and high-resolution alpha overlays use a conservative RT opacity path to avoid black triangular wedges with 512x packs.
+- Reviewed the public **DLSS5-Swapper** project for workflow ideas. v2.0 adopts the broadly useful patterns of attachable diagnostics, checksummed release artifacts and tightly bounded discovery without importing its application code.
+
+### DLSS5-Swapper audit notes
+
+Useful ideas identified for future versions, but intentionally not rushed into v2.0:
+
+- per-game installation/history timeline with recovery from retired manifests;
+- richer rendering-API detection and explicit renderer overrides;
+- configurable scan roots instead of any drive-wide default scan;
+- game-context actions such as rescan, open folder and restore originals;
+- a larger automated regression-test matrix for scanning, restore and compatibility edge cases;
+- optional in-game controls only where a supported integration can expose them safely.
+
 ## What's new in v1.5.1
 
 - Moved NVIDIA GPU detection off the WPF UI thread so startup stays responsive while registry/`nvidia-smi` probing runs.
@@ -49,7 +86,7 @@ The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media
 - Centralized ZIP extraction behind a bounded safe extractor with traversal protection, entry-count limits and a 4 GB expanded-size ceiling for downloaded component archives.
 - Self-update ZIPs now accept only `DlssNrManager.exe`, cap archive size/entry count, and no longer fall back to an arbitrary executable found in the archive.
 - Minecraft Scandi pack copies are now atomic, preventing a crash/interruption from leaving a partially written resource pack.
-- Updated the optional `ScandiTextureV1.zip` release fingerprint to the sanitized pack with Fresh Flower Pots removed: `BA6D6EB17F5D49CAF9F42976BCA524A28C8261576C740B3D5D1064F7C69F800E`.
+- Updated the optional `ScandiTextureV1.zip` release fingerprint to the sanitized pack with Fresh Flower Pots removed: `221D8A4B698120812B4ADDAA003EC5E67E2BD91513FAB6DABCF534FCF90151B0`.
 
 ## Previous v1.5.0 changes
 
