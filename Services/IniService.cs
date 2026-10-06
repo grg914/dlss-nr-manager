@@ -2,7 +2,7 @@ namespace DlssNrManager.Services;
 
 public static class IniService
 {
-    public static void ApplyPreset(string iniPath, string workingScale)
+    public static void ApplyPreset(string iniPath, string workingScale, bool enableNeuralRendering = true)
     {
         if (!File.Exists(iniPath))
             return;
@@ -12,7 +12,7 @@ public static class IniService
         var dlssNrSection = FindSection(lines, "DlssNr");
         if (dlssNrSection >= 0)
         {
-            SetIfPresent(lines, dlssNrSection, "Enabled", "true");
+            SetIfPresent(lines, dlssNrSection, "Enabled", enableNeuralRendering ? "true" : "false");
             SetIfPresent(lines, dlssNrSection, "RunBeforeSR", "true");
             SetIfPresent(lines, dlssNrSection, "Passes", "1");
             SetIfPresent(lines, dlssNrSection, "WorkingScale", workingScale);
