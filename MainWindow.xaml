@@ -566,6 +566,14 @@
                              FontSize="11"
                              Margin="0,4,0,8"/>
 
+                  <TextBlock x:Name="MinecraftCausticaBuildText"
+                             Text="Checking tested Caustica RTX build…"
+                             Foreground="{StaticResource Accent}"
+                             FontSize="10"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,8"/>
+
                   <StackPanel>
                     <StackPanel Orientation="Horizontal">
                       <CheckBox x:Name="MinecraftInstallFabricApiCheck"
