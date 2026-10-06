@@ -34,7 +34,7 @@ public static class IniService
             SetOrAdd(lines, menuSection, "FpsOverlayType", "1");
         }
 
-        File.WriteAllLines(iniPath, lines);
+        AtomicFile.WriteAllLines(iniPath, lines);
     }
 
     public static void ApplyAdvancedSettings(
@@ -74,7 +74,7 @@ public static class IniService
         if (pluginsSection >= 0)
             SetOrAdd(lines, pluginsSection, "LoadReshade", loadReShade ? "true" : "false");
 
-        File.WriteAllLines(iniPath, lines);
+        AtomicFile.WriteAllLines(iniPath, lines);
     }
 
     public static string? ReadValue(string iniPath, string section, string key)
