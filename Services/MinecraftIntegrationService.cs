@@ -313,6 +313,10 @@ public sealed class MinecraftIntegrationService
             progress,
             cancellationToken);
 
+        var loaderVersion = await GetRecommendedFabricLoaderAsync(
+            progress,
+            cancellationToken);
+
         var installerRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "DlssNrManager",
@@ -334,7 +338,7 @@ public sealed class MinecraftIntegrationService
             cancellationToken);
 
         progress?.Report(
-            $"Installing Fabric Loader {MinimumFabricLoader} for Minecraft {MinecraftVersion} using Fabric Installer {installerPackage.Version}…");
+            $"Installing Fabric Loader {loaderVersion} for Minecraft {MinecraftVersion} using Fabric Installer {installerPackage.Version}…");
 
         var psi = new ProcessStartInfo(java)
         {
@@ -350,7 +354,7 @@ public sealed class MinecraftIntegrationService
             "client",
             "-dir", minecraftRoot,
             "-mcversion", MinecraftVersion,
-            "-loader", MinimumFabricLoader
+            "-loader", loaderVersion
         })
             psi.ArgumentList.Add(arg);
 
@@ -466,17 +470,34 @@ public sealed class MinecraftIntegrationService
                     new ModrinthProject("Dynamic FPS", "dynamic-fps", "dynamic-fps")
                 })
                 {
-                    var component = await InstallModrinthProjectAsync(
-                        instance.RootDirectory,
-                        mods,
-                        backup,
-                        project,
-                        loader: "fabric",
-                        progress,
-                        cancellationToken);
+                    try
+                    {
+                        var component = await InstallModrinthProjectAsync(
+                            instance.RootDirectory,
+                            mods,
+                            backup,
+                            project,
+                            loader: "fabric",
+                            progress,
+                            cancellationToken,
+                            requireReleaseBuild: true);
 
-                    managedDestinations.Add(component.InstalledPath);
-                    installed.Add(component);
+                        managedDestinations.Add(component.InstalledPath);
+                        installed.Add(component);
+                    }
+                    catch (Exception ex)
+                    {
+                        RestoreMatchingBackupFiles(
+                            backup,
+                            instance.RootDirectory,
+                            mods,
+                            project.FileToken);
+
+                        AppLogger.Warn(
+                            $"Optional Minecraft mod {project.Name} was skipped: {ex.Message}");
+                        progress?.Report(
+                            $"Optional {project.Name} skipped: {ex.Message}");
+                    }
                 }
             }
 
@@ -489,17 +510,40 @@ public sealed class MinecraftIntegrationService
                     "resourcepacks");
                 Directory.CreateDirectory(resourcePacks);
 
-                var spbr = await InstallModrinthProjectAsync(
-                    instance.RootDirectory,
-                    resourcePacks,
-                    backup,
-                    new ModrinthProject("SPBR LabPBR", "spbr", "spbr"),
-                    loader: null,
-                    progress,
-                    cancellationToken);
+                var spbrProject =
+                    new ModrinthProject(
+                        "SPBR LabPBR",
+                        "spbr",
+                        "spbr");
 
-                managedDestinations.Add(spbr.InstalledPath);
-                installed.Add(spbr);
+                try
+                {
+                    var spbr = await InstallModrinthProjectAsync(
+                        instance.RootDirectory,
+                        resourcePacks,
+                        backup,
+                        spbrProject,
+                        loader: null,
+                        progress,
+                        cancellationToken,
+                        requireReleaseBuild: true);
+
+                    managedDestinations.Add(spbr.InstalledPath);
+                    installed.Add(spbr);
+                }
+                catch (Exception ex)
+                {
+                    RestoreMatchingBackupFiles(
+                        backup,
+                        instance.RootDirectory,
+                        resourcePacks,
+                        spbrProject.FileToken);
+
+                    AppLogger.Warn(
+                        $"Optional Minecraft resource pack SPBR was skipped: {ex.Message}");
+                    progress?.Report(
+                        $"Optional SPBR LabPBR skipped: {ex.Message}");
+                }
             }
 
             WriteManagedManifest(instance.RootDirectory, installed, backup);
@@ -757,13 +801,6 @@ public sealed class MinecraftIntegrationService
             sha512 = sha512Element.GetString();
         }
 
-        await BackupMatchingFileAsync(
-            minecraftRoot,
-            destinationDirectory,
-            backup,
-            project.FileToken,
-            cancellationToken);
-
         var destination = Path.Combine(destinationDirectory, filename);
         var temp = destination + ".download";
         progress?.Report($"Downloading {project.Name} {versionNumber}…");
@@ -802,6 +839,13 @@ public sealed class MinecraftIntegrationService
                     $"Expected {sha512}, got {actual}.");
             }
         }
+
+        await BackupMatchingFileAsync(
+            minecraftRoot,
+            destinationDirectory,
+            backup,
+            project.FileToken,
+            cancellationToken);
 
         File.Move(temp, destination, true);
 
