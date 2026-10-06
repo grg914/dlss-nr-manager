@@ -616,18 +616,31 @@ public sealed class AiOriginDetectionService : IDisposable
         foreach (var arg in args)
             startInfo.ArgumentList.Add(arg);
 
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException(
-                $"Could not start {Path.GetFileName(executable)}.");
+        using var process = ExternalProcessTracker.Start(startInfo);
 
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
+        try
+        {
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
 
-        return new ProcessResult(
-            process.ExitCode,
-            await outputTask,
-            await errorTask);
+            return new ProcessResult(
+                process.ExitCode,
+                await outputTask,
+                await errorTask);
+        }
+        catch (OperationCanceledException)
+        {
+            ExternalProcessTracker.Kill(process);
+            throw;
+        }
+        finally
+        {
+            if (!process.HasExited)
+                ExternalProcessTracker.Kill(process);
+            else
+                ExternalProcessTracker.Untrack(process);
+        }
     }
 
     private static double Median(IReadOnlyList<double> values)
