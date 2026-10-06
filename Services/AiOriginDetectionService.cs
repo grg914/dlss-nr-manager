@@ -31,6 +31,7 @@ public sealed record AiOriginDetectionResult(
 
 public sealed class AiOriginDetectionService : IDisposable
 {
+    private const long MaxModelDownloadBytes = 256L * 1024 * 1024;
     private const string PrimaryModelName = "CapCheck ViT AI-vs-Real";
     private const string PrimaryModelUrl =
         "https://huggingface.co/onnx-community/ai-image-detection-ONNX/resolve/e3cfe99f2841930a040a6281682c10c989965603/onnx/model_int8.onnx?download=true";
@@ -137,17 +138,37 @@ public sealed class AiOriginDetectionService : IDisposable
         }
 
         progress?.Report($"Downloading {label}…");
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.Equals(
+                "huggingface.co",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected AI detector model URL: {url}");
+        }
+
         var temp = destination + ".download";
 
         try
         {
             using var response = await _http.GetAsync(
-                url,
+                uri,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
+            if (response.Content.Headers.ContentLength is > MaxModelDownloadBytes)
+            {
+                throw new InvalidDataException(
+                    "AI detector model exceeds the 256 MB safety limit.");
+            }
+
+            await using (var input =
+                await response.Content.ReadAsStreamAsync(cancellationToken))
             await using (var output = new FileStream(
                              temp,
                              FileMode.Create,
@@ -156,7 +177,11 @@ public sealed class AiOriginDetectionService : IDisposable
                              128 * 1024,
                              useAsync: true))
             {
-                await input.CopyToAsync(output, cancellationToken);
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    MaxModelDownloadBytes,
+                    cancellationToken);
             }
 
             var actual = await Sha256Async(temp, cancellationToken);
@@ -170,6 +195,37 @@ public sealed class AiOriginDetectionService : IDisposable
         {
             TryDeleteFile(temp);
             throw;
+        }
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
         }
     }
 
