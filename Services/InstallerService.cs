@@ -350,6 +350,9 @@ public sealed class InstallerService
             manifest.ManagedFiles ?? [],
             StringComparer.OrdinalIgnoreCase);
 
+        var newlyRegistered = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
+
         foreach (var path in absolutePaths)
         {
             if (string.IsNullOrWhiteSpace(path))
@@ -358,18 +361,26 @@ public sealed class InstallerService
             string relative;
             try
             {
-                relative = Path.GetRelativePath(gameDir, Path.GetFullPath(path));
+                relative = Path.GetRelativePath(
+                    gameDir,
+                    Path.GetFullPath(path));
             }
             catch
             {
                 continue;
             }
 
-            if (!TryResolveUnderRoot(gameDir, relative, out var resolved) ||
+            if (!TryResolveUnderRoot(
+                    gameDir,
+                    relative,
+                    out var resolved) ||
                 !File.Exists(resolved))
+            {
                 continue;
+            }
 
-            managed.Add(relative);
+            if (managed.Add(relative))
+                newlyRegistered.Add(relative);
         }
 
         var managedList = managed
@@ -381,7 +392,12 @@ public sealed class InstallerService
             new Dictionary<string, string>(),
             StringComparer.OrdinalIgnoreCase);
 
-        foreach (var relative in managedList)
+        // Re-hash only newly registered files and legacy tracked files that
+        // do not yet have an integrity fingerprint. Existing hashes remain
+        // stable until an explicit managed update replaces those files.
+        foreach (var relative in managedList.Where(relative =>
+                     newlyRegistered.Contains(relative) ||
+                     !hashes.ContainsKey(relative)))
         {
             if (relative.Equals(
                     ManifestFile,
