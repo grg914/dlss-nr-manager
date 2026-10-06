@@ -520,6 +520,10 @@ public sealed class GameArtworkService
             if (!mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 return null;
 
+            const long maxArtworkBytes = 25L * 1024 * 1024;
+            if (response.Content.Headers.ContentLength is > maxArtworkBytes)
+                return null;
+
             var extension = mediaType.ToLowerInvariant() switch
             {
                 "image/png" => ".png",
@@ -548,7 +552,11 @@ public sealed class GameArtworkService
                 128 * 1024,
                 useAsync: true))
             {
-                await input.CopyToAsync(output, cancellationToken);
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    maxArtworkBytes,
+                    cancellationToken);
             }
 
             if (!File.Exists(temporary) || new FileInfo(temporary).Length < 1024)
@@ -1003,6 +1011,35 @@ public sealed class GameArtworkService
             @"[^a-z0-9]+",
             string.Empty,
             RegexOptions.CultureInvariant);
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+                throw new InvalidDataException(
+                    $"Artwork download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
+        }
     }
 
     private void PruneArtworkFiles()
