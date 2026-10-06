@@ -232,6 +232,19 @@ public sealed class MinecraftPreflightService
                 $"{instance.Source} manages JVM arguments outside launcher_profiles.json. The manager can install the renderer stack, but verify -Xss16m and --enable-native-access=ALL-UNNAMED in that launcher's Java/JVM settings if Caustica reports native-access or stack issues."));
         }
 
+        var launcherRunning =
+            Process.GetProcessesByName("MinecraftLauncher").Length > 0;
+
+        checks.Add(launcherRunning
+            ? new MinecraftPreflightCheck(
+                "Minecraft Launcher process",
+                MinecraftPreflightSeverity.Warning,
+                "Minecraft Launcher is currently running. Close it completely before Install DLSS / RTX so Fabric and launcher_profiles.json can be updated safely.")
+            : new MinecraftPreflightCheck(
+                "Minecraft Launcher process",
+                MinecraftPreflightSeverity.Ready,
+                "Minecraft Launcher is not running."));
+
         var conflicts = FindConflictingRendererMods(root);
         checks.Add(conflicts.Count == 0
             ? new MinecraftPreflightCheck(
