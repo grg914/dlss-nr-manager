@@ -1691,14 +1691,30 @@ public sealed class MinecraftIntegrationService
         string url,
         CancellationToken cancellationToken)
     {
-        using var response = await _http.GetAsync(
-            url,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-        response.EnsureSuccessStatusCode();
+        JsonDocument? document = null;
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        await NetworkRetry.ExecuteAsync(
+            async (_, token) =>
+            {
+                using var response = await _http.GetAsync(
+                    url,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    token);
+                response.EnsureSuccessStatusCode();
+
+                await using var stream =
+                    await response.Content.ReadAsStreamAsync(token);
+
+                document = await JsonDocument.ParseAsync(
+                    stream,
+                    cancellationToken: token);
+            },
+            cancellationToken,
+            attempts: 3);
+
+        return document ??
+               throw new InvalidOperationException(
+                   "Minecraft component metadata could not be loaded.");
     }
 
     private static GitHubRelease ParseRelease(JsonElement element)

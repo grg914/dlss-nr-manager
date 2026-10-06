@@ -1,13 +1,13 @@
 using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace DlssNrManager.Services;
 
 public sealed class ReShadeService
 {
+    private const long MaxInstallerBytes = 256L * 1024 * 1024;
     private const string ManifestUrl =
         "https://raw.githubusercontent.com/ScoopInstaller/Versions/master/bucket/reshade-addons.json";
 
@@ -20,7 +20,7 @@ public sealed class ReShadeService
 
     public ReShadeService()
     {
-        _http.Timeout = TimeSpan.FromSeconds(30);
+        _http.Timeout = TimeSpan.FromMinutes(3);
         _http.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
     }
@@ -70,7 +70,7 @@ public sealed class ReShadeService
 
         if (File.Exists(destination))
         {
-            var existing = await Sha256Async(destination, cancellationToken);
+            var existing = await HashService.Sha256Async(destination, cancellationToken);
             if (existing.Equals(hash, StringComparison.OrdinalIgnoreCase))
                 return (version, destination);
 
@@ -82,37 +82,93 @@ public sealed class ReShadeService
 
         try
         {
-            using var download = await _http.GetAsync(
-                downloadUri,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-            download.EnsureSuccessStatusCode();
+            await NetworkRetry.ExecuteAsync(
+                async (attempt, token) =>
+                {
+                    if (attempt > 1)
+                    {
+                        try
+                        {
+                            if (File.Exists(temp))
+                                File.Delete(temp);
+                        }
+                        catch { }
+                    }
 
-            await using (var input = await download.Content.ReadAsStreamAsync(cancellationToken))
-            await using (var output = new FileStream(
-                             temp,
-                             FileMode.Create,
-                             FileAccess.Write,
-                             FileShare.None,
-                             128 * 1024,
-                             useAsync: true))
-            {
-                await input.CopyToAsync(output, cancellationToken);
-            }
+                    using var download = await _http.GetAsync(
+                        downloadUri,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        token);
+                    download.EnsureSuccessStatusCode();
 
-            var actualHash = await Sha256Async(temp, cancellationToken);
-            if (!actualHash.Equals(hash, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidDataException(
-                    $"ReShade installer SHA-256 mismatch. Expected {hash}, got {actualHash}.");
-            }
+                    if (download.Content.Headers.ContentLength is > MaxInstallerBytes)
+                    {
+                        throw new InvalidDataException(
+                            "ReShade installer exceeds the 256 MB safety limit.");
+                    }
+
+                    await using (var input =
+                        await download.Content.ReadAsStreamAsync(token))
+                    await using (var output = new FileStream(
+                        temp,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None,
+                        128 * 1024,
+                        useAsync: true))
+                    {
+                        var buffer = new byte[128 * 1024];
+                        long total = 0;
+
+                        while (true)
+                        {
+                            var read = await input.ReadAsync(
+                                buffer.AsMemory(),
+                                token);
+                            if (read == 0)
+                                break;
+
+                            total += read;
+                            if (total > MaxInstallerBytes)
+                            {
+                                throw new InvalidDataException(
+                                    "ReShade installer exceeded the 256 MB safety limit.");
+                            }
+
+                            await output.WriteAsync(
+                                buffer.AsMemory(0, read),
+                                token);
+                        }
+                    }
+
+                    var actualHash =
+                        await HashService.Sha256Async(
+                            temp,
+                            token);
+
+                    if (!actualHash.Equals(
+                            hash,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException(
+                            $"ReShade installer SHA-256 mismatch. Expected {hash}, got {actualHash}.");
+                    }
+                },
+                cancellationToken,
+                attempts: 3);
 
             File.Move(temp, destination, true);
             return (version, destination);
         }
         catch
         {
-            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+            try
+            {
+                if (File.Exists(temp))
+                    File.Delete(temp);
+            }
+            catch { }
+
             throw;
         }
     }
@@ -142,13 +198,5 @@ public sealed class ReShadeService
             "Windows could not launch the ReShade installer.");
     }
 
-    private static async Task<string> Sha256Async(
-        string path,
-        CancellationToken cancellationToken)
-    {
-        await using var stream = File.OpenRead(path);
-        using var sha = SHA256.Create();
-        var hash = await sha.ComputeHashAsync(stream, cancellationToken);
-        return Convert.ToHexString(hash);
-    }
+
 }

@@ -210,6 +210,20 @@ public sealed class InstallerService
             }
 
             BackupDestinationCollisions(sourceRoot, gameDir, backup);
+
+            var previouslyManaged = new HashSet<string>(
+                previousManifest?.ManagedFiles ?? [],
+                StringComparer.OrdinalIgnoreCase);
+
+            var preservedUserOwnedNvidia = archiveRelativeFiles
+                .Where(relative =>
+                    !previouslyManaged.Contains(relative) &&
+                    ShouldPreserveNewerDestination(
+                        sourceRoot,
+                        gameDir,
+                        relative))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             journal.Stage("WRITING");
 
             foreach (var source in Directory.EnumerateFiles(
@@ -258,7 +272,11 @@ public sealed class InstallerService
                 proxy);
 
             var managedFiles = archiveRelativeFiles
-                .Where(x => !x.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase))
+                .Where(x =>
+                    !x.Equals(
+                        "OptiScaler.dll",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !preservedUserOwnedNvidia.Contains(x))
                 .Concat(new[]
                 {
                     proxy,
@@ -271,6 +289,11 @@ public sealed class InstallerService
                 .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
+            var managedFileHashes = await BuildManagedFileHashesAsync(
+                gameDir,
+                managedFiles,
+                cancellationToken: default);
+
             var manifest = new InstallManifest(
                 release.Tag,
                 proxy,
@@ -279,7 +302,8 @@ public sealed class InstallerService
                 validation?.Hash ?? "",
                 DateTimeOffset.UtcNow,
                 managedFiles,
-                baselineBackup);
+                baselineBackup,
+                managedFileHashes);
 
             journal.Stage("VERIFIED");
 
@@ -344,6 +368,9 @@ public sealed class InstallerService
             manifest.ManagedFiles ?? [],
             StringComparer.OrdinalIgnoreCase);
 
+        var newlyRegistered = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
+
         foreach (var path in absolutePaths)
         {
             if (string.IsNullOrWhiteSpace(path))
@@ -352,25 +379,60 @@ public sealed class InstallerService
             string relative;
             try
             {
-                relative = Path.GetRelativePath(gameDir, Path.GetFullPath(path));
+                relative = Path.GetRelativePath(
+                    gameDir,
+                    Path.GetFullPath(path));
             }
             catch
             {
                 continue;
             }
 
-            if (!TryResolveUnderRoot(gameDir, relative, out var resolved) ||
+            if (!TryResolveUnderRoot(
+                    gameDir,
+                    relative,
+                    out var resolved) ||
                 !File.Exists(resolved))
+            {
                 continue;
+            }
 
-            managed.Add(relative);
+            if (managed.Add(relative))
+                newlyRegistered.Add(relative);
+        }
+
+        var managedList = managed
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var hashes = new Dictionary<string, string>(
+            manifest.ManagedFileHashes ??
+            new Dictionary<string, string>(),
+            StringComparer.OrdinalIgnoreCase);
+
+        // Re-hash only newly registered files and legacy tracked files that
+        // do not yet have an integrity fingerprint. Existing hashes remain
+        // stable until an explicit managed update replaces those files.
+        foreach (var relative in managedList.Where(relative =>
+                     newlyRegistered.Contains(relative) ||
+                     !hashes.ContainsKey(relative)))
+        {
+            if (relative.Equals(
+                    ManifestFile,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !TryResolveUnderRoot(gameDir, relative, out var file) ||
+                !File.Exists(file))
+            {
+                continue;
+            }
+
+            hashes[relative] = HashService.Sha256(file);
         }
 
         var updated = manifest with
         {
-            ManagedFiles = managed
-                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
-                .ToList()
+            ManagedFiles = managedList,
+            ManagedFileHashes = hashes
         };
 
         AtomicFile.WriteAllText(
@@ -387,6 +449,7 @@ public sealed class InstallerService
             throw new InvalidOperationException("OptiScaler.ini was not found for the selected game.");
 
         IniService.ApplyPreset(ini, workingScale, enableNeuralRendering);
+        RefreshManagedFileHash(gameDir, "OptiScaler.ini");
     }
 
     public void ApplyAdvancedSettings(
@@ -408,6 +471,8 @@ public sealed class InstallerService
             showFps,
             targetProcessName,
             loadReShade);
+
+        RefreshManagedFileHash(gameDir, "OptiScaler.ini");
     }
 
     public string CreateBackup(string gameDir)
@@ -835,6 +900,71 @@ public sealed class InstallerService
         }
     }
 
+    private static void RefreshManagedFileHash(
+        string gameDir,
+        string relative)
+    {
+        var manifest = ReadManifest(gameDir);
+        if (manifest?.ManagedFiles == null ||
+            !manifest.ManagedFiles.Contains(
+                relative,
+                StringComparer.OrdinalIgnoreCase) ||
+            !TryResolveUnderRoot(gameDir, relative, out var path) ||
+            !File.Exists(path))
+        {
+            return;
+        }
+
+        var hashes = new Dictionary<string, string>(
+            manifest.ManagedFileHashes ??
+            new Dictionary<string, string>(),
+            StringComparer.OrdinalIgnoreCase)
+        {
+            [relative] = HashService.Sha256(path)
+        };
+
+        var updated = manifest with
+        {
+            ManagedFileHashes = hashes
+        };
+
+        AtomicFile.WriteAllText(
+            Path.Combine(gameDir, ManifestFile),
+            JsonSerializer.Serialize(
+                updated,
+                new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static async Task<IReadOnlyDictionary<string, string>> BuildManagedFileHashesAsync(
+        string gameDir,
+        IEnumerable<string> managedFiles,
+        CancellationToken cancellationToken)
+    {
+        var hashes = new Dictionary<string, string>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var relative in managedFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (relative.Equals(
+                    ManifestFile,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !TryResolveUnderRoot(gameDir, relative, out var path) ||
+                !File.Exists(path))
+            {
+                continue;
+            }
+
+            hashes[relative] =
+                await HashService.Sha256Async(
+                    path,
+                    cancellationToken);
+        }
+
+        return hashes;
+    }
+
     private static void RecoverInterruptedTransaction(string gameDir)
     {
         var pending = FileTransactionJournal.ReadPending(gameDir);
@@ -882,6 +1012,32 @@ public sealed class InstallerService
             AppLogger.Warn(
                 $"Interrupted transaction recovery failed: {ex.Message}");
         }
+    }
+
+    private static bool ShouldPreserveNewerDestination(
+        string sourceRoot,
+        string gameDir,
+        string relative)
+    {
+        if (!IsNvidiaDlssRuntime(
+                Path.GetFileName(relative)) ||
+            !TryResolveUnderRoot(
+                sourceRoot,
+                relative,
+                out var source) ||
+            !TryResolveUnderRoot(
+                gameDir,
+                relative,
+                out var destination) ||
+            !File.Exists(source) ||
+            !File.Exists(destination))
+        {
+            return false;
+        }
+
+        return IsDestinationNewer(
+            destination,
+            source);
     }
 
     private static void CopyTreePreservingNewerNvidia(

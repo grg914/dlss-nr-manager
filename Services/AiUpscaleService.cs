@@ -587,53 +587,64 @@ public sealed class AiUpscaleService
 
         try
         {
-            using var response = await _http.GetAsync(
-                uri,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-
-            response.EnsureSuccessStatusCode();
-
-            if (response.Content.Headers.ContentLength is > MaxEngineArchiveBytes)
-            {
-                throw new InvalidDataException(
-                    "Real-ESRGAN archive exceeds the 1 GB safety limit.");
-            }
-
-            await using (var input =
-                await response.Content.ReadAsStreamAsync(cancellationToken))
-            await using (var output = new FileStream(
-                             temp,
-                             FileMode.Create,
-                             FileAccess.Write,
-                             FileShare.None,
-                             128 * 1024,
-                             useAsync: true))
-            {
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    MaxEngineArchiveBytes,
-                    cancellationToken);
-            }
-
-            if (new FileInfo(temp).Length < 1024)
-            {
-                throw new InvalidDataException(
-                    "Downloaded Real-ESRGAN archive is unexpectedly small.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(expectedSha256))
-            {
-                var actual = await Sha256Async(temp, cancellationToken);
-                if (!actual.Equals(
-                        expectedSha256,
-                        StringComparison.OrdinalIgnoreCase))
+            await NetworkRetry.ExecuteAsync(
+                async (attempt, token) =>
                 {
-                    throw new InvalidDataException(
-                        $"Real-ESRGAN archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
-                }
-            }
+                    if (attempt > 1)
+                        TryDeleteFile(temp);
+
+                    using var response = await _http.GetAsync(
+                        uri,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        token);
+
+                    response.EnsureSuccessStatusCode();
+
+                    if (response.Content.Headers.ContentLength is > MaxEngineArchiveBytes)
+                    {
+                        throw new InvalidDataException(
+                            "Real-ESRGAN archive exceeds the 1 GB safety limit.");
+                    }
+
+                    await using (var input =
+                        await response.Content.ReadAsStreamAsync(token))
+                    await using (var output = new FileStream(
+                        temp,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None,
+                        128 * 1024,
+                        useAsync: true))
+                    {
+                        await CopyWithLimitAsync(
+                            input,
+                            output,
+                            MaxEngineArchiveBytes,
+                            token);
+                    }
+
+                    if (new FileInfo(temp).Length < 1024)
+                    {
+                        throw new InvalidDataException(
+                            "Downloaded Real-ESRGAN archive is unexpectedly small.");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(expectedSha256))
+                    {
+                        var actual =
+                            await Sha256Async(temp, token);
+
+                        if (!actual.Equals(
+                                expectedSha256,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidDataException(
+                                $"Real-ESRGAN archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
+                        }
+                    }
+                },
+                cancellationToken,
+                attempts: 3);
 
             File.Move(temp, destination, true);
         }
@@ -781,58 +792,63 @@ public sealed class AiUpscaleService
 
         try
         {
-            using var response = await _http.GetAsync(
-                uri,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
+            await NetworkRetry.ExecuteAsync(
+                async (attempt, token) =>
+                {
+                    if (attempt > 1)
+                        TryDeleteFile(temp);
 
-            response.EnsureSuccessStatusCode();
+                    using var response = await _http.GetAsync(
+                        uri,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        token);
 
-            if (response.Content.Headers.ContentLength is long contentLength &&
-                contentLength != asset.ExpectedSize)
-            {
-                throw new InvalidDataException(
-                    $"Real-ESRGAN model '{asset.FileName}' HTTP size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {contentLength:N0}.");
-            }
+                    response.EnsureSuccessStatusCode();
 
-            await using (var input =
-                await response.Content.ReadAsStreamAsync(
-                    cancellationToken))
-            await using (var output = new FileStream(
-                temp,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                128 * 1024,
-                useAsync: true))
-            {
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    asset.ExpectedSize,
-                    cancellationToken);
-            }
+                    if (response.Content.Headers.ContentLength is long contentLength &&
+                        contentLength != asset.ExpectedSize)
+                    {
+                        throw new InvalidDataException(
+                            $"Real-ESRGAN model '{asset.FileName}' HTTP size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {contentLength:N0}.");
+                    }
 
-            // Close the FileShare.None writer before size validation and
-            // File.Move. Keeping it alive causes a Windows sharing violation
-            // and leaves the model set incomplete.
-            var actualSize = new FileInfo(temp).Length;
-            if (actualSize != asset.ExpectedSize)
-            {
-                throw new InvalidDataException(
-                    $"Real-ESRGAN model '{asset.FileName}' size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {actualSize:N0}.");
-            }
+                    await using (var input =
+                        await response.Content.ReadAsStreamAsync(token))
+                    await using (var output = new FileStream(
+                        temp,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None,
+                        128 * 1024,
+                        useAsync: true))
+                    {
+                        await CopyWithLimitAsync(
+                            input,
+                            output,
+                            asset.ExpectedSize,
+                            token);
+                    }
 
-            var actualGitBlobSha1 =
-                await GitBlobSha1Async(temp, cancellationToken);
+                    var actualSize = new FileInfo(temp).Length;
+                    if (actualSize != asset.ExpectedSize)
+                    {
+                        throw new InvalidDataException(
+                            $"Real-ESRGAN model '{asset.FileName}' size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {actualSize:N0}.");
+                    }
 
-            if (!actualGitBlobSha1.Equals(
-                    asset.ExpectedGitBlobSha1,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidDataException(
-                    $"Real-ESRGAN model '{asset.FileName}' content fingerprint mismatch.");
-            }
+                    var actualGitBlobSha1 =
+                        await GitBlobSha1Async(temp, token);
+
+                    if (!actualGitBlobSha1.Equals(
+                            asset.ExpectedGitBlobSha1,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException(
+                            $"Real-ESRGAN model '{asset.FileName}' content fingerprint mismatch.");
+                    }
+                },
+                cancellationToken,
+                attempts: 3);
 
             File.Move(
                 temp,

@@ -565,77 +565,87 @@ public sealed class MediaService
     {
         var temp = destination + ".download";
 
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.Equals(
+                "github.com",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected media-component release URL: {url}");
+        }
+
         try
         {
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
-                !uri.Scheme.Equals(
-                    Uri.UriSchemeHttps,
-                    StringComparison.OrdinalIgnoreCase) ||
-                !uri.Host.Equals(
-                    "github.com",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidDataException(
-                    $"Unexpected media-component release URL: {url}");
-            }
-
-            using var response = await _http.GetAsync(
-                uri,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-
-            response.EnsureSuccessStatusCode();
-
-            if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
-            {
-                throw new InvalidDataException(
-                    "Media component archive exceeds the 1 GB safety limit.");
-            }
-
-            await using (var input =
-                await response.Content.ReadAsStreamAsync(
-                    cancellationToken))
-            await using (var output = new FileStream(
-                temp,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                1024 * 128,
-                useAsync: true))
-            {
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    MaxComponentDownloadBytes,
-                    cancellationToken);
-            }
-
-            // The download stream must be closed before validation/hash/rename.
-            // On Windows FileShare.None otherwise makes the application lock its
-            // own *.download file and File.Move fails with ERROR_SHARING_VIOLATION.
-            if (new FileInfo(temp).Length < 1024)
-            {
-                throw new InvalidDataException(
-                    "Downloaded media component archive is unexpectedly small.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(expectedSha256))
-            {
-                await using var stream = File.OpenRead(temp);
-                var actual = Convert.ToHexString(
-                    await System.Security.Cryptography.SHA256
-                        .HashDataAsync(
-                            stream,
-                            cancellationToken));
-
-                if (!actual.Equals(
-                        expectedSha256,
-                        StringComparison.OrdinalIgnoreCase))
+            await NetworkRetry.ExecuteAsync(
+                async (attempt, token) =>
                 {
-                    throw new InvalidDataException(
-                        $"Media component SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
-                }
-            }
+                    if (attempt > 1)
+                    {
+                        try
+                        {
+                            if (File.Exists(temp))
+                                File.Delete(temp);
+                        }
+                        catch { }
+                    }
+
+                    using var response = await _http.GetAsync(
+                        uri,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        token);
+
+                    response.EnsureSuccessStatusCode();
+
+                    if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
+                    {
+                        throw new InvalidDataException(
+                            "Media component archive exceeds the 1 GB safety limit.");
+                    }
+
+                    await using (var input =
+                        await response.Content.ReadAsStreamAsync(token))
+                    await using (var output = new FileStream(
+                        temp,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None,
+                        128 * 1024,
+                        useAsync: true))
+                    {
+                        await CopyWithLimitAsync(
+                            input,
+                            output,
+                            MaxComponentDownloadBytes,
+                            token);
+                    }
+
+                    if (new FileInfo(temp).Length < 1024)
+                    {
+                        throw new InvalidDataException(
+                            "Downloaded media component archive is unexpectedly small.");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(expectedSha256))
+                    {
+                        var actual =
+                            await HashService.Sha256Async(
+                                temp,
+                                token);
+
+                        if (!actual.Equals(
+                                expectedSha256,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidDataException(
+                                $"Media component SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
+                        }
+                    }
+                },
+                cancellationToken,
+                attempts: 3);
 
             File.Move(
                 temp,
@@ -655,8 +665,12 @@ public sealed class MediaService
         }
     }
 
-    private static void ExtractSafe(string zipPath, string destination)
-        => SafeZip.Extract(zipPath, destination);
+    private static void ExtractSafe(
+        string zipPath,
+        string destination)
+        => SafeZip.Extract(
+            zipPath,
+            destination);
 
     private static async Task CopyWithLimitAsync(
         Stream input,

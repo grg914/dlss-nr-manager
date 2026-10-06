@@ -40,8 +40,33 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
 
+      - name: Restore
+        shell: pwsh
+        run: |
+          dotnet restore DlssNrManager.csproj
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj
+
+      - name: Run regression tests
+        run: dotnet test tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj -c Release --no-restore -p:TreatWarningsAsErrors=true
+
       - name: Publish
         run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -warnaserror -o publish
+
+      - name: Verify published application identity
+        shell: pwsh
+        run: |
+          if (!(Test-Path "publish/DlssNrManager.exe")) {
+            throw "DlssNrManager.exe was not generated."
+          }
+
+          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo(
+            (Resolve-Path "publish/DlssNrManager.exe")).FileVersion
+
+          if (-not $version.StartsWith("${{ steps.version.outputs.version }}")) {
+            throw "Published EXE version '$version' does not match release version '${{ steps.version.outputs.version }}'."
+          }
+
+          Write-Host "Published EXE version verified: $version"
 
       - name: Create zip
         shell: pwsh
@@ -91,27 +116,6 @@ jobs:
 
           "asset=$($asset.name)" >> $env:GITHUB_OUTPUT
           Write-Host "Bundled $($asset.name) from $($release.tag_name)"
-
-      - name: Generate SHA-256 checksums
-        shell: pwsh
-        run: |
-          $files = @(
-            "publish/DlssNrManager.exe",
-            "DlssNrManager-win-x64.zip",
-            (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}")
-          )
-
-          $lines = foreach ($file in $files) {
-            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $([System.IO.Path]::GetFileName($file))"
-          }
-
-          [System.IO.File]::WriteAllLines(
-            (Join-Path $PWD "SHA256SUMS.txt"),
-            $lines,
-            [System.Text.UTF8Encoding]::new($false))
-
-          Get-Content SHA256SUMS.txt
 
       - name: Reuse validated SPBRScandi release asset
         shell: pwsh
@@ -164,6 +168,36 @@ jobs:
 
             Write-Host "Validated $($asset.Name) • SHA-256 $actual"
           }
+
+      - name: Generate final SHA-256 checksums
+        shell: pwsh
+        run: |
+          $files = @(
+            "publish/DlssNrManager.exe",
+            "DlssNrManager-win-x64.zip",
+            (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}")
+          )
+
+          foreach ($optional in @(
+            "release-assets/SPBRScandi.zip",
+            "release-assets/ScandiShaderV2.zip"
+          )) {
+            if (Test-Path $optional) {
+              $files += $optional
+            }
+          }
+
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([System.IO.Path]::GetFileName($file))"
+          }
+
+          [System.IO.File]::WriteAllLines(
+            (Join-Path $PWD "SHA256SUMS.txt"),
+            $lines,
+            [System.Text.UTF8Encoding]::new($false))
+
+          Get-Content SHA256SUMS.txt
 
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:

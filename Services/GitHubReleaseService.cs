@@ -21,7 +21,7 @@ public sealed class GitHubReleaseService
 
     public GitHubReleaseService()
     {
-        _http.Timeout = TimeSpan.FromSeconds(30);
+        _http.Timeout = TimeSpan.FromMinutes(10);
         _http.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
@@ -35,15 +35,9 @@ public sealed class GitHubReleaseService
 
         for (var page = 1; page <= maxPages; page++)
         {
-            using var response = await _http.GetAsync(
+            using var doc = await GetJsonWithRetryAsync(
                 $"https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page={pageSize}&page={page}",
-                HttpCompletionOption.ResponseHeadersRead);
-
-            response.EnsureSuccessStatusCode();
-
-            await using var stream =
-                await response.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
+                CancellationToken.None);
 
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
                 return null;
@@ -139,17 +133,9 @@ public sealed class GitHubReleaseService
         int maxCount = 8,
         CancellationToken cancellationToken = default)
     {
-        using var response = await _http.GetAsync(
+        using var doc = await GetJsonWithRetryAsync(
             "https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page=30",
-            HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        await using var stream =
-            await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var doc = await JsonDocument.ParseAsync(
-            stream,
-            cancellationToken: cancellationToken);
 
         var results = new List<ReleaseInfo>();
 
@@ -225,55 +211,70 @@ public sealed class GitHubReleaseService
 
         try
         {
-            using var response = await _http.GetAsync(
-                uri,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            if (response.Content.Headers.ContentLength is > MaxReleaseAssetBytes)
-            {
-                throw new InvalidDataException(
-                    "GitHub release asset exceeds the 1 GB safety limit.");
-            }
-
-            await using (var source =
-                await response.Content.ReadAsStreamAsync(
-                    cancellationToken))
-            await using (var target = new FileStream(
-                temp,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                128 * 1024,
-                useAsync: true))
-            {
-                await CopyWithLimitAsync(
-                    source,
-                    target,
-                    MaxReleaseAssetBytes,
-                    cancellationToken);
-            }
-
-            if (new FileInfo(temp).Length < 1024)
-            {
-                throw new InvalidDataException(
-                    "Downloaded GitHub release asset is unexpectedly small.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(expectedSha256))
-            {
-                var actual =
-                    await HashService.Sha256Async(temp, cancellationToken);
-
-                if (!actual.Equals(
-                        expectedSha256,
-                        StringComparison.OrdinalIgnoreCase))
+            await NetworkRetry.ExecuteAsync(
+                async (attempt, token) =>
                 {
-                    throw new InvalidDataException(
-                        $"Downloaded OptiScaler archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
-                }
-            }
+                    if (attempt > 1)
+                    {
+                        try
+                        {
+                            if (File.Exists(temp))
+                                File.Delete(temp);
+                        }
+                        catch { }
+                    }
+
+                    using var response = await _http.GetAsync(
+                        uri,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        token);
+                    response.EnsureSuccessStatusCode();
+
+                    if (response.Content.Headers.ContentLength is > MaxReleaseAssetBytes)
+                    {
+                        throw new InvalidDataException(
+                            "GitHub release asset exceeds the 1 GB safety limit.");
+                    }
+
+                    await using (var source =
+                        await response.Content.ReadAsStreamAsync(token))
+                    await using (var target = new FileStream(
+                        temp,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None,
+                        128 * 1024,
+                        useAsync: true))
+                    {
+                        await CopyWithLimitAsync(
+                            source,
+                            target,
+                            MaxReleaseAssetBytes,
+                            token);
+                    }
+
+                    if (new FileInfo(temp).Length < 1024)
+                    {
+                        throw new InvalidDataException(
+                            "Downloaded GitHub release asset is unexpectedly small.");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(expectedSha256))
+                    {
+                        var actual =
+                            await HashService.Sha256Async(temp, token);
+
+                        if (!actual.Equals(
+                                expectedSha256,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidDataException(
+                                $"Downloaded OptiScaler archive failed SHA-256 verification. Expected {expectedSha256}, got {actual}.");
+                        }
+                    }
+                },
+                cancellationToken,
+                attempts: 3);
 
             File.Move(
                 temp,
@@ -329,19 +330,9 @@ public sealed class GitHubReleaseService
     {
         try
         {
-            using var response = await _http.GetAsync(
+            using var doc = await GetJsonWithRetryAsync(
                 "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest",
-                HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-                return null;
-
-            await using var stream =
-                await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var doc = await JsonDocument.ParseAsync(
-                stream,
-                cancellationToken: cancellationToken);
 
             var tag = doc.RootElement.GetProperty("tag_name").GetString();
             var htmlUrl = doc.RootElement.GetProperty("html_url").GetString();
@@ -414,10 +405,42 @@ public sealed class GitHubReleaseService
                 selected.Url,
                 selected.Sha256);
         }
-        catch
+        catch (Exception ex)
         {
+            AppLogger.Warn(
+                $"Manager release lookup failed after retries: {ex.Message}");
             return null;
         }
+    }
+
+    private async Task<JsonDocument> GetJsonWithRetryAsync(
+        string url,
+        CancellationToken cancellationToken)
+    {
+        JsonDocument? document = null;
+
+        await NetworkRetry.ExecuteAsync(
+            async (_, token) =>
+            {
+                using var response = await _http.GetAsync(
+                    url,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    token);
+                response.EnsureSuccessStatusCode();
+
+                await using var stream =
+                    await response.Content.ReadAsStreamAsync(token);
+
+                document = await JsonDocument.ParseAsync(
+                    stream,
+                    cancellationToken: token);
+            },
+            cancellationToken,
+            attempts: 3);
+
+        return document ??
+               throw new InvalidOperationException(
+                   "GitHub returned no release metadata.");
     }
 
     public async Task<(Version? Version, string? Url)> GetLatestManagerReleaseAsync()

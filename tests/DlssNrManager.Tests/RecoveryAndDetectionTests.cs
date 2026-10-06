@@ -1,5 +1,6 @@
 using Xunit;
 using DlssNrManager.Services;
+using DlssNrManager.Models;
 
 namespace DlssNrManager.Tests;
 
@@ -134,6 +135,128 @@ public sealed class RecoveryAndDetectionTests : IDisposable
             RendererDetectionService.SetPreferredExecutable(
                 _root,
                 outside));
+    }
+
+    [Fact]
+    public void Binary_marker_scanner_finds_marker_across_chunk_boundary()
+    {
+        const int chunk = 256 * 1024;
+        const string marker = "D3D12CreateDevice";
+        var path = Path.Combine(_root, "large.bin");
+        var bytes = Enumerable.Repeat((byte)'x', chunk + 128).ToArray();
+        var markerBytes = System.Text.Encoding.ASCII.GetBytes(marker);
+        markerBytes.CopyTo(bytes, chunk - 5);
+        File.WriteAllBytes(path, bytes);
+
+        Assert.Equal(
+            marker,
+            BinaryMarkerScanner.FindFirst(path, [marker]));
+    }
+
+    [Fact]
+    public void Managed_integrity_detects_changed_file()
+    {
+        var managed = Path.Combine(_root, "dxgi.dll");
+        File.WriteAllText(managed, "original");
+
+        var manifest = new InstallManifest(
+            "v-test",
+            "dxgi.dll",
+            "Game.exe",
+            "",
+            "",
+            DateTimeOffset.UtcNow,
+            ["dxgi.dll", ".dlssnr-manager-state.json"],
+            null,
+            new Dictionary<string, string>
+            {
+                ["dxgi.dll"] = HashService.Sha256(managed)
+            });
+
+        File.WriteAllText(
+            Path.Combine(_root, ".dlssnr-manager-state.json"),
+            System.Text.Json.JsonSerializer.Serialize(manifest));
+
+        var service = new ManagedInstallIntegrityService();
+        Assert.True(service.Verify(_root).Healthy);
+
+        File.WriteAllText(managed, "changed");
+
+        var changed = service.Verify(_root);
+        Assert.False(changed.Healthy);
+        Assert.Contains("dxgi.dll", changed.ChangedFiles);
+    }
+
+    [Fact]
+    public void Manager_owned_ini_edits_refresh_integrity_hash()
+    {
+        var ini = Path.Combine(_root, "OptiScaler.ini");
+        File.WriteAllText(
+            ini,
+            "[DlssNr]\nEnabled=true\nWorkingScale=1.0\n[Menu]\nShowFps=true\n");
+
+        var manifest = new InstallManifest(
+            "v-test",
+            "dxgi.dll",
+            "Game.exe",
+            "",
+            "",
+            DateTimeOffset.UtcNow,
+            ["OptiScaler.ini", ".dlssnr-manager-state.json"],
+            null,
+            new Dictionary<string, string>
+            {
+                ["OptiScaler.ini"] = HashService.Sha256(ini)
+            });
+
+        File.WriteAllText(
+            Path.Combine(_root, ".dlssnr-manager-state.json"),
+            System.Text.Json.JsonSerializer.Serialize(manifest));
+
+        var installer = new InstallerService();
+        installer.ApplyPreset(
+            _root,
+            "0.75",
+            enableNeuralRendering: true);
+
+        var integrity =
+            new ManagedInstallIntegrityService().Verify(_root);
+
+        Assert.True(integrity.Healthy);
+        Assert.Empty(integrity.ChangedFiles);
+    }
+
+    [Fact]
+    public async Task Network_retry_retries_only_transient_failures()
+    {
+        var attempts = 0;
+
+        await NetworkRetry.ExecuteAsync(
+            (_, _) =>
+            {
+                attempts++;
+                if (attempts == 1)
+                    throw new HttpRequestException("temporary");
+
+                return Task.CompletedTask;
+            },
+            CancellationToken.None,
+            attempts: 2);
+
+        Assert.Equal(2, attempts);
+
+        attempts = 0;
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            NetworkRetry.ExecuteAsync(
+                (_, _) =>
+                {
+                    attempts++;
+                    throw new InvalidDataException("permanent");
+                },
+                CancellationToken.None,
+                attempts: 3));
+
+        Assert.Equal(1, attempts);
     }
 
     public void Dispose()

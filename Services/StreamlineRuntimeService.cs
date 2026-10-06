@@ -381,62 +381,81 @@ public sealed class StreamlineRuntimeService
         string? expectedSha256,
         CancellationToken cancellationToken)
     {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.Equals(
+                "github.com",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected NVIDIA Streamline release URL: {url}");
+        }
+
         var temp = destination + ".download";
 
         try
         {
-            using var response = await _http.GetAsync(
-                url,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            if (response.Content.Headers.ContentLength is > MaxStreamlineDownloadBytes)
-            {
-                throw new InvalidDataException(
-                    "NVIDIA Streamline archive exceeds the 2 GB safety limit.");
-            }
-
-            await using (var input =
-                await response.Content.ReadAsStreamAsync(
-                    cancellationToken))
-            await using (var output = new FileStream(
-                temp,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                128 * 1024,
-                true))
-            {
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    MaxStreamlineDownloadBytes,
-                    cancellationToken);
-            }
-
-            if (new FileInfo(temp).Length < 1024)
-            {
-                throw new InvalidDataException(
-                    "Downloaded Streamline archive is unexpectedly small.");
-            }
-
-            if (!string.IsNullOrWhiteSpace(expectedSha256))
-            {
-                await using var hashStream = File.OpenRead(temp);
-                var actual = Convert.ToHexString(
-                    await SHA256.HashDataAsync(
-                        hashStream,
-                        cancellationToken));
-
-                if (!actual.Equals(
-                        expectedSha256,
-                        StringComparison.OrdinalIgnoreCase))
+            await NetworkRetry.ExecuteAsync(
+                async (attempt, token) =>
                 {
-                    throw new InvalidDataException(
-                        $"Streamline archive SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
-                }
-            }
+                    if (attempt > 1)
+                        TryDeleteFile(temp);
+
+                    using var response = await _http.GetAsync(
+                        uri,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        token);
+                    response.EnsureSuccessStatusCode();
+
+                    if (response.Content.Headers.ContentLength is > MaxStreamlineDownloadBytes)
+                    {
+                        throw new InvalidDataException(
+                            "NVIDIA Streamline archive exceeds the 2 GB safety limit.");
+                    }
+
+                    await using (var input =
+                        await response.Content.ReadAsStreamAsync(token))
+                    await using (var output = new FileStream(
+                        temp,
+                        FileMode.Create,
+                        FileAccess.Write,
+                        FileShare.None,
+                        128 * 1024,
+                        useAsync: true))
+                    {
+                        await CopyWithLimitAsync(
+                            input,
+                            output,
+                            MaxStreamlineDownloadBytes,
+                            token);
+                    }
+
+                    if (new FileInfo(temp).Length < 1024)
+                    {
+                        throw new InvalidDataException(
+                            "Downloaded Streamline archive is unexpectedly small.");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(expectedSha256))
+                    {
+                        var actual =
+                            await HashService.Sha256Async(
+                                temp,
+                                token);
+
+                        if (!actual.Equals(
+                                expectedSha256,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidDataException(
+                                $"Streamline archive SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
+                        }
+                    }
+                },
+                cancellationToken,
+                attempts: 3);
 
             File.Move(temp, destination, true);
         }

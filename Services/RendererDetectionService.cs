@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 
 namespace DlssNrManager.Services;
 
@@ -18,8 +17,6 @@ public sealed record RendererDetectionResult(
 
 public static class RendererDetectionService
 {
-    private const int MarkerReadLimit = 16 * 1024 * 1024;
-
     private static readonly string[] SkipExecutableTokens =
     [
         "launcher", "setup", "install", "unins", "crash", "report",
@@ -164,25 +161,30 @@ public static class RendererDetectionService
             return "Vulkan";
         }
 
-        var markers = ReadMarkers(executable);
-        foreach (var (marker, api) in new[]
-                 {
-                     ("D3D12CreateDevice", "DirectX 12"),
-                     ("D3D12SDKVersion", "DirectX 12"),
-                     ("D3D11CreateDevice", "DirectX 11"),
-                     ("D3D10CreateDevice", "DirectX 10"),
-                     ("Direct3DCreate9", "DirectX 9"),
-                     ("Direct3DCreate8", "DirectX 8"),
-                     ("DirectDrawCreate", "DirectDraw"),
-                     ("vkCreateInstance", "Vulkan"),
-                     ("wglCreateContext", "OpenGL")
-                 })
+        var apiMarkers = new (string Marker, string Api)[]
         {
-            if (markers.Contains(marker, StringComparison.OrdinalIgnoreCase))
-            {
-                evidence = $"binary marker {marker}";
-                return api;
-            }
+            ("D3D12CreateDevice", "DirectX 12"),
+            ("D3D12SDKVersion", "DirectX 12"),
+            ("D3D11CreateDevice", "DirectX 11"),
+            ("D3D10CreateDevice", "DirectX 10"),
+            ("Direct3DCreate9", "DirectX 9"),
+            ("Direct3DCreate8", "DirectX 8"),
+            ("DirectDrawCreate", "DirectDraw"),
+            ("vkCreateInstance", "Vulkan"),
+            ("wglCreateContext", "OpenGL")
+        };
+
+        var marker = BinaryMarkerScanner.FindFirst(
+            executable,
+            apiMarkers.Select(x => x.Marker).ToArray());
+
+        if (marker != null)
+        {
+            evidence = $"binary marker {marker}";
+            return apiMarkers.First(x =>
+                x.Marker.Equals(
+                    marker,
+                    StringComparison.OrdinalIgnoreCase)).Api;
         }
 
         evidence = "no renderer marker";
@@ -244,41 +246,38 @@ public static class RendererDetectionService
                 var info = FileVersionInfo.GetVersionInfo(path);
                 var metadata =
                     $"{info.FileDescription} {info.ProductName} {info.CompanyName}";
-                var markers = ReadMarkers(path);
+                var wrapperMarker = BinaryMarkerScanner.FindFirst(
+                    path,
+                    ["DXVK", "vkd3d"]);
+                var hasVulkanLoaderMarker =
+                    BinaryMarkerScanner.FindFirst(
+                        path,
+                        ["vkGetInstanceProcAddr"]) != null;
 
                 if (metadata.Contains("DXVK", StringComparison.OrdinalIgnoreCase) ||
-                    markers.Contains("DXVK", StringComparison.OrdinalIgnoreCase))
+                    (hasVulkanLoaderMarker &&
+                     string.Equals(
+                         wrapperMarker,
+                         "DXVK",
+                         StringComparison.OrdinalIgnoreCase)))
+                {
                     return $"DXVK ({name})";
+                }
 
                 if (metadata.Contains("vkd3d", StringComparison.OrdinalIgnoreCase) ||
-                    markers.Contains("vkd3d", StringComparison.OrdinalIgnoreCase))
+                    (hasVulkanLoaderMarker &&
+                     string.Equals(
+                         wrapperMarker,
+                         "vkd3d",
+                         StringComparison.OrdinalIgnoreCase)))
+                {
                     return $"vkd3d ({name})";
+                }
             }
             catch { }
         }
 
         return null;
-    }
-
-    private static string ReadMarkers(string path)
-    {
-        try
-        {
-            using var stream = new FileStream(
-                path,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.ReadWrite | FileShare.Delete);
-
-            var count = (int)Math.Min(stream.Length, MarkerReadLimit);
-            var buffer = new byte[count];
-            _ = stream.Read(buffer, 0, count);
-            return Encoding.ASCII.GetString(buffer);
-        }
-        catch
-        {
-            return string.Empty;
-        }
     }
 
     private static IEnumerable<string> SafeFiles(

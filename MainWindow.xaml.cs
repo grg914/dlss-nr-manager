@@ -43,9 +43,13 @@ public partial class MainWindow : Window
     private string? _minecraftDlssZipPath;
     private string? _minecraftDlssNrPath;
     private IReadOnlyList<PcCleanupItem> _cleanupItems = [];
+    private AiOriginDetectionResult? _lastAiOriginResult;
+    private string? _lastAiOriginSource;
+    private readonly ManagedInstallIntegrityService _integrity = new();
     private bool _isBusy;
     private int _stateRefreshVersion;
     private CancellationTokenSource? _mediaOperationCts;
+    private CancellationTokenSource? _aiOriginCts;
 
     private sealed record AdvancedSettingsSnapshot(
         int FpsType,
@@ -100,7 +104,9 @@ public partial class MainWindow : Window
 
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "AI origin detector ready."
-            : "AI origin detector not installed yet.";
+            : _aiOrigin.IsInstalled
+                ? "AI origin detector installed • model verification pending."
+                : "AI origin detector not installed yet.";
 
         _cleanupItems = _pcCleanup.CreateDefaultItems();
         PcCleanupList.ItemsSource = _cleanupItems;
@@ -108,8 +114,10 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             try { _mediaOperationCts?.Cancel(); } catch { }
+            try { _aiOriginCts?.Cancel(); } catch { }
             try { ExternalProcessTracker.Shutdown(); } catch { }
             _mediaOperationCts?.Dispose();
+            _aiOriginCts?.Dispose();
             _aiOrigin.Dispose();
         };
     }
@@ -248,7 +256,7 @@ public partial class MainWindow : Window
 
         AppLogger.Info(
             _managerRelease == null
-                ? "Manager update check: no published release detected."
+                ? "Manager update check: unavailable or no published release detected."
                 : $"Manager update check: latest published {_managerRelease.Tag}.");
 
         var current =
@@ -258,7 +266,7 @@ public partial class MainWindow : Window
         if (_managerRelease == null)
         {
             AppVersionText.Text =
-                $"Version v{current.Major}.{current.Minor}.{current.Build} • no published update";
+                $"Version v{current.Major}.{current.Minor}.{current.Build} • update check unavailable";
             ManagerUpdateButton.Visibility = Visibility.Collapsed;
             return;
         }
@@ -1121,6 +1129,88 @@ public partial class MainWindow : Window
             "Game history",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+    }
+
+    private async void VerifyManagedFiles_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) ||
+            !Directory.Exists(gameDir))
+        {
+            return;
+        }
+
+        try
+        {
+            VerifyManagedFilesButton.IsEnabled = false;
+            StatusText.Text = "Verifying managed file integrity…";
+
+            var result = await Task.Run(() =>
+                _integrity.Verify(gameDir));
+
+            var details = new List<string>
+            {
+                result.Summary
+            };
+
+            if (result.MissingFiles.Count > 0)
+            {
+                details.Add(
+                    "Missing:\n" +
+                    string.Join(
+                        "\n",
+                        result.MissingFiles.Take(20).Select(x => "• " + x)));
+            }
+
+            if (result.ChangedFiles.Count > 0)
+            {
+                details.Add(
+                    "Changed:\n" +
+                    string.Join(
+                        "\n",
+                        result.ChangedFiles.Take(20).Select(x => "• " + x)));
+            }
+
+            if (result.UnhashedFiles.Count > 0)
+            {
+                details.Add(
+                    "Legacy/unhashed:\n" +
+                    string.Join(
+                        "\n",
+                        result.UnhashedFiles.Take(20).Select(x => "• " + x)));
+            }
+
+            if (result.HasPendingTransaction)
+            {
+                details.Add(
+                    "An interrupted managed transaction is present. Refreshing the game state will attempt safe recovery when a valid backup exists.");
+            }
+
+            StatusText.Text = result.Summary;
+
+            MessageBox.Show(
+                string.Join("\n\n", details),
+                "Managed file integrity",
+                MessageBoxButton.OK,
+                result.Healthy
+                    ? MessageBoxImage.Information
+                    : MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Managed file integrity check failed.";
+            MessageBox.Show(
+                ex.Message,
+                "Managed file integrity",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            VerifyManagedFilesButton.IsEnabled = true;
+        }
     }
 
     private async void ApplyPreset_Click(object sender, RoutedEventArgs e)
@@ -2310,24 +2400,26 @@ public partial class MainWindow : Window
             var result = await _nvidiaNrDiscovery.CheckAsync(progress);
 
             var stagingSummary = instance == null
-                ? "No Minecraft instance is selected, so the official package was inspected but no files were staged."
+                ? "Select a Minecraft instance to download and stage NVIDIA runtime files."
                 : staged.Count == 0
-                    ? "Official Streamline package checked; no new production DLLs needed staging."
-                    : $"Downloaded/staged {staged.Count} official NVIDIA production DLL(s) into .dlss-nr-manager-runtime.";
+                    ? "NVIDIA runtime files are already up to date."
+                    : $"Downloaded {staged.Count} missing official NVIDIA runtime file(s).";
+
+            var neuralRenderingSummary = result.PublicSdkReady
+                ? $"DLSS Neural Rendering: official public runtime detected ({result.StreamlineVersion})."
+                : $"DLSS Neural Rendering: not publicly available from NVIDIA yet ({result.StreamlineVersion}).";
 
             MinecraftNvidiaNrStatusText.Text =
-                result.PublicSdkReady
-                    ? $"{result.Summary} {stagingSummary}"
-                    : $"{stagingSummary} DLSS-NR-specific public files are still missing upstream.";
+                $"{stagingSummary} {neuralRenderingSummary}";
 
             MessageBox.Show(
                 stagingSummary + Environment.NewLine + Environment.NewLine +
-                result.Summary + Environment.NewLine + Environment.NewLine +
-                result.Details + Environment.NewLine + Environment.NewLine +
-                "Important: DLSS NR Manager only downloads files actually published by NVIDIA. " +
-                "If nvsdk_ngx_helpers_dlssnr_vk.h, sl_dlss_nr.h, nvngx_dlssnr.dll or sl.dlss_nr.dll " +
-                "are absent from NVIDIA's public repositories/releases, the manager cannot manufacture or rename substitutes.",
-                "NVIDIA DLSS / Streamline files",
+                neuralRenderingSummary +
+                (instance == null
+                    ? Environment.NewLine + Environment.NewLine +
+                      "No files were changed because no Minecraft instance is selected."
+                    : string.Empty),
+                "NVIDIA runtime files",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
@@ -2339,7 +2431,7 @@ public partial class MainWindow : Window
 
             MessageBox.Show(
                 ex.Message,
-                "NVIDIA DLSS Neural Rendering check failed",
+                "NVIDIA runtime check failed",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
@@ -2562,7 +2654,9 @@ public partial class MainWindow : Window
         AiOriginClearMediaButton.IsEnabled = true;
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "Media selected • detector ready."
-            : "Media selected • set up the detector before analysis.";
+            : _aiOrigin.IsInstalled
+                ? "Media selected • models installed; verify them before analysis."
+                : "Media selected • set up the detector before analysis.";
     }
 
     private void ClearAiOriginMedia_Click(object sender, RoutedEventArgs e)
@@ -2571,7 +2665,9 @@ public partial class MainWindow : Window
         AiOriginClearMediaButton.IsEnabled = false;
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "No media selected • detector ready."
-            : "No media selected • detector not set up yet.";
+            : _aiOrigin.IsInstalled
+                ? "No media selected • detector installed, verification pending."
+                : "No media selected • detector not set up yet.";
     }
 
     private async void SetupAiOrigin_Click(
@@ -2586,9 +2682,12 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message => AiOriginStatusText.Text = message);
 
-            await _aiOrigin.SetupAsync(progress);
+            await _aiOrigin.SetupAsync(
+                progress,
+                CancellationToken.None,
+                forceVerify: true);
             AiOriginStatusText.Text =
-                "AI origin detector ready • two-model ONNX ensemble installed.";
+                "AI origin detector ready • both ONNX models verified by SHA-256.";
         }
         catch (Exception ex)
         {
@@ -2625,16 +2724,34 @@ public partial class MainWindow : Window
 
         try
         {
+            _aiOriginCts?.Cancel();
+            _aiOriginCts?.Dispose();
+            _aiOriginCts = new CancellationTokenSource();
+
             AiOriginSetupButton.IsEnabled = false;
             AiOriginAnalyzeButton.IsEnabled = false;
+            AiOriginCancelButton.IsEnabled = true;
             MediaProcessButton.IsEnabled = false;
 
             var progress = new Progress<string>(
                 message => AiOriginStatusText.Text = message);
 
+            var mode = AiOriginModeBox.SelectedIndex switch
+            {
+                0 => AiOriginAnalysisMode.Quick,
+                2 => AiOriginAnalysisMode.Thorough,
+                _ => AiOriginAnalysisMode.Balanced
+            };
+
             var result = await _aiOrigin.AnalyzeAsync(
                 source,
-                progress);
+                progress,
+                _aiOriginCts.Token,
+                mode);
+
+            _lastAiOriginResult = result;
+            _lastAiOriginSource = source;
+            AiOriginExportButton.IsEnabled = true;
 
             var provenance = result.ProvenanceSignals.Count == 0
                 ? "No known generator/provenance marker found."
@@ -2649,6 +2766,9 @@ public partial class MainWindow : Window
                 $"Primary detector: {result.PrimaryModelProbability:P1}\n" +
                 $"Secondary detector: {result.SecondaryModelProbability:P1}\n" +
                 $"Model disagreement: {result.ModelDisagreement:P1}\n" +
+                $"View consistency: {result.ViewConsistency:P1}\n" +
+                $"Temporal consistency: {result.TemporalConsistency:P1}\n" +
+                $"Analysis mode: {result.AnalysisMode}\n" +
                 $"Frames analyzed: {result.FramesAnalyzed}\n" +
                 (result.FramesAnalyzed > 1
                     ? $"Strong-AI frames: {result.FramesFlagged}/{result.FramesAnalyzed}\n"
@@ -2662,6 +2782,10 @@ public partial class MainWindow : Window
                 result.Verdict.StartsWith("AI generator", StringComparison.OrdinalIgnoreCase)
                     ? MessageBoxImage.Warning
                     : MessageBoxImage.Information);
+        }
+        catch (OperationCanceledException)
+        {
+            AiOriginStatusText.Text = "AI origin analysis cancelled.";
         }
         catch (Exception ex)
         {
@@ -2678,7 +2802,78 @@ public partial class MainWindow : Window
         {
             AiOriginSetupButton.IsEnabled = true;
             AiOriginAnalyzeButton.IsEnabled = true;
+            AiOriginCancelButton.IsEnabled = false;
             MediaProcessButton.IsEnabled = true;
+            _aiOriginCts?.Dispose();
+            _aiOriginCts = null;
+        }
+    }
+
+    private void CancelAiOrigin_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            _aiOriginCts?.Cancel();
+            AiOriginStatusText.Text = "Cancelling AI origin analysis…";
+        }
+        catch { }
+    }
+
+    private void ExportAiOriginReport_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (_lastAiOriginResult == null ||
+            string.IsNullOrWhiteSpace(_lastAiOriginSource))
+        {
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Export AI origin analysis report",
+            Filter = "JSON report (*.json)|*.json",
+            FileName =
+                $"ai-origin-report-{DateTime.Now:yyyyMMdd-HHmmss}.json"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var payload = new
+            {
+                CreatedAt = DateTimeOffset.Now,
+                SourceFile = Path.GetFileName(_lastAiOriginSource),
+                SourceSha256 = HashService.Sha256(_lastAiOriginSource),
+                Result = _lastAiOriginResult
+            };
+
+            AtomicFile.WriteAllText(
+                dialog.FileName,
+                System.Text.Json.JsonSerializer.Serialize(
+                    payload,
+                    new System.Text.Json.JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    }));
+
+            MessageBox.Show(
+                "AI origin report exported successfully.",
+                "AI origin detection",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "AI origin report export failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
