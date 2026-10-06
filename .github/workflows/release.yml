@@ -4,6 +4,13 @@ on:
     branches: [ main ]
     tags: [ 'v*' ]
     paths:
+      - 'DlssNrManager.csproj'
+      - 'MainWindow.xaml'
+      - 'MainWindow.xaml.cs'
+      - 'Models/**'
+      - 'Services/**'
+      - 'assets/**'
+      - 'tools/**'
       - '.github/workflows/release.yml'
   workflow_dispatch:
 
