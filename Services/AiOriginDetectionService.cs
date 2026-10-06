@@ -11,6 +11,12 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace DlssNrManager.Services;
 
+public enum AiOriginAnalysisMode
+{
+    Balanced,
+    Thorough
+}
+
 public sealed record AiOriginDetectionResult(
     string Verdict,
     double AiProbability,
@@ -22,7 +28,10 @@ public sealed record AiOriginDetectionResult(
     string Notes,
     double PrimaryModelProbability = 0,
     double SecondaryModelProbability = 0,
-    double ModelDisagreement = 0)
+    double ModelDisagreement = 0,
+    double ViewConsistency = 1,
+    double TemporalConsistency = 1,
+    string AnalysisMode = "Balanced")
 {
     public string Summary =>
         $"{Verdict} • ensemble AI score {AiProbability:P0} • confidence {Confidence:P0}" +
@@ -232,7 +241,8 @@ public sealed class AiOriginDetectionService : IDisposable
     public async Task<AiOriginDetectionResult> AnalyzeAsync(
         string source,
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AiOriginAnalysisMode mode = AiOriginAnalysisMode.Balanced)
     {
         if (!File.Exists(source))
             throw new FileNotFoundException("Media file was not found.", source);
@@ -241,28 +251,35 @@ public sealed class AiOriginDetectionService : IDisposable
             await SetupAsync(progress, cancellationToken);
 
         var extension = Path.GetExtension(source).ToLowerInvariant();
-        return extension is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".tif" or ".tiff" or ".webp"
-            ? await AnalyzeImageAsync(source, progress, cancellationToken)
-            : await AnalyzeVideoAsync(source, progress, cancellationToken);
+        if (extension is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".tif" or ".tiff" or ".webp")
+            return await AnalyzeImageAsync(source, progress, cancellationToken, mode);
+
+        if (extension is ".mp4" or ".mkv" or ".mov" or ".avi" or ".webm" or ".m4v")
+            return await AnalyzeVideoAsync(source, progress, cancellationToken, mode);
+
+        throw new NotSupportedException(
+            $"Unsupported AI-origin media type: {extension}");
     }
 
     private async Task<AiOriginDetectionResult> AnalyzeImageAsync(
         string source,
         IProgress<string>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AiOriginAnalysisMode mode)
     {
         progress?.Report("Analyzing provenance + two independent visual detectors…");
 
         var provenance = await FindImageProvenanceSignalsAsync(source, cancellationToken);
-        var score = await ClassifyEnsembleAsync(source, cancellationToken);
+        var score = await ClassifyEnsembleAsync(source, cancellationToken, mode);
 
-        return BuildResult([score], provenance, isVideo: false);
+        return BuildResult([score], provenance, isVideo: false, mode);
     }
 
     private async Task<AiOriginDetectionResult> AnalyzeVideoAsync(
         string source,
         IProgress<string>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AiOriginAnalysisMode mode)
     {
         progress?.Report("Preparing multi-frame video analysis…");
         await _media.SetupAsync(progress, cancellationToken);
