@@ -168,15 +168,16 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - sets `preferredGraphicsBackend:"vulkan"`
   - verifies Java 25 x64 before Fabric/Caustica setup
   - installs Eclipse Temurin 25 automatically with WinGet when Java 25 is missing
-  - installs/updates Fabric Loader automatically on Mojang/Microsoft-style instances when missing or older than 0.19.3
+  - resolves the latest stable Fabric Loader for Minecraft 26.2 from Fabric Meta (minimum supported: 0.19.3) and installs/updates it automatically on Mojang/Microsoft-style instances
   - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
-  - downloads the required Fabric API from FabricMC
-  - downloads the current compatible Caustica RTX prerelease (the upstream RTX build is currently prerelease-only)
-  - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + Dynamic FPS**
-  - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica
+  - downloads the latest stable Fabric API build for Minecraft 26.2 from Modrinth and verifies its SHA-512 hash
+  - downloads only a Caustica RTX prerelease that explicitly targets Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
+  - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
+  - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica; if no compatible stable build is available, the core RTX installation continues
   - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
-  - patches the Mojang launcher Fabric profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`
+  - requires the official Minecraft Launcher to be closed while Fabric/profile files are modified
+  - patches the Mojang launcher Fabric profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`, and surfaces a warning instead of silently hiding profile-patch failures
   - warns when a third-party launcher manages JVM arguments separately
   - relies on Caustica RTX's implemented Vulkan/NVIDIA path for path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex
 - **Restore original** reverses the one-click changes:
