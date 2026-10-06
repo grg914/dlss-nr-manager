@@ -271,6 +271,11 @@ public sealed class InstallerService
                 .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
+            var managedFileHashes = await BuildManagedFileHashesAsync(
+                gameDir,
+                managedFiles,
+                cancellationToken: default);
+
             var manifest = new InstallManifest(
                 release.Tag,
                 proxy,
@@ -279,7 +284,8 @@ public sealed class InstallerService
                 validation?.Hash ?? "",
                 DateTimeOffset.UtcNow,
                 managedFiles,
-                baselineBackup);
+                baselineBackup,
+                managedFileHashes);
 
             journal.Stage("VERIFIED");
 
@@ -366,11 +372,33 @@ public sealed class InstallerService
             managed.Add(relative);
         }
 
+        var managedList = managed
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var hashes = new Dictionary<string, string>(
+            manifest.ManagedFileHashes ??
+            new Dictionary<string, string>(),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var relative in managedList)
+        {
+            if (relative.Equals(
+                    ManifestFile,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !TryResolveUnderRoot(gameDir, relative, out var file) ||
+                !File.Exists(file))
+            {
+                continue;
+            }
+
+            hashes[relative] = HashService.Sha256(file);
+        }
+
         var updated = manifest with
         {
-            ManagedFiles = managed
-                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
-                .ToList()
+            ManagedFiles = managedList,
+            ManagedFileHashes = hashes
         };
 
         AtomicFile.WriteAllText(
@@ -833,6 +861,36 @@ public sealed class InstallerService
         {
             return false;
         }
+    }
+
+    private static async Task<IReadOnlyDictionary<string, string>> BuildManagedFileHashesAsync(
+        string gameDir,
+        IEnumerable<string> managedFiles,
+        CancellationToken cancellationToken)
+    {
+        var hashes = new Dictionary<string, string>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var relative in managedFiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (relative.Equals(
+                    ManifestFile,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !TryResolveUnderRoot(gameDir, relative, out var path) ||
+                !File.Exists(path))
+            {
+                continue;
+            }
+
+            hashes[relative] =
+                await HashService.Sha256Async(
+                    path,
+                    cancellationToken);
+        }
+
+        return hashes;
     }
 
     private static void RecoverInterruptedTransaction(string gameDir)
