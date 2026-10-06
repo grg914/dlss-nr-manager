@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Security.Cryptography;
 
 namespace DlssNrManager.Services;
 
@@ -60,58 +59,72 @@ public sealed class AppUpdateService
 
         try
         {
-            using (var response = await _http.GetAsync(
-                       assetUri,
-                       HttpCompletionOption.ResponseHeadersRead,
-                       cancellationToken))
-            {
-                response.EnsureSuccessStatusCode();
-
-                if (response.Content.Headers.ContentLength is > MaxUpdateDownloadBytes)
+            await NetworkRetry.ExecuteAsync(
+                async (attempt, token) =>
                 {
-                    throw new InvalidDataException(
-                        "The update package exceeds the 768 MB safety limit.");
-                }
+                    if (attempt > 1)
+                    {
+                        TryDelete(temp);
+                        progress?.Report(
+                            $"Retrying application update download ({attempt}/3)…");
+                    }
 
-                await using var input =
-                    await response.Content.ReadAsStreamAsync(cancellationToken);
-                await using var output = new FileStream(
-                    temp,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None,
-                    128 * 1024,
-                    useAsync: true);
+                    using (var response = await _http.GetAsync(
+                               assetUri,
+                               HttpCompletionOption.ResponseHeadersRead,
+                               token))
+                    {
+                        response.EnsureSuccessStatusCode();
 
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    MaxUpdateDownloadBytes,
-                    cancellationToken);
-            }
+                        if (response.Content.Headers.ContentLength is > MaxUpdateDownloadBytes)
+                        {
+                            throw new InvalidDataException(
+                                "The update package exceeds the 768 MB safety limit.");
+                        }
 
-            if (new FileInfo(temp).Length < 128 * 1024)
-            {
-                throw new InvalidDataException(
-                    "The downloaded update package is unexpectedly small.");
-            }
+                        await using var input =
+                            await response.Content.ReadAsStreamAsync(token);
+                        await using var output = new FileStream(
+                            temp,
+                            FileMode.Create,
+                            FileAccess.Write,
+                            FileShare.None,
+                            128 * 1024,
+                            useAsync: true);
 
-            if (!string.IsNullOrWhiteSpace(release.Sha256))
-            {
-                progress?.Report("Verifying update SHA-256…");
+                        await CopyWithLimitAsync(
+                            input,
+                            output,
+                            MaxUpdateDownloadBytes,
+                            token);
+                    }
 
-                await using var stream = File.OpenRead(temp);
-                var actual = Convert.ToHexString(
-                    await SHA256.HashDataAsync(stream, cancellationToken));
+                    if (new FileInfo(temp).Length < 128 * 1024)
+                    {
+                        throw new InvalidDataException(
+                            "The downloaded update package is unexpectedly small.");
+                    }
 
-                if (!actual.Equals(
-                        release.Sha256,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidDataException(
-                        $"Update SHA-256 mismatch. Expected {release.Sha256}, got {actual}.");
-                }
-            }
+                    if (!string.IsNullOrWhiteSpace(release.Sha256))
+                    {
+                        progress?.Report("Verifying update SHA-256…");
+
+                        var actual =
+                            await HashService.Sha256Async(
+                                temp,
+                                token);
+
+                        if (!actual.Equals(
+                                release.Sha256,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidDataException(
+                                $"Update SHA-256 mismatch. Expected {release.Sha256}, got {actual}.");
+                        }
+                    }
+                },
+                cancellationToken,
+                attempts: 3);
 
             File.Move(temp, downloadPath, true);
         }
