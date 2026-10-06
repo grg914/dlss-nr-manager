@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.IO.Compression;
 
 namespace DlssNrManager.Services;
 
@@ -480,8 +481,12 @@ public sealed class MinecraftOneClickService
         BackupFile(textureDestination, Path.Combine(backup, "scandi-packs", "resourcepacks", ScandiTextureAsset));
         BackupFile(shaderDestination, Path.Combine(backup, "scandi-packs", "shaderpacks", ScandiShaderAsset));
 
-        var textureSource = FindLocalPack(ScandiTextureAsset);
-        var shaderSource = FindLocalPack(ScandiShaderAsset, "ScandiShaderV2(5).zip");
+        var textureSource = File.Exists(textureDestination)
+            ? textureDestination
+            : FindLocalPack(ScandiTextureAsset);
+        var shaderSource = File.Exists(shaderDestination)
+            ? shaderDestination
+            : FindLocalPack(ScandiShaderAsset, "ScandiShaderV2(5).zip");
 
         if (textureSource == null || shaderSource == null)
         {
@@ -508,8 +513,15 @@ public sealed class MinecraftOneClickService
             }
         }
 
-        var textureInstalled = CopyPack(textureSource, textureDestination);
-        var shaderInstalled = CopyPack(shaderSource, shaderDestination);
+        var textureInstalled = CopyPack(
+            textureSource,
+            textureDestination,
+            zip => zip.GetEntry("pack.mcmeta") != null);
+        var shaderInstalled = CopyPack(
+            shaderSource,
+            shaderDestination,
+            zip => zip.Entries.Any(entry =>
+                entry.FullName.StartsWith("shaders/", StringComparison.OrdinalIgnoreCase)));
 
         if (textureInstalled)
             progress?.Report($"Installed {ScandiTextureAsset} → resourcepacks.");
@@ -557,13 +569,32 @@ public sealed class MinecraftOneClickService
         return null;
     }
 
-    private static bool CopyPack(string? source, string destination)
+    private static bool CopyPack(
+        string? source,
+        string destination,
+        Func<ZipArchive, bool> validator)
     {
         if (source == null || !File.Exists(source))
             return false;
 
+        try
+        {
+            using var archive = ZipFile.OpenRead(source);
+            if (!validator(archive))
+                return false;
+        }
+        catch
+        {
+            return false;
+        }
+
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        File.Copy(source, destination, true);
+        if (!Path.GetFullPath(source).Equals(
+                Path.GetFullPath(destination),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            File.Copy(source, destination, true);
+        }
         return true;
     }
 
