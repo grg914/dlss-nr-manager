@@ -111,14 +111,25 @@ public static class LauncherGameDiscovery
 
         foreach (var drive in DriveInfo.GetDrives())
         {
-            if (!drive.IsReady || drive.DriveType is DriveType.Network or DriveType.CDRom)
-                continue;
+            string? driveRoot = null;
+            try
+            {
+                if (!drive.IsReady ||
+                    drive.DriveType is DriveType.Network or DriveType.CDRom)
+                    continue;
 
-            var marker = Path.Combine(drive.RootDirectory.FullName, ".GamingRoot");
+                driveRoot = drive.RootDirectory.FullName;
+            }
+            catch
+            {
+                continue;
+            }
+
+            var marker = Path.Combine(driveRoot, ".GamingRoot");
             if (!File.Exists(marker))
                 continue;
 
-            var libraryRoot = DecodeGamingRoot(drive.RootDirectory.FullName, marker);
+            var libraryRoot = DecodeGamingRoot(driveRoot, marker);
             if (string.IsNullOrWhiteSpace(libraryRoot) || !Directory.Exists(libraryRoot))
                 continue;
 
@@ -188,6 +199,9 @@ public static class LauncherGameDiscovery
     {
         try
         {
+            if (new FileInfo(receiptPath).Length > 5L * 1024 * 1024)
+                return null;
+
             using var file = File.OpenRead(receiptPath);
             using var gzip = new GZipStream(file, CompressionMode.Decompress);
             using var json = JsonDocument.Parse(gzip);
