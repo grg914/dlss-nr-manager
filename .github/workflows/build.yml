@@ -27,7 +27,8 @@ jobs:
         run: |
           $paths = @(
             "tools/vendor-third-party.ps1",
-            "tools/verify-self-contained.ps1"
+            "tools/verify-self-contained.ps1",
+            "tools/build-realesrgan.ps1"
           )
 
           foreach ($path in $paths) {
