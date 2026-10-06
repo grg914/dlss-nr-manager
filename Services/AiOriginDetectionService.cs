@@ -82,7 +82,11 @@ public sealed class AiOriginDetectionService : IDisposable
     public string PrimaryModelPath => Path.Combine(RootDirectory, "ai-image-detector-int8.onnx");
     public string SecondaryModelPath => Path.Combine(RootDirectory, "ai-image-detector-distilled-int8.onnx");
 
-    public bool IsReady => File.Exists(PrimaryModelPath) && File.Exists(SecondaryModelPath);
+    public bool IsInstalled =>
+        File.Exists(PrimaryModelPath) &&
+        File.Exists(SecondaryModelPath);
+
+    public bool IsReady => _modelsVerified;
 
     public AiOriginDetectionService(MediaService media)
     {
@@ -93,15 +97,25 @@ public sealed class AiOriginDetectionService : IDisposable
 
     public async Task SetupAsync(
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool forceVerify = false)
     {
         await _setupLock.WaitAsync(cancellationToken);
         try
         {
-            if (_modelsVerified)
+            if (_modelsVerified && !forceVerify)
             {
                 progress?.Report("AI origin detector ready.");
                 return;
+            }
+
+            if (forceVerify)
+            {
+                _primarySession?.Dispose();
+                _primarySession = null;
+                _secondarySession?.Dispose();
+                _secondarySession = null;
+                _modelsVerified = false;
             }
 
             Directory.CreateDirectory(RootDirectory);
