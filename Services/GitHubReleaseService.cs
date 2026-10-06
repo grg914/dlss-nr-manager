@@ -35,15 +35,9 @@ public sealed class GitHubReleaseService
 
         for (var page = 1; page <= maxPages; page++)
         {
-            using var response = await _http.GetAsync(
+            using var doc = await GetJsonWithRetryAsync(
                 $"https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page={pageSize}&page={page}",
-                HttpCompletionOption.ResponseHeadersRead);
-
-            response.EnsureSuccessStatusCode();
-
-            await using var stream =
-                await response.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
+                CancellationToken.None);
 
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
                 return null;
@@ -139,17 +133,9 @@ public sealed class GitHubReleaseService
         int maxCount = 8,
         CancellationToken cancellationToken = default)
     {
-        using var response = await _http.GetAsync(
+        using var doc = await GetJsonWithRetryAsync(
             "https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page=30",
-            HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        await using var stream =
-            await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var doc = await JsonDocument.ParseAsync(
-            stream,
-            cancellationToken: cancellationToken);
 
         var results = new List<ReleaseInfo>();
 
@@ -344,19 +330,9 @@ public sealed class GitHubReleaseService
     {
         try
         {
-            using var response = await _http.GetAsync(
+            using var doc = await GetJsonWithRetryAsync(
                 "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest",
-                HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-                return null;
-
-            await using var stream =
-                await response.Content.ReadAsStreamAsync(cancellationToken);
-            using var doc = await JsonDocument.ParseAsync(
-                stream,
-                cancellationToken: cancellationToken);
 
             var tag = doc.RootElement.GetProperty("tag_name").GetString();
             var htmlUrl = doc.RootElement.GetProperty("html_url").GetString();
@@ -429,10 +405,42 @@ public sealed class GitHubReleaseService
                 selected.Url,
                 selected.Sha256);
         }
-        catch
+        catch (Exception ex)
         {
+            AppLogger.Warn(
+                $"Manager release lookup failed after retries: {ex.Message}");
             return null;
         }
+    }
+
+    private async Task<JsonDocument> GetJsonWithRetryAsync(
+        string url,
+        CancellationToken cancellationToken)
+    {
+        JsonDocument? document = null;
+
+        await NetworkRetry.ExecuteAsync(
+            async (_, token) =>
+            {
+                using var response = await _http.GetAsync(
+                    url,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    token);
+                response.EnsureSuccessStatusCode();
+
+                await using var stream =
+                    await response.Content.ReadAsStreamAsync(token);
+
+                document = await JsonDocument.ParseAsync(
+                    stream,
+                    cancellationToken: token);
+            },
+            cancellationToken,
+            attempts: 3);
+
+        return document ??
+               throw new InvalidOperationException(
+                   "GitHub returned no release metadata.");
     }
 
     public async Task<(Version? Version, string? Url)> GetLatestManagerReleaseAsync()
