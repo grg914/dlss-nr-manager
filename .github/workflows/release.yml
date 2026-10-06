@@ -75,7 +75,7 @@ jobs:
           # The texture fingerprint below is the sanitized pack with
           # Fresh Flower Pots removed.
           $assets = @(
-            @{ Name = "ScandiTextureV1.zip"; Sha256 = "BA6D6EB17F5D49CAF9F42976BCA524A28C8261576C740B3D5D1064F7C69F800E" },
+            @{ Name = "ScandiTextureV1.zip"; Sha256 = "221D8A4B698120812B4ADDAA003EC5E67E2BD91513FAB6DABCF534FCF90151B0" },
             @{ Name = "ScandiShaderV2.zip";  Sha256 = "C2C1E9C531342CC314368146A963FC2FD7D4A414F67C971558FC5ECA89D329F9" }
           )
 
