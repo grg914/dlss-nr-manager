@@ -38,6 +38,27 @@ public static class AtomicFile
                 Environment.NewLine,
                 lines) + Environment.NewLine);
 
+    public static void WriteAllBytes(
+        string path,
+        ReadOnlySpan<byte> bytes)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+            Directory.CreateDirectory(directory);
+
+        var temp = path + ".tmp-" + Guid.NewGuid().ToString("N");
+
+        try
+        {
+            File.WriteAllBytes(temp, bytes.ToArray());
+            File.Move(temp, path, overwrite: true);
+        }
+        finally
+        {
+            TryDelete(temp);
+        }
+    }
+
     private static void TryDelete(string path)
     {
         try
