@@ -953,6 +953,53 @@
                   </StackPanel>
                 </Border>
 
+                <Border Background="#0B121A"
+                        BorderBrush="#1E2C3A"
+                        BorderThickness="1"
+                        CornerRadius="9"
+                        Padding="12"
+                        Margin="0,0,0,12">
+                  <StackPanel>
+                    <TextBlock Text="AI origin detection (beta)"
+                               FontWeight="SemiBold"/>
+                    <TextBlock Text="Local synthetic-media screening • image classifier + video multi-frame analysis + provenance metadata"
+                               Foreground="{StaticResource Muted}"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,10"/>
+
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <Button Grid.Column="0"
+                              x:Name="AiOriginSetupButton"
+                              Content="Set up detector"
+                              Click="SetupAiOrigin_Click"/>
+                      <Button Grid.Column="2"
+                              x:Name="AiOriginAnalyzeButton"
+                              Style="{StaticResource CyanButton}"
+                              Content="Analyze selected media"
+                              Click="AnalyzeAiOrigin_Click"/>
+                    </Grid>
+
+                    <TextBlock x:Name="AiOriginStatusText"
+                               Text="Detector not checked yet."
+                               Foreground="{StaticResource Muted}"
+                               TextWrapping="Wrap"
+                               FontSize="11"
+                               Margin="0,8,0,0"/>
+
+                    <TextBlock Text="Screening is probabilistic, not proof. Missing provenance does not prove human origin."
+                               Foreground="{StaticResource Muted}"
+                               TextWrapping="Wrap"
+                               FontSize="10"
+                               Margin="0,6,0,0"/>
+                  </StackPanel>
+                </Border>
+
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
