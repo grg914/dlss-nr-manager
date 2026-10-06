@@ -98,7 +98,7 @@ The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media
 - The availability check requires both an API/header signal and a runtime DLL signal before reporting a deployable public DLSS-NR integration; renamed or unofficial DLLs are never accepted as proof.
 - Added local **AI origin detection (beta)** for images and videos using an ONNX classifier, multi-frame FFmpeg sampling and generator/provenance metadata hints.
 - Added automatic ScandiTexture/ScandiShader staging support for the Minecraft RTX one-click flow, with ZIP validation and rollback.
-- Added support for the Caustica-adapted `ScandiTextureV1.zip` release asset and the native **ScandiShader RTX Look** path.
+- Added support for a locally supplied Caustica-adapted `ScandiTextureV1.zip` and the native **ScandiShader RTX Look** path. Public release-asset fallback is used only when an authorized matching asset exists.
 - Fixed modern FFmpeg video frame extraction by replacing legacy `-vsync` usage with `-fps_mode passthrough`.
 - Improved release automation so the current Windows x64 EXE/ZIP is published from CI.
 
@@ -242,7 +242,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - downloads only a tested `grg914/Caustica-RTX` prerelease produced from a green main-branch CI run and explicitly targeting Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
   - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
   - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica; if no compatible stable build is available, the core RTX installation continues
-  - stages the Caustica-adapted **ScandiTextureV1** resource pack and optional legacy ScandiShader archive when matching release assets are available; the RTX renderer itself uses Caustica's native ScandiShader RTX Look rather than Iris
+  - stages a locally supplied Caustica-adapted **ScandiTextureV1** resource pack (or an authorized matching release asset when available) and the optional legacy ScandiShader archive; the RTX renderer itself uses Caustica's native ScandiShader RTX Look rather than Iris
   - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
   - requires the official Minecraft Launcher to be closed while Fabric/profile files are modified
