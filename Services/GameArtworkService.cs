@@ -1127,6 +1127,19 @@ public sealed class GameArtworkService
         catch { }
     }
 
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // Artwork cache recovery is best-effort.
+        }
+    }
+
     private static ConcurrentDictionary<string, ArtworkCacheEntry> LoadCache()
     {
         try
