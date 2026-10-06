@@ -732,10 +732,10 @@
                           <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                          <TextBlock Text="NVIDIA DLSS Neural Rendering availability"
+                          <TextBlock Text="NVIDIA DLSS / Streamline runtime"
                                      FontWeight="SemiBold"/>
                           <TextBlock x:Name="MinecraftNvidiaNrStatusText"
-                                     Text="Not checked yet."
+                                     Text="Not checked yet. Public NVIDIA runtime files can be downloaded for the selected instance."
                                      Foreground="{StaticResource Muted}"
                                      FontSize="10"
                                      TextWrapping="Wrap"
@@ -743,10 +743,10 @@
                         </StackPanel>
                         <Button Grid.Column="1"
                                 x:Name="MinecraftCheckNvidiaNrButton"
-                                Content="Check NVIDIA files"
+                                Content="Check &amp; download NVIDIA files"
                                 Click="CheckMinecraftNvidiaNr_Click"/>
                       </Grid>
-                      <TextBlock Text="Checks NVIDIA/DLSS and NVIDIA-RTX/Streamline, downloads the latest official Streamline package, and stages the public production DLLs for the selected Minecraft instance. DLSS-NR-specific files are reported as unavailable when NVIDIA does not publish them; unofficial or renamed DLLs are never substituted."
+                      <TextBlock Text="Downloads only missing official NVIDIA production runtime files for the selected Minecraft instance. Existing files are left untouched. DLSS Neural Rendering availability is reported separately and never blocks the normal Caustica RTX runtime."
                                  Foreground="{StaticResource Muted}"
                                  FontSize="10"
                                  TextWrapping="Wrap"
