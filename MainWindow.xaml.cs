@@ -1050,11 +1050,31 @@ public partial class MainWindow : Window
             MinecraftInstanceBox.ItemsSource = _minecraftInstances;
 
             if (_minecraftInstances.Count > 0)
-                MinecraftInstanceBox.SelectedIndex = 0;
+            {
+                var preferred = _minecraftInstances
+                    .FirstOrDefault(instance =>
+                        instance.HasTargetMinecraftVersion)
+                    ?? _minecraftInstances.First();
 
-            MinecraftStatusText.Text = _minecraftInstances.Count == 0
-                ? "No Minecraft Java instance was detected. Use Choose folder for a custom launcher instance."
-                : $"Detected {_minecraftInstances.Count} Minecraft instance(s).";
+                MinecraftInstanceBox.SelectedItem = preferred;
+
+                AppLogger.Info(
+                    "Minecraft scan detected: " +
+                    string.Join(
+                        " | ",
+                        _minecraftInstances.Select(instance =>
+                            $"{instance.DisplayName} @ {instance.RootDirectory}")));
+
+                MinecraftStatusText.Text =
+                    preferred.HasTargetMinecraftVersion
+                        ? $"Detected {_minecraftInstances.Count} instance(s). Selected {preferred.DisplayName} automatically."
+                        : $"Detected {_minecraftInstances.Count} instance(s). Minecraft {MinecraftIntegrationService.MinecraftVersion} was not found; selected {preferred.DisplayName}.";
+            }
+            else
+            {
+                MinecraftStatusText.Text =
+                    "No Minecraft Java instance was detected. Use Choose folder for a custom launcher instance.";
+            }
         }
         catch (Exception ex)
         {
@@ -1088,7 +1108,7 @@ public partial class MainWindow : Window
             MinecraftInstanceBox.SelectedItem = candidate;
 
             MinecraftStatusText.Text =
-                $"Selected {candidate.RootDirectory} • Fabric: {(candidate.FabricDetected ? "detected" : "not detected")}";
+                $"Selected {candidate.DisplayName} • {candidate.RootDirectory} • Fabric: {(candidate.FabricDetected ? "detected" : "not detected")}";
         }
         catch (Exception ex)
         {
