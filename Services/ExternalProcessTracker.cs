@@ -12,7 +12,7 @@ namespace DlssNrManager.Services;
 public static class ExternalProcessTracker
 {
     private const uint JobObjectLimitKillOnJobClose = 0x00002000;
-    private const int JobObjectExtendedLimitInformation = 9;
+    private const int JobObjectExtendedLimitInformationClass = 9;
 
     private static readonly ConcurrentDictionary<int, Process> Active = new();
     private static readonly object JobLock = new();
@@ -156,7 +156,7 @@ public static class ExternalProcessTracker
             Marshal.StructureToPtr(info, pointer, false);
             if (SetInformationJobObject(
                     job,
-                    JobObjectExtendedLimitInformation,
+                    JobObjectExtendedLimitInformationClass,
                     pointer,
                     (uint)length))
             {
