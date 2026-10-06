@@ -35,6 +35,7 @@ Current application version: **v1.4.1**.
 - C2PA / Content Credentials presence by itself is no longer treated as proof of AI generation.
 - The result dialog now exposes both model scores, ensemble score and model disagreement.
 - Increased the detected-games list height from 280 px to 430 px to use the available dashboard space more effectively.
+- Added strict media-helper lifecycle cleanup: Real-ESRGAN, video2dlssnr, FFmpeg and ffprobe are tracked, terminated at operation end/cancellation, killed on app exit, and stale helpers from older interrupted runs are cleaned on next startup.
 
 ## Previous v1.4.0 changes
 
