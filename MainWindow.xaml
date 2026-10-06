@@ -1122,7 +1122,7 @@
                   <StackPanel>
                     <TextBlock Text="AI origin detection (beta)"
                                FontWeight="SemiBold"/>
-                    <TextBlock Text="Local synthetic-media screening • 2-model ensemble + 3-crop analysis + multi-frame video consistency + provenance metadata"
+                    <TextBlock Text="Local synthetic-media screening • 2-model ensemble • multi-view/multi-scale analysis • temporal consistency • structured provenance metadata"
                                Foreground="{StaticResource Muted}"
                                FontSize="11"
                                TextWrapping="Wrap"
@@ -1158,22 +1158,51 @@
                               Click="ClearAiOriginMedia_Click"/>
                     </Grid>
 
-                    <Grid>
+                    <Grid Margin="0,0,0,10">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="8"/>
                         <ColumnDefinition Width="*"/>
                       </Grid.ColumnDefinitions>
-                      <Button Grid.Column="0"
-                              x:Name="AiOriginSetupButton"
-                              Content="Set up detector"
-                              Click="SetupAiOrigin_Click"/>
-                      <Button Grid.Column="2"
-                              x:Name="AiOriginAnalyzeButton"
-                              Style="{StaticResource PrimaryButton}"
-                              Content="Analyze media"
-                              Click="AnalyzeAiOrigin_Click"/>
+                      <StackPanel Grid.Column="0">
+                        <TextBlock Text="Analysis mode"
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="11"
+                                   Margin="0,0,0,5"/>
+                        <ComboBox x:Name="AiOriginModeBox">
+                          <ComboBoxItem Content="Balanced — faster" IsSelected="True"/>
+                          <ComboBoxItem Content="Thorough — multi-scale + more video frames"/>
+                        </ComboBox>
+                      </StackPanel>
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Text="Actions"
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="11"
+                                   Margin="0,0,0,5"/>
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                          </Grid.ColumnDefinitions>
+                          <Button Grid.Column="0"
+                                  x:Name="AiOriginSetupButton"
+                                  Content="Set up detector"
+                                  Click="SetupAiOrigin_Click"/>
+                          <Button Grid.Column="2"
+                                  x:Name="AiOriginAnalyzeButton"
+                                  Style="{StaticResource PrimaryButton}"
+                                  Content="Analyze media"
+                                  Click="AnalyzeAiOrigin_Click"/>
+                        </Grid>
+                      </StackPanel>
                     </Grid>
+
+                    <Button x:Name="AiOriginExportButton"
+                            Content="Export analysis report"
+                            IsEnabled="False"
+                            Margin="0,0,0,8"
+                            Click="ExportAiOriginReport_Click"/>
 
                     <TextBlock x:Name="AiOriginStatusText"
                                Text="Detector not checked yet."
