@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.2.0**.
+Current application version: **v1.3.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, NVIDIA RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -22,24 +22,15 @@ Current application version: **v1.2.0**.
 
 <p align="center"><sub>Application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
 
-## What's new in v1.2.0
+## What's new in v1.3.0
 
-- Added persistent application diagnostics under `%LOCALAPPDATA%\DlssNrManager\logs\`.
-- Logs startup/runtime environment, GPU detection, application update checks, Minecraft RTX preflight results, one-click install progress, restore operations and failures.
-- Captures unhandled WPF, AppDomain and background-task exceptions with full stack traces and inner exceptions.
-- Rotates the main log at 5 MB into `dlss-nr-manager.previous.log` so diagnostics remain bounded.
-- Added **Open diagnostic logs** in the main window for quick access before sending a bug report.
-- Added Minecraft RTX preflight with **Ready / Warning / Unsupported** gating.
-- Added optional Minecraft performance pack: Lithium, FerriteCore, Krypton, C2ME, BadOptimizations and Dynamic FPS.
-- Added optional SPBR LabPBR resource pack for Caustica RTX materials.
-- Minecraft now installs the latest tested **grg914/Caustica-RTX** Minecraft 26.2 build produced from a green main-branch CI run.
-- The project Caustica build adds RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering / 3D-Guided Neural Rendering integration.
-- Added transactional Minecraft install/restore behavior and stronger rollback coverage.
-- Added in-app self-update from the latest GitHub Release with download validation, EXE version verification, automatic restart and previous-EXE rollback.
-- Improved NVIDIA Streamline resource staging for DLSS RR and Vulkan Reflex dependencies.
-- Improved Real-ESRGAN setup/repair and media-component update rollback.
-- Hardened PC Cleanup against filesystem junction/reparse-point traversal.
-- Improved the Windows icon pipeline using the sharp branding PNG, progressive downsampling and exact multi-resolution ICO frames.
+- Added **Check NVIDIA files** in Minecraft RTX to query only official `NVIDIA/DLSS` and `NVIDIA-RTX/Streamline` sources for public DLSS Neural Rendering headers and runtime DLLs.
+- The availability check requires both an API/header signal and a runtime DLL signal before reporting a deployable public DLSS-NR integration; renamed or unofficial DLLs are never accepted as proof.
+- Added local **AI origin detection (beta)** for images and videos using an ONNX classifier, multi-frame FFmpeg sampling and generator/provenance metadata hints.
+- Added automatic ScandiTexture/ScandiShader staging support for the Minecraft RTX one-click flow, with ZIP validation and rollback.
+- Added support for the Caustica-adapted `ScandiTextureV1.zip` release asset and the native **ScandiShader RTX Look** path.
+- Fixed modern FFmpeg video frame extraction by replacing legacy `-vsync` usage with `-fps_mode passthrough`.
+- Improved release automation so the current Windows x64 EXE/ZIP is published from CI.
 
 ## Features
 
@@ -85,6 +76,7 @@ The logger is best-effort and is never allowed to prevent the application from s
 
 ### Automatic NVIDIA runtime/resources
 
+- **Check NVIDIA files** performs a read-only availability probe against official `NVIDIA/DLSS` and `NVIDIA-RTX/Streamline` GitHub sources before any runtime staging
 - Optional automatic download of the latest official **NVIDIA-RTX/Streamline** GitHub release
 - Looks for `nvngx_dlssnr.dll` in the official package when no local runtime is selected; if the current public Streamline release does not contain it, the manager reports that an NVIDIA-authorized DLSS-NR runtime must be supplied instead of pretending provisioning succeeded
 - Validates x64 architecture and NVIDIA Authenticode publisher before use
@@ -137,7 +129,7 @@ Safe, explicit cache analysis and cleanup inspired by system-cleaner workflows:
 
 The cleaner intentionally does **not** touch browser profiles, documents, downloads, registry entries, restore points, Recycle Bin data or Windows Update storage.
 
-### Media Neural Rendering and AI Upscale
+### Media Neural Rendering, AI Upscale and AI-origin detection
 
 - Local image/video Neural Rendering
 - Media engine downloads `video2dlssnr` and FFmpeg from upstream releases
@@ -149,6 +141,8 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Optional TTA and tile-size controls
 - Combined **Neural Rendering + AI Upscale** processing mode
 - Video audio is preserved during processing
+- **AI origin detection (beta)** runs locally for images and samples up to 24 frames across videos; it reports a probabilistic AI score, confidence, frame consistency and known generator/provenance metadata signals
+- AI-origin results are explicitly advisory: absence of a signal does not prove human origin
 
 ### Minecraft Java RTX
 
@@ -176,6 +170,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - downloads only a tested `grg914/Caustica-RTX` prerelease produced from a green main-branch CI run and explicitly targeting Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
   - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
   - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica; if no compatible stable build is available, the core RTX installation continues
+  - stages the Caustica-adapted **ScandiTextureV1** resource pack and optional legacy ScandiShader archive when matching release assets are available; the RTX renderer itself uses Caustica's native ScandiShader RTX Look rather than Iris
   - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
   - requires the official Minecraft Launcher to be closed while Fabric/profile files are modified
