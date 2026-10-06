@@ -111,6 +111,8 @@
           "onnx/*.onnx"
         ],
         "keep_globs": [
+          "onnx/model.onnx",
+          "onnx/model_fp16.onnx",
           "onnx/model_int8.onnx"
         ]
       }
@@ -127,6 +129,8 @@
           "onnx/*.onnx"
         ],
         "keep_globs": [
+          "onnx/model.onnx",
+          "onnx/model_fp16.onnx",
           "onnx/model_int8.onnx"
         ]
       }
