@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.ML.OnnxRuntime;
@@ -19,46 +19,61 @@ public sealed record AiOriginDetectionResult(
     int FramesFlagged,
     IReadOnlyList<string> ProvenanceSignals,
     string Model,
-    string Notes)
+    string Notes,
+    double PrimaryModelProbability = 0,
+    double SecondaryModelProbability = 0,
+    double ModelDisagreement = 0)
 {
     public string Summary =>
-        $"{Verdict} • AI probability {AiProbability:P0} • confidence {Confidence:P0}" +
-        (FramesAnalyzed > 1 ? $" • frames {FramesFlagged}/{FramesAnalyzed} flagged" : "");
+        $"{Verdict} • ensemble AI score {AiProbability:P0} • confidence {Confidence:P0}" +
+        (FramesAnalyzed > 1 ? $" • strong-AI frames {FramesFlagged}/{FramesAnalyzed}" : "");
 }
 
 public sealed class AiOriginDetectionService : IDisposable
 {
-    private const string ModelName = "CapCheck ViT AI-vs-Real (INT8 ONNX)";
-    private const string ModelUrl =
-        "https://huggingface.co/onnx-community/ai-image-detection-ONNX/resolve/main/onnx/model_int8.onnx?download=true";
-    private const string ModelSha256 =
+    private const string PrimaryModelName = "CapCheck ViT AI-vs-Real";
+    private const string PrimaryModelUrl =
+        "https://huggingface.co/onnx-community/ai-image-detection-ONNX/resolve/e3cfe99f2841930a040a6281682c10c989965603/onnx/model_int8.onnx?download=true";
+    private const string PrimaryModelSha256 =
         "08B349F1B535F2F0CC2A8610BBF57C27593A0364E78B6C91205C0FF2BF29D714";
+
+    private const string SecondaryModelName = "AI Image Detect Distilled ViT";
+    private const string SecondaryModelUrl =
+        "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX/resolve/7f067e23521eeb6d6525221af82c613fb746aaff/onnx/model_int8.onnx?download=true";
+    private const string SecondaryModelSha256 =
+        "7273CB9CD81E17EAE04771010D2199BA6AE34EA2A75A275518C0BC4A2C26FFD2";
 
     private static readonly string[] AiMarkers =
     [
-        "c2pa", "content credentials", "openai", "dall-e", "dall·e",
-        "midjourney", "stable diffusion", "automatic1111", "comfyui",
-        "invokeai", "adobe firefly", "generative fill", "sora", "runway",
-        "flux", "ideogram"
+        "openai", "dall-e", "dall·e", "midjourney", "stable diffusion",
+        "automatic1111", "comfyui", "invokeai", "adobe firefly",
+        "generative fill", "sora", "runway", "flux", "ideogram"
+    ];
+
+    private static readonly string[] ProvenanceMarkers =
+    [
+        "c2pa", "content credentials", "jumb", "c2pa.claim"
     ];
 
     private readonly MediaService _media;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(20) };
-    private InferenceSession? _session;
+    private InferenceSession? _primarySession;
+    private InferenceSession? _secondarySession;
 
     public string RootDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "DlssNrManager",
         "ai-origin-detector");
 
-    public string ModelPath => Path.Combine(RootDirectory, "ai-image-detector-int8.onnx");
+    public string PrimaryModelPath => Path.Combine(RootDirectory, "ai-image-detector-int8.onnx");
+    public string SecondaryModelPath => Path.Combine(RootDirectory, "ai-image-detector-distilled-int8.onnx");
 
-    public bool IsReady => File.Exists(ModelPath);
+    public bool IsReady => File.Exists(PrimaryModelPath) && File.Exists(SecondaryModelPath);
 
     public AiOriginDetectionService(MediaService media)
     {
         _media = media;
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("DlssNrManager/1.2");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("DlssNrManager/1.4.1");
     }
 
     public async Task SetupAsync(
@@ -67,25 +82,49 @@ public sealed class AiOriginDetectionService : IDisposable
     {
         Directory.CreateDirectory(RootDirectory);
 
-        if (File.Exists(ModelPath))
-        {
-            var existing = await Sha256Async(ModelPath, cancellationToken);
-            if (existing.Equals(ModelSha256, StringComparison.OrdinalIgnoreCase))
-            {
-                progress?.Report("AI origin detector ready.");
-                return;
-            }
+        await EnsureModelAsync(
+            PrimaryModelPath,
+            PrimaryModelUrl,
+            PrimaryModelSha256,
+            "primary detector (~87 MB)",
+            progress,
+            cancellationToken);
 
-            TryDeleteFile(ModelPath);
+        await EnsureModelAsync(
+            SecondaryModelPath,
+            SecondaryModelUrl,
+            SecondaryModelSha256,
+            "secondary cross-check detector (~15 MB)",
+            progress,
+            cancellationToken);
+
+        progress?.Report("AI origin detector ready • 2-model local ensemble installed.");
+    }
+
+    private async Task EnsureModelAsync(
+        string destination,
+        string url,
+        string expectedSha256,
+        string label,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (File.Exists(destination))
+        {
+            var existing = await Sha256Async(destination, cancellationToken);
+            if (existing.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            TryDeleteFile(destination);
         }
 
-        progress?.Report("Downloading local AI-origin detection model (~87 MB)…");
-        var temp = ModelPath + ".download";
+        progress?.Report($"Downloading {label}…");
+        var temp = destination + ".download";
 
         try
         {
             using var response = await _http.GetAsync(
-                ModelUrl,
+                url,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
             response.EnsureSuccessStatusCode();
@@ -103,12 +142,11 @@ public sealed class AiOriginDetectionService : IDisposable
             }
 
             var actual = await Sha256Async(temp, cancellationToken);
-            if (!actual.Equals(ModelSha256, StringComparison.OrdinalIgnoreCase))
+            if (!actual.Equals(expectedSha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException(
-                    $"AI detector SHA-256 mismatch. Expected {ModelSha256}, got {actual}.");
+                    $"AI detector SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
 
-            File.Move(temp, ModelPath, true);
-            progress?.Report("AI origin detector ready • local ONNX model installed.");
+            File.Move(temp, destination, true);
         }
         catch
         {
@@ -139,12 +177,12 @@ public sealed class AiOriginDetectionService : IDisposable
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        progress?.Report("Analyzing image provenance and visual AI signals…");
+        progress?.Report("Analyzing provenance + two independent visual detectors…");
 
         var provenance = await FindImageProvenanceSignalsAsync(source, cancellationToken);
-        var ai = await ClassifyImageAsync(source, cancellationToken);
+        var score = await ClassifyEnsembleAsync(source, cancellationToken);
 
-        return BuildResult([ai], provenance);
+        return BuildResult([score], provenance, isVideo: false);
     }
 
     private async Task<AiOriginDetectionResult> AnalyzeVideoAsync(
@@ -152,7 +190,7 @@ public sealed class AiOriginDetectionService : IDisposable
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        progress?.Report("Preparing video analysis…");
+        progress?.Report("Preparing multi-frame video analysis…");
         await _media.SetupAsync(progress, cancellationToken);
 
         var duration = await ProbeDurationAsync(source, cancellationToken);
@@ -164,12 +202,12 @@ public sealed class AiOriginDetectionService : IDisposable
 
         try
         {
-            const int targetFrames = 24;
+            const int targetFrames = 32;
             var fps = duration > 0
-                ? Math.Clamp(targetFrames / duration, 0.05, 8.0)
+                ? Math.Clamp(targetFrames / duration, 0.025, 6.0)
                 : 1.0;
 
-            progress?.Report($"Sampling up to {targetFrames} frames across the video…");
+            progress?.Report($"Sampling up to {targetFrames} frames across the full video…");
 
             var extraction = await RunAsync(
                 _media.FfmpegPath,
@@ -180,6 +218,7 @@ public sealed class AiOriginDetectionService : IDisposable
                     "-i", source,
                     "-vf", $"fps={fps.ToString("0.########", CultureInfo.InvariantCulture)}",
                     "-frames:v", targetFrames.ToString(CultureInfo.InvariantCulture),
+                    "-fps_mode", "passthrough",
                     Path.Combine(session, "%04d.png")
                 ],
                 Path.GetDirectoryName(_media.FfmpegPath)!,
@@ -197,15 +236,15 @@ public sealed class AiOriginDetectionService : IDisposable
             if (frames.Count == 0)
                 throw new InvalidOperationException("No frames were extracted for AI-origin analysis.");
 
-            var scores = new List<double>(frames.Count);
+            var scores = new List<FrameScore>(frames.Count);
             for (var i = 0; i < frames.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                progress?.Report($"AI-origin analysis • frame {i + 1}/{frames.Count}");
-                scores.Add(await ClassifyImageAsync(frames[i], cancellationToken));
+                progress?.Report($"AI ensemble analysis • frame {i + 1}/{frames.Count}");
+                scores.Add(await ClassifyEnsembleAsync(frames[i], cancellationToken));
             }
 
-            return BuildResult(scores, provenance);
+            return BuildResult(scores, provenance, isVideo: true);
         }
         finally
         {
@@ -214,57 +253,127 @@ public sealed class AiOriginDetectionService : IDisposable
     }
 
     private AiOriginDetectionResult BuildResult(
-        IReadOnlyList<double> scores,
-        IReadOnlyList<string> provenance)
+        IReadOnlyList<FrameScore> scores,
+        IReadOnlyList<string> provenance,
+        bool isVideo)
     {
-        var average = scores.Count == 0 ? 0.5 : scores.Average();
-        var flagged = scores.Count(x => x >= 0.65);
-        var flaggedRatio = scores.Count == 0 ? 0 : (double)flagged / scores.Count;
-        var spread = scores.Count <= 1 ? 0 : scores.Max() - scores.Min();
+        if (scores.Count == 0)
+            throw new InvalidOperationException("AI detector produced no scores.");
+
+        var primary = Median(scores.Select(x => x.PrimaryAi).ToList());
+        var secondary = Median(scores.Select(x => x.SecondaryAi).ToList());
+        var disagreement = Math.Abs(primary - secondary);
+
+        // Geometric mean intentionally punishes a one-model false positive.
+        var ensemble = Math.Sqrt(Math.Clamp(primary, 0, 1) * Math.Clamp(secondary, 0, 1));
+
+        var strongAiFrames = scores.Count(x => x.PrimaryAi >= 0.80 && x.SecondaryAi >= 0.80);
+        var strongRealFrames = scores.Count(x => x.PrimaryAi <= 0.35 && x.SecondaryAi <= 0.35);
+        var strongAiRatio = (double)strongAiFrames / scores.Count;
+        var strongRealRatio = (double)strongRealFrames / scores.Count;
+
+        var generatorMarker = provenance.Any(IsStrongAiMarker);
+        var provenanceOnly = provenance.Any(x =>
+            x.Contains("C2PA", StringComparison.OrdinalIgnoreCase) ||
+            x.Contains("Content Credentials", StringComparison.OrdinalIgnoreCase));
 
         string verdict;
-        if (provenance.Any(IsStrongAiMarker))
-            verdict = "AI provenance / generator metadata detected";
-        else if (scores.Count > 3 && spread >= 0.55 && flaggedRatio is > 0.20 and < 0.80)
-            verdict = "Mixed / uncertain synthetic-media signals";
-        else if (average >= 0.75)
+        double confidence;
+
+        if (generatorMarker)
+        {
+            verdict = "AI generator metadata detected";
+            confidence = Math.Max(0.90, 1.0 - disagreement * 0.25);
+        }
+        else if (isVideo &&
+                 primary >= 0.78 &&
+                 secondary >= 0.78 &&
+                 strongAiRatio >= 0.65 &&
+                 disagreement <= 0.20)
+        {
             verdict = "Likely AI-generated";
-        else if (average <= 0.25)
+            confidence = Math.Clamp(
+                0.55 * Math.Min(primary, secondary) +
+                0.30 * strongAiRatio +
+                0.15 * (1.0 - disagreement),
+                0,
+                0.98);
+        }
+        else if (!isVideo &&
+                 primary >= 0.85 &&
+                 secondary >= 0.85 &&
+                 disagreement <= 0.18)
+        {
+            verdict = "Likely AI-generated";
+            confidence = Math.Clamp(
+                0.75 * Math.Min(primary, secondary) +
+                0.25 * (1.0 - disagreement),
+                0,
+                0.98);
+        }
+        else if (disagreement >= 0.35)
+        {
+            verdict = "Detector disagreement / uncertain";
+            confidence = Math.Clamp(0.25 + (1.0 - disagreement) * 0.25, 0.20, 0.50);
+        }
+        else if ((isVideo && strongRealRatio >= 0.55 && primary <= 0.45 && secondary <= 0.45) ||
+                 (!isVideo && primary <= 0.30 && secondary <= 0.30))
+        {
             verdict = "Likely conventional / camera-origin";
+            confidence = Math.Clamp(
+                0.55 * (1.0 - Math.Max(primary, secondary)) +
+                0.30 * (isVideo ? strongRealRatio : 1.0) +
+                0.15 * (1.0 - disagreement),
+                0,
+                0.97);
+        }
+        else if (isVideo &&
+                 strongAiRatio < 0.35 &&
+                 strongRealRatio > 0.35 &&
+                 ensemble < 0.55)
+        {
+            verdict = "Probably conventional / insufficient AI evidence";
+            confidence = Math.Clamp(
+                0.45 + strongRealRatio * 0.30 - disagreement * 0.20,
+                0.35,
+                0.80);
+        }
         else
+        {
             verdict = "Uncertain";
+            confidence = Math.Clamp(
+                0.25 + Math.Abs(ensemble - 0.5) * 0.35 + (1.0 - disagreement) * 0.15,
+                0.25,
+                0.65);
+        }
 
-        var consistency = scores.Count <= 1
-            ? 1.0
-            : Math.Abs(flaggedRatio - 0.5) * 2.0;
-        var modelConfidence = Math.Clamp(Math.Abs(average - 0.5) * 2.0, 0, 1);
-        var confidence = Math.Clamp(
-            0.75 * modelConfidence + 0.25 * consistency,
-            0,
-            1);
-
-        if (provenance.Any(IsStrongAiMarker))
-            confidence = Math.Max(confidence, 0.90);
+        if (provenanceOnly && !generatorMarker)
+            confidence = Math.Min(confidence, 0.90);
 
         var notes =
-            "Probabilistic screening only. A negative result does not prove a file is human-made. " +
-            "Compression, screenshots, heavy editing, new generators and non-photographic art can change accuracy.";
+            "Conservative local ensemble. A media item is only labelled likely AI when both independent detectors " +
+            "strongly agree; video also requires consistent evidence across most sampled frames. Aspect ratio is preserved " +
+            "and three spatial crops are evaluated per frame to avoid portrait/landscape distortion false positives. " +
+            "C2PA presence alone is not treated as proof of AI generation. Compression, screenshots, heavy editing and new generators can still affect accuracy.";
 
         return new AiOriginDetectionResult(
             verdict,
-            average,
+            ensemble,
             confidence,
             scores.Count,
-            flagged,
+            strongAiFrames,
             provenance,
-            ModelName,
-            notes);
+            $"{PrimaryModelName} + {SecondaryModelName} • 3-crop ensemble",
+            notes,
+            primary,
+            secondary,
+            disagreement);
     }
 
     private static bool IsStrongAiMarker(string marker)
-        => !marker.Equals("C2PA marker present", StringComparison.OrdinalIgnoreCase);
+        => marker.StartsWith("Generator metadata:", StringComparison.OrdinalIgnoreCase);
 
-    private async Task<double> ClassifyImageAsync(
+    private async Task<FrameScore> ClassifyEnsembleAsync(
         string path,
         CancellationToken cancellationToken)
     {
@@ -272,29 +381,53 @@ public sealed class AiOriginDetectionService : IDisposable
 
         return await Task.Run(() =>
         {
-            var session = GetSession();
-            var tensor = CreateImageTensor(path);
-            var inputName = session.InputMetadata.Keys.First();
+            var tensors = CreateImageTensors(path);
+            var primaryScores = new List<double>(tensors.Count);
+            var secondaryScores = new List<double>(tensors.Count);
 
-            var input = NamedOnnxValue.CreateFromTensor(inputName, tensor);
-            using var results = session.Run([input]);
-            var output = results.First().AsEnumerable<float>().ToArray();
+            foreach (var tensor in tensors)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                primaryScores.Add(RunClassifier(GetPrimarySession(), tensor, fakeIndex: 1));
+                secondaryScores.Add(RunClassifier(GetSecondarySession(), tensor, fakeIndex: 0));
+            }
 
-            if (output.Length < 2)
-                throw new InvalidDataException("AI detector returned an unexpected output tensor.");
-
-            var max = output.Max();
-            var exp0 = Math.Exp(output[0] - max);
-            var exp1 = Math.Exp(output[1] - max);
-            return exp1 / (exp0 + exp1);
+            return new FrameScore(
+                Median(primaryScores),
+                Median(secondaryScores));
         }, cancellationToken);
     }
 
-    private InferenceSession GetSession()
+    private static double RunClassifier(
+        InferenceSession session,
+        DenseTensor<float> tensor,
+        int fakeIndex)
     {
-        if (_session != null)
-            return _session;
+        var inputName = session.InputMetadata.Keys.First();
+        var input = NamedOnnxValue.CreateFromTensor(inputName, tensor);
+        using var results = session.Run([input]);
+        var output = results.First().AsEnumerable<float>().ToArray();
 
+        if (output.Length < 2)
+            throw new InvalidDataException("AI detector returned an unexpected output tensor.");
+
+        var max = output.Max();
+        var exps = output.Select(x => Math.Exp(x - max)).ToArray();
+        var sum = exps.Sum();
+
+        return sum <= 0
+            ? 0.5
+            : exps[Math.Clamp(fakeIndex, 0, exps.Length - 1)] / sum;
+    }
+
+    private InferenceSession GetPrimarySession()
+        => _primarySession ??= CreateSession(PrimaryModelPath);
+
+    private InferenceSession GetSecondarySession()
+        => _secondarySession ??= CreateSession(SecondaryModelPath);
+
+    private static InferenceSession CreateSession(string path)
+    {
         var options = new SessionOptions
         {
             GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
@@ -302,31 +435,72 @@ public sealed class AiOriginDetectionService : IDisposable
             InterOpNumThreads = 1
         };
 
-        _session = new InferenceSession(ModelPath, options);
-        return _session;
+        return new InferenceSession(path, options);
     }
 
-    private static DenseTensor<float> CreateImageTensor(string path)
+    private static List<DenseTensor<float>> CreateImageTensors(string path)
     {
         using var stream = File.OpenRead(path);
         var decoder = BitmapDecoder.Create(
             stream,
             BitmapCreateOptions.PreservePixelFormat,
             BitmapCacheOption.OnLoad);
-        var source = decoder.Frames[0];
 
-        var scale = new ScaleTransform(
-            224d / Math.Max(1, source.PixelWidth),
-            224d / Math.Max(1, source.PixelHeight));
-        var resized = new TransformedBitmap(source, scale);
-        var converted = new FormatConvertedBitmap(
-            resized,
-            PixelFormats.Bgra32,
-            null,
-            0);
+        BitmapSource source = decoder.Frames[0];
+        if (source.Format != PixelFormats.Bgra32)
+            source = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
 
+        const int size = 224;
+        var scale = Math.Max(
+            (double)size / Math.Max(1, source.PixelWidth),
+            (double)size / Math.Max(1, source.PixelHeight));
+
+        var resized = new TransformedBitmap(
+            source,
+            new ScaleTransform(scale, scale));
+
+        var width = Math.Max(size, resized.PixelWidth);
+        var height = Math.Max(size, resized.PixelHeight);
+
+        // Three positions along the long dimension: protects portrait/landscape media
+        // from the severe 224x224 aspect-ratio distortion used by the old detector.
+        double[] positions = [0.15, 0.50, 0.85];
+        var tensors = new List<DenseTensor<float>>(positions.Length);
+
+        foreach (var position in positions)
+        {
+            var maxX = Math.Max(0, width - size);
+            var maxY = Math.Max(0, height - size);
+
+            var x = width > height
+                ? (int)Math.Round(maxX * position)
+                : maxX / 2;
+            var y = height > width
+                ? (int)Math.Round(maxY * position)
+                : maxY / 2;
+
+            x = Math.Clamp(x, 0, maxX);
+            y = Math.Clamp(y, 0, maxY);
+
+            var crop = new CroppedBitmap(
+                resized,
+                new Int32Rect(x, y, size, size));
+
+            tensors.Add(ToTensor(crop));
+        }
+
+        return tensors;
+    }
+
+    private static DenseTensor<float> ToTensor(BitmapSource source)
+    {
         const int width = 224;
         const int height = 224;
+
+        BitmapSource converted = source.Format == PixelFormats.Bgra32
+            ? source
+            : new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+
         var pixels = new byte[width * height * 4];
         converted.CopyPixels(pixels, width * 4, 0);
 
@@ -351,7 +525,7 @@ public sealed class AiOriginDetectionService : IDisposable
         string source,
         CancellationToken cancellationToken)
     {
-        const int maxBytes = 8 * 1024 * 1024;
+        const int maxBytes = 12 * 1024 * 1024;
         await using var stream = File.OpenRead(source);
         var length = (int)Math.Min(stream.Length, maxBytes);
         var buffer = new byte[length];
@@ -382,14 +556,17 @@ public sealed class AiOriginDetectionService : IDisposable
     private static IReadOnlyList<string> FindMarkers(string text)
     {
         var found = new List<string>();
+
         foreach (var marker in AiMarkers)
         {
-            if (!text.Contains(marker, StringComparison.OrdinalIgnoreCase))
-                continue;
+            if (text.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                found.Add($"Generator metadata: {marker}");
+        }
 
-            found.Add(marker.Equals("c2pa", StringComparison.OrdinalIgnoreCase)
-                ? "C2PA marker present"
-                : $"Generator metadata: {marker}");
+        if (ProvenanceMarkers.Any(marker =>
+                text.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+        {
+            found.Add("C2PA / Content Credentials marker present (not proof of AI by itself)");
         }
 
         return found
@@ -453,6 +630,19 @@ public sealed class AiOriginDetectionService : IDisposable
             await errorTask);
     }
 
+    private static double Median(IReadOnlyList<double> values)
+    {
+        if (values.Count == 0)
+            return 0.5;
+
+        var sorted = values.OrderBy(x => x).ToArray();
+        var middle = sorted.Length / 2;
+
+        return sorted.Length % 2 == 1
+            ? sorted[middle]
+            : (sorted[middle - 1] + sorted[middle]) / 2.0;
+    }
+
     private static async Task<string> Sha256Async(
         string path,
         CancellationToken cancellationToken)
@@ -481,9 +671,11 @@ public sealed class AiOriginDetectionService : IDisposable
 
     public void Dispose()
     {
-        _session?.Dispose();
+        _primarySession?.Dispose();
+        _secondarySession?.Dispose();
         _http.Dispose();
     }
 
+    private sealed record FrameScore(double PrimaryAi, double SecondaryAi);
     private sealed record ProcessResult(int ExitCode, string Output, string Error);
 }
