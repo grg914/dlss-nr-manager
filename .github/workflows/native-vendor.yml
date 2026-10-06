@@ -42,83 +42,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve MSBuild
-        id: msbuild
-        shell: pwsh
-        run: |
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          if (!(Test-Path -LiteralPath $vswhere)) {
-            throw "vswhere.exe was not found on the Windows runner."
-          }
-
-          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" |
-            Select-Object -First 1
-
-          if ([string]::IsNullOrWhiteSpace($msbuild) -or !(Test-Path -LiteralPath $msbuild)) {
-            throw "MSBuild could not be resolved from the installed Visual Studio instance."
-          }
-
-          "path=$msbuild" >> $env:GITHUB_OUTPUT
-          Write-Host "Using MSBuild: $msbuild"
-
-      - name: Install pinned Vulkan SDK
-        shell: pwsh
-        run: |
-          $sdkVersion = "1.4.363.0"
-          $sdkRoot = "C:\VulkanSDK\$sdkVersion"
-          $vulkanLib = Join-Path $sdkRoot "Lib\vulkan-1.lib"
-
-          if (!(Test-Path -LiteralPath $vulkanLib)) {
-            winget install --id KhronosGroup.VulkanSDK --exact --version $sdkVersion --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to install Vulkan SDK $sdkVersion through winget."
-            }
-          }
-
-          if (!(Test-Path -LiteralPath $vulkanLib)) {
-            throw "Vulkan SDK $sdkVersion is missing expected library: $vulkanLib"
-          }
-
-          $projectVulkanDir = "third_party\OptiScaler\OptiScaler\library\vulkan"
-          New-Item -ItemType Directory -Force -Path $projectVulkanDir | Out-Null
-          Copy-Item -LiteralPath $vulkanLib -Destination (Join-Path $projectVulkanDir "vulkan-1.lib") -Force
-
-          "VULKAN_SDK=$sdkRoot" >> $env:GITHUB_ENV
-          "$($sdkRoot)\Bin" >> $env:GITHUB_PATH
-
-          Write-Host "Pinned Vulkan import library staged for OptiScaler: $projectVulkanDir\vulkan-1.lib"
-
       - name: Build vendored OptiScaler
         shell: pwsh
         run: |
-          $msbuild = "${{ steps.msbuild.outputs.path }}"
-          & $msbuild "third_party\OptiScaler\OptiScaler.sln" /m /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
-          if ($LASTEXITCODE -ne 0) {
-            throw "Vendored OptiScaler build failed."
-          }
-
-          $package = "third_party\OptiScaler\x64\Release\a"
-          $dll = Join-Path $package "OptiScaler.dll"
-
-          if (!(Test-Path -LiteralPath $dll)) {
-            throw "OptiScaler.dll was not generated in the expected package directory."
-          }
-
-          $size = (Get-Item -LiteralPath $dll).Length
-          if ($size -lt 256KB) {
-            throw "OptiScaler.dll is unexpectedly small: $size bytes."
-          }
-
-          $licenseDir = Join-Path $package "Licenses"
-          if (!(Test-Path -LiteralPath $licenseDir)) {
-            throw "OptiScaler package is missing its license directory."
-          }
-
-          Write-Host "Vendored OptiScaler build verified: $dll ($size bytes)"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory build-optiscaler -Clean
 
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: OptiScaler-vendored-win-x64
-          path: third_party/OptiScaler/x64/Release/a/
+          path: build-optiscaler/OptiScaler-NR-*-vendored-win-x64.zip
           if-no-files-found: error
-          compression-level: 6
+          compression-level: 0
