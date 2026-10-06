@@ -43,6 +43,8 @@ Do not commit `NVIDIA/DLSS` as a normal vendored public dependency without a ded
 
 Streamline root source is MIT-licensed, but its tree contains third-party SDK material with separate license files; preserve all upstream notices.
 
+`video2dlssnr` is vendored as public source, but its native build requires the NVIDIA NGX import library from the local DLSS SDK. Use `tools/build-video2dlssnr.ps1`: it stages the public source plus the local-only SDK in a temporary directory, runs the CPU regression suite, and emits only application runtime object code plus license/notices under the ignored `build-local/` tree. The NVIDIA SDK itself must never be copied into the public repository or distributed as a standalone SDK.
+
 Caustica RTX and the OptiScaler fork contain GPLv3-covered code. Keep their license files and treat them as separately distributed components.
 
 FFmpeg licensing depends on the build configuration. The current BtbN package selected by the manager is a GPL build; mirrored binaries need the corresponding license/source obligations.
