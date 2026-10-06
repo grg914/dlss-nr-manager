@@ -12,6 +12,8 @@ public sealed class InstallerService
     public static readonly string Rtx2040Hash = "E67DEE209320CDAFE0E93E45675D7AA34323A53ACC57A72B2E40A181581C989A";
 
     private const string ManifestFile = ".dlssnr-manager-state.json";
+    private const long MaxExtractedArchiveBytes = 4L * 1024 * 1024 * 1024;
+    private const int MaxArchiveEntries = 100_000;
     private static readonly string[] ProxyNames =
     [
         "dbghelp.dll", "dxgi.dll", "d3d12.dll", "winmm.dll",
@@ -575,10 +577,28 @@ public sealed class InstallerService
             + Path.DirectorySeparatorChar;
 
         using var archive = ZipFile.OpenRead(zipPath);
+
+        if (archive.Entries.Count > MaxArchiveEntries)
+        {
+            throw new InvalidDataException(
+                $"OptiScaler archive contains too many entries ({archive.Entries.Count:N0}).");
+        }
+
+        long expandedBytes = 0;
+
         foreach (var entry in archive.Entries)
         {
             if (string.IsNullOrWhiteSpace(entry.Name))
                 continue;
+
+            expandedBytes = checked(
+                expandedBytes + Math.Max(0, entry.Length));
+
+            if (expandedBytes > MaxExtractedArchiveBytes)
+            {
+                throw new InvalidDataException(
+                    "OptiScaler archive exceeds the 4 GB extracted-size safety limit.");
+            }
 
             var target = Path.GetFullPath(Path.Combine(
                 destination,
