@@ -1944,7 +1944,7 @@ public partial class MainWindow : Window
 
             await _aiOrigin.SetupAsync(progress);
             AiOriginStatusText.Text =
-                "AI origin detector ready • local ONNX model installed.";
+                "AI origin detector ready • two-model ONNX ensemble installed.";
         }
         catch (Exception ex)
         {
@@ -2000,19 +2000,22 @@ public partial class MainWindow : Window
 
             MessageBox.Show(
                 $"{result.Verdict}\n\n" +
-                $"AI probability: {result.AiProbability:P1}\n" +
+                $"AI ensemble score: {result.AiProbability:P1}\n" +
                 $"Confidence: {result.Confidence:P1}\n" +
+                $"Primary detector: {result.PrimaryModelProbability:P1}\n" +
+                $"Secondary detector: {result.SecondaryModelProbability:P1}\n" +
+                $"Model disagreement: {result.ModelDisagreement:P1}\n" +
                 $"Frames analyzed: {result.FramesAnalyzed}\n" +
                 (result.FramesAnalyzed > 1
-                    ? $"Frames flagged: {result.FramesFlagged}/{result.FramesAnalyzed}\n"
+                    ? $"Strong-AI frames: {result.FramesFlagged}/{result.FramesAnalyzed}\n"
                     : "") +
-                $"Model: {result.Model}\n\n" +
+                $"Detector: {result.Model}\n\n" +
                 $"Provenance / metadata:\n{provenance}\n\n" +
                 result.Notes,
                 "AI origin detection",
                 MessageBoxButton.OK,
                 result.Verdict.StartsWith("Likely AI", StringComparison.OrdinalIgnoreCase) ||
-                result.Verdict.StartsWith("AI provenance", StringComparison.OrdinalIgnoreCase)
+                result.Verdict.StartsWith("AI generator", StringComparison.OrdinalIgnoreCase)
                     ? MessageBoxImage.Warning
                     : MessageBoxImage.Information);
         }
