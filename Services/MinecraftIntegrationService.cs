@@ -705,21 +705,39 @@ public sealed class MinecraftIntegrationService
         bool includePrerelease,
         CancellationToken cancellationToken)
     {
-        using var json = await GetJsonAsync(
-            $"https://api.github.com/repos/{repository}/releases?per_page=40",
-            cancellationToken);
+        const int pageSize = 100;
+        const int maxPages = 5;
 
-        foreach (var item in json.RootElement.EnumerateArray())
+        for (var page = 1; page <= maxPages; page++)
         {
-            var release = ParseRelease(item);
-            if (release.Draft || (!includePrerelease && release.Prerelease))
-                continue;
+            using var json = await GetJsonAsync(
+                $"https://api.github.com/repos/{repository}/releases?per_page={pageSize}&page={page}",
+                cancellationToken);
 
-            if (predicate(release))
-                return release;
+            if (json.RootElement.ValueKind != JsonValueKind.Array)
+                break;
+
+            var count = 0;
+
+            foreach (var item in json.RootElement.EnumerateArray())
+            {
+                count++;
+
+                var release = ParseRelease(item);
+                if (release.Draft ||
+                    (!includePrerelease && release.Prerelease))
+                    continue;
+
+                if (predicate(release))
+                    return release;
+            }
+
+            if (count < pageSize)
+                break;
         }
 
-        throw new InvalidOperationException($"No compatible release was found in {repository}.");
+        throw new InvalidOperationException(
+            $"No compatible release was found in {repository} after checking up to {pageSize * maxPages} releases.");
     }
 
     private static GitHubAsset SelectAsset(
