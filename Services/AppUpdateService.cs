@@ -379,6 +379,37 @@ try {
                 "The update ZIP does not contain DlssNrManager.exe.");
     }
 
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
+        }
+    }
+
     private static void ValidateStagedExecutable(string path)
     {
         if (!File.Exists(path))
