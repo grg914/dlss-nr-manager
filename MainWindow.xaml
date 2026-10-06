@@ -232,6 +232,18 @@
                         Padding="7">
                   <ListBox x:Name="GameBox"
                            SelectionChanged="GameBox_SelectionChanged">
+                    <ListBox.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="Launch game" Click="LaunchSelectedGame_Click"/>
+                        <MenuItem Header="Open game folder" Click="OpenSelectedGameFolder_Click"/>
+                        <MenuItem Header="Copy game path" Click="CopySelectedGamePath_Click"/>
+                        <Separator/>
+                        <MenuItem Header="Rescan" Click="Refresh_Click"/>
+                        <MenuItem Header="Choose executable" Click="ChooseExecutable_Click"/>
+                        <MenuItem Header="View history" Click="ViewGameHistory_Click"/>
+                        <MenuItem Header="Restore originals" Click="Restore_Click"/>
+                      </ContextMenu>
+                    </ListBox.ContextMenu>
                     <ListBox.ItemTemplate>
                       <DataTemplate>
                         <Grid>
@@ -293,11 +305,29 @@
                            FontSize="12"
                            Margin="0,11,0,0"/>
 
-                <Button Grid.Row="4"
-                        Content="Choose folder manually"
-                        Margin="0,14,0,0"
-                        HorizontalAlignment="Stretch"
-                        Click="SelectGame_Click"/>
+                <StackPanel Grid.Row="4" Margin="0,14,0,0">
+                  <Button Content="Choose folder manually"
+                          HorizontalAlignment="Stretch"
+                          Click="SelectGame_Click"/>
+                  <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            Content="Add scan folder"
+                            Click="AddScanRoot_Click"/>
+                    <Button Grid.Column="2"
+                            Content="Clear custom scan folders"
+                            Click="ClearScanRoots_Click"/>
+                  </Grid>
+                  <CheckBox x:Name="ScanAllDrivesCheck"
+                            Content="Scan all fixed drives (slower)"
+                            Margin="0,8,0,0"
+                            Checked="ScanAllDrivesCheck_Changed"
+                            Unchecked="ScanAllDrivesCheck_Changed"/>
+                </StackPanel>
               </Grid>
             </Border>
 
@@ -318,6 +348,21 @@
                   <TextBox x:Name="GamePathBox"
                            Margin="0,5,0,10"
                            IsReadOnly="True"/>
+
+                  <WrapPanel Margin="0,0,0,10">
+                    <Button Content="Launch game"
+                            Margin="0,0,8,6"
+                            Click="LaunchSelectedGame_Click"/>
+                    <Button Content="Open folder"
+                            Margin="0,0,8,6"
+                            Click="OpenSelectedGameFolder_Click"/>
+                    <Button Content="Choose executable"
+                            Margin="0,0,8,6"
+                            Click="ChooseExecutable_Click"/>
+                    <Button Content="History"
+                            Margin="0,0,8,6"
+                            Click="ViewGameHistory_Click"/>
+                  </WrapPanel>
 
                   <Grid Margin="0,0,0,10">
                     <Grid.ColumnDefinitions>
@@ -417,6 +462,15 @@
                         <ComboBoxItem Content="Stable" IsSelected="True"/>
                         <ComboBoxItem Content="Prerelease"/>
                       </ComboBox>
+                      <TextBlock Text="OptiScaler build"
+                                 Foreground="{StaticResource Muted}"
+                                 FontSize="11"
+                                 FontWeight="SemiBold"
+                                 Margin="0,7,0,0"/>
+                      <ComboBox x:Name="OptiScalerBuildBox"
+                                Margin="0,5,0,5"
+                                DisplayMemberPath="Name"
+                                SelectionChanged="OptiScalerBuildBox_SelectionChanged"/>
                       <TextBlock x:Name="AvailableVersionText"
                                  Foreground="{StaticResource Muted}"
                                  FontSize="11"
