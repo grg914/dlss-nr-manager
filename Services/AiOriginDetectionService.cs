@@ -45,13 +45,13 @@ public sealed class AiOriginDetectionService : IDisposable
     private const long MaxModelDownloadBytes = 256L * 1024 * 1024;
     private const string PrimaryModelName = "CapCheck ViT AI-vs-Real";
     private const string PrimaryModelUrl =
-        "https://github.com/grg914/dlss-nr-manager/releases/latest/download/ai-origin-primary-int8.onnx";
+        "https://huggingface.co/onnx-community/ai-image-detection-ONNX/resolve/e3cfe99f2841930a040a6281682c10c989965603/onnx/model_int8.onnx?download=true";
     private const string PrimaryModelSha256 =
         "08B349F1B535F2F0CC2A8610BBF57C27593A0364E78B6C91205C0FF2BF29D714";
 
     private const string SecondaryModelName = "AI Image Detect Distilled ViT";
     private const string SecondaryModelUrl =
-        "https://github.com/grg914/dlss-nr-manager/releases/latest/download/ai-origin-secondary-int8.onnx";
+        "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX/resolve/7f067e23521eeb6d6525221af82c613fb746aaff/onnx/model_int8.onnx?download=true";
     private const string SecondaryModelSha256 =
         "7273CB9CD81E17EAE04771010D2199BA6AE34EA2A75A275518C0BC4A2C26FFD2";
 
@@ -169,11 +169,11 @@ public sealed class AiOriginDetectionService : IDisposable
                 Uri.UriSchemeHttps,
                 StringComparison.OrdinalIgnoreCase) ||
             !uri.Host.Equals(
-                "github.com",
+                "huggingface.co",
                 StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
-                $"Unexpected manager-owned AI detector model URL: {url}");
+                $"Unexpected AI detector model URL: {url}");
         }
 
         var temp = destination + ".download";
