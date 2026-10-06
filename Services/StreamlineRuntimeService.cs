@@ -261,15 +261,47 @@ public sealed class StreamlineRuntimeService
                 !x.Name.Contains(
                     "source",
                     StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                !ContainsArchitectureToken(
+                    x.Name,
+                    "aarch64",
+                    "arm64ec",
+                    "arm64"))
             .OrderByDescending(x =>
-                x.Name.Contains(
-                    "streamline",
-                    StringComparison.OrdinalIgnoreCase)
-                    ? 1
-                    : 0)
+                IsPreferredWindowsX64Package(x.Name))
+            .ThenBy(x => x.Name.Length)
             .FirstOrDefault(x =>
                 !string.IsNullOrWhiteSpace(x.Url));
     }
+
+    private static int IsPreferredWindowsX64Package(
+        string name)
+    {
+        var normalized = name.ToLowerInvariant();
+
+        if (normalized.Contains("win64") ||
+            normalized.Contains("windows-x64") ||
+            normalized.Contains("x86_64") ||
+            normalized.Contains("x64"))
+            return 3;
+
+        // NVIDIA's current x64 package is the architecture-less
+        // streamline-sdk-vX.Y.Z.zip asset.
+        if (normalized.StartsWith("streamline-sdk-") &&
+            normalized.EndsWith(".zip") &&
+            !normalized.Contains("arm"))
+            return 2;
+
+        return 1;
+    }
+
+    private static bool ContainsArchitectureToken(
+        string value,
+        params string[] tokens)
+        => tokens.Any(token =>
+            value.Contains(
+                token,
+                StringComparison.OrdinalIgnoreCase));
 
     private async Task<JsonDocument> GetJsonAsync(string url, CancellationToken cancellationToken)
     {
