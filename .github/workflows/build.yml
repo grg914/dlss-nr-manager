@@ -30,6 +30,7 @@ jobs:
             "tools/verify-self-contained.ps1",
             "tools/build-realesrgan.ps1",
             "tools/build-optiscaler.ps1",
+            "tools/build-reshade.ps1",
             "tools/build-video2dlssnr.ps1"
           )
 
