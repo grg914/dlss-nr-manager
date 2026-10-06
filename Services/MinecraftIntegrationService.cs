@@ -302,6 +302,12 @@ public sealed class MinecraftIntegrationService
     {
         ValidateInstance(minecraftRoot);
 
+        if (Process.GetProcessesByName("MinecraftLauncher").Length > 0)
+        {
+            throw new InvalidOperationException(
+                "Minecraft Launcher is currently running. Close it completely before installing Fabric so launcher_profiles.json cannot be overwritten while DLSS NR Manager is updating the instance.");
+        }
+
         var java = await EnsureJava25Async(
             minecraftRoot,
             progress,
@@ -751,7 +757,12 @@ public sealed class MinecraftIntegrationService
                         : "";
 
                     return !string.IsNullOrWhiteSpace(filename) &&
-                           !filename.Contains("sources", StringComparison.OrdinalIgnoreCase);
+                           !ContainsAny(
+                               filename,
+                               "sources",
+                               "source",
+                               "dev",
+                               "javadoc");
                 })
                 .ToList();
 
@@ -786,6 +797,21 @@ public sealed class MinecraftIntegrationService
             ?? throw new InvalidDataException(
                 $"Modrinth download URL is missing for {project.Name}.");
 
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var downloadUri) ||
+            !downloadUri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !(downloadUri.Host.Equals(
+                  "cdn.modrinth.com",
+                  StringComparison.OrdinalIgnoreCase) ||
+              downloadUri.Host.Equals(
+                  "api.modrinth.com",
+                  StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidDataException(
+                $"Unexpected Modrinth download origin for {project.Name}: {url}");
+        }
+
         var versionNumber = selectedVersion.Value.TryGetProperty(
                 "version_number",
                 out var versionElement)
@@ -799,53 +825,69 @@ public sealed class MinecraftIntegrationService
             sha512 = sha512Element.GetString();
         }
 
+        if (string.IsNullOrWhiteSpace(sha512) ||
+            sha512.Length != 128 ||
+            !sha512.All(Uri.IsHexDigit))
+        {
+            throw new InvalidDataException(
+                $"Modrinth did not provide a valid SHA-512 hash for {project.Name}.");
+        }
+
         var destination = Path.Combine(destinationDirectory, filename);
         var temp = destination + ".download";
         progress?.Report($"Downloading {project.Name} {versionNumber}…");
 
-        using (var response = await _http.GetAsync(
-                   url,
-                   HttpCompletionOption.ResponseHeadersRead,
-                   cancellationToken))
+        try
         {
-            response.EnsureSuccessStatusCode();
-
-            await using var input =
-                await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using var output = new FileStream(
-                temp,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                128 * 1024,
-                useAsync: true);
-
-            await input.CopyToAsync(output, cancellationToken);
-        }
-
-        if (!string.IsNullOrWhiteSpace(sha512))
-        {
-            await using var stream = File.OpenRead(temp);
-            var actual = Convert.ToHexString(
-                await SHA512.HashDataAsync(stream, cancellationToken));
-
-            if (!actual.Equals(sha512, StringComparison.OrdinalIgnoreCase))
+            using (var response = await _http.GetAsync(
+                       downloadUri,
+                       HttpCompletionOption.ResponseHeadersRead,
+                       cancellationToken))
             {
-                TryDelete(temp);
-                throw new InvalidDataException(
-                    $"SHA-512 mismatch for {project.Name}. " +
-                    $"Expected {sha512}, got {actual}.");
+                response.EnsureSuccessStatusCode();
+
+                await using var input =
+                    await response.Content.ReadAsStreamAsync(cancellationToken);
+                await using var output = new FileStream(
+                    temp,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    128 * 1024,
+                    useAsync: true);
+
+                await input.CopyToAsync(output, cancellationToken);
             }
+
+            await using (var stream = File.OpenRead(temp))
+            {
+                var actual = Convert.ToHexString(
+                    await SHA512.HashDataAsync(stream, cancellationToken));
+
+                if (!actual.Equals(
+                        sha512,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"SHA-512 mismatch for {project.Name}. " +
+                        $"Expected {sha512}, got {actual}.");
+                }
+            }
+
+            await BackupMatchingFileAsync(
+                minecraftRoot,
+                destinationDirectory,
+                backup,
+                project.FileToken,
+                cancellationToken);
+
+            File.Move(temp, destination, true);
         }
-
-        await BackupMatchingFileAsync(
-            minecraftRoot,
-            destinationDirectory,
-            backup,
-            project.FileToken,
-            cancellationToken);
-
-        File.Move(temp, destination, true);
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
 
         return new MinecraftComponentResult(
             project.Name,
