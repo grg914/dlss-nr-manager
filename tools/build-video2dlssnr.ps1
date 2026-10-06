@@ -1,6 +1,8 @@
 param(
     [string]$SourcePath,
     [string]$NvidiaSdkPath,
+    [string]$NeuralRuntimePath,
+    [string]$SuperResolutionRuntimePath,
     [string]$OutputPath,
     [ValidateSet("release", "debug")]
     [string]$Configuration = "release",
@@ -39,6 +41,27 @@ $sdkInclude = Join-Path $NvidiaSdkPath "include"
 $sdkLib = Join-Path $NvidiaSdkPath "lib\Windows_x86_64\x64\nvsdk_ngx_d.lib"
 $sdkDebugLib = Join-Path $NvidiaSdkPath "lib\Windows_x86_64\x64\nvsdk_ngx_d_dbg.lib"
 $sdkLicense = Join-Path $NvidiaSdkPath "LICENSE.txt"
+
+if ([string]::IsNullOrWhiteSpace($SuperResolutionRuntimePath)) {
+    $SuperResolutionRuntimePath = Join-Path $NvidiaSdkPath "lib\Windows_x86_64\rel\nvngx_dlss.dll"
+}
+elseif (-not [IO.Path]::IsPathRooted($SuperResolutionRuntimePath)) {
+    $SuperResolutionRuntimePath = Join-Path $Root $SuperResolutionRuntimePath
+}
+$SuperResolutionRuntimePath = [IO.Path]::GetFullPath($SuperResolutionRuntimePath)
+
+if ([string]::IsNullOrWhiteSpace($NeuralRuntimePath)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:DLSS_NR_RUNTIME)) {
+        $NeuralRuntimePath = $env:DLSS_NR_RUNTIME
+    }
+    else {
+        $NeuralRuntimePath = Join-Path $Root "third_party-local\NVIDIA-DLSS\nvngx_dlssnr.dll"
+    }
+}
+elseif (-not [IO.Path]::IsPathRooted($NeuralRuntimePath)) {
+    $NeuralRuntimePath = Join-Path $Root $NeuralRuntimePath
+}
+$NeuralRuntimePath = [IO.Path]::GetFullPath($NeuralRuntimePath)
 
 foreach ($required in @($sdkInclude, $sdkLib, $sdkLicense)) {
     if (!(Test-Path -LiteralPath $required)) {
@@ -123,6 +146,21 @@ try {
 
     Copy-Item -LiteralPath $exe -Destination $OutputPath -Force
     Copy-Item -LiteralPath $forwarder -Destination $OutputPath -Force
+
+    if (Test-Path -LiteralPath $SuperResolutionRuntimePath) {
+        Copy-Item -LiteralPath $SuperResolutionRuntimePath -Destination (Join-Path $OutputPath "nvngx_dlss.dll") -Force
+    }
+    elseif (-not $NoPackage) {
+        throw "NVIDIA DLSS Super Resolution runtime is required for a complete package: $SuperResolutionRuntimePath"
+    }
+
+    if (Test-Path -LiteralPath $NeuralRuntimePath) {
+        Copy-Item -LiteralPath $NeuralRuntimePath -Destination (Join-Path $OutputPath "nvngx_dlssnr.dll") -Force
+    }
+    elseif (-not $NoPackage) {
+        throw "NVIDIA DLSS Neural Rendering runtime is required for a complete package. Supply -NeuralRuntimePath or DLSS_NR_RUNTIME. Expected default: $NeuralRuntimePath"
+    }
+
     Copy-Item -LiteralPath (Join-Path $SourcePath "LICENSE") -Destination (Join-Path $OutputPath "LICENSE-video2dlssnr.txt") -Force
     Copy-Item -LiteralPath $sdkLicense -Destination (Join-Path $OutputPath "LICENSE-NVIDIA-RTX-SDK.txt") -Force
 
@@ -140,6 +178,18 @@ try {
     $sourceMetadata = Join-Path $SourcePath "SOURCE.json"
     if (Test-Path -LiteralPath $sourceMetadata) {
         Copy-Item -LiteralPath $sourceMetadata -Destination (Join-Path $OutputPath "SOURCE-video2dlssnr.json") -Force
+    }
+
+    foreach ($runtimeName in @("nvngx_dlss.dll", "nvngx_dlssnr.dll")) {
+        $runtime = Join-Path $OutputPath $runtimeName
+        if (Test-Path -LiteralPath $runtime) {
+            $runtimeHash = (Get-FileHash -LiteralPath $runtime -Algorithm SHA256).Hash.ToLowerInvariant()
+            $signature = Get-AuthenticodeSignature -LiteralPath $runtime
+            Write-Host "$runtimeName • SHA-256 $runtimeHash • signature $($signature.Status)"
+            if ($signature.SignerCertificate) {
+                Write-Host "$runtimeName signer: $($signature.SignerCertificate.Subject)"
+            }
+        }
     }
 
     $zip = "$OutputPath.zip"
