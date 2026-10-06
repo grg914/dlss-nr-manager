@@ -210,6 +210,20 @@ public sealed class InstallerService
             }
 
             BackupDestinationCollisions(sourceRoot, gameDir, backup);
+
+            var previouslyManaged = new HashSet<string>(
+                previousManifest?.ManagedFiles ?? [],
+                StringComparer.OrdinalIgnoreCase);
+
+            var preservedUserOwnedNvidia = archiveRelativeFiles
+                .Where(relative =>
+                    !previouslyManaged.Contains(relative) &&
+                    ShouldPreserveNewerDestination(
+                        sourceRoot,
+                        gameDir,
+                        relative))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             journal.Stage("WRITING");
 
             foreach (var source in Directory.EnumerateFiles(
@@ -258,7 +272,11 @@ public sealed class InstallerService
                 proxy);
 
             var managedFiles = archiveRelativeFiles
-                .Where(x => !x.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase))
+                .Where(x =>
+                    !x.Equals(
+                        "OptiScaler.dll",
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !preservedUserOwnedNvidia.Contains(x))
                 .Concat(new[]
                 {
                     proxy,
@@ -994,6 +1012,32 @@ public sealed class InstallerService
             AppLogger.Warn(
                 $"Interrupted transaction recovery failed: {ex.Message}");
         }
+    }
+
+    private static bool ShouldPreserveNewerDestination(
+        string sourceRoot,
+        string gameDir,
+        string relative)
+    {
+        if (!IsNvidiaDlssRuntime(
+                Path.GetFileName(relative)) ||
+            !TryResolveUnderRoot(
+                sourceRoot,
+                relative,
+                out var source) ||
+            !TryResolveUnderRoot(
+                gameDir,
+                relative,
+                out var destination) ||
+            !File.Exists(source) ||
+            !File.Exists(destination))
+        {
+            return false;
+        }
+
+        return IsDestinationNewer(
+            destination,
+            source);
     }
 
     private static void CopyTreePreservingNewerNvidia(
