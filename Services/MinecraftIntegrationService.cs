@@ -817,46 +817,56 @@ public sealed class MinecraftIntegrationService
                 $"Unexpected GitHub asset URL: {asset.Url}");
         }
 
-        using var response = await _http.GetAsync(
-            assetUri,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
+        try
         {
-            throw new InvalidDataException(
-                $"{asset.Name} exceeds the 1 GB download safety limit.");
-        }
-
-        await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-        await using (var output = new FileStream(
-                         temp,
-                         FileMode.Create,
-                         FileAccess.Write,
-                         FileShare.None,
-                         128 * 1024,
-                         useAsync: true))
-        {
-            await CopyWithLimitAsync(
-                input,
-                output,
-                MaxComponentDownloadBytes,
+            using var response = await _http.GetAsync(
+                assetUri,
+                HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
-        }
+            response.EnsureSuccessStatusCode();
 
-        if (!string.IsNullOrWhiteSpace(asset.Sha256))
-        {
-            var actual = await Sha256Async(temp, cancellationToken);
-            if (!actual.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
+            if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
             {
-                TryDelete(temp);
                 throw new InvalidDataException(
-                    $"SHA-256 mismatch for {asset.Name}. Expected {asset.Sha256}, got {actual}.");
+                    $"{asset.Name} exceeds the 1 GB download safety limit.");
             }
-        }
 
-        File.Move(temp, destination, true);
+            await using (var input =
+                await response.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var output = new FileStream(
+                             temp,
+                             FileMode.Create,
+                             FileAccess.Write,
+                             FileShare.None,
+                             128 * 1024,
+                             useAsync: true))
+            {
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    MaxComponentDownloadBytes,
+                    cancellationToken);
+            }
+
+            if (!string.IsNullOrWhiteSpace(asset.Sha256))
+            {
+                var actual = await Sha256Async(temp, cancellationToken);
+                if (!actual.Equals(
+                        asset.Sha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"SHA-256 mismatch for {asset.Name}. Expected {asset.Sha256}, got {actual}.");
+                }
+            }
+
+            File.Move(temp, destination, true);
+        }
+        catch
+        {
+            TryDelete(temp);
+            throw;
+        }
     }
 
     private async Task<MinecraftComponentResult> InstallModrinthProjectAsync(
