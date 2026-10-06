@@ -48,7 +48,7 @@ jobs:
         shell: pwsh
         run: |
           $assets = @(
-            @{ Name = "ScandiTextureV1.zip"; Sha256 = "F8DD9A33FA19E7C3CEF5B8AC6568A1EC92ACE056D49826BC0C26BA25290CAC99" },
+            @{ Name = "ScandiTextureV1.zip"; Sha256 = "D771E0434B8C4717407A35FA2284828479B4B2062D7A969099360519B7BF790A" },
             @{ Name = "ScandiShaderV2.zip";  Sha256 = "C2C1E9C531342CC314368146A963FC2FD7D4A414F67C971558FC5ECA89D329F9" }
           )
 
