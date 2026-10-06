@@ -6,6 +6,7 @@ on:
       - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
       - 'third_party/OptiScaler/**'
       - 'tools/build-realesrgan.ps1'
+      - 'tools/build-optiscaler.ps1'
       - '.github/workflows/native-vendor.yml'
   workflow_dispatch:
 
