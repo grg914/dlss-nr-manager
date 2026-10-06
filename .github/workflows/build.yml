@@ -137,11 +137,3 @@ jobs:
         with:
           name: DlssNrManager-win-x64
           path: publish/DlssNrManager.exe
-      - name: Build vendored Real-ESRGAN Windows engine
-        shell: pwsh
-        run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
-          name: Real-ESRGAN-vendored-win-x64
-          path: build-realesrgan/Release/realesrgan-ncnn-vulkan.exe
