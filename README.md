@@ -50,13 +50,13 @@ v3.0 is a full reliability, performance and AI-detection audit of the v2.1 codeb
 - **Managed-file integrity verification.** New installs store SHA-256 hashes for manager-owned files. **Verify managed files** reports missing, modified, legacy/unhashed files and interrupted transactions without touching user-owned files.
 - **Lower-allocation renderer scanning.** PE/API marker discovery now streams bounded chunks instead of reading large executable/DLL regions into one string. DXVK/vkd3d detection keeps separate wrapper identity and Vulkan-loader evidence to reduce false positives.
 - **More reliable downloads.** OptiScaler, media components, Real-ESRGAN engines/models, ReShade, NVIDIA Streamline and application self-updates use a bounded three-attempt retry policy for transient network/HTTP failures only. Permanent validation/hash failures are never retried. Large GitHub release downloads now have a 10-minute transfer budget instead of the previous 30-second timeout.
-- **AI detector Balanced / Thorough modes.** Balanced uses three aspect-preserving views and up to 24 video samples. Thorough adds a second higher-resolution view scale when the source supports it and samples up to 40 frames.
+- **AI detector Quick / Balanced / Thorough modes.** Quick uses the model-native 224×224 full-frame view and a short video sample. Balanced combines the native view with three aspect-preserving crops and up to 20 uniform video frames. Thorough adds a second crop scale when useful plus scene-change sampling for broader temporal coverage.
 - **AI confidence now measures internal consistency.** The detector tracks disagreement between the two ONNX models, spatial-view consistency, temporal video consistency and input resolution. Strong AI verdicts require both models plus spatial/temporal agreement; unstable or very low-resolution material is deliberately pushed toward **Uncertain**.
-- **Safer provenance interpretation.** Structured image metadata and ffprobe tag metadata are separated from unverified strings found in raw file bytes. A raw generator-name string no longer becomes strong AI evidence. C2PA / Content Credentials presence remains provenance information, not proof by itself.
+- **Safer provenance interpretation.** Structured image metadata and ffprobe tag metadata are separated from unverified strings found in raw file bytes. Generator metadata is supporting evidence only: it cannot produce a strong AI verdict unless the visual ensemble also agrees. Conflicting visual evidence is surfaced explicitly. C2PA / Content Credentials presence remains provenance information, not proof by itself.
 - **Faster bounded video inference.** Frame classification uses limited parallelism to improve throughput without allowing ONNX sessions to oversubscribe the CPU.
 - **Cancellable AI analysis.** Long image/video analyses can be cancelled from the UI instead of requiring the application to be closed.
 - **Exportable AI report.** The detector can export a JSON report containing the source filename, source SHA-256, scores, confidence, consistency metrics, provenance signals and analysis mode.
-- **Release integrity improved.** `SHA256SUMS.txt` is now generated after Caustica/SPBRScandi validation so bundled Minecraft assets are included in the published checksum manifest.
+- **Release integrity improved.** `SHA256SUMS.txt` is generated after Caustica/SPBRScandi validation so bundled Minecraft assets are included in the published checksum manifest. The release workflow now runs the regression test suite and verifies the produced EXE version before publishing.
 - Existing v2.1 features remain: per-game transactional recovery/history, configurable scan roots, multi-executable renderer selection, recent OptiScaler builds per game, safe WPF software rendering, self-update, managed Minecraft updates and bundled Caustica/SPBRScandi assets.
 
 ## What's new in v2.1.0
@@ -308,11 +308,12 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Optional TTA and tile-size controls
 - Combined **Neural Rendering + AI Upscale** processing mode
 - Video audio is preserved during processing
-- **AI origin detection (beta)** runs locally with two independent ONNX classifiers and two selectable analysis modes: **Balanced** uses three aspect-preserving views and up to 24 video frames; **Thorough** adds a second higher-resolution view scale when possible and up to 40 video frames
-- AI-origin confidence incorporates model disagreement, spatial-view consistency, temporal consistency and source resolution; strong AI verdicts require agreement across these signals
+- **AI origin detection (beta)** runs locally with two independent ONNX classifiers and three selectable modes: **Quick** uses the model-native full-frame view with a short video sample; **Balanced** adds aspect-preserving spatial crops and uniform video coverage; **Thorough** adds a second crop scale plus scene-change frames
+- AI-origin confidence incorporates model disagreement, spatial-view consistency, temporal consistency and source resolution; strong AI verdicts require agreement across these signals. Generator metadata alone never produces a strong AI verdict
 - Structured generator metadata is distinguished from unverified raw byte markers; C2PA / Content Credentials presence is reported as provenance but is not treated as proof of AI generation
-- Long AI-origin jobs can be cancelled, and results can be exported as a JSON report with the media SHA-256 for reproducibility
+- Long AI-origin jobs can be cancelled, results can be exported as a JSON report with the media SHA-256 for reproducibility, and the detector models can be explicitly verified/repaired against their pinned SHA-256 fingerprints
 - AI-origin results remain explicitly advisory: absence of a signal does not prove human origin, and the manager intentionally prefers `Uncertain` over an unsupported confident verdict
+- The two bundled open classifiers are screening signals, not universal forensic proof. New generators, compression, screenshots, rescaling and editing can substantially reduce detector accuracy; v3 therefore deliberately lowers confidence when models, spatial views, temporal samples or provenance evidence disagree
 
 ### Minecraft Java RTX
 
@@ -451,6 +452,8 @@ The project integrates or automates workflows around:
 
 ```powershell
 dotnet restore
+dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj
+dotnet test tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj -c Release
 dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
