@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.4.0**.
+Current application version: **v1.4.1**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -22,7 +22,21 @@ Current application version: **v1.4.0**.
 
 <p align="center"><sub>Application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
 
-## What's new in v1.4.0
+## What's new in v1.4.1
+
+- Reworked **AI origin detection** to reduce false positives on real photos and videos.
+- Replaced the single-model decision with a conservative **two-model ONNX ensemble**:
+  - CapCheck ViT AI-vs-Real (CIFAKE-derived)
+  - AI Image Detect Distilled ViT
+- Preserves the source aspect ratio before inference instead of stretching portrait/landscape media to 224×224.
+- Evaluates **three spatial crops** per image/frame and uses median aggregation.
+- Video analysis now samples up to **32 frames** across the full timeline and requires both detectors to agree strongly on most frames before returning `Likely AI-generated`.
+- Large detector disagreement now returns `Detector disagreement / uncertain` instead of a false positive.
+- C2PA / Content Credentials presence by itself is no longer treated as proof of AI generation.
+- The result dialog now exposes both model scores, ensemble score and model disagreement.
+- Increased the detected-games list height from 280 px to 430 px to use the available dashboard space more effectively.
+
+## Previous v1.4.0 changes
 
 - Added a generation-aware **RTX capability matrix** for GeForce RTX 20/30/40/50 Series.
 - RTX 20/30: DLSS Super Resolution + Ray Reconstruction where the selected game/integration supports them.
@@ -156,8 +170,8 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Optional TTA and tile-size controls
 - Combined **Neural Rendering + AI Upscale** processing mode
 - Video audio is preserved during processing
-- **AI origin detection (beta)** runs locally for images and samples up to 24 frames across videos; it reports a probabilistic AI score, confidence, frame consistency and known generator/provenance metadata signals
-- AI-origin results are explicitly advisory: absence of a signal does not prove human origin
+- **AI origin detection (beta)** runs locally using a two-model ONNX ensemble, three aspect-ratio-preserving spatial crops per image/frame and up to 32 samples across videos; it reports an ensemble AI score, per-model scores, disagreement, confidence, temporal consistency and known generator/provenance metadata signals
+- AI-origin results are explicitly advisory: absence of a signal does not prove human origin, and the manager intentionally prefers `Uncertain` over declaring AI when its detectors disagree
 
 ### Minecraft Java RTX
 
