@@ -23,60 +23,109 @@ public sealed class GitHubReleaseService
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
 
-    public async Task<ReleaseInfo?> GetLatestAsync(bool includePrerelease)
+    public async Task<ReleaseInfo?> GetLatestAsync(
+        bool includePrerelease)
     {
-        var json = await _http.GetStringAsync(
-            "https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page=30");
+        const int pageSize = 100;
+        const int maxPages = 5;
 
-        using var doc = JsonDocument.Parse(json);
-
-        foreach (var release in doc.RootElement.EnumerateArray())
+        for (var page = 1; page <= maxPages; page++)
         {
-            if (release.GetProperty("draft").GetBoolean())
-                continue;
+            using var response = await _http.GetAsync(
+                $"https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page={pageSize}&page={page}",
+                HttpCompletionOption.ResponseHeadersRead);
 
-            var prerelease = release.GetProperty("prerelease").GetBoolean();
-            if (prerelease && !includePrerelease)
-                continue;
+            response.EnsureSuccessStatusCode();
 
-            var tag = release.GetProperty("tag_name").GetString() ?? "unknown";
-            var name = release.GetProperty("name").GetString() ?? tag;
+            await using var stream =
+                await response.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
 
-            var candidates = release.GetProperty("assets")
-                .EnumerateArray()
-                .Select(asset =>
-                {
-                    var assetName = asset.GetProperty("name").GetString() ?? string.Empty;
-                    var url = asset.GetProperty("browser_download_url").GetString();
-                    var digest = asset.TryGetProperty("digest", out var digestElement)
-                        ? digestElement.GetString()
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return null;
+
+            var count = 0;
+
+            foreach (var release in doc.RootElement.EnumerateArray())
+            {
+                count++;
+
+                if (release.GetProperty("draft").GetBoolean())
+                    continue;
+
+                var prerelease =
+                    release.GetProperty("prerelease").GetBoolean();
+                if (prerelease && !includePrerelease)
+                    continue;
+
+                var tag =
+                    release.GetProperty("tag_name").GetString()
+                    ?? "unknown";
+                var name =
+                    release.GetProperty("name").GetString()
+                    ?? tag;
+
+                var candidates = release.GetProperty("assets")
+                    .EnumerateArray()
+                    .Select(asset =>
+                    {
+                        var assetName =
+                            asset.GetProperty("name").GetString()
+                            ?? string.Empty;
+                        var url =
+                            asset.GetProperty(
+                                "browser_download_url")
+                            .GetString();
+                        var digest =
+                            asset.TryGetProperty(
+                                "digest",
+                                out var digestElement)
+                                ? digestElement.GetString()
+                                : null;
+
+                        return new
+                        {
+                            AssetName = assetName,
+                            Url = url,
+                            Digest = digest
+                        };
+                    })
+                    .Where(x =>
+                        !string.IsNullOrWhiteSpace(x.Url) &&
+                        x.AssetName.EndsWith(
+                            ".zip",
+                            StringComparison.OrdinalIgnoreCase) &&
+                        x.AssetName.Contains(
+                            "OptiScaler-NR",
+                            StringComparison.OrdinalIgnoreCase) &&
+                        !x.AssetName.Contains(
+                            "rtx40-mfg",
+                            StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(x => x.AssetName.Length)
+                    .ToList();
+
+                var asset = candidates.FirstOrDefault();
+                if (asset == null)
+                    continue;
+
+                var sha256 =
+                    asset.Digest != null &&
+                    asset.Digest.StartsWith(
+                        "sha256:",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? asset.Digest["sha256:".Length..]
                         : null;
 
-                    return new
-                    {
-                        AssetName = assetName,
-                        Url = url,
-                        Digest = digest
-                    };
-                })
-                .Where(x =>
-                    !string.IsNullOrWhiteSpace(x.Url) &&
-                    x.AssetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
-                    x.AssetName.Contains("OptiScaler-NR", StringComparison.OrdinalIgnoreCase) &&
-                    !x.AssetName.Contains("rtx40-mfg", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(x => x.AssetName.Length)
-                .ToList();
+                return new ReleaseInfo(
+                    tag,
+                    name,
+                    prerelease,
+                    asset.Url!,
+                    sha256);
+            }
 
-            var asset = candidates.FirstOrDefault();
-            if (asset == null)
-                continue;
-
-            var sha256 = asset.Digest != null &&
-                         asset.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
-                ? asset.Digest["sha256:".Length..]
-                : null;
-
-            return new(tag, name, prerelease, asset.Url!, sha256);
+            if (count < pageSize)
+                break;
         }
 
         return null;
