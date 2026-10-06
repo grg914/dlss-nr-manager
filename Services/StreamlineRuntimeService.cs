@@ -211,14 +211,23 @@ public sealed class StreamlineRuntimeService
                 progress?.Report(
                     $"Staged {installed.Count} NVIDIA Streamline/DLSS resource file(s) into the selected game.");
 
-                if (includeNeuralRendering &&
-                    missingRequested.Any(name =>
-                        name.Equals("sl.dlss_nr.dll", StringComparison.OrdinalIgnoreCase) ||
-                        name.Equals("nvngx_dlssnr.dll", StringComparison.OrdinalIgnoreCase)))
+                if (includeNeuralRendering)
                 {
-                    progress?.Report(
-                        "DLSS Neural Rendering runtime was not present in the public Streamline package. " +
-                        "An NVIDIA-authorized DLSS-NR runtime/SDK is required for a real renderer integration.");
+                    var neuralRuntimeAvailable = names
+                        .Where(name =>
+                            name.Equals("sl.dlss_nr.dll", StringComparison.OrdinalIgnoreCase) ||
+                            name.Equals("nvngx_dlssnr.dll", StringComparison.OrdinalIgnoreCase))
+                        .Any(name =>
+                            File.Exists(Path.Combine(gameDirectory, name)) ||
+                            installed.Any(path =>
+                                Path.GetFileName(path).Equals(name, StringComparison.OrdinalIgnoreCase)));
+
+                    if (!neuralRuntimeAvailable)
+                    {
+                        progress?.Report(
+                            "DLSS Neural Rendering runtime was not present in the public Streamline package. " +
+                            "The other supported DLSS resources were staged; Neural Rendering remains disabled until an official compatible runtime is available.");
+                    }
                 }
 
                 return installed;
