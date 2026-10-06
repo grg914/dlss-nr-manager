@@ -96,7 +96,8 @@ public partial class MainWindow : Window
         await Task.WhenAll(
             RefreshReleaseAsync(),
             ScanGamesAsync(forceRefresh: false),
-            CheckManagerUpdateAsync());
+            CheckManagerUpdateAsync(),
+            RefreshMinecraftCausticaBuildAsync());
 
         await RefreshStateAsync();
 
@@ -120,6 +121,30 @@ public partial class MainWindow : Window
         // normal startup path. Only now discard the previous executable.
         _appUpdater.CleanupSuccessfulUpdateBackup();
         AppLogger.Info("Application initialization completed successfully.");
+    }
+
+    private async Task RefreshMinecraftCausticaBuildAsync()
+    {
+        try
+        {
+            MinecraftCausticaBuildText.Text =
+                "Checking tested Caustica RTX build…";
+
+            var build = await _minecraft.GetLatestCausticaBuildLabelAsync();
+
+            MinecraftCausticaBuildText.Text =
+                build == null
+                    ? "Caustica RTX build: no compatible Minecraft 26.2 release found"
+                    : $"Caustica RTX build: {build}";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn(
+                $"Caustica build check failed: {ex.Message}");
+
+            MinecraftCausticaBuildText.Text =
+                "Caustica RTX build: check unavailable";
+        }
     }
 
     private async Task ScanGamesAsync(bool forceRefresh)
