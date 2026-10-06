@@ -15,6 +15,9 @@ public sealed record StreamlineRuntimeResult(
 public sealed class StreamlineRuntimeService
 {
     private const string Repository = "NVIDIA-RTX/Streamline";
+    private const long MaxStreamlineDownloadBytes = 2L * 1024 * 1024 * 1024;
+    private const long MaxExtractedArchiveBytes = 8L * 1024 * 1024 * 1024;
+    private const int MaxArchiveEntries = 150_000;
     private readonly HttpClient _http = new();
 
     public string RootDirectory { get; } = Path.Combine(
@@ -97,7 +100,7 @@ public sealed class StreamlineRuntimeService
         }
 
         File.Copy(found, runtime, true);
-        File.WriteAllText(sourceMarker, asset.Url);
+        AtomicFile.WriteAllText(sourceMarker, asset.Url);
 
         var finalValidation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration);
         if (!IsTrustedNvidiaRuntime(finalValidation))
@@ -359,6 +362,12 @@ public sealed class StreamlineRuntimeService
                 cancellationToken);
             response.EnsureSuccessStatusCode();
 
+            if (response.Content.Headers.ContentLength is > MaxStreamlineDownloadBytes)
+            {
+                throw new InvalidDataException(
+                    "NVIDIA Streamline archive exceeds the 2 GB safety limit.");
+            }
+
             await using (var input =
                 await response.Content.ReadAsStreamAsync(
                     cancellationToken))
@@ -370,8 +379,10 @@ public sealed class StreamlineRuntimeService
                 128 * 1024,
                 true))
             {
-                await input.CopyToAsync(
+                await CopyWithLimitAsync(
+                    input,
                     output,
+                    MaxStreamlineDownloadBytes,
                     cancellationToken);
             }
 
@@ -410,20 +421,72 @@ public sealed class StreamlineRuntimeService
     private static void ExtractSafe(string zipPath, string destination)
     {
         Directory.CreateDirectory(destination);
-        var root = Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var root = Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar)
+                   + Path.DirectorySeparatorChar;
 
         using var archive = ZipFile.OpenRead(zipPath);
+
+        if (archive.Entries.Count > MaxArchiveEntries)
+        {
+            throw new InvalidDataException(
+                $"NVIDIA Streamline archive contains too many entries ({archive.Entries.Count:N0}).");
+        }
+
+        long expandedBytes = 0;
+
         foreach (var entry in archive.Entries)
         {
             if (string.IsNullOrWhiteSpace(entry.Name))
                 continue;
 
-            var target = Path.GetFullPath(Path.Combine(destination, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
+            expandedBytes = checked(expandedBytes + Math.Max(0, entry.Length));
+            if (expandedBytes > MaxExtractedArchiveBytes)
+            {
+                throw new InvalidDataException(
+                    "NVIDIA Streamline archive exceeds the 8 GB extracted-size safety limit.");
+            }
+
+            var target = Path.GetFullPath(
+                Path.Combine(
+                    destination,
+                    entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
+
             if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Unsafe archive entry: {entry.FullName}");
 
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             entry.ExtractToFile(target, true);
+        }
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
         }
     }
 
