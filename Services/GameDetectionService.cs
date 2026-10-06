@@ -137,9 +137,7 @@ public sealed class GameDetectionService
 
         var confidence = hasDlss && hasStreamline
             ? "Probable"
-            : hasDlss || hasOtherTemporal
-                ? "Candidate"
-                : "Candidate";
+            : "Candidate";
 
         return new DetectedGame(
             name,
@@ -285,7 +283,23 @@ public sealed class GameDetectionService
     {
         try
         {
-            return Directory.EnumerateDirectories(dir, "*", SearchOption.TopDirectoryOnly).ToArray();
+            // Never follow junctions/symlinks while probing a game tree. A game
+            // folder can contain reparse points that lead to an entire drive or
+            // back into an ancestor, causing long scans and duplicate work.
+            return Directory
+                .EnumerateDirectories(dir, "*", SearchOption.TopDirectoryOnly)
+                .Where(child =>
+                {
+                    try
+                    {
+                        return (File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                })
+                .ToArray();
         }
         catch
         {
