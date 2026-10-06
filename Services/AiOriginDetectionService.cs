@@ -73,7 +73,8 @@ public sealed class AiOriginDetectionService : IDisposable
     public AiOriginDetectionService(MediaService media)
     {
         _media = media;
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("DlssNrManager/1.4.1");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd(
+            $"DlssNrManager/{AppIdentity.UserAgentVersion}");
     }
 
     public async Task SetupAsync(
