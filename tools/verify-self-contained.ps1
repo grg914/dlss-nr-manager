@@ -31,6 +31,7 @@ $metadataIssues = @()
 $mutableRefs = @()
 $nestedGit = @()
 $lfsPointers = @()
+$retentionIssues = @()
 
 function Find-LfsPointers {
     param([Parameter(Mandatory=$true)][string]$Path)
@@ -90,6 +91,36 @@ foreach ($source in @($Lock.sources)) {
 
     Find-LfsPointers -Path $path | ForEach-Object {
         $lfsPointers += Get-RelativePathCompat -BasePath $Root -TargetPath $_
+    }
+
+    if ($source.retention) {
+        $removeGlobs = @($source.retention.remove_globs)
+        $keepGlobs = @($source.retention.keep_globs)
+
+        Get-ChildItem -LiteralPath $path -Recurse -File -Force -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $relativeToSource = (Get-RelativePathCompat -BasePath $path -TargetPath $_.FullName).Replace('\', '/')
+                $shouldRemove = $false
+
+                foreach ($glob in $removeGlobs) {
+                    if ($relativeToSource -like [string]$glob) {
+                        $shouldRemove = $true
+                        break
+                    }
+                }
+
+                if (-not $shouldRemove) {
+                    return
+                }
+
+                foreach ($glob in $keepGlobs) {
+                    if ($relativeToSource -like [string]$glob) {
+                        return
+                    }
+                }
+
+                $retentionIssues += "$relative -> unexpected retained file: $relativeToSource"
+            }
     }
 }
 
@@ -200,6 +231,15 @@ else {
 }
 
 Write-Host ""
+if ($retentionIssues.Count -eq 0) {
+    Write-Host "Vendored retention policies: OK"
+}
+else {
+    Write-Host "Vendored retention policy violations:"
+    $retentionIssues | Sort-Object -Unique | Select-Object -First 50 | ForEach-Object { Write-Host "  - $_" }
+}
+
+Write-Host ""
 if ($references.Count -eq 0) {
     Write-Host "Direct upstream dependency references in runtime/release code: NONE"
 }
@@ -223,6 +263,7 @@ $failed =
     $metadataIssues.Count -gt 0 -or
     $nestedGit.Count -gt 0 -or
     $lfsPointers.Count -gt 0 -or
+    $retentionIssues.Count -gt 0 -or
     $references.Count -gt 0
 
 if ($Strict -and $failed) {
