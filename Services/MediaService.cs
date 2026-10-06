@@ -601,28 +601,7 @@ public sealed class MediaService
     }
 
     private static void ExtractSafe(string zipPath, string destination)
-    {
-        var destinationRoot =
-            Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-
-        using var zip = ZipFile.OpenRead(zipPath);
-        foreach (var entry in zip.Entries)
-        {
-            if (string.IsNullOrWhiteSpace(entry.Name))
-                continue;
-
-            var target = Path.GetFullPath(
-                Path.Combine(destination, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
-
-            if (!target.StartsWith(destinationRoot, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException(
-                    $"Archive entry escapes destination: {entry.FullName}");
-
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            entry.ExtractToFile(target, true);
-        }
-    }
+        => SafeZip.Extract(zipPath, destination);
 
     private static string? FindFile(string root, string name)
     {
