@@ -15,6 +15,7 @@ public sealed record NvidiaDlssNrAvailability(
 
 public sealed class NvidiaDlssNrDiscoveryService
 {
+    private const long MaxDiscoveryArchiveBytes = 2L * 1024 * 1024 * 1024;
     private const string StreamlineRepository = "NVIDIA-RTX/Streamline";
     private const string DlssRepository = "NVIDIA/DLSS";
 
@@ -217,6 +218,12 @@ public sealed class NvidiaDlssNrDiscoveryService
                 cancellationToken);
             response.EnsureSuccessStatusCode();
 
+            if (response.Content.Headers.ContentLength is > MaxDiscoveryArchiveBytes)
+            {
+                throw new InvalidDataException(
+                    "NVIDIA Streamline discovery archive exceeds the 2 GB safety limit.");
+            }
+
             await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
             await using (var output = new FileStream(
                              tempZip,
@@ -226,7 +233,11 @@ public sealed class NvidiaDlssNrDiscoveryService
                              128 * 1024,
                              useAsync: true))
             {
-                await input.CopyToAsync(output, cancellationToken);
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    MaxDiscoveryArchiveBytes,
+                    cancellationToken);
             }
 
             using var archive = ZipFile.OpenRead(tempZip);
@@ -250,6 +261,37 @@ public sealed class NvidiaDlssNrDiscoveryService
             {
                 // Discovery is read-only; cleanup failure must not change the result.
             }
+        }
+    }
+
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidDataException(
+                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+            }
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
         }
     }
 
