@@ -12,10 +12,28 @@ Intended layout:
 - `Real-ESRGAN-ncnn-vulkan/` — Real-ESRGAN NCNN Vulkan source.
 - `Real-ESRGAN-model-sources/` — exact source snapshots currently used for model files.
 - `ReShade/` — ReShade source.
+- `ScoopInstaller-Versions/` — pinned manifest source currently used for ReShade metadata.
+- `onnxruntime/` — pinned ONNX Runtime source matching the managed package version.
 - `ai-models/` — exact Hugging Face model repositories used by the local AI-origin detector.
-- `minecraft/` — optional Fabric/performance-mod source mirrors.
+- `minecraft/` — Fabric/performance-mod source mirrors imported when `-IncludeMinecraftSources` is requested.
 
-Run `tools/vendor-third-party.ps1` to materialize these folders without nested `.git` directories. Each imported folder receives a `SOURCE.json` with its upstream URL and pinned ref.
+## Reproducible vendor import
+
+`DEPENDENCIES.lock.json` is the single source of truth for public vendored dependencies. Every entry is pinned to an immutable 40-character commit SHA. Human-readable upstream branch/tag information can be retained as metadata, but it is never used as the checkout ref.
+
+Run `tools/vendor-third-party.ps1` to materialize the snapshots. The importer:
+
+- checks out the exact locked commit;
+- initializes recursive submodules;
+- materializes Git LFS content when Git LFS is available;
+- refuses imports that still contain Git LFS pointer files;
+- removes nested `.git` directories and submodule `.git` files;
+- writes a `SOURCE.json` provenance file in each imported root;
+- refuses to silently reuse an existing folder whose provenance differs from the lock file.
+
+Use `-Replace` when intentionally refreshing an existing imported folder after changing the lock file.
+
+Run `tools/verify-self-contained.ps1` to audit the checkout. With `-Strict`, the verifier fails on missing locked mirrors, mutable refs, provenance mismatches, nested Git metadata, unresolved Git LFS pointers, or remaining direct upstream runtime/release dependencies.
 
 ## Licensing boundary
 
@@ -33,4 +51,4 @@ The AI detector repositories currently used by v3 are Apache-2.0 (`ai-image-dete
 
 A public repository can be self-contained for manager-owned/open-source source trees and redistributable model/runtime assets. It cannot remove dependencies on Windows, an NVIDIA driver, Minecraft, Java/MSVC/Vulkan toolchains, or license-restricted NVIDIA SDK inputs.
 
-The production target should be: all redistributable source mirrored here; all permitted runtime assets published from this repository; application services read local/bundled assets first; no production dependency on another GitHub repository; restricted SDK/toolchain inputs remain explicitly local build prerequisites.
+The production target is: all redistributable source mirrored here; all permitted runtime assets published from this repository; application services read local/bundled assets first; no production dependency on another GitHub repository; restricted SDK/toolchain inputs remain explicitly local build prerequisites.
