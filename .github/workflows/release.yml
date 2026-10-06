@@ -7,7 +7,9 @@ on:
       - 'DlssNrManager.csproj'
       - '.github/workflows/release.yml'
       - 'tools/build-realesrgan.ps1'
+      - 'tools/build-optiscaler.ps1'
       - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
+      - 'third_party/OptiScaler/**'
       - 'third_party/Real-ESRGAN-model-sources/**'
       - 'third_party/ai-models/**'
   workflow_dispatch:
@@ -104,6 +106,26 @@ jobs:
           }
 
           Write-Host "Packaged manager-owned Real-ESRGAN runtime: $zip"
+      - name: Build and package vendored OptiScaler
+        id: optiscaler
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory release-assets -Clean
+          if ($LASTEXITCODE -ne 0) {
+            throw "Vendored OptiScaler build tool failed."
+          }
+
+          $zip = Get-ChildItem "release-assets" -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+
+          if (-not $zip) {
+            throw "Vendored OptiScaler release package was not generated."
+          }
+
+          "asset=$($zip.Name)" >> $env:GITHUB_OUTPUT
+          Write-Host "Packaged manager-owned OptiScaler runtime: $($zip.FullName)"
+
       - name: Bundle AI detector runtime models from vendored LFS sources
         shell: pwsh
         run: |
@@ -307,6 +329,7 @@ jobs:
             "DlssNrManager-win-x64.zip",
             (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}"),
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
+            (Join-Path "release-assets" "${{ steps.optiscaler.outputs.asset }}"),
             "release-assets/ai-origin-primary-int8.onnx",
             "release-assets/ai-origin-secondary-int8.onnx",
             "release-assets/realesrgan-x4plus.param",
@@ -366,6 +389,7 @@ jobs:
             release-assets/ScandiShaderV2.zip
             release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
             release-assets/realesrgan-ncnn-vulkan-windows-x64.zip
+            release-assets/OptiScaler-NR-*-vendored-win-x64.zip
             release-assets/ai-origin-primary-int8.onnx
             release-assets/ai-origin-secondary-int8.onnx
             release-assets/realesr*.param
