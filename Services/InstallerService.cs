@@ -273,6 +273,55 @@ public sealed class InstallerService
         }
     }
 
+    public void RegisterManagedFiles(
+        string gameDir,
+        IEnumerable<string> absolutePaths)
+    {
+        var manifestPath = Path.Combine(gameDir, ManifestFile);
+        var manifest = ReadManifest(gameDir)
+            ?? throw new InvalidOperationException(
+                "Cannot register managed files because the install manifest is missing.");
+
+        var managed = new HashSet<string>(
+            manifest.ManagedFiles ?? [],
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in absolutePaths)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                continue;
+
+            string relative;
+            try
+            {
+                relative = Path.GetRelativePath(gameDir, Path.GetFullPath(path));
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!TryResolveUnderRoot(gameDir, relative, out var resolved) ||
+                !File.Exists(resolved))
+                continue;
+
+            managed.Add(relative);
+        }
+
+        var updated = manifest with
+        {
+            ManagedFiles = managed
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .ToList()
+        };
+
+        File.WriteAllText(
+            manifestPath,
+            JsonSerializer.Serialize(
+                updated,
+                new JsonSerializerOptions { WriteIndented = true }));
+    }
+
     public void ApplyPreset(string gameDir, string workingScale, bool enableNeuralRendering = true)
     {
         var ini = Path.Combine(gameDir, "OptiScaler.ini");
