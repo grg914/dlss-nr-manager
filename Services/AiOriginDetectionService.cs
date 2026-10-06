@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -731,13 +732,54 @@ public sealed class AiOriginDetectionService : IDisposable
         string source,
         CancellationToken cancellationToken)
     {
-        const int maxBytes = 12 * 1024 * 1024;
-        await using var stream = File.OpenRead(source);
-        var length = (int)Math.Min(stream.Length, maxBytes);
-        var buffer = new byte[length];
-        var read = await stream.ReadAsync(buffer.AsMemory(0, length), cancellationToken);
-        var text = Encoding.Latin1.GetString(buffer, 0, read).ToLowerInvariant();
-        return FindMarkers(text);
+        var found = new List<string>();
+
+        try
+        {
+            using var stream = File.OpenRead(source);
+            var decoder = BitmapDecoder.Create(
+                stream,
+                BitmapCreateOptions.PreservePixelFormat,
+                BitmapCacheOption.OnLoad);
+
+            if (decoder.Frames.FirstOrDefault()?.Metadata is BitmapMetadata metadata)
+            {
+                var structured = string.Join(
+                    "\n",
+                    new[]
+                    {
+                        metadata.ApplicationName,
+                        metadata.Comment,
+                        metadata.Subject,
+                        metadata.Title,
+                        metadata.CameraManufacturer,
+                        metadata.CameraModel
+                    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+                found.AddRange(
+                    FindMarkers(
+                        structured,
+                        structuredMetadata: true));
+            }
+        }
+        catch
+        {
+            // Metadata parsing is advisory and must never block visual analysis.
+        }
+
+        var rawText = await ReadHeadAndTailTextAsync(
+            source,
+            8 * 1024 * 1024,
+            cancellationToken);
+
+        found.AddRange(
+            FindMarkers(
+                rawText,
+                structuredMetadata: false));
+
+        return found
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private async Task<IReadOnlyList<string>> FindVideoProvenanceSignalsAsync(
@@ -756,28 +798,133 @@ public sealed class AiOriginDetectionService : IDisposable
             Path.GetDirectoryName(_media.FfprobePath)!,
             cancellationToken);
 
-        return FindMarkers((probe.Output + "\n" + probe.Error).ToLowerInvariant());
-    }
-
-    private static IReadOnlyList<string> FindMarkers(string text)
-    {
         var found = new List<string>();
 
-        foreach (var marker in AiMarkers)
+        try
         {
-            if (text.Contains(marker, StringComparison.OrdinalIgnoreCase))
-                found.Add($"Generator metadata: {marker}");
-        }
+            using var json = JsonDocument.Parse(probe.Output);
+            var metadataValues = new List<string>();
 
-        if (ProvenanceMarkers.Any(marker =>
-                text.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+            if (json.RootElement.TryGetProperty("format", out var format) &&
+                format.TryGetProperty("tags", out var formatTags))
+            {
+                CollectJsonStringValues(formatTags, metadataValues);
+            }
+
+            if (json.RootElement.TryGetProperty("streams", out var streams) &&
+                streams.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var stream in streams.EnumerateArray())
+                {
+                    if (stream.TryGetProperty("tags", out var streamTags))
+                        CollectJsonStringValues(streamTags, metadataValues);
+                }
+            }
+
+            found.AddRange(
+                FindMarkers(
+                    string.Join("\n", metadataValues),
+                    structuredMetadata: true));
+        }
+        catch
         {
-            found.Add("C2PA / Content Credentials marker present (not proof of AI by itself)");
+            // A malformed ffprobe metadata payload does not invalidate visual analysis.
         }
 
         return found
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static void CollectJsonStringValues(
+        JsonElement element,
+        ICollection<string> values)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var property in element.EnumerateObject())
+                    CollectJsonStringValues(property.Value, values);
+                break;
+
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray())
+                    CollectJsonStringValues(item, values);
+                break;
+
+            case JsonValueKind.String:
+                var value = element.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                    values.Add(value);
+                break;
+        }
+    }
+
+    private static IReadOnlyList<string> FindMarkers(
+        string text,
+        bool structuredMetadata)
+    {
+        var found = new List<string>();
+
+        foreach (var marker in AiMarkers)
+        {
+            if (!text.Contains(
+                    marker,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            found.Add(
+                structuredMetadata
+                    ? $"Generator metadata: {marker}"
+                    : $"Generator marker in file bytes: {marker} (unverified)");
+        }
+
+        if (ProvenanceMarkers.Any(marker =>
+                text.Contains(
+                    marker,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            found.Add(
+                "C2PA / Content Credentials marker present (not proof of AI by itself)");
+        }
+
+        return found;
+    }
+
+    private static async Task<string> ReadHeadAndTailTextAsync(
+        string path,
+        int bytesPerSide,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            128 * 1024,
+            useAsync: true);
+
+        var headLength = (int)Math.Min(stream.Length, bytesPerSide);
+        var head = new byte[headLength];
+        var headRead = await stream.ReadAsync(
+            head.AsMemory(),
+            cancellationToken);
+
+        if (stream.Length <= bytesPerSide)
+            return Encoding.Latin1.GetString(head, 0, headRead);
+
+        var tailLength = (int)Math.Min(stream.Length - headRead, bytesPerSide);
+        var tail = new byte[tailLength];
+        stream.Seek(-tailLength, SeekOrigin.End);
+        var tailRead = await stream.ReadAsync(
+            tail.AsMemory(),
+            cancellationToken);
+
+        return Encoding.Latin1.GetString(head, 0, headRead) +
+               "\n" +
+               Encoding.Latin1.GetString(tail, 0, tailRead);
     }
 
     private async Task<double> ProbeDurationAsync(
