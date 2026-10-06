@@ -502,7 +502,7 @@
                 </Grid.ColumnDefinitions>
 
                 <ComboBox x:Name="MinecraftInstanceBox"
-                          DisplayMemberPath="Name"
+                          DisplayMemberPath="DisplayName"
                           SelectionChanged="MinecraftInstanceBox_SelectionChanged"/>
 
                 <Button Grid.Column="2"
