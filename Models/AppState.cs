@@ -59,4 +59,5 @@ public sealed record InstallManifest(
     string RuntimeHash,
     DateTimeOffset InstalledAt,
     IReadOnlyList<string>? ManagedFiles = null,
-    string? BaselineBackup = null);
+    string? BaselineBackup = null,
+    IReadOnlyDictionary<string, string>? ManagedFileHashes = null);
