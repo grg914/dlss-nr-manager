@@ -105,7 +105,15 @@
       "path": "third_party/ai-models/ai-image-detection-ONNX",
       "url": "https://huggingface.co/onnx-community/ai-image-detection-ONNX",
       "ref": "e3cfe99f2841930a040a6281682c10c989965603",
-      "redistribution": "Apache-2.0"
+      "redistribution": "Apache-2.0",
+      "retention": {
+        "remove_globs": [
+          "onnx/*.onnx"
+        ],
+        "keep_globs": [
+          "onnx/model_int8.onnx"
+        ]
+      }
     },
     {
       "id": "ai-secondary",
@@ -113,7 +121,15 @@
       "path": "third_party/ai-models/ai-image-detect-distilled-ONNX",
       "url": "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX",
       "ref": "7f067e23521eeb6d6525221af82c613fb746aaff",
-      "redistribution": "MIT"
+      "redistribution": "MIT",
+      "retention": {
+        "remove_globs": [
+          "onnx/*.onnx"
+        ],
+        "keep_globs": [
+          "onnx/model_int8.onnx"
+        ]
+      }
     },
     {
       "id": "minecraft-fabric-installer",
