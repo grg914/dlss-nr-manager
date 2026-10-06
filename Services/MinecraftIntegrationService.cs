@@ -501,7 +501,14 @@ public sealed class MinecraftIntegrationService
                         && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
                         && !ContainsAny(name, "sources", "dev", "javadoc"));
 
-            await BackupMatchingAsync(mods, backup, "caustica", cancellationToken);
+            await BackupMatchingFileAsync(
+                instance.RootDirectory,
+                mods,
+                backup,
+                "caustica",
+                "caustica",
+                excludedPath: null,
+                cancellationToken);
 
             var causticaDestination = Path.Combine(mods, causticaAsset.Name);
             managedDestinations.Add(causticaDestination);
