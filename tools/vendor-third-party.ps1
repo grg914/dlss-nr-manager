@@ -32,6 +32,9 @@ function Import-Repo {
         git -C $temp checkout $Ref
         if ($LASTEXITCODE -ne 0) { throw "git checkout failed: $Url @ $Ref" }
 
+        git -C $temp submodule update --init --recursive
+        if ($LASTEXITCODE -ne 0) { throw "git submodule update failed: $Url @ $Ref" }
+
         if (Get-Command git-lfs -ErrorAction SilentlyContinue) {
             git -C $temp lfs pull | Out-Host
         }
@@ -62,6 +65,8 @@ Import-Repo "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git" "37026f4982
 Import-Repo "https://github.com/Tohrusky/realesrgan-ncnn-py.git" "900c0549a2fb3481b71d0369253522519308f1f2" "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py"
 Import-Repo "https://github.com/itsspin/spintexture.git" "9f291a8aa2afed34fc42e76696c2ce8317cf2143" "third_party/Real-ESRGAN-model-sources/spintexture"
 Import-Repo "https://github.com/crosire/reshade.git" "7bf9de8b33bcc76c3177007e65d73c72dd0f34c0" "third_party/ReShade"
+Import-Repo "https://github.com/ScoopInstaller/Versions.git" "2657815df68427ae91cb58918d47200fb7a11c31" "third_party/ScoopInstaller-Versions"
+Import-Repo "https://github.com/microsoft/onnxruntime.git" "v1.30.0" "third_party/onnxruntime"
 Import-Repo "https://huggingface.co/onnx-community/ai-image-detection-ONNX" "e3cfe99f2841930a040a6281682c10c989965603" "third_party/ai-models/ai-image-detection-ONNX"
 Import-Repo "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX" "7f067e23521eeb6d6525221af82c613fb746aaff" "third_party/ai-models/ai-image-detect-distilled-ONNX"
 
