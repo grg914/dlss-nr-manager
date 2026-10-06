@@ -509,12 +509,11 @@ public sealed class MinecraftOneClickService
         BackupFile(textureDestination, Path.Combine(backup, "scandi-packs", "resourcepacks", ScandiTextureAsset));
         BackupFile(shaderDestination, Path.Combine(backup, "scandi-packs", "shaderpacks", ScandiShaderAsset));
 
-        var textureSource = File.Exists(textureDestination)
-            ? textureDestination
-            : FindLocalPack(ScandiTextureAsset);
-        var shaderSource = File.Exists(shaderDestination)
-            ? shaderDestination
-            : FindLocalPack(ScandiShaderAsset, "ScandiShaderV2(5).zip");
+        // Never treat an already-installed destination as the update source.
+        // Doing so made a stale/broken Scandi pack self-reinstall forever and
+        // prevented a newer bundled/release asset from replacing it.
+        var textureSource = FindLocalPack(ScandiTextureAsset);
+        var shaderSource = FindLocalPack(ScandiShaderAsset, "ScandiShaderV2(5).zip");
 
         if (textureSource == null || shaderSource == null)
         {
@@ -553,8 +552,13 @@ public sealed class MinecraftOneClickService
 
         if (textureInstalled)
             progress?.Report($"Installed {ScandiTextureAsset} → resourcepacks.");
+        else if (File.Exists(textureDestination))
+            progress?.Report($"Existing {ScandiTextureAsset} was preserved because no verified replacement asset was available.");
+
         if (shaderInstalled)
             progress?.Report($"Installed {ScandiShaderAsset} → shaderpacks (kept disabled for the Caustica RTX profile).");
+        else if (File.Exists(shaderDestination))
+            progress?.Report($"Existing {ScandiShaderAsset} was preserved because no verified replacement asset was available.");
 
         return new ScandiPackInstallResult(textureInstalled, shaderInstalled);
     }
