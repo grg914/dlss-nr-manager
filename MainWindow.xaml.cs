@@ -441,7 +441,10 @@ public partial class MainWindow : Window
             startInfo.ArgumentList.Add("-Command");
             startInfo.ArgumentList.Add(command);
 
-            Process.Start(startInfo);
+            _ = Process.Start(startInfo)
+                ?? throw new InvalidOperationException(
+                    "Could not start the local-data cleanup process.");
+
             Close();
         }
         catch (Exception ex)
