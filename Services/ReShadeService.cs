@@ -48,6 +48,13 @@ public sealed class ReShadeService
             ?? throw new InvalidOperationException("ReShade SHA-256 missing from manifest.");
 
         var actualUrl = url.Split('#')[0];
+        if (!Uri.TryCreate(actualUrl, UriKind.Absolute, out var downloadUri) ||
+            !downloadUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected ReShade installer URL: {actualUrl}");
+        }
+
         Directory.CreateDirectory(CacheDirectory);
         var destination = Path.Combine(
             CacheDirectory,
@@ -62,34 +69,44 @@ public sealed class ReShadeService
             File.Delete(destination);
         }
 
+        var temp = destination + ".download";
         progress?.Report($"Downloading ReShade {version} with full add-on support…");
-        using var download = await _http.GetAsync(
-            actualUrl,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-        download.EnsureSuccessStatusCode();
 
-        await using (var input = await download.Content.ReadAsStreamAsync(cancellationToken))
-        await using (var output = new FileStream(
-                         destination,
-                         FileMode.Create,
-                         FileAccess.Write,
-                         FileShare.None,
-                         128 * 1024,
-                         useAsync: true))
+        try
         {
-            await input.CopyToAsync(output, cancellationToken);
-        }
+            using var download = await _http.GetAsync(
+                downloadUri,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            download.EnsureSuccessStatusCode();
 
-        var actualHash = await Sha256Async(destination, cancellationToken);
-        if (!actualHash.Equals(hash, StringComparison.OrdinalIgnoreCase))
+            await using (var input = await download.Content.ReadAsStreamAsync(cancellationToken))
+            await using (var output = new FileStream(
+                             temp,
+                             FileMode.Create,
+                             FileAccess.Write,
+                             FileShare.None,
+                             128 * 1024,
+                             useAsync: true))
+            {
+                await input.CopyToAsync(output, cancellationToken);
+            }
+
+            var actualHash = await Sha256Async(temp, cancellationToken);
+            if (!actualHash.Equals(hash, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"ReShade installer SHA-256 mismatch. Expected {hash}, got {actualHash}.");
+            }
+
+            File.Move(temp, destination, true);
+            return (version, destination);
+        }
+        catch
         {
-            try { File.Delete(destination); } catch { }
-            throw new InvalidDataException(
-                $"ReShade installer SHA-256 mismatch. Expected {hash}, got {actualHash}.");
+            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+            throw;
         }
-
-        return (version, destination);
     }
 
     public async Task LaunchAddonInstallerAsync(
