@@ -72,6 +72,47 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
 
+      - name: Bundle AI detector runtime models from vendored LFS sources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $primarySource = "third_party/ai-models/ai-image-detection-ONNX/onnx/model_int8.onnx"
+          $secondarySource = "third_party/ai-models/ai-image-detect-distilled-ONNX/onnx/model_int8.onnx"
+
+          git lfs version
+          git lfs pull --include="$primarySource,$secondarySource" --exclude=""
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to materialize vendored AI detector models from Git LFS."
+          }
+
+          $assets = @(
+            @{
+              Source = $primarySource
+              Destination = "release-assets/ai-origin-primary-int8.onnx"
+              Sha256 = "08B349F1B535F2F0CC2A8610BBF57C27593A0364E78B6C91205C0FF2BF29D714"
+            },
+            @{
+              Source = $secondarySource
+              Destination = "release-assets/ai-origin-secondary-int8.onnx"
+              Sha256 = "7273CB9CD81E17EAE04771010D2199BA6AE34EA2A75A275518C0BC4A2C26FFD2"
+            }
+          )
+
+          foreach ($asset in $assets) {
+            if (!(Test-Path -LiteralPath $asset.Source)) {
+              throw "Vendored AI model is missing: $($asset.Source)"
+            }
+
+            $actual = (Get-FileHash -LiteralPath $asset.Source -Algorithm SHA256).Hash.ToUpperInvariant()
+            if ($actual -ne $asset.Sha256) {
+              throw "AI model SHA-256 mismatch for $($asset.Source). Expected $($asset.Sha256), got $actual."
+            }
+
+            Copy-Item -LiteralPath $asset.Source -Destination $asset.Destination -Force
+            Write-Host "Bundled $($asset.Destination) • SHA-256 $actual"
+          }
+
       - name: Bundle Caustica RTX from monorepo or manager release
         id: caustica
         shell: pwsh
@@ -191,7 +232,9 @@ jobs:
           $files = @(
             "publish/DlssNrManager.exe",
             "DlssNrManager-win-x64.zip",
-            (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}")
+            (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}"),
+            "release-assets/ai-origin-primary-int8.onnx",
+            "release-assets/ai-origin-secondary-int8.onnx"
           )
 
           foreach ($optional in @(
@@ -236,6 +279,8 @@ jobs:
             release-assets/SPBRScandi.zip
             release-assets/ScandiShaderV2.zip
             release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
+            release-assets/ai-origin-primary-int8.onnx
+            release-assets/ai-origin-secondary-int8.onnx
           fail_on_unmatched_files: false
           generate_release_notes: true
           make_latest: true
