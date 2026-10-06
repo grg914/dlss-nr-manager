@@ -62,7 +62,6 @@ public partial class MainWindow : Window
         _minecraftOneClick = new MinecraftOneClickService(_minecraft);
         _aiOrigin = new AiOriginDetectionService(_media);
 
-        var version = AppIdentity.Version;
         AppVersionText.Text = $"Version v{AppIdentity.VersionString}";
 
         Loaded += async (_, _) =>
@@ -101,7 +100,7 @@ public partial class MainWindow : Window
     {
         using var scope = AppLogger.Scope("MainWindow.InitializeAsync");
 
-        _gpu = _gpus.Detect();
+        _gpu = await Task.Run(() => _gpus.Detect());
         _gpuCapabilities = GpuCapabilityService.Evaluate(_gpu);
         GpuText.Text = $"{_gpu.Name}  •  {_gpu.Generation}";
         GpuCompatibilityText.Text = _gpuCapabilities.Summary;
@@ -298,9 +297,35 @@ public partial class MainWindow : Window
             return;
         }
 
-        var safety = await Task.Run(() => GameSafetyService.Assess(game));
-        GameSafetyText.Text = safety.Message;
+        GameSafetyAssessment safety;
+        try
+        {
+            safety = await Task.Run(() => GameSafetyService.Assess(game));
+        }
+        catch (Exception ex)
+        {
+            if (refreshVersion == _stateRefreshVersion)
+            {
+                GameSafetyText.Text =
+                    $"Anti-cheat risk check unavailable: {ex.Message}";
+            }
 
+            safety = new GameSafetyAssessment(
+                false,
+                [],
+                "Anti-cheat risk check unavailable.");
+        }
+
+        if (refreshVersion != _stateRefreshVersion ||
+            !string.Equals(
+                game,
+                GamePathBox.Text,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        GameSafetyText.Text = safety.Message;
         StatusText.Text = "Reading installation state…";
         InstallButton.IsEnabled = false;
         UpdateButton.IsEnabled = false;
@@ -441,7 +466,9 @@ public partial class MainWindow : Window
             startInfo.ArgumentList.Add("-Command");
             startInfo.ArgumentList.Add(command);
 
-            Process.Start(startInfo);
+            _ = Process.Start(startInfo)
+                ?? throw new InvalidOperationException(
+                    "Could not launch the cleanup helper process.");
             Close();
         }
         catch (Exception ex)
@@ -589,8 +616,22 @@ public partial class MainWindow : Window
             return;
         }
 
-        var safety = await Task.Run(() => GameSafetyService.Assess(gameDir));
-        GameSafetyText.Text = safety.Message;
+        GameSafetyAssessment safety;
+        try
+        {
+            safety = await Task.Run(() => GameSafetyService.Assess(gameDir));
+            GameSafetyText.Text = safety.Message;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Game safety assessment failed.", ex);
+            MessageBox.Show(
+                $"The anti-cheat safety check could not be completed.\n\n{ex.Message}\n\nInstallation has been cancelled.",
+                "Safety check failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
 
         if (safety.AntiCheatDetected)
         {
@@ -695,7 +736,9 @@ public partial class MainWindow : Window
                 return;
         }
 
-        var proxy = ((ComboBoxItem)ProxyBox.SelectedItem).Content?.ToString() ?? "dxgi.dll";
+        var proxy =
+            (ProxyBox.SelectedItem as ComboBoxItem)?.Content?.ToString()
+            ?? "dxgi.dll";
 
         try
         {

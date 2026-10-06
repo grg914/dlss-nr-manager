@@ -652,13 +652,26 @@ public sealed class MinecraftOneClickService
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        if (!Path.GetFullPath(source).Equals(
+
+        if (Path.GetFullPath(source).Equals(
                 Path.GetFullPath(destination),
                 StringComparison.OrdinalIgnoreCase))
         {
-            File.Copy(source, destination, true);
+            return true;
         }
-        return true;
+
+        var temp = destination + ".download";
+        try
+        {
+            File.Copy(source, temp, true);
+            File.Move(temp, destination, true);
+            return true;
+        }
+        catch
+        {
+            TryDeleteFile(temp);
+            throw;
+        }
     }
 
     private static void RestoreManagedScandiPacks(string root, string backup)

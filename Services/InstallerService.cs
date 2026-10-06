@@ -567,31 +567,7 @@ public sealed class InstallerService
                 : null;
 
     private static void ExtractSafe(string zipPath, string destination)
-    {
-        Directory.CreateDirectory(destination);
-
-        var root = Path.GetFullPath(destination)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-            + Path.DirectorySeparatorChar;
-
-        using var archive = ZipFile.OpenRead(zipPath);
-        foreach (var entry in archive.Entries)
-        {
-            if (string.IsNullOrWhiteSpace(entry.Name))
-                continue;
-
-            var target = Path.GetFullPath(Path.Combine(
-                destination,
-                entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
-
-            if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException(
-                    $"Unsafe archive entry: {entry.FullName}");
-
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            entry.ExtractToFile(target, overwrite: true);
-        }
-    }
+        => SafeZip.Extract(zipPath, destination);
 
     private static void RollbackFailedInstall(
         string gameDir,

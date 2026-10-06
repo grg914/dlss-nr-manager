@@ -734,16 +734,22 @@ public sealed class MinecraftIntegrationService
         {
             if (File.Exists(candidate))
             {
-                Process.Start(new ProcessStartInfo(candidate) { UseShellExecute = true });
+                _ = Process.Start(
+                    new ProcessStartInfo(candidate)
+                    {
+                        UseShellExecute = true
+                    }) ?? throw new InvalidOperationException(
+                        "Windows could not launch Minecraft Launcher.");
                 return;
             }
         }
 
-        Process.Start(new ProcessStartInfo(
+        _ = Process.Start(new ProcessStartInfo(
             "https://www.minecraft.net/download")
         {
             UseShellExecute = true
-        });
+        }) ?? throw new InvalidOperationException(
+            "Windows could not open the Minecraft download page.");
     }
 
     private async Task<GitHubRelease> FindReleaseAsync(

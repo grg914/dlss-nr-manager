@@ -97,7 +97,7 @@ public sealed class StreamlineRuntimeService
         }
 
         File.Copy(found, runtime, true);
-        File.WriteAllText(sourceMarker, asset.Url);
+        AtomicFile.WriteAllText(sourceMarker, asset.Url);
 
         var finalValidation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration);
         if (!IsTrustedNvidiaRuntime(finalValidation))
@@ -408,24 +408,7 @@ public sealed class StreamlineRuntimeService
     }
 
     private static void ExtractSafe(string zipPath, string destination)
-    {
-        Directory.CreateDirectory(destination);
-        var root = Path.GetFullPath(destination).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-
-        using var archive = ZipFile.OpenRead(zipPath);
-        foreach (var entry in archive.Entries)
-        {
-            if (string.IsNullOrWhiteSpace(entry.Name))
-                continue;
-
-            var target = Path.GetFullPath(Path.Combine(destination, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
-            if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException($"Unsafe archive entry: {entry.FullName}");
-
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            entry.ExtractToFile(target, true);
-        }
-    }
+        => SafeZip.Extract(zipPath, destination);
 
     private static string? FindProductionFile(string root, string name)
     {

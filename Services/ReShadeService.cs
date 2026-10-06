@@ -133,12 +133,13 @@ public sealed class ReShadeService
 
         progress?.Report($"Launching ReShade {version} add-on installer…");
 
-        Process.Start(new ProcessStartInfo
+        _ = Process.Start(new ProcessStartInfo
         {
             FileName = installer,
-            Arguments = $"\"{targetExecutable}\"",
+            ArgumentList = { targetExecutable },
             UseShellExecute = true
-        });
+        }) ?? throw new InvalidOperationException(
+            "Windows could not launch the ReShade installer.");
     }
 
     private static async Task<string> Sha256Async(

@@ -313,10 +313,28 @@ try {
 
         using (var archive = ZipFile.OpenRead(zipPath))
         {
+            const int maxEntries = 200;
+            const long maxExpandedBytes = 1024L * 1024 * 1024;
+
+            if (archive.Entries.Count > maxEntries)
+            {
+                throw new InvalidDataException(
+                    $"The update ZIP contains too many entries ({archive.Entries.Count}).");
+            }
+
+            long expandedBytes = 0;
+
             foreach (var entry in archive.Entries)
             {
                 if (string.IsNullOrWhiteSpace(entry.Name))
                     continue;
+
+                expandedBytes += Math.Max(0, entry.Length);
+                if (expandedBytes > maxExpandedBytes)
+                {
+                    throw new InvalidDataException(
+                        "The update ZIP expands beyond the 1 GB safety limit.");
+                }
 
                 var target = Path.GetFullPath(Path.Combine(
                     extract,
@@ -343,13 +361,8 @@ try {
                 "DlssNrManager.exe",
                 SearchOption.AllDirectories)
             .FirstOrDefault()
-            ?? Directory.EnumerateFiles(
-                    extract,
-                    "*.exe",
-                    SearchOption.AllDirectories)
-                .FirstOrDefault()
             ?? throw new InvalidDataException(
-                "The update ZIP does not contain an executable.");
+                "The update ZIP does not contain DlssNrManager.exe.");
     }
 
     private static void ValidateStagedExecutable(string path)

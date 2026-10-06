@@ -141,13 +141,32 @@ public sealed class PcUpdateService
 
     public void OpenAction(PcUpdateItem item)
     {
-        if (string.IsNullOrWhiteSpace(item.ActionValue))
+        var action = item.ActionValue;
+        if (string.IsNullOrWhiteSpace(action))
             return;
 
-        Process.Start(new ProcessStartInfo(item.ActionValue)
+        var isSettingsUri =
+            action.StartsWith(
+                "ms-settings:",
+                StringComparison.OrdinalIgnoreCase);
+
+        var isHttpsUri =
+            Uri.TryCreate(action, UriKind.Absolute, out var uri) &&
+            uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (!isSettingsUri && !isHttpsUri)
+        {
+            throw new InvalidOperationException(
+                "The cached update action is not a trusted HTTPS or Windows Settings target.");
+        }
+
+        _ = Process.Start(new ProcessStartInfo(action)
         {
             UseShellExecute = true
-        });
+        }) ?? throw new InvalidOperationException(
+            "Windows could not open the selected update action.");
     }
 
     public async Task<string> UpdateAllWingetAsync(

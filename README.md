@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.5.0**.
+Current application version: **v1.5.1**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -33,7 +33,25 @@ Design references are kept under:
 
 The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
 
-## What's new in v1.5.0
+## What's new in v1.5.1
+
+- Moved NVIDIA GPU detection off the WPF UI thread so startup stays responsive while registry/`nvidia-smi` probing runs.
+- Improved multi-GPU selection: when multiple RTX adapters share the same generation, the highest RTX model number is preferred instead of alphabetical order.
+- Hardened game-state refresh against rapid selection changes so an older anti-cheat scan cannot overwrite the status of a newly selected game.
+- Anti-cheat scans now stay inside the selected game tree and skip directory reparse points/junctions instead of following them outside the target.
+- Installation now fails closed if the anti-cheat safety scan itself errors, instead of allowing an unhandled async UI exception.
+- Removed an unsafe direct `ComboBoxItem` cast in proxy selection and added a deterministic fallback.
+- NVIDIA Neural Rendering discovery no longer trusts an empty/truncated cache file and writes its package index atomically.
+- Streamline runtime provenance markers are written atomically.
+- PC Update Center now only opens cached actions that resolve to HTTPS URLs or `ms-settings:` targets.
+- Stale media helper `Process` handles are disposed deterministically after cleanup.
+- ReShade and Minecraft launcher actions now report launch failures instead of silently continuing.
+- Centralized ZIP extraction behind a bounded safe extractor with traversal protection, entry-count limits and a 4 GB expanded-size ceiling for downloaded component archives.
+- Self-update ZIPs now accept only `DlssNrManager.exe`, cap archive size/entry count, and no longer fall back to an arbitrary executable found in the archive.
+- Minecraft Scandi pack copies are now atomic, preventing a crash/interruption from leaving a partially written resource pack.
+- Updated the optional `ScandiTextureV1.zip` release fingerprint to the sanitized pack with Fresh Flower Pots removed: `BA6D6EB17F5D49CAF9F42976BCA524A28C8261576C740B3D5D1064F7C69F800E`.
+
+## Previous v1.5.0 changes
 
 - Replaced the production long-scroll dashboard with **DlssNrManager Menu**, a fixed left navigation layout.
 - Preserved all existing WPF named controls and all existing event handlers while moving them into focused pages.
