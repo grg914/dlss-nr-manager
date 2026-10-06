@@ -100,7 +100,8 @@ public static class ExternalProcessTracker
                         Kill(process);
                     }
                 }
-                catch
+                catch { }
+                finally
                 {
                     try { process.Dispose(); } catch { }
                 }
