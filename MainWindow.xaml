@@ -746,7 +746,7 @@
                                 Content="Check NVIDIA files"
                                 Click="CheckMinecraftNvidiaNr_Click"/>
                       </Grid>
-                      <TextBlock Text="Checks only official NVIDIA/DLSS and NVIDIA-RTX/Streamline GitHub sources for public DLSS-NR headers/runtime files. It does not download unofficial DLLs or treat renamed files as support."
+                      <TextBlock Text="Checks NVIDIA/DLSS and NVIDIA-RTX/Streamline, downloads the latest official Streamline package, and stages the public production DLLs for the selected Minecraft instance. DLSS-NR-specific files are reported as unavailable when NVIDIA does not publish them; unofficial or renamed DLLs are never substituted."
                                  Foreground="{StaticResource Muted}"
                                  FontSize="10"
                                  TextWrapping="Wrap"
