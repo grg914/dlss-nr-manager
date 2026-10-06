@@ -23,9 +23,12 @@
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove="tests\**\*.cs" />
-    <EmbeddedResource Remove="tests\**\*" />
-    <None Remove="tests\**\*" />
+    <Compile Remove="tests\**\*.cs;third_party\**\*.cs;third_party-local\**\*.cs;Caustica-RTX\**\*.cs" />
+    <Page Remove="third_party\**\*.xaml;third_party-local\**\*.xaml;Caustica-RTX\**\*.xaml" />
+    <ApplicationDefinition Remove="third_party\**\*.xaml;third_party-local\**\*.xaml;Caustica-RTX\**\*.xaml" />
+    <EmbeddedResource Remove="tests\**\*;third_party\**\*;third_party-local\**\*;Caustica-RTX\**\*" />
+    <Content Remove="third_party\**\*;third_party-local\**\*;Caustica-RTX\**\*" />
+    <None Remove="tests\**\*;third_party\**\*;third_party-local\**\*;Caustica-RTX\**\*" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="assets\branding\logo.png" />
