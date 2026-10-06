@@ -895,6 +895,93 @@ public sealed class MinecraftIntegrationService
         }
     }
 
+    private static void RestoreMatchingBackupFiles(
+        string backup,
+        string minecraftRoot,
+        string destinationDirectory,
+        string token)
+    {
+        var relativeDirectory = Path.GetRelativePath(
+            minecraftRoot,
+            destinationDirectory);
+
+        var source = Path.Combine(
+            backup,
+            "extra",
+            relativeDirectory);
+
+        if (!Directory.Exists(source))
+            return;
+
+        Directory.CreateDirectory(destinationDirectory);
+
+        foreach (var file in Directory.EnumerateFiles(
+                     source,
+                     "*",
+                     SearchOption.TopDirectoryOnly))
+        {
+            var name = Path.GetFileName(file);
+            if (!name.Contains(
+                    token,
+                    StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            File.Copy(
+                file,
+                Path.Combine(destinationDirectory, name),
+                true);
+        }
+    }
+
+    private async Task<string> GetRecommendedFabricLoaderAsync(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        progress?.Report(
+            $"Checking Fabric Meta for the recommended loader for Minecraft {MinecraftVersion}…");
+
+        try
+        {
+            using var json = await GetJsonAsync(
+                $"https://meta.fabricmc.net/v2/versions/loader/{MinecraftVersion}",
+                cancellationToken);
+
+            if (json.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in json.RootElement.EnumerateArray())
+                {
+                    if (!entry.TryGetProperty("loader", out var loader) ||
+                        !loader.TryGetProperty("version", out var versionElement))
+                        continue;
+
+                    var version = versionElement.GetString();
+                    var stable =
+                        loader.TryGetProperty("stable", out var stableElement) &&
+                        stableElement.ValueKind == JsonValueKind.True;
+
+                    if (!stable ||
+                        string.IsNullOrWhiteSpace(version) ||
+                        !Version.TryParse(version, out var parsed) ||
+                        parsed < Version.Parse(MinimumFabricLoader))
+                        continue;
+
+                    progress?.Report(
+                        $"Fabric Loader {version} selected for Minecraft {MinecraftVersion}.");
+                    return version;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn(
+                $"Fabric Meta loader lookup failed; falling back to {MinimumFabricLoader}: {ex.Message}");
+        }
+
+        progress?.Report(
+            $"Fabric Meta lookup unavailable; using minimum compatible Fabric Loader {MinimumFabricLoader}.");
+        return MinimumFabricLoader;
+    }
+
     private async Task<FabricInstallerPackage> GetLatestFabricInstallerAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken)
