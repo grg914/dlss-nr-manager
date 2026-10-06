@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly MinecraftPreflightService _minecraftPreflight = new();
     private readonly MinecraftOneClickService _minecraftOneClick;
     private readonly StreamlineRuntimeService _streamline = new();
+    private readonly NvidiaDlssNrDiscoveryService _nvidiaNrDiscovery = new();
     private readonly PcCleanupService _pcCleanup = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
@@ -58,7 +59,7 @@ public partial class MainWindow : Window
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
-            ? "Version v1.2.0"
+            ? "Version v1.3.0"
             : $"Version v{version.Major}.{version.Minor}.{version.Build}";
 
         Loaded += async (_, _) =>
@@ -1601,6 +1602,47 @@ public partial class MainWindow : Window
             MinecraftDlssFgCheck.IsChecked == true,
             MinecraftDlssReflexCheck.IsChecked == true,
             MinecraftDlssNrCheck.IsChecked == true);
+
+    private async void CheckMinecraftNvidiaNr_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            MinecraftCheckNvidiaNrButton.IsEnabled = false;
+            MinecraftNvidiaNrStatusText.Text = "Checking official NVIDIA sources…";
+
+            var progress = new Progress<string>(
+                message => MinecraftNvidiaNrStatusText.Text = message);
+
+            var result = await _nvidiaNrDiscovery.CheckAsync(progress);
+
+            MinecraftNvidiaNrStatusText.Text = result.Summary;
+
+            MessageBox.Show(
+                result.Summary + Environment.NewLine + Environment.NewLine +
+                result.Details,
+                "NVIDIA DLSS Neural Rendering availability",
+                MessageBoxButton.OK,
+                result.PublicSdkReady
+                    ? MessageBoxImage.Information
+                    : MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"NVIDIA DLSS-NR availability check failed: {ex}");
+            MinecraftNvidiaNrStatusText.Text =
+                "NVIDIA availability check failed. See diagnostic logs.";
+
+            MessageBox.Show(
+                ex.Message,
+                "NVIDIA DLSS Neural Rendering check failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            MinecraftCheckNvidiaNrButton.IsEnabled = true;
+        }
+    }
 
     private void StageMinecraftDlssPackage_Click(object sender, RoutedEventArgs e)
     {
