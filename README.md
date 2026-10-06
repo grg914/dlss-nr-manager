@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.4.2**.
+Current application version: **v1.5.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -22,18 +22,31 @@ Current application version: **v1.4.2**.
 
 <p align="center"><sub>Application capture on Windows — full-resolution PNG, not a generated UI mockup.</sub></p>
 
-## UI navigation prototype
+## DlssNrManager Menu
 
-The repository includes a non-production WinToys-style navigation prototype:
+`MainWindow.xaml` now uses the production **DlssNrManager Menu** navigation: a fixed left-side menu replaces the previous single long scrolling dashboard while preserving every existing named control and event handler.
 
-- `docs/mockups/wintoys/index.html` — interactive browser mockup
-- `docs/mockups/wintoys/MainWindow_WinToys_Complete_Mockup.xaml` — WPF navigation skeleton and 1:1 inventory of the current controls
+Design references are kept under:
 
-The mockup is documentation only and is explicitly excluded from WPF compilation. It does **not** replace the current production `MainWindow.xaml` yet.
+- `docs/mockups/dlssnrmanager-menu/index.html` — interactive browser reference
+- `docs/mockups/dlssnrmanager-menu/MainWindow_DlssNrManager_Menu_Mockup.xaml` — WPF layout reference
 
-## What's new in v1.4.2
+The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application.
 
-- Added the complete **WinToys-style navigation prototype** under `docs/mockups/wintoys/`, mapping every control currently exposed by the production WPF window into focused pages: Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, Logs and Application.
+## What's new in v1.5.0
+
+- Replaced the production long-scroll dashboard with **DlssNrManager Menu**, a fixed left navigation layout.
+- Preserved all existing WPF named controls and all existing event handlers while moving them into focused pages.
+- Split **AI origin detection** into its own menu page without duplicating controls or logic.
+- Dedicated pages now exist for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application.
+- Increased the production window default width to 1440 px to accommodate the persistent navigation rail while retaining the existing minimum height and resizable custom window chrome.
+- Renamed the UI design references to **DlssNrManager Menu** and moved them to `docs/mockups/dlssnrmanager-menu/`.
+- The documentation XAML remains excluded from WPF compilation; only the production `MainWindow.xaml` is compiled.
+- The migration was validated by comparing the old/new XAML inventories: all original named controls and all original click/selection/value/title-bar handlers are still present exactly once.
+
+## Previous v1.4.2 changes
+
+- Added the complete **DlssNrManager Menu navigation reference** under `docs/mockups/dlssnrmanager-menu/`, mapping every control currently exposed by the production WPF window into focused pages: Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, Logs and Application.
 - Hardened external helper lifetime with a Windows **Job Object** using `KILL_ON_JOB_CLOSE`; manager-owned Real-ESRGAN, video2dlssnr, FFmpeg/ffprobe, Fabric/Java/WinGet and preflight helpers are also explicitly terminated on cancellation.
 - Added a **single-instance guard** to prevent concurrent installs or config mutations.
 - Removed the abrupt `Environment.Exit` shutdown path and centralized clean process/resource shutdown.
