@@ -1955,9 +1955,7 @@ public partial class MainWindow : Window
                 "are absent from NVIDIA's public repositories/releases, the manager cannot manufacture or rename substitutes.",
                 "NVIDIA DLSS / Streamline files",
                 MessageBoxButton.OK,
-                result.PublicSdkReady
-                    ? MessageBoxImage.Information
-                    : MessageBoxImage.Warning);
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
