@@ -2110,9 +2110,19 @@ public partial class MainWindow : Window
             return;
 
         AiOriginSourceBox.Text = dialog.FileName;
+        AiOriginClearMediaButton.IsEnabled = true;
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "Media selected • detector ready."
             : "Media selected • set up the detector before analysis.";
+    }
+
+    private void ClearAiOriginMedia_Click(object sender, RoutedEventArgs e)
+    {
+        AiOriginSourceBox.Clear();
+        AiOriginClearMediaButton.IsEnabled = false;
+        AiOriginStatusText.Text = _aiOrigin.IsReady
+            ? "No media selected • detector ready."
+            : "No media selected • detector not set up yet.";
     }
 
     private async void SetupAiOrigin_Click(
