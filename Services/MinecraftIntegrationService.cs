@@ -296,6 +296,34 @@ public sealed class MinecraftIntegrationService
             progress,
             cancellationToken);
 
+    public async Task<string?> GetLatestCausticaBuildLabelAsync(
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var release = await FindReleaseAsync(
+                CausticaRtxRepo,
+                r => ReleaseTargetsMinecraftVersion(
+                    r,
+                    MinecraftVersion),
+                includePrerelease: true,
+                cancellationToken);
+
+            var asset = release.Assets.FirstOrDefault(candidate =>
+                candidate.Name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
+                && candidate.Name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
+                && !ContainsAny(candidate.Name, "sources", "dev", "javadoc"));
+
+            return asset == null
+                ? $"{release.Tag} • no bundled JAR asset"
+                : $"{release.Tag} • {asset.Name}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task LaunchFabricInstallerAsync(
         string minecraftRoot,
         IProgress<string>? progress = null,
