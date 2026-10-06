@@ -37,7 +37,6 @@ if (!(Test-Path -LiteralPath (Join-Path $SourcePath "build.bat"))) {
     throw "Vendored video2dlssnr source is missing or incomplete: $SourcePath"
 }
 
-$sdkInclude = Join-Path $NvidiaSdkPath "include"
 $sdkLib = Join-Path $NvidiaSdkPath "lib\Windows_x86_64\x64\nvsdk_ngx_d.lib"
 $sdkDebugLib = Join-Path $NvidiaSdkPath "lib\Windows_x86_64\x64\nvsdk_ngx_d_dbg.lib"
 $sdkLicense = Join-Path $NvidiaSdkPath "LICENSE.txt"
@@ -63,7 +62,7 @@ elseif (-not [IO.Path]::IsPathRooted($NeuralRuntimePath)) {
 }
 $NeuralRuntimePath = [IO.Path]::GetFullPath($NeuralRuntimePath)
 
-foreach ($required in @($sdkInclude, $sdkLib, $sdkLicense)) {
+foreach ($required in @($sdkLib, $sdkLicense)) {
     if (!(Test-Path -LiteralPath $required)) {
         throw "Required NVIDIA DLSS SDK input is missing: $required"
     }
@@ -95,13 +94,12 @@ try {
     $stageNvngx = Join-Path $stage "third_party\nvngx"
     $stageInclude = Join-Path $stageNvngx "include"
     $stageLib = Join-Path $stageNvngx "lib"
-    New-Item -ItemType Directory -Force -Path $stageInclude, $stageLib | Out-Null
 
-    robocopy $sdkInclude $stageInclude /E /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) {
-        throw "Failed to stage NVIDIA NGX headers. robocopy exit code: $LASTEXITCODE"
+    if (!(Test-Path -LiteralPath (Join-Path $stageInclude "nvsdk_ngx.h"))) {
+        throw "Vendored video2dlssnr NGX headers are missing from the staged source."
     }
 
+    New-Item -ItemType Directory -Force -Path $stageLib | Out-Null
     Copy-Item -LiteralPath $sdkLib -Destination (Join-Path $stageLib "nvsdk_ngx_d.lib") -Force
     if ($Configuration -eq "debug") {
         Copy-Item -LiteralPath $sdkDebugLib -Destination (Join-Path $stageLib "nvsdk_ngx_d_dbg.lib") -Force
