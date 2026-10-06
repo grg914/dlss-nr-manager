@@ -72,10 +72,10 @@ jobs:
         run: |
           # Scandi release assets are optional and must only be placed in
           # release-assets/ after redistribution rights have been verified.
-          # The texture fingerprint below is the sanitized pack with
-          # Fresh Flower Pots removed.
+          # The texture fingerprint below is the validated SPBR-based Scandi-safe pack.
+          # It keeps SPBR terrain/PBR assets and adds the verified Scandi sky/UI/effects set.
           $assets = @(
-            @{ Name = "ScandiTextureV1.zip"; Sha256 = "221D8A4B698120812B4ADDAA003EC5E67E2BD91513FAB6DABCF534FCF90151B0" },
+            @{ Name = "ScandiTextureV1.zip"; Sha256 = "1BB19E99208E8826EABF7775FA06353E78A6EA449D43F12CD9D26EACF5BD9177" },
             @{ Name = "ScandiShaderV2.zip";  Sha256 = "C2C1E9C531342CC314368146A963FC2FD7D4A414F67C971558FC5ECA89D329F9" }
           )
 
