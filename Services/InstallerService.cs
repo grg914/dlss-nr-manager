@@ -356,10 +356,9 @@ public sealed class InstallerService
         {
             foreach (var relative in manifest.ManagedFiles)
             {
-                if (!IsSafeRelativePath(relative))
+                if (!TryResolveUnderRoot(gameDir, relative, out var file))
                     continue;
 
-                var file = Path.Combine(gameDir, relative);
                 if (File.Exists(file))
                     File.Delete(file);
             }
@@ -367,11 +366,13 @@ public sealed class InstallerService
             RemoveEmptyManagedDirectories(gameDir, manifest.ManagedFiles);
 
             if (!string.IsNullOrWhiteSpace(manifest.BaselineBackup) &&
-                IsSafeRelativePath(manifest.BaselineBackup))
+                TryResolveUnderRoot(
+                    gameDir,
+                    manifest.BaselineBackup,
+                    out var baseline) &&
+                Directory.Exists(baseline))
             {
-                var baseline = Path.Combine(gameDir, manifest.BaselineBackup);
-                if (Directory.Exists(baseline))
-                    CopyTree(baseline, gameDir, true);
+                CopyTree(baseline, gameDir, true);
             }
 
             if (!preserveBackups)
@@ -533,11 +534,9 @@ public sealed class InstallerService
     {
         foreach (var relative in archiveRelativeFiles)
         {
-            if (!IsSafeRelativePath(relative))
+            if (!TryResolveUnderRoot(gameDir, relative, out var destination) ||
+                !TryResolveUnderRoot(backup, relative, out var backupFile))
                 continue;
-
-            var destination = Path.Combine(gameDir, relative);
-            var backupFile = Path.Combine(backup, relative);
 
             try
             {
@@ -576,17 +575,49 @@ public sealed class InstallerService
         catch { }
     }
 
-    private static bool IsSafeRelativePath(string relative)
-        => !string.IsNullOrWhiteSpace(relative)
-           && !Path.IsPathRooted(relative)
-           && !relative.StartsWith("..", StringComparison.Ordinal)
-           && !relative.Contains($"{Path.DirectorySeparatorChar}..{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+    private static bool TryResolveUnderRoot(
+        string rootPath,
+        string relative,
+        out string resolved)
+    {
+        resolved = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(relative) ||
+            Path.IsPathRooted(relative))
+            return false;
+
+        try
+        {
+            var root = Path.GetFullPath(rootPath)
+                .TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+
+            var candidate = Path.GetFullPath(
+                Path.Combine(root, relative));
+
+            if (!candidate.StartsWith(
+                    root,
+                    StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            resolved = candidate;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private static void RemoveEmptyManagedDirectories(string gameDir, IEnumerable<string> managedFiles)
     {
         var directories = managedFiles
-            .Where(IsSafeRelativePath)
-            .Select(relative => Path.GetDirectoryName(Path.Combine(gameDir, relative)))
+            .Select(relative =>
+                TryResolveUnderRoot(gameDir, relative, out var path)
+                    ? Path.GetDirectoryName(path)
+                    : null)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderByDescending(path => path!.Length)
