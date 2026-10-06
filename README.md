@@ -84,7 +84,7 @@ The logger is best-effort and is never allowed to prevent the application from s
 ### Automatic NVIDIA runtime/resources
 
 - Optional automatic download of the latest official **NVIDIA-RTX/Streamline** GitHub release
-- Extracts `nvngx_dlssnr.dll` from the official package when no local runtime is selected
+- Looks for `nvngx_dlssnr.dll` in the official package when no local runtime is selected; if the current public Streamline release does not contain it, the manager reports that an NVIDIA-authorized DLSS-NR runtime must be supplied instead of pretending provisioning succeeded
 - Validates x64 architecture and NVIDIA Authenticode publisher before use
 - Existing known SHA-256 runtime fingerprints remain accepted
 - Can add missing Streamline/DLSS runtime resources to the selected game:
@@ -189,7 +189,9 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Local DLSS/Streamline ZIP and `nvngx_dlssnr.dll` staging remain available as advanced/manual tools
 - Minecraft resource documentation under `resources/minecraft/`
 
-Caustica RTX currently implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. NVIDIA documents Ray Reconstruction as an extension of the DLSS Super Resolution path: when RR is enabled it replaces the standalone SR reconstruction step while using the selected DLSS performance/quality mode. The manager therefore does **not** present a fake separate SR toggle that only copies a DLL; a standalone SR path must be implemented by the active renderer.
+Caustica RTX currently implements path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. It does **not** currently implement DLSS Neural Rendering / 3D-Guided Neural Rendering (the image-enhancement feature commonly associated with DLSS 5). NVIDIA documents Ray Reconstruction as an extension of the DLSS Super Resolution path: when RR is enabled it replaces the standalone SR reconstruction step while using the selected DLSS performance/quality mode. The manager therefore does **not** present fake SR or Neural Rendering toggles that only copy DLLs; those features must be implemented by the active renderer.
+
+A source-level Caustica DLSS-NR integration contract and reference backend are maintained under `patches/caustica-dlss-nr/`. The implementation is intentionally capability-gated and requires an NVIDIA-authorized compatible DLSS-NR/NGX SDK/runtime; proprietary NVIDIA SDK binaries are not committed or redistributed by this project.
 
 **Sodium/Iris are intentionally not installed in the Caustica RTX profile.** Sodium and Iris modify/replace major portions of Minecraft's renderer/shader pipeline, while Caustica owns the Vulkan/path-traced world renderer. The manager keeps them in the conflict detector instead of presenting an unsupported "DLSS + Iris shaderpack" combination. For RTX visuals, use Caustica plus a LabPBR resource pack such as SPBR; for non-renderer performance gains, use the optional performance pack above. Caustica remains experimental, so final compatibility is still verified at runtime.
 
