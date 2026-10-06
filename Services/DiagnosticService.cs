@@ -199,9 +199,15 @@ public sealed class DiagnosticService
         if (!Directory.Exists(root))
             return false;
 
+        var normalizedRoot = Path.GetFullPath(root)
+            .TrimEnd(
+                Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+        var rootPrefix = normalizedRoot + Path.DirectorySeparatorChar;
+
         var queue = new Queue<(string Path, int Depth)>();
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        queue.Enqueue((root, 0));
+        queue.Enqueue((normalizedRoot, 0));
 
         while (queue.Count > 0 && visited.Count < 2000)
         {
@@ -233,7 +239,26 @@ public sealed class DiagnosticService
                     name.Equals("__Installer", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                queue.Enqueue((child, depth + 1));
+                try
+                {
+                    var attributes = File.GetAttributes(child);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0)
+                        continue;
+
+                    var fullChild = Path.GetFullPath(child);
+                    if (!fullChild.StartsWith(
+                            rootPrefix,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    queue.Enqueue((fullChild, depth + 1));
+                }
+                catch
+                {
+                    // Ignore inaccessible or malformed child paths.
+                }
             }
         }
 
