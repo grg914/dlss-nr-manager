@@ -2,91 +2,215 @@ param([switch]$Strict)
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$LockPath = Join-Path $Root "third_party/DEPENDENCIES.lock.json"
 
-$required = @(
-  "Caustica-RTX",
-  "third_party/NVIDIA-Streamline",
-  "third_party/OptiScaler",
-  "third_party/video2dlssnr",
-  "third_party/FFmpeg",
-  "third_party/Real-ESRGAN-ncnn-vulkan",
-  "third_party/ReShade",
-  "third_party/onnxruntime",
-  "third_party/ai-models/ai-image-detection-ONNX",
-  "third_party/ai-models/ai-image-detect-distilled-ONNX"
-)
+if (!(Test-Path -LiteralPath $LockPath)) {
+    throw "Dependency lock file not found: $LockPath"
+}
+
+$Lock = Get-Content -LiteralPath $LockPath -Raw | ConvertFrom-Json
 
 $missing = @()
-foreach ($relative in $required) {
-  $path = Join-Path $Root $relative
-  if (!(Test-Path $path)) { $missing += $relative }
+$metadataIssues = @()
+$mutableRefs = @()
+$nestedGit = @()
+$lfsPointers = @()
+
+function Find-LfsPointers {
+    param([Parameter(Mandatory=$true)][string]$Path)
+
+    Get-ChildItem -LiteralPath $Path -Recurse -File -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Length -le 2048 } |
+        ForEach-Object {
+            try {
+                $firstLine = Get-Content -LiteralPath $_.FullName -TotalCount 1 -ErrorAction Stop
+                if ($firstLine -eq "version https://git-lfs.github.com/spec/v1") {
+                    $_.FullName
+                }
+            }
+            catch {
+                # Ignore unreadable/binary small files.
+            }
+        }
+}
+
+foreach ($source in @($Lock.sources)) {
+    $id = [string]$source.id
+    $relative = [string]$source.path
+    $url = [string]$source.url
+    $ref = [string]$source.ref
+
+    if ($ref -notmatch "^[0-9a-fA-F]{40}$") {
+        $mutableRefs += "$id -> $ref"
+    }
+
+    $path = Join-Path $Root $relative
+    if (!(Test-Path -LiteralPath $path)) {
+        $missing += $relative
+        continue
+    }
+
+    $sourcePath = Join-Path $path "SOURCE.json"
+    if (!(Test-Path -LiteralPath $sourcePath)) {
+        $metadataIssues += "$relative -> SOURCE.json missing"
+    }
+    else {
+        try {
+            $metadata = Get-Content -LiteralPath $sourcePath -Raw | ConvertFrom-Json
+            if ($metadata.url -ne $url -or $metadata.ref -ne $ref) {
+                $metadataIssues += "$relative -> SOURCE.json does not match lock file"
+            }
+        }
+        catch {
+            $metadataIssues += "$relative -> SOURCE.json is invalid JSON"
+        }
+    }
+
+    Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq ".git" } |
+        ForEach-Object {
+            $nestedGit += [IO.Path]::GetRelativePath($Root, $_.FullName)
+        }
+
+    Find-LfsPointers -Path $path | ForEach-Object {
+        $lfsPointers += [IO.Path]::GetRelativePath($Root, $_)
+    }
+}
+
+foreach ($source in @($Lock.local_only)) {
+    $id = [string]$source.id
+    $ref = [string]$source.ref
+    if ($ref -notmatch "^[0-9a-fA-F]{40}$") {
+        $mutableRefs += "$id -> $ref"
+    }
 }
 
 $patterns = @(
-  "grg914/Caustica-RTX",
-  "NVIDIA-RTX/Streamline",
-  "wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass",
-  "DaniilSokolyuk/video2dlssnr",
-  "BtbN/FFmpeg-Builds",
-  "huggingface.co/onnx-community",
-  "raw.githubusercontent.com/Tohrusky",
-  "raw.githubusercontent.com/itsspin",
-  "ScoopInstaller/Versions",
-  "api.modrinth.com",
-  "meta.fabricmc.net",
-  "maven.fabricmc.net"
+    "grg914/Caustica-RTX",
+    "NVIDIA-RTX/Streamline",
+    "wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass",
+    "DaniilSokolyuk/video2dlssnr",
+    "BtbN/FFmpeg-Builds",
+    "xinntao/Real-ESRGAN-ncnn-vulkan",
+    "huggingface.co/onnx-community",
+    "raw.githubusercontent.com/Tohrusky",
+    "raw.githubusercontent.com/itsspin",
+    "ScoopInstaller/Versions",
+    "reshade.me",
+    "api.modrinth.com",
+    "cdn.modrinth.com",
+    "meta.fabricmc.net",
+    "maven.fabricmc.net"
 )
 
-$scanRoots = @("Services", ".github/workflows")
-$references = @()
-foreach ($scanRoot in $scanRoots) {
-  $base = Join-Path $Root $scanRoot
-  if (!(Test-Path $base)) { continue }
-  Get-ChildItem $base -Recurse -File | Where-Object { $_.Extension -in ".cs", ".yml", ".yaml", ".ps1" } | ForEach-Object {
-    $file = $_
-    $lineNumber = 0
-    Get-Content $file.FullName | ForEach-Object {
-      $lineNumber++
-      $line = $_
-      foreach ($pattern in $patterns) {
-        if ($line -like "*$pattern*") {
-          $references += [pscustomobject]@{
-            File = [IO.Path]::GetRelativePath($Root, $file.FullName)
-            Line = $lineNumber
-            Pattern = $pattern
-            Text = $line.Trim()
-          }
-        }
-      }
+$scanFiles = @()
+foreach ($scanRoot in @("Services", ".github/workflows")) {
+    $base = Join-Path $Root $scanRoot
+    if (Test-Path -LiteralPath $base) {
+        $scanFiles += Get-ChildItem -LiteralPath $base -Recurse -File |
+            Where-Object { $_.Extension -in ".cs", ".yml", ".yaml", ".ps1" }
     }
-  }
+}
+
+$scanFiles += Get-ChildItem -LiteralPath $Root -File |
+    Where-Object { $_.Extension -in ".cs", ".csproj", ".props", ".targets" }
+
+$references = @()
+foreach ($file in $scanFiles | Sort-Object FullName -Unique) {
+    $lineNumber = 0
+    Get-Content -LiteralPath $file.FullName | ForEach-Object {
+        $lineNumber++
+        $line = $_
+
+        foreach ($pattern in $patterns) {
+            if ($line -like "*$pattern*") {
+                $references += [pscustomobject]@{
+                    File = [IO.Path]::GetRelativePath($Root, $file.FullName)
+                    Line = $lineNumber
+                    Pattern = $pattern
+                    Text = $line.Trim()
+                }
+            }
+        }
+    }
 }
 
 Write-Host "Self-contained dependency audit"
 Write-Host "==============================="
 Write-Host ""
+
+if ($mutableRefs.Count -eq 0) {
+    Write-Host "Immutable dependency refs: OK"
+}
+else {
+    Write-Host "Mutable dependency refs:"
+    $mutableRefs | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" }
+}
+
+Write-Host ""
 if ($missing.Count -eq 0) {
-  Write-Host "Required mirrored source folders: OK"
-} else {
-  Write-Host "Missing mirrored source folders:"
-  $missing | ForEach-Object { Write-Host "  - $_" }
+    Write-Host "Locked public source mirrors: OK"
+}
+else {
+    Write-Host "Missing locked public source mirrors:"
+    $missing | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" }
+}
+
+Write-Host ""
+if ($metadataIssues.Count -eq 0) {
+    Write-Host "SOURCE.json provenance metadata: OK"
+}
+else {
+    Write-Host "Source provenance issues:"
+    $metadataIssues | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" }
+}
+
+Write-Host ""
+if ($nestedGit.Count -eq 0) {
+    Write-Host "Nested Git metadata: NONE"
+}
+else {
+    Write-Host "Nested Git metadata still present:"
+    $nestedGit | Sort-Object -Unique | Select-Object -First 50 | ForEach-Object { Write-Host "  - $_" }
+}
+
+Write-Host ""
+if ($lfsPointers.Count -eq 0) {
+    Write-Host "Unmaterialized Git LFS pointers: NONE"
+}
+else {
+    Write-Host "Unmaterialized Git LFS pointers:"
+    $lfsPointers | Sort-Object -Unique | Select-Object -First 50 | ForEach-Object { Write-Host "  - $_" }
 }
 
 Write-Host ""
 if ($references.Count -eq 0) {
-  Write-Host "Direct upstream dependency references in runtime/release code: NONE"
-} else {
-  Write-Host "Direct upstream dependency references still present:"
-  $references | Sort-Object File, Line | Format-Table File, Line, Pattern -AutoSize
+    Write-Host "Direct upstream dependency references in runtime/release code: NONE"
+}
+else {
+    Write-Host "Direct upstream dependency references still present:"
+    $references | Sort-Object File, Line, Pattern | Format-Table File, Line, Pattern -AutoSize
 }
 
 Write-Host ""
-if (Test-Path (Join-Path $Root "third_party-local/NVIDIA-DLSS")) {
-  Write-Host "Local NVIDIA DLSS SDK: present (local-only / Git-ignored)"
-} else {
-  Write-Host "Local NVIDIA DLSS SDK: absent (required only for local Caustica native rebuilds)"
+$localSdkPath = Join-Path $Root "third_party-local/NVIDIA-DLSS"
+if (Test-Path -LiteralPath $localSdkPath) {
+    Write-Host "Local NVIDIA DLSS SDK: present (local-only / Git-ignored)"
+}
+else {
+    Write-Host "Local NVIDIA DLSS SDK: absent (required only for local Caustica native rebuilds)"
 }
 
-$failed = $missing.Count -gt 0 -or $references.Count -gt 0
-if ($Strict -and $failed) { exit 1 }
+$failed =
+    $mutableRefs.Count -gt 0 -or
+    $missing.Count -gt 0 -or
+    $metadataIssues.Count -gt 0 -or
+    $nestedGit.Count -gt 0 -or
+    $lfsPointers.Count -gt 0 -or
+    $references.Count -gt 0
+
+if ($Strict -and $failed) {
+    exit 1
+}
+
 exit 0
