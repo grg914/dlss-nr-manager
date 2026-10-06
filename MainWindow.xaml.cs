@@ -62,10 +62,8 @@ public partial class MainWindow : Window
         _minecraftOneClick = new MinecraftOneClickService(_minecraft);
         _aiOrigin = new AiOriginDetectionService(_media);
 
-        var version = typeof(MainWindow).Assembly.GetName().Version;
-        AppVersionText.Text = version == null
-            ? "Version v1.4.1"
-            : $"Version v{version.Major}.{version.Minor}.{version.Build}";
+        var version = AppIdentity.Version;
+        AppVersionText.Text = $"Version v{AppIdentity.VersionString}";
 
         Loaded += async (_, _) =>
         {
@@ -93,11 +91,9 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             try { _mediaOperationCts?.Cancel(); } catch { }
-            try { ExternalProcessTracker.KillAll(); } catch { }
+            try { ExternalProcessTracker.Shutdown(); } catch { }
             _mediaOperationCts?.Dispose();
             _aiOrigin.Dispose();
-            Application.Current.Shutdown();
-            Environment.Exit(0);
         };
     }
 
@@ -202,9 +198,7 @@ public partial class MainWindow : Window
                     x.TargetDirectory.Equals(initiallySelectedPath, StringComparison.OrdinalIgnoreCase))
                 : null;
 
-            preferred ??= _detectedGames.FirstOrDefault(x =>
-                                x.Name.Contains("Cyberpunk 2077", StringComparison.OrdinalIgnoreCase))
-                            ?? _detectedGames.FirstOrDefault(x => x.Confidence == "Validated")
+            preferred ??= _detectedGames.FirstOrDefault(x => x.Confidence == "Validated")
                             ?? _detectedGames.FirstOrDefault(x => x.Confidence == "Probable")
                             ?? _detectedGames.FirstOrDefault();
 
@@ -2249,7 +2243,6 @@ public partial class MainWindow : Window
         }
         finally
         {
-            try { ExternalProcessTracker.KillAll(); } catch { }
             _mediaOperationCts?.Dispose();
             _mediaOperationCts = null;
             MediaSetupButton.IsEnabled = true;
