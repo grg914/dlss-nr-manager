@@ -1208,6 +1208,74 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ExportDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        var game = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(game) || !Directory.Exists(game))
+        {
+            MessageBox.Show(
+                "Select a valid game folder before exporting diagnostics.",
+                "Support bundle",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save DLSS NR Manager support bundle",
+            Filter = "ZIP archive (*.zip)|*.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            FileName = $"DlssNrManager-support-{DateTime.Now:yyyyMMdd-HHmmss}.zip"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            ExportDiagnosticsButton.IsEnabled = false;
+            DiagnosticText.Text = "Collecting sanitized diagnostics…";
+
+            var gpu = _gpu;
+            var destination = dialog.FileName;
+            var bundle = await Task.Run(() =>
+            {
+                var state = _installer.Inspect(game, gpu.Generation);
+                return _diagnostics.CreateSupportBundle(
+                    game,
+                    gpu,
+                    state,
+                    destination);
+            });
+
+            DiagnosticText.Text =
+                $"Support bundle saved.\n{bundle}\n\n" +
+                "User-profile paths are sanitized and large logs are tail-limited.";
+
+            MessageBox.Show(
+                "Support bundle created successfully.",
+                "DLSS NR Manager",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            DiagnosticText.Text = $"Support bundle failed: {ex.Message}";
+            AppLogger.Error("Support bundle export failed.", ex);
+            MessageBox.Show(
+                ex.Message,
+                "Support bundle failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            ExportDiagnosticsButton.IsEnabled = true;
+        }
+    }
+
     private async void Restore_Click(object sender, RoutedEventArgs e)
     {
         try
