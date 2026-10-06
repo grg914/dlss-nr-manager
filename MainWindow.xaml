@@ -1189,6 +1189,8 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="8"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
                           </Grid.ColumnDefinitions>
                           <Button Grid.Column="0"
                                   x:Name="AiOriginSetupButton"
@@ -1199,6 +1201,11 @@
                                   Style="{StaticResource PrimaryButton}"
                                   Content="Analyze media"
                                   Click="AnalyzeAiOrigin_Click"/>
+                          <Button Grid.Column="4"
+                                  x:Name="AiOriginCancelButton"
+                                  Content="Cancel"
+                                  IsEnabled="False"
+                                  Click="CancelAiOrigin_Click"/>
                         </Grid>
                       </StackPanel>
                     </Grid>
