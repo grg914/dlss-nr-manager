@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v1.5.0**.
+Current application version: **v1.5.1**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -33,7 +33,24 @@ Design references are kept under:
 
 The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
 
-## What's new in v1.5.0
+## What's new in v1.5.1
+
+- Completed a full reliability/security audit after the DlssNrManager Menu migration.
+- Added bounded streaming downloads and archive-expansion limits for self-update, OptiScaler/GitHub release assets, NVIDIA Streamline, NVIDIA NR discovery, media tools, Real-ESRGAN, Minecraft components and Scandi pack release fallback.
+- Removed the stale hard-coded media-engine user-agent version; all HTTP clients now identify the running manager version through `AppIdentity`.
+- Media setup now detects and repairs truncated `video2dlssnr`, FFmpeg and ffprobe installations instead of treating file existence alone as success.
+- `video2dlssnr` is extracted and validated in a temporary directory before the replacement directory becomes active.
+- Real-ESRGAN model integrity is now checked against the exact immutable Git blob fingerprints of the pinned upstream files in addition to expected file sizes; changed same-size models are automatically repaired.
+- Real-ESRGAN engine/model downloads are origin-restricted, size-bounded and activated only after validation.
+- AI-origin ONNX downloads are restricted to the pinned HTTPS Hugging Face source, size-bounded and still SHA-256 verified before use.
+- NVIDIA Streamline runtime/download extraction is size/entry bounded, runtime source metadata is written atomically, and empty NVIDIA discovery caches are discarded instead of causing a stale false-negative result.
+- Minecraft GitHub/Modrinth/Fabric downloads are origin-restricted where applicable, size-bounded and retain their SHA-256/SHA-512 validation.
+- Java and Vulkan runtime discovery is now bounded by depth/result count and skips reparse points, avoiding expensive recursive scans of large Program Files trees.
+- Self-update ZIP extraction is entry/expanded-size bounded and the updater script is written atomically.
+- Deferred local-data cleanup no longer closes the manager if its cleanup helper could not be launched.
+- These limits are defensive guards; they do not alter the normal supported package formats or expected component sizes.
+
+## Previous v1.5.0 changes
 
 - Replaced the production long-scroll dashboard with **DlssNrManager Menu**, a fixed left navigation layout.
 - Preserved all existing WPF named controls and all existing event handlers while moving them into focused pages.
