@@ -3,7 +3,6 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Xml.Linq;
 
 namespace DlssNrManager.Services;
 
@@ -40,7 +39,6 @@ public sealed class MinecraftIntegrationService
     public const string MinecraftVersion = "26.2";
     public const string MinimumFabricLoader = "0.19.3";
 
-    private const string FabricApiRepo = "FabricMC/fabric-api";
     private const string FabricInstallerMavenBase =
         "https://maven.fabricmc.net/net/fabricmc/fabric-installer";
     private const string CausticaRtxRepo = "AriesAlex/Caustica-RTX";
@@ -986,101 +984,105 @@ public sealed class MinecraftIntegrationService
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        progress?.Report("Checking the official Fabric Maven for the latest installer…");
+        progress?.Report(
+            "Checking Fabric Meta for the latest stable installer…");
 
-        var metadataUrl =
-            $"{FabricInstallerMavenBase}/maven-metadata.xml";
-
-        using var response = await _http.GetAsync(
-            metadataUrl,
-            HttpCompletionOption.ResponseHeadersRead,
+        using var json = await GetJsonAsync(
+            "https://meta.fabricmc.net/v2/versions/installer",
             cancellationToken);
-        response.EnsureSuccessStatusCode();
 
-        await using var metadataStream =
-            await response.Content.ReadAsStreamAsync(cancellationToken);
-
-        var metadata = XDocument.Load(metadataStream);
-
-        var version =
-            metadata.Root?
-                .Element("versioning")?
-                .Element("release")?
-                .Value?
-                .Trim();
-
-        if (string.IsNullOrWhiteSpace(version))
+        if (json.RootElement.ValueKind != JsonValueKind.Array)
         {
-            version =
-                metadata.Root?
-                    .Element("versioning")?
-                    .Element("latest")?
-                    .Value?
-                    .Trim();
+            throw new InvalidDataException(
+                "Fabric Meta returned an invalid installer response.");
         }
 
-        if (string.IsNullOrWhiteSpace(version))
+        foreach (var item in json.RootElement.EnumerateArray())
         {
-            version =
-                metadata.Root?
-                    .Element("versioning")?
-                    .Element("versions")?
-                    .Elements("version")
-                    .Select(element => element.Value.Trim())
-                    .Where(value => Version.TryParse(value, out _))
-                    .OrderByDescending(value => Version.Parse(value))
-                    .FirstOrDefault();
-        }
+            var stable =
+                item.TryGetProperty("stable", out var stableElement) &&
+                stableElement.ValueKind == JsonValueKind.True;
 
-        if (string.IsNullOrWhiteSpace(version))
-        {
-            throw new InvalidOperationException(
-                "The official Fabric Maven metadata did not contain an installer version.");
-        }
+            if (!stable)
+                continue;
 
-        var fileName = $"fabric-installer-{version}.jar";
-        var downloadUrl =
-            $"{FabricInstallerMavenBase}/{version}/{fileName}";
-        var sha256Url = downloadUrl + ".sha256";
+            var version =
+                item.TryGetProperty("version", out var versionElement)
+                    ? versionElement.GetString()
+                    : null;
 
-        string? sha256 = null;
+            var downloadUrl =
+                item.TryGetProperty("url", out var urlElement)
+                    ? urlElement.GetString()
+                    : null;
 
-        try
-        {
-            using var hashResponse = await _http.GetAsync(
-                sha256Url,
-                cancellationToken);
-
-            if (hashResponse.IsSuccessStatusCode)
+            if (string.IsNullOrWhiteSpace(version) ||
+                string.IsNullOrWhiteSpace(downloadUrl) ||
+                !Uri.TryCreate(
+                    downloadUrl,
+                    UriKind.Absolute,
+                    out var uri) ||
+                !uri.Scheme.Equals(
+                    Uri.UriSchemeHttps,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !uri.Host.Equals(
+                    "maven.fabricmc.net",
+                    StringComparison.OrdinalIgnoreCase))
             {
-                sha256 = (
-                    await hashResponse.Content.ReadAsStringAsync(
-                        cancellationToken))
-                    .Trim()
-                    .Split(
-                        new[] { ' ', '\t', '\r', '\n' },
-                        StringSplitOptions.RemoveEmptyEntries)
-                    .FirstOrDefault();
+                continue;
+            }
 
-                if (string.IsNullOrWhiteSpace(sha256) ||
-                    sha256.Length != 64 ||
-                    !sha256.All(Uri.IsHexDigit))
+            var fileName = Path.GetFileName(uri.LocalPath);
+            if (string.IsNullOrWhiteSpace(fileName) ||
+                !fileName.EndsWith(
+                    ".jar",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string? sha256 = null;
+
+            try
+            {
+                using var hashResponse = await _http.GetAsync(
+                    downloadUrl + ".sha256",
+                    cancellationToken);
+
+                if (hashResponse.IsSuccessStatusCode)
                 {
-                    sha256 = null;
+                    sha256 = (
+                        await hashResponse.Content.ReadAsStringAsync(
+                            cancellationToken))
+                        .Trim()
+                        .Split(
+                            new[] { ' ', '\t', '\r', '\n' },
+                            StringSplitOptions.RemoveEmptyEntries)
+                        .FirstOrDefault();
+
+                    if (string.IsNullOrWhiteSpace(sha256) ||
+                        sha256.Length != 64 ||
+                        !sha256.All(Uri.IsHexDigit))
+                    {
+                        sha256 = null;
+                    }
                 }
             }
-        }
-        catch
-        {
-            // Hash verification remains best-effort only if the sidecar
-            // cannot be fetched. The HTTPS Maven origin is still trusted.
+            catch (Exception ex)
+            {
+                AppLogger.Warn(
+                    $"Fabric Installer SHA-256 sidecar lookup failed: {ex.Message}");
+            }
+
+            return new FabricInstallerPackage(
+                version,
+                fileName,
+                downloadUrl,
+                sha256);
         }
 
-        return new FabricInstallerPackage(
-            version,
-            fileName,
-            downloadUrl,
-            sha256);
+        throw new InvalidOperationException(
+            "Fabric Meta did not return a stable Fabric Installer.");
     }
 
     private async Task DownloadAndVerifyAsync(
