@@ -19,7 +19,16 @@ public sealed record RuntimeValidation(
     string? FileVersion,
     bool Is64Bit)
 {
-    public bool Trusted => HashValid && SignatureValid && Is64Bit;
+    public bool Trusted =>
+        Is64Bit &&
+        (
+            HashValid ||
+            (
+                SignatureValid &&
+                !string.IsNullOrWhiteSpace(Publisher) &&
+                Publisher.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
+            )
+        );
 }
 
 public sealed record DiagnosticResult(
