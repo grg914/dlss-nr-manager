@@ -135,6 +135,74 @@ public sealed class GitHubReleaseService
         return null;
     }
 
+    public async Task<IReadOnlyList<ReleaseInfo>> GetRecentAsync(
+        int maxCount = 8,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _http.GetAsync(
+            "https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page=30",
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var stream =
+            await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var doc = await JsonDocument.ParseAsync(
+            stream,
+            cancellationToken: cancellationToken);
+
+        var results = new List<ReleaseInfo>();
+
+        foreach (var release in doc.RootElement.EnumerateArray())
+        {
+            if (release.GetProperty("draft").GetBoolean())
+                continue;
+
+            var prerelease = release.GetProperty("prerelease").GetBoolean();
+            var tag = release.GetProperty("tag_name").GetString() ?? "unknown";
+            var name = release.GetProperty("name").GetString() ?? tag;
+
+            var asset = release.GetProperty("assets")
+                .EnumerateArray()
+                .Select(item => new
+                {
+                    Name = item.GetProperty("name").GetString() ?? "",
+                    Url = item.GetProperty("browser_download_url").GetString() ?? "",
+                    Digest = item.TryGetProperty("digest", out var digest)
+                        ? digest.GetString()
+                        : null
+                })
+                .Where(item =>
+                    item.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                    item.Name.Contains("OptiScaler-NR", StringComparison.OrdinalIgnoreCase) &&
+                    !item.Name.Contains("rtx40-mfg", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(item.Url))
+                .OrderBy(item => item.Name.Length)
+                .FirstOrDefault();
+
+            if (asset == null)
+                continue;
+
+            var sha256 =
+                asset.Digest != null &&
+                asset.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+                    ? asset.Digest["sha256:".Length..]
+                    : null;
+
+            results.Add(new ReleaseInfo(
+                tag,
+                name,
+                prerelease,
+                asset.Url,
+                sha256));
+
+            if (results.Count >= Math.Clamp(maxCount, 1, 20))
+                break;
+        }
+
+        return results;
+    }
+
     public async Task DownloadAsync(
         string url,
         string destination,
