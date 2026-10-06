@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v2.1.0**.
+Current application version: **v3.0.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -35,11 +35,29 @@ The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media
 
 ## Download
 
-Use the latest GitHub Release for the Windows x64 single-file build. Each v2 release publishes:
+Use the latest GitHub Release for the Windows x64 single-file build. Current releases publish:
 
 - `DlssNrManager.exe`
 - `DlssNrManager-win-x64.zip`
-- `SHA256SUMS.txt` for independent SHA-256 verification
+- `SHA256SUMS.txt` covering every bundled release asset
+- the latest compatible Minecraft 26.2 Caustica RTX production JAR
+- `SPBRScandi.zip`, the validated SPBR-based Scandi resource pack
+
+## What's new in v3.0.0
+
+v3.0 is a full reliability, performance and AI-detection audit of the v2.1 codebase. The release keeps the existing transactional install/restore model while tightening network, integrity and inference behavior.
+
+- **Managed-file integrity verification.** New installs store SHA-256 hashes for manager-owned files. **Verify managed files** reports missing, modified, legacy/unhashed files and interrupted transactions without touching user-owned files.
+- **Lower-allocation renderer scanning.** PE/API marker discovery now streams bounded chunks instead of reading large executable/DLL regions into one string. DXVK/vkd3d detection keeps separate wrapper identity and Vulkan-loader evidence to reduce false positives.
+- **More reliable large downloads.** OptiScaler, media components, NVIDIA Streamline and application self-updates use a bounded three-attempt retry policy for transient network/HTTP failures only. Permanent validation/hash failures are never retried. Large GitHub release downloads now have a 10-minute transfer budget instead of the previous 30-second timeout.
+- **AI detector Balanced / Thorough modes.** Balanced uses three aspect-preserving views and up to 24 video samples. Thorough adds a second higher-resolution view scale when the source supports it and samples up to 40 frames.
+- **AI confidence now measures internal consistency.** The detector tracks disagreement between the two ONNX models, spatial-view consistency, temporal video consistency and input resolution. Strong AI verdicts require both models plus spatial/temporal agreement; unstable or very low-resolution material is deliberately pushed toward **Uncertain**.
+- **Safer provenance interpretation.** Structured image metadata and ffprobe tag metadata are separated from unverified strings found in raw file bytes. A raw generator-name string no longer becomes strong AI evidence. C2PA / Content Credentials presence remains provenance information, not proof by itself.
+- **Faster bounded video inference.** Frame classification uses limited parallelism to improve throughput without allowing ONNX sessions to oversubscribe the CPU.
+- **Cancellable AI analysis.** Long image/video analyses can be cancelled from the UI instead of requiring the application to be closed.
+- **Exportable AI report.** The detector can export a JSON report containing the source filename, source SHA-256, scores, confidence, consistency metrics, provenance signals and analysis mode.
+- **Release integrity improved.** `SHA256SUMS.txt` is now generated after Caustica/SPBRScandi validation so bundled Minecraft assets are included in the published checksum manifest.
+- Existing v2.1 features remain: per-game transactional recovery/history, configurable scan roots, multi-executable renderer selection, recent OptiScaler builds per game, safe WPF software rendering, self-update, managed Minecraft updates and bundled Caustica/SPBRScandi assets.
 
 ## What's new in v2.1.0
 
@@ -189,10 +207,11 @@ Useful ideas identified for future versions, but intentionally not rushed into v
 - Manual game-folder selection fallback
 - NVIDIA GPU and RTX-generation detection with registry + `nvidia-smi` fallback
 - Generation-aware feature gating: RTX 20/30 = SR + RR; RTX 40 = SR + RR + FG; RTX 50 = SR + RR + FG + MFG + 3D-Guided Neural Rendering, subject to game/runtime support
-- Stable/prerelease selection from the upstream OptiScaler-DLSSNR fork
+- Stable/prerelease selection plus recent-build selection from the upstream OptiScaler-DLSSNR fork, remembered per game
 - Full managed-install backup before game-directory changes
 - Multiplayer/anti-cheat safety guard: prominent warning on every general game install and hard block when known anti-cheat files are detected
 - Install, update, restore and uninstall flows
+- **Verify managed files** performs SHA-256 integrity checks for manager-owned files and reports missing/changed state without modifying the game
 - Proxy conflict detection; unknown proxy DLLs are never silently overwritten
 - Integrated `OptiScaler.log` viewer and per-game compatibility diagnostics
 - Persistent application log with exception stack traces and one-click access to the log folder
@@ -289,8 +308,11 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 - Optional TTA and tile-size controls
 - Combined **Neural Rendering + AI Upscale** processing mode
 - Video audio is preserved during processing
-- **AI origin detection (beta)** runs locally using a two-model ONNX ensemble, three aspect-ratio-preserving spatial crops per image/frame and up to 32 samples across videos; it reports an ensemble AI score, per-model scores, disagreement, confidence, temporal consistency and known generator/provenance metadata signals
-- AI-origin results are explicitly advisory: absence of a signal does not prove human origin, and the manager intentionally prefers `Uncertain` over declaring AI when its detectors disagree
+- **AI origin detection (beta)** runs locally with two independent ONNX classifiers and two selectable analysis modes: **Balanced** uses three aspect-preserving views and up to 24 video frames; **Thorough** adds a second higher-resolution view scale when possible and up to 40 video frames
+- AI-origin confidence incorporates model disagreement, spatial-view consistency, temporal consistency and source resolution; strong AI verdicts require agreement across these signals
+- Structured generator metadata is distinguished from unverified raw byte markers; C2PA / Content Credentials presence is reported as provenance but is not treated as proof of AI generation
+- Long AI-origin jobs can be cancelled, and results can be exported as a JSON report with the media SHA-256 for reproducibility
+- AI-origin results remain explicitly advisory: absence of a signal does not prove human origin, and the manager intentionally prefers `Uncertain` over an unsupported confident verdict
 
 ### Minecraft Java RTX
 
@@ -315,10 +337,10 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - resolves the latest stable Fabric Loader for Minecraft 26.2 from Fabric Meta (minimum supported: 0.19.3) and installs/updates it automatically on Mojang/Microsoft-style instances
   - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
   - downloads the latest stable Fabric API build for Minecraft 26.2 from Modrinth and verifies its SHA-512 hash
-  - downloads only a tested `grg914/Caustica-RTX` prerelease produced from a green main-branch CI run and explicitly targeting Minecraft 26.2, preventing future 26.3/26.4 builds from being installed into the wrong instance
+  - prefers the tested Caustica RTX Minecraft 26.2 production JAR bundled directly in the current DLSS NR Manager release; `grg914/Caustica-RTX` remains the fallback source when no compatible bundled JAR is available
   - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
-  - optionally installs **SPBR** as the compatible LabPBR material/resource pack for Caustica; if no compatible stable build is available, the core RTX installation continues
-  - stages a locally supplied Caustica-adapted **ScandiTextureV1** resource pack (or an authorized matching release asset when available) and the optional legacy ScandiShader archive; the RTX renderer itself uses Caustica's native ScandiShader RTX Look rather than Iris
+  - optionally installs the bundled **SPBRScandi** resource pack directly into Minecraft `resourcepacks`; it keeps the compatible SPBR LabPBR terrain/material base and adds the validated Scandi sky, End, GUI and visual assets
+  - the optional legacy ScandiShader archive can still be staged when available; the RTX renderer itself uses Caustica's native ScandiShader RTX Look rather than Iris
   - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
   - requires the official Minecraft Launcher to be closed while Fabric/profile files are modified
