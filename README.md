@@ -46,6 +46,9 @@ The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media
 - PC Update Center now only opens cached actions that resolve to HTTPS URLs or `ms-settings:` targets.
 - Stale media helper `Process` handles are disposed deterministically after cleanup.
 - ReShade and Minecraft launcher actions now report launch failures instead of silently continuing.
+- Centralized ZIP extraction behind a bounded safe extractor with traversal protection, entry-count limits and a 4 GB expanded-size ceiling for downloaded component archives.
+- Self-update ZIPs now accept only `DlssNrManager.exe`, cap archive size/entry count, and no longer fall back to an arbitrary executable found in the archive.
+- Minecraft Scandi pack copies are now atomic, preventing a crash/interruption from leaving a partially written resource pack.
 - Updated the optional `ScandiTextureV1.zip` release fingerprint to the sanitized pack with Fresh Flower Pots removed: `BA6D6EB17F5D49CAF9F42976BCA524A28C8261576C740B3D5D1064F7C69F800E`.
 
 ## Previous v1.5.0 changes
