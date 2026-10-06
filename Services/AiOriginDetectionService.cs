@@ -428,14 +428,16 @@ public sealed class AiOriginDetectionService : IDisposable
 
         if (generatorMarker)
         {
-            verdict = "AI generator metadata detected";
-            confidence = Math.Max(0.90, 1.0 - disagreement * 0.25);
+            verdict = "AI generator metadata marker detected";
+            confidence = Math.Max(0.88, 1.0 - disagreement * 0.25);
         }
         else if (isVideo &&
                  primary >= 0.78 &&
                  secondary >= 0.78 &&
                  strongAiRatio >= 0.65 &&
-                 disagreement <= 0.20)
+                 disagreement <= 0.20 &&
+                 viewConsistency >= 0.60 &&
+                 temporalConsistency >= 0.55)
         {
             verdict = "Likely AI-generated";
             confidence = Math.Clamp(
@@ -448,7 +450,8 @@ public sealed class AiOriginDetectionService : IDisposable
         else if (!isVideo &&
                  primary >= 0.85 &&
                  secondary >= 0.85 &&
-                 disagreement <= 0.18)
+                 disagreement <= 0.18 &&
+                 viewConsistency >= 0.60)
         {
             verdict = "Likely AI-generated";
             confidence = Math.Clamp(
@@ -530,7 +533,10 @@ public sealed class AiOriginDetectionService : IDisposable
             scores.Count,
             strongAiFrames,
             provenance,
-            $"{PrimaryModelName} + {SecondaryModelName} • 3-crop ensemble",
+            $"{PrimaryModelName} + {SecondaryModelName} • " +
+            (mode == AiOriginAnalysisMode.Thorough
+                ? "multi-scale 3+3-view ensemble"
+                : "3-view ensemble"),
             notes,
             primary,
             secondary,
