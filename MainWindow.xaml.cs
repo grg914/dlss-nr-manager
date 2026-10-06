@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly PcCleanupService _pcCleanup = new();
 
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
+    private RtxCapabilities _gpuCapabilities = GpuCapabilityService.Evaluate(new("Unknown GPU", "Unknown", false));
     private ReleaseInfo? _release;
     private string? _runtimePath;
     private ManagerReleaseInfo? _managerRelease;
@@ -98,8 +99,10 @@ public partial class MainWindow : Window
         using var scope = AppLogger.Scope("MainWindow.InitializeAsync");
 
         _gpu = _gpus.Detect();
+        _gpuCapabilities = GpuCapabilityService.Evaluate(_gpu);
         GpuText.Text = $"{_gpu.Name}  •  {_gpu.Generation}";
-        AppLogger.Info($"GPU detected: {_gpu.Name} • {_gpu.Generation}");
+        GpuCompatibilityText.Text = _gpuCapabilities.Summary;
+        AppLogger.Info($"GPU detected: {_gpu.Name} • {_gpu.Generation} • {_gpuCapabilities.Summary}");
 
         await Task.WhenAll(
             RefreshReleaseAsync(),
@@ -272,6 +275,7 @@ public partial class MainWindow : Window
 
             VersionText.Text = "";
             RuntimeText.Text = "";
+            GameSafetyText.Text = "Select a game to run the anti-cheat risk check.";
             InstallButton.IsEnabled = false;
             UpdateButton.IsEnabled = false;
             ApplyPresetButton.IsEnabled = false;
@@ -279,6 +283,9 @@ public partial class MainWindow : Window
             LogBox.Text = "";
             return;
         }
+
+        var safety = await Task.Run(() => GameSafetyService.Assess(game));
+        GameSafetyText.Text = safety.Message;
 
         StatusText.Text = "Reading installation state…";
         InstallButton.IsEnabled = false;
@@ -323,9 +330,9 @@ public partial class MainWindow : Window
             ? "DLSSNR runtime: missing"
             : $"DLSSNR runtime: {(state.RuntimeHashValid ? "valid hash" : "hash invalid")} • {state.RuntimeHash}";
 
-        InstallButton.IsEnabled = !state.Installed;
-        UpdateButton.IsEnabled = state.Installed;
-        ApplyPresetButton.IsEnabled = state.Installed;
+        InstallButton.IsEnabled = !state.Installed && _gpuCapabilities.IsSupportedRtx;
+        UpdateButton.IsEnabled = state.Installed && _gpuCapabilities.IsSupportedRtx;
+        ApplyPresetButton.IsEnabled = state.Installed && _gpuCapabilities.IsSupportedRtx;
         DiagnoseButton.IsEnabled = true;
         LogBox.Text = result.Log;
     }
@@ -539,21 +546,65 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(GamePathBox.Text))
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
             return;
 
-        if (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath))
+        _gpuCapabilities = GpuCapabilityService.Evaluate(_gpu);
+        GpuCompatibilityText.Text = _gpuCapabilities.Summary;
+
+        if (!_gpuCapabilities.IsSupportedRtx)
+        {
+            MessageBox.Show(
+                (_gpuCapabilities.BlockingReason ?? "Unsupported GPU.") +
+                "\n\nDLSS NR Manager supports GeForce RTX 20, 30, 40 and 50 Series where the selected feature exists.",
+                "GPU not compatible",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var safety = await Task.Run(() => GameSafetyService.Assess(gameDir));
+        GameSafetyText.Text = safety.Message;
+
+        if (safety.AntiCheatDetected)
+        {
+            MessageBox.Show(
+                "Installation has been blocked because known anti-cheat files were detected.\n\n" +
+                safety.Message +
+                "\n\nDo not inject OptiScaler/proxy DLLs into multiplayer or anti-cheat-protected games. " +
+                "Doing so can trigger anti-cheat enforcement and may result in an account ban.",
+                "Anti-cheat detected — installation blocked",
+                MessageBoxButton.OK,
+                MessageBoxImage.Stop);
+            return;
+        }
+
+        if (MessageBox.Show(
+                "Use this only for offline/single-player play or where the game developer explicitly allows graphics injection/modding.\n\n" +
+                "Do NOT use it in multiplayer or anti-cheat-protected games. Injected proxy DLLs can be treated as tampering and may result in a ban.\n\n" +
+                "Confirm that you understand this risk and want to continue.",
+                "Multiplayer / anti-cheat warning",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        var enableNeuralRendering = _gpuCapabilities.NeuralRendering;
+
+        if (enableNeuralRendering &&
+            (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath)))
         {
             if (AutoNvidiaRuntimeCheck.IsChecked != true)
             {
                 MessageBox.Show(
+                    "RTX 50 Neural Rendering is available on this GPU, but no DLSSNR runtime is selected. " +
                     "Select nvngx_dlssnr.dll or enable automatic NVIDIA Streamline runtime download.");
                 return;
             }
 
             try
             {
-                RuntimePathText.Text = "Downloading official NVIDIA Streamline runtime…";
+                RuntimePathText.Text = "Downloading official NVIDIA Streamline DLSSNR runtime…";
                 var progress = new Progress<string>(message => RuntimePathText.Text = message);
                 var runtime = await _streamline.EnsureLatestDlssNrAsync(
                     _gpu.Generation,
@@ -566,12 +617,18 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Unable to prepare the official NVIDIA runtime.\n\n{ex.Message}",
+                    $"Unable to prepare the official NVIDIA Neural Rendering runtime.\n\n{ex.Message}",
                     "NVIDIA Streamline runtime",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
                 return;
             }
+        }
+        else if (!enableNeuralRendering)
+        {
+            RuntimePathText.Text =
+                $"{_gpu.Generation}: Neural Rendering unavailable by NVIDIA hardware matrix. " +
+                "The manager will install only the DLSS features supported by this RTX generation.";
         }
 
         if (_selectedGame is { Confidence: not "Validated" })
@@ -606,15 +663,14 @@ public partial class MainWindow : Window
             SetBusy(true);
 
             var backup = await _installer.InstallAsync(
-                GamePathBox.Text,
-                _runtimePath,
+                gameDir,
+                enableNeuralRendering ? _runtimePath : null,
                 _gpu,
                 _release,
                 proxy,
                 GetSelectedWorkingScale(),
-                _releases);
-
-            var gameDir = GamePathBox.Text;
+                _releases,
+                enableNeuralRendering);
 
             if (AutoNvidiaResourcesCheck.IsChecked == true)
             {
@@ -623,17 +679,18 @@ public partial class MainWindow : Window
 
                 var staged = await _streamline.StageSelectedResourcesAsync(
                     gameDir,
-                    includeSuperResolution: true,
-                    includeFrameGeneration: true,
-                    includeReflex: true,
-                    includeNeuralRendering: true,
+                    includeSuperResolution: _gpuCapabilities.SuperResolution,
+                    includeFrameGeneration: _gpuCapabilities.FrameGeneration,
+                    includeReflex: _gpuCapabilities.FrameGeneration,
+                    includeNeuralRendering: _gpuCapabilities.NeuralRendering,
                     resourceProgress);
 
                 RuntimePathText.Text =
                     staged.Count == 0
-                        ? "NVIDIA resources checked • game already had the required files."
-                        : $"Added {staged.Count} missing official NVIDIA Streamline/DLSS resource file(s).";
+                        ? $"NVIDIA resources checked • {_gpu.Generation} supported feature set already satisfied."
+                        : $"Added {staged.Count} missing official NVIDIA resource file(s) for {_gpu.Generation}.";
             }
+
             await Task.Run(() => ApplyAdvancedSettings(gameDir, advanced));
 
             if (InstallReShadeAddonCheck.IsChecked == true)
@@ -658,7 +715,7 @@ public partial class MainWindow : Window
             }
 
             MessageBox.Show(
-                $"Installation completed.\nBackup: {backup}",
+                $"Installation completed for {_gpu.Generation}.\n\n{_gpuCapabilities.Summary}\n\nBackup: {backup}",
                 "DLSS NR Manager",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -682,7 +739,10 @@ public partial class MainWindow : Window
 
         try
         {
-            await Task.Run(() => _installer.ApplyPreset(GamePathBox.Text, GetSelectedWorkingScale()));
+            await Task.Run(() => _installer.ApplyPreset(
+                GamePathBox.Text,
+                GetSelectedWorkingScale(),
+                GpuCapabilityService.Evaluate(_gpu).NeuralRendering));
             MessageBox.Show(
                 "Preset applied. Restart the game if it is currently running.",
                 "DLSS NR Manager",
