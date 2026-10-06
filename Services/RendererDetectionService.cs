@@ -246,17 +246,33 @@ public static class RendererDetectionService
                 var info = FileVersionInfo.GetVersionInfo(path);
                 var metadata =
                     $"{info.FileDescription} {info.ProductName} {info.CompanyName}";
-                var binaryMarker = BinaryMarkerScanner.FindFirst(
+                var wrapperMarker = BinaryMarkerScanner.FindFirst(
                     path,
-                    ["DXVK", "vkd3d", "vkGetInstanceProcAddr"]);
+                    ["DXVK", "vkd3d"]);
+                var hasVulkanLoaderMarker =
+                    BinaryMarkerScanner.FindFirst(
+                        path,
+                        ["vkGetInstanceProcAddr"]) != null;
 
                 if (metadata.Contains("DXVK", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(binaryMarker, "DXVK", StringComparison.OrdinalIgnoreCase))
+                    (hasVulkanLoaderMarker &&
+                     string.Equals(
+                         wrapperMarker,
+                         "DXVK",
+                         StringComparison.OrdinalIgnoreCase)))
+                {
                     return $"DXVK ({name})";
+                }
 
                 if (metadata.Contains("vkd3d", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(binaryMarker, "vkd3d", StringComparison.OrdinalIgnoreCase))
+                    (hasVulkanLoaderMarker &&
+                     string.Equals(
+                         wrapperMarker,
+                         "vkd3d",
+                         StringComparison.OrdinalIgnoreCase)))
+                {
                     return $"vkd3d ({name})";
+                }
             }
             catch { }
         }
