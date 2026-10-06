@@ -362,6 +362,18 @@ public sealed class MinecraftIntegrationService
         })
             psi.ArgumentList.Add(arg);
 
+        var launcherType = DetectPreferredFabricLauncherType(
+            minecraftRoot);
+
+        if (!string.IsNullOrWhiteSpace(launcherType))
+        {
+            psi.ArgumentList.Add("-launcher");
+            psi.ArgumentList.Add(launcherType);
+
+            progress?.Report(
+                $"Fabric profile target: {launcherType}.");
+        }
+
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException("Could not start Fabric Installer.");
 
@@ -374,6 +386,44 @@ public sealed class MinecraftIntegrationService
                 "Fabric Installer failed.\n" + Tail(await stderr, 3000));
 
         progress?.Report("Fabric Loader installation finished. Restart Minecraft Launcher before continuing.");
+    }
+
+    private static string? DetectPreferredFabricLauncherType(
+        string minecraftRoot)
+    {
+        var win32 = Path.Combine(
+            minecraftRoot,
+            "launcher_profiles.json");
+        var microsoftStore = Path.Combine(
+            minecraftRoot,
+            "launcher_profiles_microsoft_store.json");
+
+        var hasWin32 = File.Exists(win32);
+        var hasStore = File.Exists(microsoftStore);
+
+        if (hasWin32 && !hasStore)
+            return "win32";
+
+        if (hasStore && !hasWin32)
+            return "microsoft_store";
+
+        if (hasWin32 && hasStore)
+        {
+            try
+            {
+                return File.GetLastWriteTimeUtc(microsoftStore) >=
+                       File.GetLastWriteTimeUtc(win32)
+                    ? "microsoft_store"
+                    : "win32";
+            }
+            catch
+            {
+                // Prefer the modern launcher when both profile stores exist.
+                return "microsoft_store";
+            }
+        }
+
+        return null;
     }
 
     public async Task<MinecraftSetupResult> InstallMinecraftRtxAsync(
