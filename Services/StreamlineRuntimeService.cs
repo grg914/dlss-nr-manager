@@ -97,7 +97,7 @@ public sealed class StreamlineRuntimeService
         }
 
         File.Copy(found, runtime, true);
-        File.WriteAllText(sourceMarker, asset.Url);
+        AtomicFile.WriteAllText(sourceMarker, asset.Url);
 
         var finalValidation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration);
         if (!IsTrustedNvidiaRuntime(finalValidation))
