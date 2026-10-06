@@ -511,6 +511,15 @@ public sealed class MinecraftIntegrationService
                 progress,
                 cancellationToken);
 
+            if (!FabricJarSupportsMinecraftVersion(
+                    causticaDestination,
+                    "caustica",
+                    MinecraftVersion))
+            {
+                throw new InvalidDataException(
+                    $"Downloaded Caustica RTX JAR does not declare compatibility with Minecraft {MinecraftVersion}.");
+            }
+
             installed.Add(new MinecraftComponentResult(
                 "Caustica RTX", caustica.Tag, causticaDestination, CausticaRtxRepo));
 
@@ -1044,6 +1053,96 @@ public sealed class MinecraftIntegrationService
 
             File.Delete(file);
         }
+    }
+
+    private static bool FabricJarSupportsMinecraftVersion(
+        string jarPath,
+        string expectedModId,
+        string minecraftVersion)
+    {
+        try
+        {
+            using var archive = ZipFile.OpenRead(jarPath);
+            var metadata = archive.GetEntry("fabric.mod.json");
+            if (metadata == null)
+                return false;
+
+            using var stream = metadata.Open();
+            using var document = JsonDocument.Parse(stream);
+
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                return false;
+
+            if (!document.RootElement.TryGetProperty(
+                    "id",
+                    out var idElement) ||
+                !string.Equals(
+                    idElement.GetString(),
+                    expectedModId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!document.RootElement.TryGetProperty(
+                    "depends",
+                    out var depends) ||
+                depends.ValueKind != JsonValueKind.Object ||
+                !depends.TryGetProperty(
+                    "minecraft",
+                    out var minecraftConstraint))
+            {
+                return false;
+            }
+
+            return MinecraftConstraintIncludesVersion(
+                minecraftConstraint,
+                minecraftVersion);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool MinecraftConstraintIncludesVersion(
+        JsonElement constraint,
+        string minecraftVersion)
+    {
+        if (constraint.ValueKind == JsonValueKind.String)
+        {
+            var value = constraint.GetString()?.Trim();
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            if (value == "*")
+                return true;
+
+            if (value.Equals(
+                    minecraftVersion,
+                    StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Support common Fabric metadata alternatives such as
+            // ">=26.2 <26.3" without pretending to implement the entire
+            // Fabric semantic-version grammar.
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                value,
+                $@"(?<![0-9.]){System.Text.RegularExpressions.Regex.Escape(minecraftVersion)}(?![0-9.])",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        }
+
+        if (constraint.ValueKind == JsonValueKind.Array)
+        {
+            return constraint
+                .EnumerateArray()
+                .Any(item =>
+                    MinecraftConstraintIncludesVersion(
+                        item,
+                        minecraftVersion));
+        }
+
+        return false;
     }
 
     private static bool JarContainsFabricModId(
