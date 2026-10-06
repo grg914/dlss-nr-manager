@@ -567,6 +567,11 @@
                             Content="Refresh"
                             Click="Refresh_Click"/>
                   </Grid>
+
+                  <Button x:Name="VerifyManagedFilesButton"
+                          Content="Verify managed files"
+                          Margin="0,8,0,0"
+                          Click="VerifyManagedFiles_Click"/>
                 </StackPanel>
               </Border>
             </StackPanel>
