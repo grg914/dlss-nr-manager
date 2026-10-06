@@ -185,7 +185,8 @@ public sealed class MinecraftOneClickService
             {
                 "Minecraft graphics backend preference set to Vulkan.",
                 "Caustica RTX provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and NVIDIA Reflex through its own renderer.",
-                "Open Video Settings → Ray Tracing after first launch to choose DLSS quality, Frame Generation multiplier and Reflex mode."
+                "The project Caustica build also includes RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering controls.",
+                "Open Video Settings → Ray Tracing after first launch to choose DLSS quality, Frame Generation multiplier, Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look."
             };
 
             if (installRtxPerformancePack)
@@ -251,7 +252,7 @@ public sealed class MinecraftOneClickService
             }
 
             progress?.Report(
-                "Minecraft DLSS / RTX stack is installed. Launch the Fabric profile, then use Video Settings → Ray Tracing for DLSS/FG/Reflex controls.");
+                "Minecraft DLSS / RTX stack is installed. Launch the Fabric profile, then use Video Settings → Ray Tracing for DLSS/RR/FG/Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look.");
 
             return new MinecraftOneClickResult(
                 setup,
