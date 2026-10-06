@@ -1,9 +1,10 @@
 {
-  "schema": 1,
+  "schema": 2,
   "generated_for": "DLSS NR Manager self-contained monorepo migration",
   "sources": [
     {
       "id": "caustica",
+      "group": "core",
       "path": "Caustica-RTX",
       "url": "https://github.com/grg914/Caustica-RTX.git",
       "ref": "27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a",
@@ -11,6 +12,7 @@
     },
     {
       "id": "streamline",
+      "group": "core",
       "path": "third_party/NVIDIA-Streamline",
       "url": "https://github.com/NVIDIA-RTX/Streamline.git",
       "ref": "2122257e0fce486f91b385aa63b9a09b0a34b363",
@@ -18,6 +20,7 @@
     },
     {
       "id": "optiscaler",
+      "group": "core",
       "path": "third_party/OptiScaler",
       "url": "https://github.com/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass.git",
       "ref": "1bd39091337cc07ba961c8e59ded57e21dc95b18",
@@ -25,6 +28,7 @@
     },
     {
       "id": "video2dlssnr",
+      "group": "core",
       "path": "third_party/video2dlssnr",
       "url": "https://github.com/DaniilSokolyuk/video2dlssnr.git",
       "ref": "9e1bbfa5a700d0cd63b224ab6d95581bfe7ec959",
@@ -32,6 +36,7 @@
     },
     {
       "id": "ffmpeg-builds",
+      "group": "core",
       "path": "third_party/FFmpeg-Builds",
       "url": "https://github.com/BtbN/FFmpeg-Builds.git",
       "ref": "9acad4a9ef1583096af7836cc1e9c8cbcb4d3950",
@@ -39,6 +44,7 @@
     },
     {
       "id": "ffmpeg",
+      "group": "core",
       "path": "third_party/FFmpeg",
       "url": "https://github.com/FFmpeg/FFmpeg.git",
       "ref": "9008db55d29631ae4ec62d46edea77c840ce0663",
@@ -46,6 +52,7 @@
     },
     {
       "id": "realesrgan",
+      "group": "core",
       "path": "third_party/Real-ESRGAN-ncnn-vulkan",
       "url": "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git",
       "ref": "37026f49824c5cf84062e7c6a5dd71445dcf610f",
@@ -53,6 +60,7 @@
     },
     {
       "id": "realesrgan-model-source-a",
+      "group": "core",
       "path": "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py",
       "url": "https://github.com/Tohrusky/realesrgan-ncnn-py.git",
       "ref": "900c0549a2fb3481b71d0369253522519308f1f2",
@@ -60,6 +68,7 @@
     },
     {
       "id": "realesrgan-model-source-b",
+      "group": "core",
       "path": "third_party/Real-ESRGAN-model-sources/spintexture",
       "url": "https://github.com/itsspin/spintexture.git",
       "ref": "9f291a8aa2afed34fc42e76696c2ce8317cf2143",
@@ -67,13 +76,32 @@
     },
     {
       "id": "reshade",
+      "group": "core",
       "path": "third_party/ReShade",
       "url": "https://github.com/crosire/reshade.git",
       "ref": "7bf9de8b33bcc76c3177007e65d73c72dd0f34c0",
       "redistribution": "BSD-3-Clause"
     },
     {
+      "id": "scoop-versions",
+      "group": "core",
+      "path": "third_party/ScoopInstaller-Versions",
+      "url": "https://github.com/ScoopInstaller/Versions.git",
+      "ref": "2657815df68427ae91cb58918d47200fb7a11c31",
+      "redistribution": "Unlicense repository metadata; preserve referenced upstream licensing"
+    },
+    {
+      "id": "onnxruntime",
+      "group": "core",
+      "path": "third_party/onnxruntime",
+      "url": "https://github.com/microsoft/onnxruntime.git",
+      "ref": "f2c39fe2f838cf35ce7da92824f5a5e3ee6e88a7",
+      "source_tag": "v1.30.0",
+      "redistribution": "MIT"
+    },
+    {
       "id": "ai-primary",
+      "group": "core",
       "path": "third_party/ai-models/ai-image-detection-ONNX",
       "url": "https://huggingface.co/onnx-community/ai-image-detection-ONNX",
       "ref": "e3cfe99f2841930a040a6281682c10c989965603",
@@ -81,9 +109,81 @@
     },
     {
       "id": "ai-secondary",
+      "group": "core",
       "path": "third_party/ai-models/ai-image-detect-distilled-ONNX",
       "url": "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX",
       "ref": "7f067e23521eeb6d6525221af82c613fb746aaff",
+      "redistribution": "MIT"
+    },
+    {
+      "id": "minecraft-fabric-installer",
+      "group": "minecraft",
+      "path": "third_party/minecraft/fabric-installer",
+      "url": "https://github.com/FabricMC/fabric-installer.git",
+      "ref": "6e7d1acd6a951a19a323060ac955f5e7bc51e3ce",
+      "redistribution": "Apache-2.0"
+    },
+    {
+      "id": "minecraft-fabric-api",
+      "group": "minecraft",
+      "path": "third_party/minecraft/fabric-api",
+      "url": "https://github.com/FabricMC/fabric-api.git",
+      "ref": "6a8ed6bc5a15a01cd6979998fc950f32a67010dc",
+      "source_branch": "26.2",
+      "redistribution": "Apache-2.0"
+    },
+    {
+      "id": "minecraft-lithium",
+      "group": "minecraft",
+      "path": "third_party/minecraft/lithium",
+      "url": "https://github.com/CaffeineMC/lithium.git",
+      "ref": "59c9db161ff68cef445bcfb3c20f05221c03db60",
+      "source_branch": "26.2",
+      "redistribution": "LGPL-3.0"
+    },
+    {
+      "id": "minecraft-ferritecore",
+      "group": "minecraft",
+      "path": "third_party/minecraft/ferritecore",
+      "url": "https://github.com/malte0811/FerriteCore.git",
+      "ref": "193585ebaf63dad37678519814e635d4a490f7ab",
+      "source_branch": "main",
+      "redistribution": "MIT"
+    },
+    {
+      "id": "minecraft-krypton",
+      "group": "minecraft",
+      "path": "third_party/minecraft/krypton",
+      "url": "https://github.com/astei/krypton.git",
+      "ref": "bc08466ff900d97b27bfabcde92005b4774717e8",
+      "source_branch": "master",
+      "redistribution": "LGPL-3.0"
+    },
+    {
+      "id": "minecraft-c2me",
+      "group": "minecraft",
+      "path": "third_party/minecraft/c2me",
+      "url": "https://github.com/RelativityMC/C2ME-fabric.git",
+      "ref": "6abe03d963f4fed708b6c3834057312e2d37e199",
+      "source_branch": "dev/26.2.0",
+      "redistribution": "LGPL-3.0"
+    },
+    {
+      "id": "minecraft-badoptimizations",
+      "group": "minecraft",
+      "path": "third_party/minecraft/badoptimizations",
+      "url": "https://github.com/imthosea/BadOptimizations.git",
+      "ref": "5de4a3ad4299909178d8995dc0bc80626be48d44",
+      "source_branch": "26.2",
+      "redistribution": "MIT"
+    },
+    {
+      "id": "minecraft-dynamic-fps",
+      "group": "minecraft",
+      "path": "third_party/minecraft/dynamic-fps",
+      "url": "https://github.com/juliand665/Dynamic-FPS.git",
+      "ref": "2152ae39805d2e8ebb383a579d79506e340a60eb",
+      "source_branch": "main",
       "redistribution": "MIT"
     }
   ],
@@ -92,7 +192,8 @@
       "id": "nvidia-dlss-sdk",
       "path": "third_party-local/NVIDIA-DLSS",
       "url": "https://github.com/NVIDIA/DLSS.git",
-      "ref": "v310.7.0",
+      "ref": "a291cc7d2cc642a51566f3dfd5376f635cd1b284",
+      "source_tag": "v310.7.0",
       "reason": "RTX SDK license restricts standalone redistribution; keep local unless separately cleared"
     }
   ]
