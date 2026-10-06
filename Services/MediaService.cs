@@ -140,17 +140,43 @@ public sealed class MediaService
                     $"Latest {ProcessorRepo} release has no {ProcessorAsset} asset.");
 
             var zip = Path.Combine(RootDirectory, ProcessorAsset);
-            await DownloadAsync(
-                asset.Url,
-                zip,
-                asset.Sha256,
-                cancellationToken);
-            ExtractSafe(zip, ProcessorDirectory);
-            File.Delete(zip);
+            var extract = Path.Combine(
+                RootDirectory,
+                "video2dlssnr-extract-" + Guid.NewGuid().ToString("N"));
 
-            if (!File.Exists(ProcessorExe))
+            try
+            {
+                await DownloadAsync(
+                    asset.Url,
+                    zip,
+                    asset.Sha256,
+                    cancellationToken);
+
+                ExtractSafe(zip, extract);
+
+                var extractedExe =
+                    FindFile(extract, "video2dlssnr.exe");
+
+                if (!IsUsableFile(extractedExe ?? "", 64 * 1024))
+                {
+                    throw new InvalidOperationException(
+                        "video2dlssnr.exe was not found or is invalid after extracting the release.");
+                }
+
+                TryDeleteDirectory(ProcessorDirectory);
+                Directory.Move(extract, ProcessorDirectory);
+            }
+            finally
+            {
+                TryDeleteFile(zip);
+                TryDeleteDirectory(extract);
+            }
+
+            if (!IsUsableFile(ProcessorExe, 64 * 1024))
+            {
                 throw new InvalidOperationException(
-                    "video2dlssnr.exe was not found after extracting the release.");
+                    "video2dlssnr installation did not produce a usable executable.");
+            }
         }
 
         if (!IsUsableFile(FfmpegExe, 1024 * 1024) ||
@@ -805,6 +831,16 @@ public sealed class MediaService
     }
 
     private static int Even(int value) => Math.Max(2, value & ~1);
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch { }
+    }
 
     private static void TryDeleteDirectory(string path)
     {
