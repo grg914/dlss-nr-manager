@@ -6,86 +6,215 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$LockPath = Join-Path $Root "third_party/DEPENDENCIES.lock.json"
+
+if (!(Test-Path -LiteralPath $LockPath)) {
+    throw "Dependency lock file not found: $LockPath"
+}
+
+$Lock = Get-Content -LiteralPath $LockPath -Raw | ConvertFrom-Json
+
+function Assert-ImmutableRef {
+    param(
+        [Parameter(Mandatory=$true)][string]$Id,
+        [Parameter(Mandatory=$true)][string]$Ref
+    )
+
+    if ($Ref -notmatch "^[0-9a-fA-F]{40}$") {
+        throw "Dependency '$Id' is not pinned to an immutable 40-character commit SHA: '$Ref'"
+    }
+}
+
+function Remove-GitMetadata {
+    param([Parameter(Mandatory=$true)][string]$Path)
+
+    Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -eq ".git" } |
+        Sort-Object { $_.FullName.Length } -Descending |
+        ForEach-Object {
+            if ($_.PSIsContainer) {
+                Remove-Item -LiteralPath $_.FullName -Recurse -Force
+            }
+            else {
+                Remove-Item -LiteralPath $_.FullName -Force
+            }
+        }
+}
+
+function Get-LfsPointers {
+    param([Parameter(Mandatory=$true)][string]$Path)
+
+    $pointers = @()
+    Get-ChildItem -LiteralPath $Path -Recurse -File -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Length -le 2048 } |
+        ForEach-Object {
+            try {
+                $firstLine = Get-Content -LiteralPath $_.FullName -TotalCount 1 -ErrorAction Stop
+                if ($firstLine -eq "version https://git-lfs.github.com/spec/v1") {
+                    $pointers += $_.FullName
+                }
+            }
+            catch {
+                # Binary or unreadable small files are not Git LFS pointer candidates.
+            }
+        }
+
+    return $pointers
+}
+
+function Test-ExistingImport {
+    param(
+        [Parameter(Mandatory=$true)][string]$Target,
+        [Parameter(Mandatory=$true)][string]$Url,
+        [Parameter(Mandatory=$true)][string]$Ref
+    )
+
+    $sourcePath = Join-Path $Target "SOURCE.json"
+    if (!(Test-Path -LiteralPath $sourcePath)) {
+        return $false
+    }
+
+    try {
+        $source = Get-Content -LiteralPath $sourcePath -Raw | ConvertFrom-Json
+        return $source.url -eq $Url -and $source.ref -eq $Ref
+    }
+    catch {
+        return $false
+    }
+}
 
 function Import-Repo {
     param(
+        [Parameter(Mandatory=$true)][string]$Id,
         [Parameter(Mandatory=$true)][string]$Url,
         [Parameter(Mandatory=$true)][string]$Ref,
-        [Parameter(Mandatory=$true)][string]$Destination
+        [Parameter(Mandatory=$true)][string]$Destination,
+        [string]$Group = "core"
     )
 
+    Assert-ImmutableRef -Id $Id -Ref $Ref
+
     $target = Join-Path $Root $Destination
-    if (Test-Path $target) {
+    if (Test-Path -LiteralPath $target) {
         if (-not $Replace) {
-            Write-Host "SKIP $Destination (already exists; use -Replace to refresh)"
-            return
+            if (Test-ExistingImport -Target $target -Url $Url -Ref $Ref) {
+                Write-Host "SKIP $Destination (already matches lock file; use -Replace to refresh)"
+                return
+            }
+
+            throw "Existing import '$Destination' does not match the lock file. Re-run with -Replace."
         }
-        Remove-Item $target -Recurse -Force
+
+        Remove-Item -LiteralPath $target -Recurse -Force
     }
 
     $temp = Join-Path $env:TEMP ("dlssnr-vendor-" + [Guid]::NewGuid().ToString("N"))
     try {
-        Write-Host "IMPORT $Url @ $Ref -> $Destination"
+        Write-Host "IMPORT [$Id] $Url @ $Ref -> $Destination"
         git clone --filter=blob:none --no-checkout $Url $temp
-        if ($LASTEXITCODE -ne 0) { throw "git clone failed: $Url" }
+        if ($LASTEXITCODE -ne 0) {
+            throw "git clone failed: $Url"
+        }
 
-        git -C $temp checkout $Ref
-        if ($LASTEXITCODE -ne 0) { throw "git checkout failed: $Url @ $Ref" }
+        git -C $temp checkout --detach $Ref
+        if ($LASTEXITCODE -ne 0) {
+            throw "git checkout failed: $Url @ $Ref"
+        }
+
+        $actualRef = (git -C $temp rev-parse HEAD).Trim()
+        if ($LASTEXITCODE -ne 0 -or $actualRef -ne $Ref) {
+            throw "Pinned ref verification failed for '$Id'. Expected $Ref, got $actualRef."
+        }
 
         git -C $temp submodule update --init --recursive
-        if ($LASTEXITCODE -ne 0) { throw "git submodule update failed: $Url @ $Ref" }
+        if ($LASTEXITCODE -ne 0) {
+            throw "git submodule update failed: $Url @ $Ref"
+        }
 
         if (Get-Command git-lfs -ErrorAction SilentlyContinue) {
-            git -C $temp lfs pull | Out-Host
+            git -C $temp lfs pull
+            if ($LASTEXITCODE -ne 0) {
+                throw "git lfs pull failed: $Url @ $Ref"
+            }
+
+            git -C $temp submodule foreach --recursive "git lfs pull"
+            if ($LASTEXITCODE -ne 0) {
+                throw "git lfs pull failed in a submodule: $Url @ $Ref"
+            }
         }
 
         New-Item -ItemType Directory -Force -Path $target | Out-Null
         robocopy $temp $target /MIR /XD .git /NFL /NDL /NJH /NJS /NP | Out-Null
-        if ($LASTEXITCODE -ge 8) { throw "robocopy failed with exit code $LASTEXITCODE" }
+        if ($LASTEXITCODE -ge 8) {
+            throw "robocopy failed with exit code $LASTEXITCODE"
+        }
+
+        Remove-GitMetadata -Path $target
+
+        $nestedGit = Get-ChildItem -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq ".git" } |
+            Select-Object -First 1
+        if ($nestedGit) {
+            throw "Nested Git metadata remains after import: $($nestedGit.FullName)"
+        }
+
+        $lfsPointers = @(Get-LfsPointers -Path $target)
+        if ($lfsPointers.Count -gt 0) {
+            $sample = ($lfsPointers | Select-Object -First 5) -join ", "
+            throw "Unmaterialized Git LFS pointer(s) remain in '$Destination'. Install Git LFS and retry with -Replace. Example(s): $sample"
+        }
 
         $source = [ordered]@{
+            id = $Id
+            group = $Group
             url = $Url
             ref = $Ref
             imported_at_utc = [DateTime]::UtcNow.ToString("o")
         } | ConvertTo-Json
-        Set-Content -Path (Join-Path $target "SOURCE.json") -Value $source -Encoding UTF8
+
+        Set-Content -LiteralPath (Join-Path $target "SOURCE.json") -Value $source -Encoding UTF8
     }
     finally {
-        if (Test-Path $temp) { Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $temp) {
+            Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
-Import-Repo "https://github.com/grg914/Caustica-RTX.git" "27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a" "Caustica-RTX"
-Import-Repo "https://github.com/NVIDIA-RTX/Streamline.git" "2122257e0fce486f91b385aa63b9a09b0a34b363" "third_party/NVIDIA-Streamline"
-Import-Repo "https://github.com/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass.git" "1bd39091337cc07ba961c8e59ded57e21dc95b18" "third_party/OptiScaler"
-Import-Repo "https://github.com/DaniilSokolyuk/video2dlssnr.git" "9e1bbfa5a700d0cd63b224ab6d95581bfe7ec959" "third_party/video2dlssnr"
-Import-Repo "https://github.com/BtbN/FFmpeg-Builds.git" "9acad4a9ef1583096af7836cc1e9c8cbcb4d3950" "third_party/FFmpeg-Builds"
-Import-Repo "https://github.com/FFmpeg/FFmpeg.git" "9008db55d29631ae4ec62d46edea77c840ce0663" "third_party/FFmpeg"
-Import-Repo "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git" "37026f49824c5cf84062e7c6a5dd71445dcf610f" "third_party/Real-ESRGAN-ncnn-vulkan"
-Import-Repo "https://github.com/Tohrusky/realesrgan-ncnn-py.git" "900c0549a2fb3481b71d0369253522519308f1f2" "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py"
-Import-Repo "https://github.com/itsspin/spintexture.git" "9f291a8aa2afed34fc42e76696c2ce8317cf2143" "third_party/Real-ESRGAN-model-sources/spintexture"
-Import-Repo "https://github.com/crosire/reshade.git" "7bf9de8b33bcc76c3177007e65d73c72dd0f34c0" "third_party/ReShade"
-Import-Repo "https://github.com/ScoopInstaller/Versions.git" "2657815df68427ae91cb58918d47200fb7a11c31" "third_party/ScoopInstaller-Versions"
-Import-Repo "https://github.com/microsoft/onnxruntime.git" "v1.30.0" "third_party/onnxruntime"
-Import-Repo "https://huggingface.co/onnx-community/ai-image-detection-ONNX" "e3cfe99f2841930a040a6281682c10c989965603" "third_party/ai-models/ai-image-detection-ONNX"
-Import-Repo "https://huggingface.co/onnx-community/ai-image-detect-distilled-ONNX" "7f067e23521eeb6d6525221af82c613fb746aaff" "third_party/ai-models/ai-image-detect-distilled-ONNX"
+foreach ($source in @($Lock.sources)) {
+    $group = if ($source.group) { [string]$source.group } else { "core" }
 
-if ($IncludeMinecraftSources) {
-    Import-Repo "https://github.com/FabricMC/fabric-installer.git" "master" "third_party/minecraft/fabric-installer"
-    Import-Repo "https://github.com/FabricMC/fabric.git" "26.2" "third_party/minecraft/fabric-api"
-    Import-Repo "https://github.com/CaffeineMC/lithium.git" "26.2" "third_party/minecraft/lithium"
-    Import-Repo "https://github.com/malte0811/FerriteCore.git" "HEAD" "third_party/minecraft/ferritecore"
-    Import-Repo "https://github.com/astei/krypton.git" "master" "third_party/minecraft/krypton"
-    Import-Repo "https://github.com/RelativityMC/C2ME-fabric.git" "dev/26.2.0" "third_party/minecraft/c2me"
-    Import-Repo "https://github.com/imthosea/BadOptimizations.git" "26.2" "third_party/minecraft/badoptimizations"
-    Import-Repo "https://github.com/juliand665/Dynamic-FPS.git" "main" "third_party/minecraft/dynamic-fps"
+    if ($group -eq "minecraft" -and -not $IncludeMinecraftSources) {
+        Write-Host "SKIP $($source.path) (Minecraft source mirror not requested)"
+        continue
+    }
+
+    $importArgs = @{
+        Id = [string]$source.id
+        Url = [string]$source.url
+        Ref = [string]$source.ref
+        Destination = [string]$source.path
+        Group = $group
+    }
+    Import-Repo @importArgs
 }
 
 if ($IncludeRestrictedNvidiaSdk) {
     Write-Warning "NVIDIA/DLSS is imported only into third_party-local because its SDK license restricts standalone redistribution."
-    Import-Repo "https://github.com/NVIDIA/DLSS.git" "v310.7.0" "third_party-local/NVIDIA-DLSS"
+
+    foreach ($source in @($Lock.local_only)) {
+        $importArgs = @{
+            Id = [string]$source.id
+            Url = [string]$source.url
+            Ref = [string]$source.ref
+            Destination = [string]$source.path
+            Group = "local-only"
+        }
+        Import-Repo @importArgs
+    }
 }
 
 Write-Host ""
 Write-Host "Vendor import complete."
+Write-Host "All imported public sources were resolved from third_party/DEPENDENCIES.lock.json."
 Write-Host "Review third_party/README.md and all upstream licenses before redistribution."
