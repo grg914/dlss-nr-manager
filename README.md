@@ -322,7 +322,7 @@ The project integrates or automates workflows around:
 - `FabricMC/fabric-installer`
 - `FabricMC/fabric-api`
 - `grg914/Caustica-RTX` (project fork; based on AriesAlex/Caustica-RTX)
-- Modrinth API projects: Lithium, FerriteCore, Krypton, Dynamic FPS and SPBR
+- Modrinth API projects: Lithium, FerriteCore, Krypton, C2ME, BadOptimizations, Dynamic FPS and SPBR
 - `xinntao/Real-ESRGAN-ncnn-vulkan`
 
 ## Limitations
