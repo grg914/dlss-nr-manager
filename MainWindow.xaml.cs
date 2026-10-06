@@ -339,9 +339,11 @@ public partial class MainWindow : Window
             : $"{gameName} • Not installed";
 
         VersionText.Text = $"Installed OptiScaler package: {state.Version ?? "unknown"}";
-        RuntimeText.Text = !state.RuntimePresent
-            ? "DLSSNR runtime: missing"
-            : $"DLSSNR runtime: {(state.RuntimeHashValid ? "valid hash" : "hash invalid")} • {state.RuntimeHash}";
+        RuntimeText.Text = !_gpuCapabilities.NeuralRendering
+            ? $"DLSSNR runtime: not required on {_gpu.Generation} • Neural Rendering is not supported by this GPU generation"
+            : !state.RuntimePresent
+                ? "DLSSNR runtime: missing • other supported DLSS features can still be installed"
+                : $"DLSSNR runtime: {(state.RuntimeHashValid ? "valid known hash" : "NVIDIA runtime present")} • {state.RuntimeHash}";
 
         InstallButton.IsEnabled = !state.Installed && _gpuCapabilities.IsSupportedRtx;
         UpdateButton.IsEnabled = state.Installed && _gpuCapabilities.IsSupportedRtx;
@@ -607,34 +609,49 @@ public partial class MainWindow : Window
         if (enableNeuralRendering &&
             (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath)))
         {
-            if (AutoNvidiaRuntimeCheck.IsChecked != true)
+            if (AutoNvidiaRuntimeCheck.IsChecked == true)
             {
-                MessageBox.Show(
-                    "RTX 50 Neural Rendering is available on this GPU, but no DLSSNR runtime is selected. " +
-                    "Select nvngx_dlssnr.dll or enable automatic NVIDIA Streamline runtime download.");
-                return;
-            }
+                try
+                {
+                    RuntimePathText.Text = "Downloading official NVIDIA Streamline DLSSNR runtime…";
+                    var progress = new Progress<string>(message => RuntimePathText.Text = message);
+                    var runtime = await _streamline.EnsureLatestDlssNrAsync(
+                        _gpu.Generation,
+                        progress);
 
-            try
-            {
-                RuntimePathText.Text = "Downloading official NVIDIA Streamline DLSSNR runtime…";
-                var progress = new Progress<string>(message => RuntimePathText.Text = message);
-                var runtime = await _streamline.EnsureLatestDlssNrAsync(
-                    _gpu.Generation,
-                    progress);
+                    _runtimePath = runtime.RuntimePath;
+                    RuntimePathText.Text =
+                        $"{Path.GetFileName(runtime.RuntimePath)} • NVIDIA Streamline {runtime.Version} • official GitHub release";
+                }
+                catch (Exception ex)
+                {
+                    var continueWithoutNr = MessageBox.Show(
+                        $"No usable official DLSS Neural Rendering runtime could be prepared.\n\n{ex.Message}\n\n" +
+                        "Continue with the other RTX 50 features (DLSS SR/RR, Frame Generation/MFG and Reflex) without Neural Rendering?",
+                        "Neural Rendering unavailable",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning);
 
-                _runtimePath = runtime.RuntimePath;
-                RuntimePathText.Text =
-                    $"{Path.GetFileName(runtime.RuntimePath)} • NVIDIA Streamline {runtime.Version} • official GitHub release";
+                    if (continueWithoutNr != MessageBoxResult.Yes)
+                        return;
+
+                    enableNeuralRendering = false;
+                    _runtimePath = null;
+                }
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show(
-                    $"Unable to prepare the official NVIDIA Neural Rendering runtime.\n\n{ex.Message}",
-                    "NVIDIA Streamline runtime",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-                return;
+                var continueWithoutNr = MessageBox.Show(
+                    "RTX 50 supports Neural Rendering, but no DLSSNR runtime is selected.\n\n" +
+                    "Continue with the other supported DLSS features without Neural Rendering?",
+                    "Neural Rendering runtime not selected",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (continueWithoutNr != MessageBoxResult.Yes)
+                    return;
+
+                enableNeuralRendering = false;
             }
         }
         else if (!enableNeuralRendering)
@@ -694,8 +711,8 @@ public partial class MainWindow : Window
                     gameDir,
                     includeSuperResolution: _gpuCapabilities.SuperResolution,
                     includeFrameGeneration: _gpuCapabilities.FrameGeneration,
-                    includeReflex: _gpuCapabilities.FrameGeneration,
-                    includeNeuralRendering: _gpuCapabilities.NeuralRendering,
+                    includeReflex: _gpuCapabilities.IsSupportedRtx,
+                    includeNeuralRendering: enableNeuralRendering,
                     resourceProgress);
 
                 RuntimePathText.Text =
@@ -752,10 +769,12 @@ public partial class MainWindow : Window
 
         try
         {
+            var capabilities = GpuCapabilityService.Evaluate(_gpu);
+            var neuralRuntimePresent = File.Exists(Path.Combine(GamePathBox.Text, "nvngx_dlssnr.dll"));
             await Task.Run(() => _installer.ApplyPreset(
                 GamePathBox.Text,
                 GetSelectedWorkingScale(),
-                GpuCapabilityService.Evaluate(_gpu).NeuralRendering));
+                capabilities.NeuralRendering && neuralRuntimePresent));
             MessageBox.Show(
                 "Preset applied. Restart the game if it is currently running.",
                 "DLSS NR Manager",
