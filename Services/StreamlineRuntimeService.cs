@@ -72,7 +72,11 @@ public sealed class StreamlineRuntimeService
         var extract = Path.Combine(versionRoot, "_extract");
 
         progress?.Report($"Downloading NVIDIA Streamline {tag}…");
-        await DownloadAsync(asset.Url, tempZip, cancellationToken);
+        await DownloadAsync(
+            asset.Url,
+            tempZip,
+            asset.Sha256,
+            cancellationToken);
 
         progress?.Report("Extracting NVIDIA Streamline production runtime…");
         ExtractSafe(tempZip, extract);
@@ -127,7 +131,11 @@ public sealed class StreamlineRuntimeService
         try
         {
             progress?.Report($"Downloading NVIDIA Streamline {tag} resources…");
-            await DownloadAsync(asset.Url, zip, cancellationToken);
+            await DownloadAsync(
+                asset.Url,
+                zip,
+                asset.Sha256,
+                cancellationToken);
             ExtractSafe(zip, extract);
 
             var names = new List<string> { "sl.interposer.dll", "sl.common.dll" };
@@ -163,29 +171,41 @@ public sealed class StreamlineRuntimeService
                 names.AddRange(["sl.dlss_nr.dll", "nvngx_dlssnr.dll"]);
 
             var installed = new List<string>();
-            foreach (var name in names.Distinct(StringComparer.OrdinalIgnoreCase))
+
+            try
             {
-                var source = FindProductionFile(extract, name) ?? FindFile(extract, name);
-                if (source == null)
-                    continue;
+                foreach (var name in names.Distinct(
+                             StringComparer.OrdinalIgnoreCase))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                var destination = Path.Combine(gameDirectory, name);
+                    var source = FindProductionFile(extract, name)
+                                 ?? FindFile(extract, name);
+                    if (source == null)
+                        continue;
 
-                // This helper exists for PCs/games that are missing the NVIDIA
-                // runtime resources. Never overwrite a game's existing vendor DLLs;
-                // OptiScaler's managed nvngx_dlssnr.dll is handled separately by
-                // InstallerService with backup/rollback semantics.
-                if (File.Exists(destination))
-                    continue;
+                    var destination = Path.Combine(gameDirectory, name);
 
-                File.Copy(source, destination, false);
-                installed.Add(destination);
+                    // Never overwrite a game's existing vendor DLLs.
+                    if (File.Exists(destination))
+                        continue;
+
+                    File.Copy(source, destination, false);
+                    installed.Add(destination);
+                }
+
+                progress?.Report(
+                    $"Staged {installed.Count} NVIDIA Streamline/DLSS resource file(s) into the selected game.");
+
+                return installed;
             }
+            catch
+            {
+                foreach (var path in installed)
+                    TryDeleteFile(path);
 
-            progress?.Report(
-                $"Staged {installed.Count} NVIDIA Streamline/DLSS resource file(s) into the selected game.");
-
-            return installed;
+                throw;
+            }
         }
         finally
         {
@@ -207,14 +227,47 @@ public sealed class StreamlineRuntimeService
             return null;
 
         return assets.EnumerateArray()
-            .Select(asset => new ReleaseAsset(
-                asset.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
-                asset.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : ""))
-            .Where(x => x.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-            .Where(x => !x.Name.Contains("source", StringComparison.OrdinalIgnoreCase))
+            .Select(asset =>
+            {
+                var digest = asset.TryGetProperty(
+                        "digest",
+                        out var digestElement)
+                    ? digestElement.GetString()
+                    : null;
+
+                var sha256 =
+                    !string.IsNullOrWhiteSpace(digest) &&
+                    digest.StartsWith(
+                        "sha256:",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? digest["sha256:".Length..]
+                        : null;
+
+                return new ReleaseAsset(
+                    asset.TryGetProperty("name", out var n)
+                        ? n.GetString() ?? ""
+                        : "",
+                    asset.TryGetProperty("browser_download_url", out var u)
+                        ? u.GetString() ?? ""
+                        : "",
+                    sha256);
+            })
+            .Where(x =>
+                x.Name.EndsWith(
+                    ".zip",
+                    StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                !x.Name.Contains(
+                    "source",
+                    StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(x =>
-                x.Name.Contains("streamline", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
-            .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Url));
+                x.Name.Contains(
+                    "streamline",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? 1
+                    : 0)
+            .FirstOrDefault(x =>
+                !string.IsNullOrWhiteSpace(x.Url));
     }
 
     private async Task<JsonDocument> GetJsonAsync(string url, CancellationToken cancellationToken)
@@ -225,17 +278,67 @@ public sealed class StreamlineRuntimeService
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
     }
 
-    private async Task DownloadAsync(string url, string destination, CancellationToken cancellationToken)
+    private async Task DownloadAsync(
+        string url,
+        string destination,
+        string? expectedSha256,
+        CancellationToken cancellationToken)
     {
-        using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        var temp = destination + ".download";
 
-        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 128 * 1024, true);
-        await input.CopyToAsync(output, cancellationToken);
+        try
+        {
+            using var response = await _http.GetAsync(
+                url,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
 
-        if (new FileInfo(destination).Length < 1024)
-            throw new InvalidDataException("Downloaded Streamline archive is unexpectedly small.");
+            await using var input =
+                await response.Content.ReadAsStreamAsync(
+                    cancellationToken);
+            await using var output = new FileStream(
+                temp,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                128 * 1024,
+                true);
+
+            await input.CopyToAsync(
+                output,
+                cancellationToken);
+
+            if (new FileInfo(temp).Length < 1024)
+            {
+                throw new InvalidDataException(
+                    "Downloaded Streamline archive is unexpectedly small.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                await using var hashStream = File.OpenRead(temp);
+                var actual = Convert.ToHexString(
+                    await SHA256.HashDataAsync(
+                        hashStream,
+                        cancellationToken));
+
+                if (!actual.Equals(
+                        expectedSha256,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"Streamline archive SHA-256 mismatch. Expected {expectedSha256}, got {actual}.");
+                }
+            }
+
+            File.Move(temp, destination, true);
+        }
+        catch
+        {
+            TryDeleteFile(temp);
+            throw;
+        }
     }
 
     private static void ExtractSafe(string zipPath, string destination)
@@ -293,5 +396,8 @@ public sealed class StreamlineRuntimeService
         try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch { }
     }
 
-    private sealed record ReleaseAsset(string Name, string Url);
+    private sealed record ReleaseAsset(
+        string Name,
+        string Url,
+        string? Sha256);
 }
