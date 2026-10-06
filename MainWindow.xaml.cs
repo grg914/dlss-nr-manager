@@ -254,7 +254,7 @@ public partial class MainWindow : Window
 
         AppLogger.Info(
             _managerRelease == null
-                ? "Manager update check: no published release detected."
+                ? "Manager update check: unavailable or no published release detected."
                 : $"Manager update check: latest published {_managerRelease.Tag}.");
 
         var current =
@@ -264,7 +264,7 @@ public partial class MainWindow : Window
         if (_managerRelease == null)
         {
             AppVersionText.Text =
-                $"Version v{current.Major}.{current.Minor}.{current.Build} • no published update";
+                $"Version v{current.Major}.{current.Minor}.{current.Build} • update check unavailable";
             ManagerUpdateButton.Visibility = Visibility.Collapsed;
             return;
         }
