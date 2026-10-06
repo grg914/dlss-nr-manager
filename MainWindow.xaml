@@ -1345,6 +1345,13 @@
                            Foreground="{StaticResource Muted}"
                            TextWrapping="Wrap"
                            Margin="0,6,0,0"/>
+                <Button x:Name="ExportDiagnosticsButton"
+                        Style="{StaticResource CyanButton}"
+                        Content="Save support bundle"
+                        HorizontalAlignment="Left"
+                        Margin="0,14,0,0"
+                        ToolTip="Exports sanitized manager/game diagnostics to a ZIP you choose."
+                        Click="ExportDiagnostics_Click"/>
               </StackPanel>
             </Grid>
           </Border></Grid></ScrollViewer></TabItem>
