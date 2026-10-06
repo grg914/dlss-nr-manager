@@ -693,21 +693,25 @@ public sealed class AiUpscaleService
 
             response.EnsureSuccessStatusCode();
 
-            await using var input =
+            await using (var input =
                 await response.Content.ReadAsStreamAsync(
-                    cancellationToken);
-            await using var output = new FileStream(
+                    cancellationToken))
+            await using (var output = new FileStream(
                 temp,
                 FileMode.Create,
                 FileAccess.Write,
                 FileShare.None,
                 128 * 1024,
-                useAsync: true);
+                useAsync: true))
+            {
+                await input.CopyToAsync(
+                    output,
+                    cancellationToken);
+            }
 
-            await input.CopyToAsync(
-                output,
-                cancellationToken);
-
+            // Close the FileShare.None writer before size validation and
+            // File.Move. Keeping it alive causes a Windows sharing violation
+            // and leaves the model set incomplete.
             var actualSize = new FileInfo(temp).Length;
             if (actualSize != asset.ExpectedSize)
             {
