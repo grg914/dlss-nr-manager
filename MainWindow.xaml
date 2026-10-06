@@ -1195,7 +1195,7 @@
                           </Grid.ColumnDefinitions>
                           <Button Grid.Column="0"
                                   x:Name="AiOriginSetupButton"
-                                  Content="Set up detector"
+                                  Content="Verify / repair detector"
                                   Click="SetupAiOrigin_Click"/>
                           <Button Grid.Column="2"
                                   x:Name="AiOriginAnalyzeButton"
