@@ -9,18 +9,21 @@ public sealed class GpuDetectionService
 {
     public GpuInfo Detect()
     {
-        foreach (var name in DetectRegistryNames())
-        {
-            var parsed = Parse(name);
-            if (parsed.IsNvidia)
-                return parsed;
-        }
+        var names = DetectRegistryNames()
+            .Concat(DetectViaNvidiaSmi())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        var smi = DetectViaNvidiaSmi();
-        if (!string.IsNullOrWhiteSpace(smi))
-            return Parse(smi);
+        var candidates = names
+            .Select(Parse)
+            .Where(x => x.IsNvidia)
+            .OrderByDescending(x => GenerationRank(x.Generation))
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        return new("Unknown GPU", "Unknown", false);
+        return candidates.FirstOrDefault()
+               ?? new("Unknown GPU", "Unknown", false);
     }
 
     private static IEnumerable<string> DetectRegistryNames()
@@ -53,7 +56,7 @@ public sealed class GpuDetectionService
         }
     }
 
-    private static string? DetectViaNvidiaSmi()
+    private static IEnumerable<string> DetectViaNvidiaSmi()
     {
         try
         {
@@ -68,19 +71,30 @@ public sealed class GpuDetectionService
             });
 
             if (process == null)
-                return null;
+                return [];
 
             var output = process.StandardOutput.ReadToEnd();
             if (!process.WaitForExit(3000) || process.ExitCode != 0)
-                return null;
+            {
+                try
+                {
+                    if (!process.HasExited)
+                        process.Kill(entireProcessTree: true);
+                }
+                catch { }
+
+                return [];
+            }
 
             return output
-                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .FirstOrDefault();
+                .Split(
+                    ['\r', '\n'],
+                    StringSplitOptions.RemoveEmptyEntries |
+                    StringSplitOptions.TrimEntries);
         }
         catch
         {
-            return null;
+            return [];
         }
     }
 
@@ -96,4 +110,15 @@ public sealed class GpuDetectionService
 
         return new(normalized, gen, true);
     }
+
+    private static int GenerationRank(string generation)
+        => generation switch
+        {
+            "RTX 50" => 50,
+            "RTX 40" => 40,
+            "RTX 30" => 30,
+            "RTX 20" => 20,
+            "NVIDIA" => 1,
+            _ => 0
+        };
 }
