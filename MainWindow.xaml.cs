@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly GameArtworkService _artwork = new();
     private readonly MediaService _media = new();
     private readonly AiUpscaleService _aiUpscale = new();
+    private readonly AiOriginDetectionService _aiOrigin;
     private readonly ReShadeService _reshade = new();
     private readonly ComponentUpdateService _components = new();
     private readonly PcUpdateService _pcUpdates = new();
@@ -53,6 +54,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _minecraftOneClick = new MinecraftOneClickService(_minecraft);
+        _aiOrigin = new AiOriginDetectionService(_media);
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         AppVersionText.Text = version == null
@@ -75,11 +77,16 @@ public partial class MainWindow : Window
             ? "AI Upscale engine ready."
             : "AI Upscale engine not installed yet.";
 
+        AiOriginStatusText.Text = _aiOrigin.IsReady
+            ? "AI origin detector ready."
+            : "AI origin detector not installed yet.";
+
         _cleanupItems = _pcCleanup.CreateDefaultItems();
         PcCleanupList.ItemsSource = _cleanupItems;
 
         Closed += (_, _) =>
         {
+            _aiOrigin.Dispose();
             Application.Current.Shutdown();
             Environment.Exit(0);
         };
@@ -1787,6 +1794,111 @@ public partial class MainWindow : Window
 
         if (MediaIntensitySlider != null)
             MediaIntensitySlider.IsEnabled = mode != 1;
+    }
+
+    private async void SetupAiOrigin_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            AiOriginSetupButton.IsEnabled = false;
+            AiOriginAnalyzeButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => AiOriginStatusText.Text = message);
+
+            await _aiOrigin.SetupAsync(progress);
+            AiOriginStatusText.Text =
+                "AI origin detector ready • local ONNX model installed.";
+        }
+        catch (Exception ex)
+        {
+            AiOriginStatusText.Text =
+                $"AI origin detector setup failed: {ex.Message}";
+
+            MessageBox.Show(
+                ex.Message,
+                "AI origin detector setup failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            AiOriginSetupButton.IsEnabled = true;
+            AiOriginAnalyzeButton.IsEnabled = true;
+        }
+    }
+
+    private async void AnalyzeAiOrigin_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var source = MediaSourceBox.Text;
+        if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
+        {
+            MessageBox.Show(
+                "Select an image or video first.",
+                "AI origin detection",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            AiOriginSetupButton.IsEnabled = false;
+            AiOriginAnalyzeButton.IsEnabled = false;
+            MediaProcessButton.IsEnabled = false;
+
+            var progress = new Progress<string>(
+                message => AiOriginStatusText.Text = message);
+
+            var result = await _aiOrigin.AnalyzeAsync(
+                source,
+                progress);
+
+            var provenance = result.ProvenanceSignals.Count == 0
+                ? "No known generator/provenance marker found."
+                : string.Join(Environment.NewLine, result.ProvenanceSignals.Select(x => "• " + x));
+
+            AiOriginStatusText.Text = result.Summary;
+
+            MessageBox.Show(
+                $"{result.Verdict}\n\n" +
+                $"AI probability: {result.AiProbability:P1}\n" +
+                $"Confidence: {result.Confidence:P1}\n" +
+                $"Frames analyzed: {result.FramesAnalyzed}\n" +
+                (result.FramesAnalyzed > 1
+                    ? $"Frames flagged: {result.FramesFlagged}/{result.FramesAnalyzed}\n"
+                    : "") +
+                $"Model: {result.Model}\n\n" +
+                $"Provenance / metadata:\n{provenance}\n\n" +
+                result.Notes,
+                "AI origin detection",
+                MessageBoxButton.OK,
+                result.Verdict.StartsWith("Likely AI", StringComparison.OrdinalIgnoreCase) ||
+                result.Verdict.StartsWith("AI provenance", StringComparison.OrdinalIgnoreCase)
+                    ? MessageBoxImage.Warning
+                    : MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            AiOriginStatusText.Text =
+                $"AI origin analysis failed: {ex.Message}";
+
+            MessageBox.Show(
+                ex.Message,
+                "AI origin analysis failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            AiOriginSetupButton.IsEnabled = true;
+            AiOriginAnalyzeButton.IsEnabled = true;
+            MediaProcessButton.IsEnabled = true;
+        }
     }
 
     private async void SetupAiUpscale_Click(
