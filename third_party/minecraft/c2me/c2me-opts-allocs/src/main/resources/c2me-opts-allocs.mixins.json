@@ -1,0 +1,20 @@
+{
+  "parent": "c2me.mixins.json",
+  "required": true,
+  "package": "com.ishland.c2me.opts.allocs.mixin",
+  "plugin": "com.ishland.c2me.opts.allocs.MixinPlugin",
+  "mixins": [
+    "MixinIdentifier",
+    "MixinNbtCompound",
+    "MixinNbtCompound1",
+    "MixinNbtList",
+    "MixinUtil",
+    "object_pooling_caching.MixinOreFeature",
+    "predicates.MixinAllOfBlockPredicate",
+    "predicates.MixinAnyOfBlockPredicate",
+    "predicates.MixinCombinedBlockPredicate",
+    "predicates.MixinOffsetPredicate",
+    "surfacebuilder.MixinMaterialRulesSequenceBlockStateRule",
+    "surfacebuilder.MixinMaterialRulesSequenceMaterialRule"
+  ]
+}

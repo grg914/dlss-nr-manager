@@ -1,0 +1,43 @@
+{
+    "version": "0.4.108",
+    "description": "Lightweight, cross-platform database client (CLI)",
+    "homepage": "https://dbxio.com/en/docs/cli",
+    "license": "Apache-2.0",
+    "suggest": {
+        "DBX": "extras/dbx"
+    },
+    "architecture": {
+        "64bit": {
+            "url": "https://registry.npmjs.org/@dbx-app/cli-win32-x64/-/cli-win32-x64-0.4.108.tgz",
+            "hash": "sha512:d8bb771220f4ba06594144d533715de980e07d31f53cac0f185a5f85159dfd5339693ce14b811397bd30a4fe27fc897d87846ec5e03ca0ef401add99352dd0fc"
+        },
+        "arm64": {
+            "url": "https://registry.npmjs.org/@dbx-app/cli-win32-arm64/-/cli-win32-arm64-0.4.108.tgz",
+            "hash": "sha512:9a48f2675b071fbeb587304f7783b52b15342a11acfb7709a49a71532fc6b0778c90dc475ffe7ca84b6a731fd6b4c15a8e8ed6b7df99a3c9d5a353d4220c1fb4"
+        }
+    },
+    "extract_dir": "package\\bin",
+    "bin": "dbx.exe",
+    "checkver": {
+        "url": "https://registry.npmjs.org/@dbx-app/cli/latest",
+        "jsonpath": "$.version"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://registry.npmjs.org/@dbx-app/cli-win32-x64/-/cli-win32-x64-$version.tgz",
+                "hash": {
+                    "url": "https://registry.npmjs.org/@dbx-app/cli-win32-x64/$version",
+                    "regex": "sha512-$base64"
+                }
+            },
+            "arm64": {
+                "url": "https://registry.npmjs.org/@dbx-app/cli-win32-arm64/-/cli-win32-arm64-$version.tgz",
+                "hash": {
+                    "url": "https://registry.npmjs.org/@dbx-app/cli-win32-arm64/$version",
+                    "regex": "sha512-$base64"
+                }
+            }
+        }
+    }
+}

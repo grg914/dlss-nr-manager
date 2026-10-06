@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0-beta.46",
+    "description": "A full-featured download manager (Pre-release).",
+    "homepage": "https://motrix.app",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/agalwood/Motrix/releases/download/v2.0.0-beta.46/Motrix-2.0.0-beta.46-win.zip",
+            "hash": "e28e33472cb221cd2328807b664c341a7e77268b5d1cc27b50e0d68d58c3e927"
+        }
+    },
+    "shortcuts": [
+        [
+            "Motrix.exe",
+            "Motrix (Pre-release)"
+        ]
+    ],
+    "checkver": {
+        "github": "https://api.github.com/repos/agalwood/Motrix/releases",
+        "jsonpath": "$[0].tag_name",
+        "regex": "^v([\\w.-]+)$"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/agalwood/Motrix/releases/download/v$version/Motrix-$version-win.zip"
+            }
+        }
+    }
+}

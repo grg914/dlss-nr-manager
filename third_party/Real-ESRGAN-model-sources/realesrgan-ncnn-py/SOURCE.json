@@ -1,0 +1,8 @@
+﻿{
+    "id":  "realesrgan-model-source-a",
+    "group":  "core",
+    "url":  "https://github.com/Tohrusky/realesrgan-ncnn-py.git",
+    "ref":  "900c0549a2fb3481b71d0369253522519308f1f2",
+    "imported_at_utc":  "2026-10-06T21:55:29.8275720Z",
+    "normalized_at_utc":  "2026-10-06T22:17:07.8558461Z"
+}

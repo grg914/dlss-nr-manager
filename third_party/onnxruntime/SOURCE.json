@@ -1,0 +1,8 @@
+﻿{
+    "id":  "onnxruntime",
+    "group":  "core",
+    "url":  "https://github.com/microsoft/onnxruntime.git",
+    "ref":  "f2c39fe2f838cf35ce7da92824f5a5e3ee6e88a7",
+    "imported_at_utc":  "2026-10-06T21:56:58.8319227Z",
+    "normalized_at_utc":  "2026-10-06T22:17:41.8272726Z"
+}

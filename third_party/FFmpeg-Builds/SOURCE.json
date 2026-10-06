@@ -1,0 +1,8 @@
+﻿{
+    "id":  "ffmpeg-builds",
+    "group":  "core",
+    "url":  "https://github.com/BtbN/FFmpeg-Builds.git",
+    "ref":  "9acad4a9ef1583096af7836cc1e9c8cbcb4d3950",
+    "imported_at_utc":  "2026-10-06T21:51:00.7851602Z",
+    "normalized_at_utc":  "2026-10-06T22:16:41.5175824Z"
+}

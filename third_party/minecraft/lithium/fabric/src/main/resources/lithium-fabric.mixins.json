@@ -1,0 +1,25 @@
+{
+  "package" : "net.caffeinemc.mods.lithium.fabric.mixin",
+  "required" : true,
+  "compatibilityLevel" : "JAVA_25",
+  "mixinextras" : {
+    "minVersion" : "0.5.3"
+  },
+  "plugin" : "net.caffeinemc.mods.lithium.mixin.LithiumMixinPlugin",
+  "injectors" : {
+    "defaultRequire" : 1
+  },
+  "overwrites" : {
+    "conformVisibility" : true
+  },
+  "mixins" : [
+    "block.hopper.LevelMixin",
+    "collections.poi_types.PoiTypesMixin",
+    "compat.worldedit.LevelChunkMixin",
+    "util.initialization.FuelValuesMixin",
+    "util.inventory_change_listening.BlockEntityMixin",
+    "util.inventory_change_listening.ChestBlockEntityMixin"
+  ],
+  "client" : [
+  ]
+}

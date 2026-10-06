@@ -1,0 +1,47 @@
+/*
+ * All Rights Reserved
+ *
+ * Copyright (c) 2025-2026 ishland
+ *
+ * All rights reserved. Do not redistribute.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+package com.ishland.c2me.opts.accel.opencl.common.compiler.emitters.misc;
+
+import com.ishland.c2me.base.mixin.access.IStructureWeightSampler;
+import com.ishland.c2me.opts.dfc.common.ast.misc.BeardifierNode;
+import com.ishland.c2me.opts.dfc.common.gen.opencl.OpenCLCEmitter;
+import com.ishland.c2me.opts.dfc.common.gen.opencl.OpenCLCGenFunctionContext;
+import net.minecraft.world.gen.densityfunction.DensityFunctionTypes;
+
+public class BeardifierNodeOpenCLCEmitter implements OpenCLCEmitter<BeardifierNode> {
+    public static final BeardifierNodeOpenCLCEmitter INSTANCE = new BeardifierNodeOpenCLCEmitter();
+
+    private BeardifierNodeOpenCLCEmitter() {
+    }
+
+    @Override
+    public String doCLGen(BeardifierNode node, OpenCLCGenFunctionContext context, String storeTo) {
+        int offset = context.getGlobalContext().getGlobalDynamicDataOffset(DensityFunctionTypes.Beardifier.INSTANCE);
+        int tableOffset = context.getGlobalContext().allocGlobalConstDataObject(IStructureWeightSampler.getSTRUCTURE_WEIGHT_TABLE());
+        return "if (ctx.rw_data) {\n" +
+                "    global const sws_index_t * restrict data = df_data_offset_global(ctx.rw_data, " + offset + ");\n" +
+                "    global const float * restrict structureWeightSamplerTable = ptr_shift_global(ctx.const_data, " + tableOffset + ");\n" +
+                "    if (data) {\n" +
+                "        " + storeTo + " = df_structureWeightSampler_sample(structureWeightSamplerTable, data, ctx.x, ctx.y, ctx.z);\n" +
+                "    } else { \n" +
+                "        " + storeTo + " = 0.0;\n" +
+                "    }\n" +
+                "} else {\n" +
+                "    " + storeTo + " = 0.0;\n" +
+                "}\n";
+    }
+}

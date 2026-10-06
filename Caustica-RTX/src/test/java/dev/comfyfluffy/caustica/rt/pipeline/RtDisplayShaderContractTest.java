@@ -1,0 +1,43 @@
+package dev.comfyfluffy.caustica.rt.pipeline;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+final class RtDisplayShaderContractTest {
+    private static final Path DISPLAY_SHADER = Path.of(System.getProperty("user.dir"),
+            "shaders", "pipelines", "display", "main.comp.slang");
+
+    @Test
+    void acesAndAnalyticalModesUseTheirOwnedSceneSignals() throws IOException {
+        String source = Files.readString(DISPLAY_SHADER).replaceAll("\\s+", " ");
+
+        assertTrue(source.contains("float3 exposedAcesCg = max(rt.rgb * exposure, float3(0.0));"));
+        assertTrue(source.contains("exposedAcesCg += sampleBloom(pix, w, h) * max(pc.bloomStrength, 0.0);"));
+        assertTrue(source.contains("if (pc.sdrMode == 0 || (pc.hdrEnabled != 0 && pc.hdrMode == 0)) { "
+                + "lookedAcesCg = applyLook(exposedAcesCg); }"));
+        assertTrue(source.contains("float3 sdrColor = pc.sdrMode == 0 ? tonemap(lookedAcesCg) : localSdrToneMap(exposedAcesCg);"));
+        assertTrue(source.contains("outputImage[pix] = float4(applyPostFx(sdrColor, pix, w, h, exposure), 1.0);"));
+        assertTrue(source.contains("float3 hdrColor = pc.hdrMode == 0 ? tonemapHdr(lookedAcesCg) : displayGammaHdr(localHdrToneMap(exposedAcesCg));"));
+        assertTrue(source.contains("if (pc.postFxEnabled != 0 && pc.scandiShaderEnabled != 0) { hdrColor = applyScandiShaderGradeHdr(hdrColor); }"));
+        assertTrue(source.contains("hdrImage[pix] = float4(hdrColor, 1.0);"));
+        assertFalse(source.contains("localSdrToneMap(lookedAcesCg)"));
+        assertFalse(source.contains("localHdrToneMap(lookedAcesCg)"));
+        assertEquals(1, occurrences(source, "applyLook(exposedAcesCg)"));
+    }
+
+    private static int occurrences(String text, String needle) {
+        int count = 0;
+        int offset = 0;
+        while ((offset = text.indexOf(needle, offset)) >= 0) {
+            count++;
+            offset += needle.length();
+        }
+        return count;
+    }
+}

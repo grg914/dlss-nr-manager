@@ -1,0 +1,58 @@
+{
+    "version": "2026.3-263.6259.36",
+    "description": "Cross-Platform IDE for Databases & SQL by JetBrains. (Early Access Program)",
+    "homepage": "https://www.jetbrains.com/datagrip/",
+    "license": {
+        "identifier": "Proprietary",
+        "url": "https://www.jetbrains.com/store/license.html"
+    },
+    "url": "https://download.jetbrains.com/datagrip/datagrip-263.6259.36.exe#/dl.7z",
+    "hash": "eb5ea94fd58eb54cdc038282da1e50927afc2796e0704656d85764ece4a6570f",
+    "extract_to": "IDE",
+    "installer": {
+        "script": [
+            "& \"$bucketsdir\\versions\\scripts\\jetbrains\\portable.ps1\" $dir $persist_dir",
+            "Remove-Item \"$dir\\IDE\\`$*\" -Force -Recurse"
+        ]
+    },
+    "architecture": {
+        "64bit": {
+            "bin": [
+                [
+                    "IDE\\bin\\datagrip64.exe",
+                    "datagrip"
+                ]
+            ],
+            "shortcuts": [
+                [
+                    "IDE\\bin\\datagrip64.exe",
+                    "JetBrains\\DataGrip (Early Access Program)"
+                ]
+            ]
+        },
+        "32bit": {
+            "bin": "IDE\\bin\\datagrip.exe",
+            "shortcuts": [
+                [
+                    "IDE\\bin\\datagrip.exe",
+                    "JetBrains\\DataGrip (Early Access Program)"
+                ]
+            ]
+        }
+    },
+    "persist": [
+        "IDE\\bin\\idea.properties",
+        "profile"
+    ],
+    "checkver": {
+        "url": "https://data.services.jetbrains.com/products/releases?code=DG&latest=true&platform=zip&type=eap",
+        "regex": "version\":\"(?<ver>[\\d.]+)\".*\"build\":\"(?<build>[\\d.]+)\"",
+        "replace": "${ver}-${build}"
+    },
+    "autoupdate": {
+        "url": "https://download.jetbrains.com/datagrip/datagrip-$preReleaseVersion.exe#/dl.7z",
+        "hash": {
+            "url": "$url.sha256"
+        }
+    }
+}

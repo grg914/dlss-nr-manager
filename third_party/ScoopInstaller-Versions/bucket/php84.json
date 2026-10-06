@@ -1,0 +1,61 @@
+{
+    "version": "8.4.26",
+    "description": "PHP, a popular general-purpose scripting language that is especially suited to web development. (version 8.4)",
+    "homepage": "https://www.php.net",
+    "license": "PHP-3.01",
+    "suggest": {
+        "vcredist": "extras/vcredist2022"
+    },
+    "architecture": {
+        "64bit": {
+            "url": "https://downloads.php.net/~windows/releases/archives/php-8.4.26-Win32-vs17-x64.zip",
+            "hash": "6e56f0e932e92bfdce208d3a7e6068f6e2f7a19fc2922a5f856fb085f61673f3"
+        },
+        "32bit": {
+            "url": "https://downloads.php.net/~windows/releases/archives/php-8.4.26-Win32-vs17-x86.zip",
+            "hash": "d48e2e0b6ca6568216ad0123596323dc30d19c01f2353b507fc861c8b23d523c"
+        }
+    },
+    "pre_install": [
+        "# Create directory for custom PHP configuration",
+        "if (!(Test-Path \"$dir\\cli\\conf.d\")) {",
+        "    (New-Item -Type directory \"$dir\\cli\\conf.d\") | Out-Null",
+        "}"
+    ],
+    "post_install": [
+        "# Enable extensions to be found in installation-relative folder (the default is to search C:/php)",
+        "(Get-Content \"$dir\\cli\\php.ini\") | % { $_ -replace ';\\s?(extension_dir = \"ext\")', '$1' } | Set-Content \"$dir\\cli\\php.ini\""
+    ],
+    "bin": [
+        "php.exe",
+        "php-cgi.exe",
+        "phpdbg.exe"
+    ],
+    "env_set": {
+        "PHP_INI_SCAN_DIR": "$dir\\cli;$dir\\cli\\conf.d;"
+    },
+    "persist": [
+        "cli",
+        [
+            "php.ini-production",
+            "cli\\php.ini"
+        ]
+    ],
+    "checkver": {
+        "url": "https://www.php.net/releases/branches.php",
+        "jsonpath": "$.[?(@.branch == '8.4')].latest"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://downloads.php.net/~windows/releases/archives/php-$version-Win32-vs17-x64.zip"
+            },
+            "32bit": {
+                "url": "https://downloads.php.net/~windows/releases/archives/php-$version-Win32-vs17-x86.zip"
+            }
+        },
+        "hash": {
+            "url": "https://downloads.php.net/~windows/releases/sha256sum.txt"
+        }
+    }
+}
