@@ -159,7 +159,26 @@ public sealed class StreamlineRuntimeService
                 progress?.Report($"Using cached NVIDIA Streamline {tag} package…");
             }
 
-            ExtractSafe(zip, extract);
+            try
+            {
+                ExtractSafe(zip, extract);
+            }
+            catch (Exception ex) when (
+                File.Exists(zip) &&
+                ex is InvalidDataException or IOException)
+            {
+                progress?.Report(
+                    $"Cached NVIDIA Streamline package is invalid; downloading a clean {tag} copy…");
+                TryDeleteDirectory(extract);
+                TryDeleteFile(zip);
+
+                await DownloadAsync(
+                    asset.Url,
+                    zip,
+                    asset.Sha256,
+                    cancellationToken);
+                ExtractSafe(zip, extract);
+            }
 
             var names = new List<string> { "sl.interposer.dll", "sl.common.dll" };
             if (includeSuperResolution)
