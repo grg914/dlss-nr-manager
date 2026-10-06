@@ -334,6 +334,33 @@ public sealed class MinecraftOneClickService
         }
     }
 
+    public bool IsInstalled(string minecraftRoot)
+    {
+        if (string.IsNullOrWhiteSpace(minecraftRoot))
+            return false;
+
+        try
+        {
+            var root = Path.GetFullPath(minecraftRoot);
+            var oneClickMarker = Path.Combine(root, ".dlss-nr-manager-oneclick.json");
+            var managedMarker = Path.Combine(root, ".dlss-nr-manager-minecraft.json");
+
+            if (!File.Exists(oneClickMarker) || !File.Exists(managedMarker))
+                return false;
+
+            // Validate that the one-click marker is at least readable and structurally
+            // compatible before presenting the instance as installed.
+            var manifest = JsonSerializer.Deserialize<OneClickManifest>(
+                File.ReadAllText(oneClickMarker));
+
+            return manifest != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public void RestoreOriginal(
         string minecraftRoot,
         IProgress<string>? progress = null)
