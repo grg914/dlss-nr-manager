@@ -29,7 +29,7 @@ public sealed class NvidiaDlssNrDiscoveryService
 
     private readonly HttpClient _http = new()
     {
-        Timeout = TimeSpan.FromSeconds(20)
+        Timeout = TimeSpan.FromMinutes(10)
     };
 
     public NvidiaDlssNrDiscoveryService()
@@ -198,6 +198,36 @@ public sealed class NvidiaDlssNrDiscoveryService
                 progress?.Report(
                     $"Using cached NVIDIA Streamline {release.Tag} package index…");
                 return cachedEntries;
+            }
+        }
+
+        var sharedStreamlineZip = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DlssNrManager",
+            "nvidia-streamline",
+            safeTag,
+            "streamline-sdk.zip");
+
+        if (File.Exists(sharedStreamlineZip))
+        {
+            try
+            {
+                using var cachedArchive = ZipFile.OpenRead(sharedStreamlineZip);
+                var cachedEntries = cachedArchive.Entries
+                    .Select(entry => entry.FullName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .ToList();
+
+                cancellationToken.ThrowIfCancellationRequested();
+                AtomicFile.WriteAllLines(entryCache, cachedEntries);
+                progress?.Report(
+                    $"Inspecting cached NVIDIA Streamline {release.Tag} package…");
+                return cachedEntries;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                progress?.Report(
+                    $"Cached Streamline package index failed; refreshing from NVIDIA ({ex.Message})…");
             }
         }
 
