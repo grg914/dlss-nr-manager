@@ -18,7 +18,7 @@ public sealed class MinecraftOneClickService
     private readonly MinecraftIntegrationService _integration;
     private static readonly HttpClient PackHttp = CreatePackHttpClient();
     private const string ManagerRepository = "grg914/dlss-nr-manager";
-    private const string ScandiTextureAsset = "ScandiTextureV1.zip";
+    private const string SPBRScandiAsset = "SPBRScandi.zip";
     private const string ScandiShaderAsset = "ScandiShaderV2.zip";
     private const long MaxScandiPackDownloadBytes = 512L * 1024 * 1024;
 
@@ -205,9 +205,9 @@ public sealed class MinecraftOneClickService
                 "Open Video Settings → Ray Tracing after first launch to choose DLSS quality, Frame Generation multiplier, Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look.",
                 installLabPbrResourcePack
                     ? (scandiPacks.TextureInstalled
-                        ? "ScandiTextureV1 (SPBR + validated Scandi visuals) installed in resourcepacks."
-                        : "ScandiTextureV1 was requested but no verified replacement asset was available; RTX installation continued.")
-                    : "ScandiTextureV1 installation was disabled by the user.",
+                        ? "SPBRScandi (SPBR + validated Scandi visuals) installed in resourcepacks."
+                        : "SPBRScandi was requested but no verified replacement asset was available; RTX installation continued.")
+                    : "SPBRScandi installation was disabled by the user.",
                 scandiPacks.ShaderInstalled
                     ? "ScandiShaderV2 installed in shaderpacks for optional non-Caustica use. Caustica RTX uses the native ScandiShader RTX Look instead of Iris/OptiFine shader execution."
                     : "ScandiShaderV2 was not available beside the manager or in the latest manager release; Caustica's native ScandiShader RTX Look remains available."
@@ -260,8 +260,8 @@ public sealed class MinecraftOneClickService
             {
                 notes.Add(
                     scandiPacks.TextureInstalled
-                        ? "The default resource pack is the validated SPBR-based ScandiTexture hybrid. Enable ScandiTextureV1 in Minecraft Resource Packs for SPBR PBR materials plus the safe Scandi sky/End/UI visuals."
-                        : "The optional ScandiTexture SPBR + Scandi resource pack was skipped. The core Caustica RTX installation remains valid.");
+                        ? "The default resource pack is the validated SPBR-based SPBRScandi hybrid. Enable SPBRScandi in Minecraft Resource Packs for SPBR PBR materials plus the safe Scandi sky/End/UI visuals."
+                        : "The optional SPBRScandi SPBR + Scandi resource pack was skipped. The core Caustica RTX installation remains valid.");
             }
 
             if (disabled.Count > 0)
@@ -502,17 +502,17 @@ public sealed class MinecraftOneClickService
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        var textureDestination = Path.Combine(root, "resourcepacks", ScandiTextureAsset);
+        var textureDestination = Path.Combine(root, "resourcepacks", SPBRScandiAsset);
         var shaderDestination = Path.Combine(root, "shaderpacks", ScandiShaderAsset);
 
         if (installTexture)
-            BackupFile(textureDestination, Path.Combine(backup, "scandi-packs", "resourcepacks", ScandiTextureAsset));
+            BackupFile(textureDestination, Path.Combine(backup, "scandi-packs", "resourcepacks", SPBRScandiAsset));
         BackupFile(shaderDestination, Path.Combine(backup, "scandi-packs", "shaderpacks", ScandiShaderAsset));
 
         // Never treat an already-installed destination as the update source.
         // Doing so made a stale/broken Scandi pack self-reinstall forever and
         // prevented a newer bundled/release asset from replacing it.
-        var textureSource = installTexture ? FindLocalPack(ScandiTextureAsset) : null;
+        var textureSource = installTexture ? FindLocalPack(SPBRScandiAsset) : null;
         var shaderSource = FindLocalPack(ScandiShaderAsset, "ScandiShaderV2(5).zip");
 
         if ((installTexture && textureSource == null) || shaderSource == null)
@@ -528,7 +528,7 @@ public sealed class MinecraftOneClickService
                     if (json.RootElement.TryGetProperty("assets", out var assets))
                     {
                         if (installTexture && textureSource == null)
-                            textureSource = await DownloadReleaseAssetAsync(assets, ScandiTextureAsset, backup, cancellationToken);
+                            textureSource = await DownloadReleaseAssetAsync(assets, SPBRScandiAsset, backup, cancellationToken);
                         if (shaderSource == null)
                             shaderSource = await DownloadReleaseAssetAsync(assets, ScandiShaderAsset, backup, cancellationToken);
                     }
@@ -551,9 +551,9 @@ public sealed class MinecraftOneClickService
                 entry.FullName.StartsWith("shaders/", StringComparison.OrdinalIgnoreCase)));
 
         if (textureInstalled)
-            progress?.Report($"Installed {ScandiTextureAsset} → resourcepacks.");
+            progress?.Report($"Installed {SPBRScandiAsset} → resourcepacks.");
         else if (installTexture && File.Exists(textureDestination))
-            progress?.Report($"Existing {ScandiTextureAsset} was preserved because no verified replacement asset was available.");
+            progress?.Report($"Existing {SPBRScandiAsset} was preserved because no verified replacement asset was available.");
 
         if (shaderInstalled)
             progress?.Report($"Installed {ScandiShaderAsset} → shaderpacks (kept disabled for the Caustica RTX profile).");
@@ -749,7 +749,7 @@ public sealed class MinecraftOneClickService
 
     private static void RestoreManagedScandiPacks(string root, string backup)
     {
-        var textureDestination = Path.Combine(root, "resourcepacks", ScandiTextureAsset);
+        var textureDestination = Path.Combine(root, "resourcepacks", SPBRScandiAsset);
         var shaderDestination = Path.Combine(root, "shaderpacks", ScandiShaderAsset);
         TryDeleteFile(textureDestination);
         TryDeleteFile(shaderDestination);
