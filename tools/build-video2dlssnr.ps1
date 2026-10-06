@@ -29,7 +29,7 @@ if ([string]::IsNullOrWhiteSpace($NvidiaSdkPath)) {
     }
 }
 $NvidiaSdkPath = Resolve-RepoPath $NvidiaSdkPath "third_party-local/NVIDIA-DLSS"
-$OutputPath = Resolve-RepoPath $OutputPath "build-local/video2dlssnr"
+$OutputPath = Resolve-RepoPath $OutputPath "build-local/video2dlssnr_release"
 
 if (!(Test-Path -LiteralPath (Join-Path $SourcePath "build.bat"))) {
     throw "Vendored video2dlssnr source is missing or incomplete: $SourcePath"
