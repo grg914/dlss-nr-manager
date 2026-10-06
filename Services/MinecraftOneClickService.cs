@@ -189,7 +189,7 @@ public sealed class MinecraftOneClickService
                 createdFabricVersions,
                 microsoftStoreProfilesExisted);
 
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 markerPath,
                 JsonSerializer.Serialize(
                     marker,
@@ -694,7 +694,7 @@ public sealed class MinecraftOneClickService
         else
             lines.Add(setting);
 
-        File.WriteAllLines(path, lines);
+        AtomicFile.WriteAllLines(path, lines);
     }
 
     private static void PatchFabricLauncherProfiles(
@@ -814,7 +814,7 @@ public sealed class MinecraftOneClickService
         if (!changed)
             return false;
 
-        File.WriteAllText(
+        AtomicFile.WriteAllText(
             launcherProfilesPath,
             root.ToJsonString(
                 new JsonSerializerOptions
