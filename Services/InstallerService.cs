@@ -60,13 +60,12 @@ public sealed class InstallerService
                            File.Exists(log) ||
                            proxy != null;
 
-        // Current installs normally contain the forwarder. Older manager builds did not
-        // always deploy/write every current marker/file, so a manager marker + INI +
-        // validated runtime is sufficient to recognize a legacy install.
+        // Current installs are identified by the managed proxy/manifest and INI. Neural Rendering
+        // runtime presence is optional on RTX 20/30/40, where the manager installs only supported DLSS
+        // features. Legacy DLSS-NR installs remain recognized by their runtime + manager markers.
         var currentInstall = iniPresent &&
-                             runtimePresent &&
-                             forwarderPresent &&
-                             (proxy != null || managerEvidence || optiEvidence);
+                             (proxy != null || forwarderPresent) &&
+                             (managerEvidence || optiEvidence);
 
         var legacyManagerInstall = iniPresent &&
                                    runtimePresent &&
@@ -85,40 +84,55 @@ public sealed class InstallerService
 
     public async Task<string> InstallAsync(
         string gameDir,
-        string runtimePath,
+        string? runtimePath,
         GpuInfo gpu,
         ReleaseInfo release,
         string proxy,
         string workingScale,
-        GitHubReleaseService releases)
+        GitHubReleaseService releases,
+        bool enableNeuralRendering)
     {
         var gameExe = FindMainExecutable(gameDir)
             ?? throw new InvalidOperationException("No game executable was found in the selected target folder.");
 
-        var expected = ExpectedRuntimeHash(gpu.Generation)
-            ?? throw new InvalidOperationException("Unsupported or undetected NVIDIA RTX generation.");
+        var capabilities = GpuCapabilityService.Evaluate(gpu);
+        if (!capabilities.IsSupportedRtx)
+            throw new InvalidOperationException(capabilities.BlockingReason ?? "Unsupported NVIDIA RTX GPU.");
 
-        var validation = await RuntimeValidationService.ValidateAsync(runtimePath, gpu.Generation);
-
-        var knownHash =
-            validation.Hash.Equals(expected, StringComparison.OrdinalIgnoreCase);
-
-        var trustedNvidiaSignedRuntime =
-            validation.Is64Bit &&
-            validation.SignatureValid &&
-            !string.IsNullOrWhiteSpace(validation.Publisher) &&
-            validation.Publisher.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase);
-
-        if (!knownHash && !trustedNvidiaSignedRuntime)
+        RuntimeValidation? validation = null;
+        if (enableNeuralRendering)
         {
-            throw new InvalidOperationException(
-                "DLSSNR runtime validation failed. The runtime must either match a known validated SHA-256 " +
-                "or be a trusted x64 NVIDIA-signed runtime from the official Streamline package. " +
-                $"SHA-256: {validation.Hash}; Publisher: {validation.Publisher ?? "unknown"}.");
-        }
+            if (!capabilities.NeuralRendering)
+                throw new InvalidOperationException("DLSS Neural Rendering requires a supported RTX 50 Series GPU.");
 
-        if (!validation.Is64Bit)
-            throw new InvalidOperationException("The selected DLSSNR runtime is not a 64-bit PE DLL.");
+            if (string.IsNullOrWhiteSpace(runtimePath) || !File.Exists(runtimePath))
+                throw new InvalidOperationException("A validated NVIDIA DLSS Neural Rendering runtime is required on RTX 50.");
+
+            var expected = ExpectedRuntimeHash(gpu.Generation)
+                ?? throw new InvalidOperationException("Unsupported or undetected NVIDIA RTX generation.");
+
+            validation = await RuntimeValidationService.ValidateAsync(runtimePath, gpu.Generation);
+
+            var knownHash =
+                validation.Hash.Equals(expected, StringComparison.OrdinalIgnoreCase);
+
+            var trustedNvidiaSignedRuntime =
+                validation.Is64Bit &&
+                validation.SignatureValid &&
+                !string.IsNullOrWhiteSpace(validation.Publisher) &&
+                validation.Publisher.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase);
+
+            if (!knownHash && !trustedNvidiaSignedRuntime)
+            {
+                throw new InvalidOperationException(
+                    "DLSSNR runtime validation failed. The runtime must either match a known validated SHA-256 " +
+                    "or be a trusted x64 NVIDIA-signed runtime from the official Streamline package. " +
+                    $"SHA-256: {validation.Hash}; Publisher: {validation.Publisher ?? "unknown"}.");
+            }
+
+            if (!validation.Is64Bit)
+                throw new InvalidOperationException("The selected DLSSNR runtime is not a 64-bit PE DLL.");
+        }
 
         var proxyPath = Path.Combine(gameDir, proxy);
         var managedProxy = ReadManagedProxy(gameDir);
@@ -183,8 +197,13 @@ public sealed class InstallerService
             File.Copy(optiDll, proxyPath, true);
             File.Delete(optiDll);
 
-            File.Copy(runtimePath, Path.Combine(gameDir, "nvngx_dlssnr.dll"), true);
-            IniService.ApplyPreset(Path.Combine(gameDir, "OptiScaler.ini"), workingScale);
+            if (enableNeuralRendering && runtimePath != null)
+                File.Copy(runtimePath, runtimeDestination, true);
+
+            IniService.ApplyPreset(
+                Path.Combine(gameDir, "OptiScaler.ini"),
+                workingScale,
+                enableNeuralRendering);
 
             File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-version"), release.Tag);
             File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-proxy"), proxy);
@@ -194,11 +213,11 @@ public sealed class InstallerService
                 .Concat(new[]
                 {
                     proxy,
-                    "nvngx_dlssnr.dll",
                     ".dlssnr-manager-version",
                     ".dlssnr-manager-proxy",
                     ManifestFile
                 })
+                .Concat(enableNeuralRendering ? new[] { "nvngx_dlssnr.dll" } : Array.Empty<string>())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -208,7 +227,7 @@ public sealed class InstallerService
                 proxy,
                 Path.GetFileName(gameExe),
                 await HashService.Sha256Async(gameExe),
-                validation.Hash,
+                validation?.Hash ?? "",
                 DateTimeOffset.UtcNow,
                 managedFiles,
                 baselineBackup);
@@ -245,13 +264,13 @@ public sealed class InstallerService
         }
     }
 
-    public void ApplyPreset(string gameDir, string workingScale)
+    public void ApplyPreset(string gameDir, string workingScale, bool enableNeuralRendering = true)
     {
         var ini = Path.Combine(gameDir, "OptiScaler.ini");
         if (!File.Exists(ini))
             throw new InvalidOperationException("OptiScaler.ini was not found for the selected game.");
 
-        IniService.ApplyPreset(ini, workingScale);
+        IniService.ApplyPreset(ini, workingScale, enableNeuralRendering);
     }
 
     public void ApplyAdvancedSettings(
