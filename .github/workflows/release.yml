@@ -113,6 +113,31 @@ jobs:
 
           Get-Content SHA256SUMS.txt
 
+      - name: Reuse validated SPBRScandi release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          $target = Join-Path "release-assets" "SPBRScandi.zip"
+          if (!(Test-Path $target)) {
+            $headers = @{
+              Authorization = "Bearer $env:GH_TOKEN"
+              Accept = "application/vnd.github+json"
+              "User-Agent" = "DlssNrManager-Release"
+            }
+            $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/grg914/dlss-nr-manager/releases?per_page=20"
+            $asset = $null
+            foreach ($release in $releases) {
+              $candidate = $release.assets | Where-Object { $_.name -eq "SPBRScandi.zip" } | Select-Object -First 1
+              if ($candidate) { $asset = $candidate; break }
+            }
+            if (-not $asset) {
+              throw "No previously published SPBRScandi.zip asset was found."
+            }
+            Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $target
+          }
+
       - name: Validate optional Scandi release assets
         shell: pwsh
         run: |
