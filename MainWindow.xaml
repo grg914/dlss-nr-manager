@@ -1615,8 +1615,13 @@
               <StackPanel Grid.Column="2"
                           VerticalAlignment="Center"
                           HorizontalAlignment="Right">
-                <Button x:Name="ManagerUpdateButton"
+                <Button x:Name="ManagerCheckUpdateButton"
                         Style="{StaticResource CyanButton}"
+                        Content="Check for app updates"
+                        Margin="0,0,0,8"
+                        Click="ManagerCheckUpdate_Click"/>
+                <Button x:Name="ManagerUpdateButton"
+                        Style="{StaticResource PrimaryButton}"
                         Content="Update available"
                         Visibility="Collapsed"
                         Margin="0,0,0,8"
