@@ -102,7 +102,20 @@ public partial class MainWindow : Window
         _gpuCapabilities = GpuCapabilityService.Evaluate(_gpu);
         GpuText.Text = $"{_gpu.Name}  •  {_gpu.Generation}";
         GpuCompatibilityText.Text = _gpuCapabilities.Summary;
+        PresetBox.IsEnabled = _gpuCapabilities.NeuralRendering;
+        AutoNvidiaRuntimeCheck.IsEnabled = _gpuCapabilities.NeuralRendering;
+        SelectRuntimeButton.IsEnabled = _gpuCapabilities.NeuralRendering;
         AppLogger.Info($"GPU detected: {_gpu.Name} • {_gpu.Generation} • {_gpuCapabilities.Summary}");
+
+        if (!_gpuCapabilities.IsSupportedRtx)
+        {
+            MessageBox.Show(
+                (_gpuCapabilities.BlockingReason ?? "Unsupported GPU.") +
+                "\n\nThe application can still be opened for diagnostics/media tools, but game DLSS installation is disabled.",
+                "RTX GPU not supported",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
 
         await Task.WhenAll(
             RefreshReleaseAsync(),
