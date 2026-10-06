@@ -44,7 +44,26 @@ public sealed class DiagnosticService
 
         lines.Add($"OptiScaler installation: {(state.Installed ? "installed" : "not installed")}");
         lines.Add($"Proxy: {state.ProxyName ?? "unknown"}");
-        lines.Add($"DLSSNR runtime: {(state.RuntimePresent ? (state.RuntimeHashValid ? "valid hash" : "hash mismatch") : "missing")}");
+
+        var capabilities = GpuCapabilityService.Evaluate(gpu);
+        var nrValue = IniService.ReadValue(
+            Path.Combine(gameDir, "OptiScaler.ini"),
+            "DlssNr",
+            "Enabled");
+        var nrConfigured =
+            bool.TryParse(nrValue, out var parsedNrEnabled) &&
+            parsedNrEnabled;
+        var nrRuntimeRequired =
+            capabilities.NeuralRendering && nrConfigured;
+
+        lines.Add(
+            !capabilities.NeuralRendering
+                ? $"DLSSNR runtime: not required on {gpu.Generation}"
+                : !nrConfigured
+                    ? "DLSSNR runtime: Neural Rendering disabled in OptiScaler.ini"
+                    : state.RuntimePresent
+                        ? $"DLSSNR runtime: {(state.RuntimeHashValid ? "validated installed runtime" : "present but unverified/changed")}"
+                        : "DLSSNR runtime: missing");
 
         var logPath = Path.Combine(gameDir, "OptiScaler.log");
         var log = ReadTail(logPath, 500);
@@ -81,18 +100,23 @@ public sealed class DiagnosticService
         if (manifestStatus != null)
             lines.Add(manifestStatus);
 
+        var runtimeReady =
+            !nrRuntimeRequired ||
+            (state.RuntimePresent && state.RuntimeHashValid);
+
         var ready = state.Installed &&
-                    state.RuntimePresent &&
-                    state.RuntimeHashValid &&
+                    runtimeReady &&
                     temporal.Count > 0 &&
                     exe != null &&
                     conflicts.Count == 0;
 
         var summary = nrRunning
-            ? "DLSS NR is confirmed running."
-            : ready
-                ? "Installation looks ready. Launch the game and verify DLSS NR reports Running."
-                : "Configuration needs attention before DLSS NR can be considered ready.";
+            ? "DLSS Neural Rendering is confirmed running."
+            : ready && nrRuntimeRequired
+                ? "Installation looks ready for Neural Rendering. Launch the game and verify the runtime reports Running."
+                : ready
+                    ? $"OptiScaler looks ready for the DLSS features supported by {gpu.Generation}; Neural Rendering is not required."
+                    : "Configuration needs attention before the selected DLSS feature set can be considered ready.";
 
         return new(summary, lines, ready, loaded, nrRunning);
     }
@@ -145,7 +169,7 @@ public sealed class DiagnosticService
 
         try
         {
-            var current = HashService.Sha256Async(exe).GetAwaiter().GetResult();
+            var current = HashService.Sha256(exe);
             return current.Equals(manifest.GameExecutableHash, StringComparison.OrdinalIgnoreCase)
                 ? "Game update tracking: executable unchanged since install"
                 : "Game update tracking: game executable changed since DLSS NR was installed";

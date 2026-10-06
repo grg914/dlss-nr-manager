@@ -35,9 +35,10 @@ public sealed class GameArtworkService
     public GameArtworkService()
     {
         _http.Timeout = TimeSpan.FromSeconds(25);
-        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "1.2"));
+        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
         _cache = LoadCache();
+        PruneArtworkFiles();
     }
 
     public void ClearCache()
@@ -174,6 +175,13 @@ public sealed class GameArtworkService
         var localUrl = remote == null
             ? null
             : await CacheRemoteArtworkAsync(key, remote, cancellationToken);
+
+        if (_cache.TryGetValue(key, out var previous) &&
+            !string.IsNullOrWhiteSpace(previous.Url) &&
+            !string.Equals(previous.Url, localUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            TryDeleteArtworkFile(previous.Url);
+        }
 
         _cache[key] = new ArtworkCacheEntry(localUrl, DateTimeOffset.UtcNow, ArtworkCacheVersion);
 
@@ -512,6 +520,10 @@ public sealed class GameArtworkService
             if (!mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 return null;
 
+            const long maxArtworkBytes = 25L * 1024 * 1024;
+            if (response.Content.Headers.ContentLength is > maxArtworkBytes)
+                return null;
+
             var extension = mediaType.ToLowerInvariant() switch
             {
                 "image/png" => ".png",
@@ -540,7 +552,11 @@ public sealed class GameArtworkService
                 128 * 1024,
                 useAsync: true))
             {
-                await input.CopyToAsync(output, cancellationToken);
+                await CopyWithLimitAsync(
+                    input,
+                    output,
+                    maxArtworkBytes,
+                    cancellationToken);
             }
 
             if (!File.Exists(temporary) || new FileInfo(temporary).Length < 1024)
@@ -997,6 +1013,95 @@ public sealed class GameArtworkService
             RegexOptions.CultureInvariant);
     }
 
+    private static async Task CopyWithLimitAsync(
+        Stream input,
+        Stream output,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[128 * 1024];
+        long total = 0;
+
+        while (true)
+        {
+            var read = await input.ReadAsync(
+                buffer.AsMemory(0, buffer.Length),
+                cancellationToken);
+
+            if (read == 0)
+                break;
+
+            total += read;
+            if (total > maxBytes)
+                throw new InvalidDataException(
+                    $"Artwork download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
+
+            await output.WriteAsync(
+                buffer.AsMemory(0, read),
+                cancellationToken);
+        }
+    }
+
+    private void PruneArtworkFiles()
+    {
+        try
+        {
+            if (!Directory.Exists(ArtworkDirectory))
+                return;
+
+            var root = Path.GetFullPath(ArtworkDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+
+            var referenced = _cache.Values
+                .Where(x => !string.IsNullOrWhiteSpace(x.Url))
+                .Select(x =>
+                {
+                    try { return Path.GetFullPath(x.Url!); }
+                    catch { return string.Empty; }
+                })
+                .Where(x => x.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var cutoff = DateTime.UtcNow - TimeSpan.FromDays(2);
+
+            foreach (var file in Directory.EnumerateFiles(
+                         ArtworkDirectory,
+                         "*",
+                         SearchOption.TopDirectoryOnly))
+            {
+                if (referenced.Contains(Path.GetFullPath(file)))
+                    continue;
+
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(file) < cutoff)
+                        File.Delete(file);
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
+    private static void TryDeleteArtworkFile(string path)
+    {
+        try
+        {
+            var root = Path.GetFullPath(ArtworkDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            var full = Path.GetFullPath(path);
+
+            if (full.StartsWith(root, StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(full))
+            {
+                File.Delete(full);
+            }
+        }
+        catch { }
+    }
+
     private static ConcurrentDictionary<string, ArtworkCacheEntry> LoadCache()
     {
         try
@@ -1029,9 +1134,11 @@ public sealed class GameArtworkService
                 pair => pair.Value,
                 StringComparer.Ordinal);
 
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 CachePath,
-                JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
+                JsonSerializer.Serialize(
+                    snapshot,
+                    new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { }
     }

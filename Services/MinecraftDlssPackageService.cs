@@ -110,6 +110,25 @@ public sealed class MinecraftDlssPackageService
                 + string.Join(", ", inspection.MissingRequiredFiles));
         }
 
+        if (requireValidatedHashes)
+        {
+            foreach (var name in RequiredFiles(selection))
+            {
+                if (!ValidatedHashes.TryGetValue(name, out var expected))
+                {
+                    throw new InvalidDataException(
+                        $"No validated fingerprint is registered for {name}.");
+                }
+
+                if (!inspection.Sha256.TryGetValue(name, out var actual) ||
+                    !actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"{name} does not match the validated package fingerprint. Expected {expected}, got {actual ?? "missing"}.");
+                }
+            }
+        }
+
         var root = Path.GetFullPath(instanceRoot);
         var destinationRoot = Path.Combine(root, ".dlss-nr-manager-runtime");
         Directory.CreateDirectory(destinationRoot);
@@ -134,19 +153,8 @@ public sealed class MinecraftDlssPackageService
             input.CopyTo(memory);
             var bytes = memory.ToArray();
 
-            if (requireValidatedHashes &&
-                ValidatedHashes.TryGetValue(name, out var expected))
-            {
-                var actual = Convert.ToHexString(SHA256.HashData(bytes));
-                if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidDataException(
-                        $"{name} does not match the validated package fingerprint. Expected {expected}, got {actual}.");
-                }
-            }
-
             var destination = Path.Combine(destinationRoot, name);
-            File.WriteAllBytes(destination, bytes);
+            AtomicFile.WriteAllBytes(destination, bytes);
             installed.Add(Path.GetRelativePath(root, destination));
         }
 
@@ -181,7 +189,7 @@ public sealed class MinecraftDlssPackageService
         Directory.CreateDirectory(destinationRoot);
 
         var destination = Path.Combine(destinationRoot, "nvngx_dlssnr.dll");
-        File.WriteAllBytes(destination, bytes);
+        AtomicFile.WriteAllBytes(destination, bytes);
         return destination;
     }
 

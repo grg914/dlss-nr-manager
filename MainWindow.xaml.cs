@@ -62,10 +62,8 @@ public partial class MainWindow : Window
         _minecraftOneClick = new MinecraftOneClickService(_minecraft);
         _aiOrigin = new AiOriginDetectionService(_media);
 
-        var version = typeof(MainWindow).Assembly.GetName().Version;
-        AppVersionText.Text = version == null
-            ? "Version v1.4.1"
-            : $"Version v{version.Major}.{version.Minor}.{version.Build}";
+        var version = AppIdentity.Version;
+        AppVersionText.Text = $"Version v{AppIdentity.VersionString}";
 
         Loaded += async (_, _) =>
         {
@@ -93,11 +91,9 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             try { _mediaOperationCts?.Cancel(); } catch { }
-            try { ExternalProcessTracker.KillAll(); } catch { }
+            try { ExternalProcessTracker.Shutdown(); } catch { }
             _mediaOperationCts?.Dispose();
             _aiOrigin.Dispose();
-            Application.Current.Shutdown();
-            Environment.Exit(0);
         };
     }
 
@@ -202,9 +198,7 @@ public partial class MainWindow : Window
                     x.TargetDirectory.Equals(initiallySelectedPath, StringComparison.OrdinalIgnoreCase))
                 : null;
 
-            preferred ??= _detectedGames.FirstOrDefault(x =>
-                                x.Name.Contains("Cyberpunk 2077", StringComparison.OrdinalIgnoreCase))
-                            ?? _detectedGames.FirstOrDefault(x => x.Confidence == "Validated")
+            preferred ??= _detectedGames.FirstOrDefault(x => x.Confidence == "Validated")
                             ?? _detectedGames.FirstOrDefault(x => x.Confidence == "Probable")
                             ?? _detectedGames.FirstOrDefault();
 
@@ -350,7 +344,7 @@ public partial class MainWindow : Window
             ? $"DLSSNR runtime: not required on {_gpu.Generation} • Neural Rendering is not supported by this GPU generation"
             : !state.RuntimePresent
                 ? "DLSSNR runtime: missing • other supported DLSS features can still be installed"
-                : $"DLSSNR runtime: {(state.RuntimeHashValid ? "valid known hash" : "NVIDIA runtime present")} • {state.RuntimeHash}";
+                : $"DLSSNR runtime: {(state.RuntimeHashValid ? "validated installed runtime" : "present but unverified/changed")} • {state.RuntimeHash}";
 
         InstallButton.IsEnabled = !state.Installed && _gpuCapabilities.IsSupportedRtx;
         UpdateButton.IsEnabled = state.Installed && _gpuCapabilities.IsSupportedRtx;
@@ -546,11 +540,20 @@ public partial class MainWindow : Window
                 ? $"trusted signature{(string.IsNullOrWhiteSpace(validation.Publisher) ? "" : $" • {validation.Publisher}")}"
                 : "signature not trusted/available";
 
+            if (!validation.Trusted)
+            {
+                _runtimePath = null;
+                RuntimePathText.Text =
+                    "Runtime rejected • it is neither a known validated build nor a trusted x64 NVIDIA-signed runtime.\n" +
+                    $"SHA-256: {validation.Hash}\nAuthenticode: {signature}";
+                return;
+            }
+
             RuntimePathText.Text =
                 $"{Path.GetFileName(_runtimePath)}\n" +
-                $"Version: {validation.FileVersion ?? "unknown"} • {(validation.Is64Bit ? "x64" : "not x64")}\n" +
+                $"Version: {validation.FileVersion ?? "unknown"} • x64\n" +
                 $"SHA-256: {validation.Hash}\n" +
-                $"{(validation.HashValid ? "Expected runtime hash ✓" : "Runtime hash mismatch ✕")}\n" +
+                $"{(validation.HashValid ? "Known validated runtime hash ✓" : "Trusted NVIDIA-signed runtime ✓")}\n" +
                 $"Authenticode: {signature}";
         }
         catch (Exception ex)
@@ -709,23 +712,55 @@ public partial class MainWindow : Window
                 _releases,
                 enableNeuralRendering);
 
+            string? resourceWarning = null;
+
             if (AutoNvidiaResourcesCheck.IsChecked == true)
             {
-                var resourceProgress = new Progress<string>(
-                    message => RuntimePathText.Text = message);
+                try
+                {
+                    var resourceProgress = new Progress<string>(
+                        message => RuntimePathText.Text = message);
 
-                var staged = await _streamline.StageSelectedResourcesAsync(
-                    gameDir,
-                    includeSuperResolution: _gpuCapabilities.SuperResolution,
-                    includeFrameGeneration: _gpuCapabilities.FrameGeneration,
-                    includeReflex: _gpuCapabilities.IsSupportedRtx,
-                    includeNeuralRendering: enableNeuralRendering,
-                    resourceProgress);
+                    var staged = await _streamline.StageSelectedResourcesAsync(
+                        gameDir,
+                        includeSuperResolution: _gpuCapabilities.SuperResolution,
+                        includeFrameGeneration: _gpuCapabilities.FrameGeneration,
+                        includeReflex: _gpuCapabilities.IsSupportedRtx,
+                        includeNeuralRendering: enableNeuralRendering,
+                        resourceProgress);
 
-                RuntimePathText.Text =
-                    staged.Count == 0
-                        ? $"NVIDIA resources checked • {_gpu.Generation} supported feature set already satisfied."
-                        : $"Added {staged.Count} missing official NVIDIA resource file(s) for {_gpu.Generation}.";
+                    if (staged.Count > 0)
+                    {
+                        try
+                        {
+                            _installer.RegisterManagedFiles(
+                                gameDir,
+                                staged);
+                        }
+                        catch
+                        {
+                            foreach (var path in staged)
+                            {
+                                try { if (File.Exists(path)) File.Delete(path); } catch { }
+                            }
+
+                            throw;
+                        }
+                    }
+
+                    RuntimePathText.Text =
+                        staged.Count == 0
+                            ? $"NVIDIA resources checked • {_gpu.Generation} supported feature set already satisfied."
+                            : $"Added {staged.Count} managed official NVIDIA resource file(s) for {_gpu.Generation}.";
+                }
+                catch (Exception ex)
+                {
+                    resourceWarning =
+                        "Optional NVIDIA resource staging could not be completed: " +
+                        ex.Message;
+                    RuntimePathText.Text = resourceWarning;
+                    AppLogger.Warn(resourceWarning);
+                }
             }
 
             await Task.Run(() => ApplyAdvancedSettings(gameDir, advanced));
@@ -752,10 +787,15 @@ public partial class MainWindow : Window
             }
 
             MessageBox.Show(
-                $"Installation completed for {_gpu.Generation}.\n\n{_gpuCapabilities.Summary}\n\nBackup: {backup}",
+                $"Installation completed for {_gpu.Generation}.\n\n{_gpuCapabilities.Summary}\n\nBackup: {backup}" +
+                (string.IsNullOrWhiteSpace(resourceWarning)
+                    ? ""
+                    : $"\n\nWarning: {resourceWarning}"),
                 "DLSS NR Manager",
                 MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                string.IsNullOrWhiteSpace(resourceWarning)
+                    ? MessageBoxImage.Information
+                    : MessageBoxImage.Warning);
 
             await RefreshStateAsync();
         }
@@ -777,11 +817,15 @@ public partial class MainWindow : Window
         try
         {
             var capabilities = GpuCapabilityService.Evaluate(_gpu);
-            var neuralRuntimePresent = File.Exists(Path.Combine(GamePathBox.Text, "nvngx_dlssnr.dll"));
+            var gameDir = GamePathBox.Text;
+            var state = await Task.Run(() =>
+                _installer.Inspect(gameDir, _gpu.Generation));
             await Task.Run(() => _installer.ApplyPreset(
-                GamePathBox.Text,
+                gameDir,
                 GetSelectedWorkingScale(),
-                capabilities.NeuralRendering && neuralRuntimePresent));
+                capabilities.NeuralRendering &&
+                state.RuntimePresent &&
+                state.RuntimeHashValid));
             MessageBox.Show(
                 "Preset applied. Restart the game if it is currently running.",
                 "DLSS NR Manager",
@@ -2249,7 +2293,6 @@ public partial class MainWindow : Window
         }
         finally
         {
-            try { ExternalProcessTracker.KillAll(); } catch { }
             _mediaOperationCts?.Dispose();
             _mediaOperationCts = null;
             MediaSetupButton.IsEnabled = true;
@@ -2308,7 +2351,10 @@ public partial class MainWindow : Window
         try
         {
             var progress = new Progress<string>(message => MediaStatusText.Text = message);
-            var changed = await _components.EnsureMediaToolsLatestAsync(_media, progress);
+            var changed = await _components.EnsureMediaToolsLatestAsync(
+                _media,
+                progress,
+                forceRefresh: true);
             await RefreshReleaseAsync();
             await CheckManagerUpdateAsync();
 

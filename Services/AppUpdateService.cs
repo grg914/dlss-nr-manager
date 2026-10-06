@@ -14,7 +14,7 @@ public sealed class AppUpdateService
     {
         _http.Timeout = TimeSpan.FromMinutes(10);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "1.2"));
+            new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
     }
 
     public async Task<string> DownloadAndStageAsync(
@@ -125,10 +125,51 @@ public sealed class AppUpdateService
     public void CleanupSuccessfulUpdateBackup()
     {
         var currentExecutable = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(currentExecutable))
+        if (!string.IsNullOrWhiteSpace(currentExecutable))
+            TryDelete(currentExecutable + ".update-backup");
+
+        PruneOldUpdateCache();
+    }
+
+    private static void PruneOldUpdateCache()
+    {
+        var root = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DlssNrManager",
+            "updates");
+
+        if (!Directory.Exists(root))
             return;
 
-        TryDelete(currentExecutable + ".update-backup");
+        var directoryCutoff = DateTime.UtcNow - TimeSpan.FromMinutes(10);
+        var scriptCutoff = DateTime.UtcNow - TimeSpan.FromDays(1);
+
+        try
+        {
+            foreach (var directory in Directory.EnumerateDirectories(root))
+            {
+                try
+                {
+                    if (Directory.GetLastWriteTimeUtc(directory) < directoryCutoff)
+                        Directory.Delete(directory, true);
+                }
+                catch { }
+            }
+
+            foreach (var script in Directory.EnumerateFiles(
+                         root,
+                         "apply-update-*.ps1",
+                         SearchOption.TopDirectoryOnly))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(script) < scriptCutoff)
+                        File.Delete(script);
+                }
+                catch { }
+            }
+        }
+        catch { }
     }
 
     public void ApplyAndRestart(

@@ -189,7 +189,7 @@ public sealed class MinecraftOneClickService
                 createdFabricVersions,
                 microsoftStoreProfilesExisted);
 
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 markerPath,
                 JsonSerializer.Serialize(
                     marker,
@@ -464,7 +464,7 @@ public sealed class MinecraftOneClickService
     private static HttpClient CreatePackHttpClient()
     {
         var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "1.2"));
+        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return http;
     }
@@ -556,16 +556,79 @@ public sealed class MinecraftOneClickService
                 continue;
 
             var url = urlElement.GetString();
-            if (string.IsNullOrWhiteSpace(url))
-                return null;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+                !uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Unexpected Scandi pack release URL for {assetName}: {url}");
+            }
+
+            string? expectedSha256 = null;
+            if (asset.TryGetProperty("digest", out var digestElement))
+            {
+                var digest = digestElement.GetString();
+                if (!string.IsNullOrWhiteSpace(digest) &&
+                    digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+                {
+                    expectedSha256 = digest["sha256:".Length..];
+                }
+            }
 
             var cache = Path.Combine(backup, "downloads", assetName);
+            var temp = cache + ".download";
             Directory.CreateDirectory(Path.GetDirectoryName(cache)!);
-            await using var input = await PackHttp.GetStreamAsync(url, cancellationToken);
-            await using var output = File.Create(cache);
-            await input.CopyToAsync(output, cancellationToken);
-            return cache;
+
+            try
+            {
+                using var response = await PackHttp.GetAsync(
+                    uri,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken);
+                response.EnsureSuccessStatusCode();
+
+                await using (var input =
+                    await response.Content.ReadAsStreamAsync(cancellationToken))
+                await using (var output = new FileStream(
+                    temp,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    128 * 1024,
+                    useAsync: true))
+                {
+                    await input.CopyToAsync(output, cancellationToken);
+                }
+
+                if (new FileInfo(temp).Length < 1024)
+                    throw new InvalidDataException(
+                        $"Downloaded {assetName} is unexpectedly small.");
+
+                if (!string.IsNullOrWhiteSpace(expectedSha256))
+                {
+                    var actual = await HashService.Sha256Async(
+                        temp,
+                        cancellationToken);
+
+                    if (!actual.Equals(
+                            expectedSha256,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidDataException(
+                            $"{assetName} failed GitHub SHA-256 verification. Expected {expectedSha256}, got {actual}.");
+                    }
+                }
+
+                File.Move(temp, cache, true);
+                return cache;
+            }
+            catch
+            {
+                TryDeleteFile(temp);
+                throw;
+            }
         }
+
         return null;
     }
 
@@ -631,7 +694,7 @@ public sealed class MinecraftOneClickService
         else
             lines.Add(setting);
 
-        File.WriteAllLines(path, lines);
+        AtomicFile.WriteAllLines(path, lines);
     }
 
     private static void PatchFabricLauncherProfiles(
@@ -751,7 +814,7 @@ public sealed class MinecraftOneClickService
         if (!changed)
             return false;
 
-        File.WriteAllText(
+        AtomicFile.WriteAllText(
             launcherProfilesPath,
             root.ToJsonString(
                 new JsonSerializerOptions

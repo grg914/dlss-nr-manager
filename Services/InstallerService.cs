@@ -36,9 +36,18 @@ public sealed class InstallerService
         var runtime = Path.Combine(gameDir, "nvngx_dlssnr.dll");
         string? hash = null;
         if (File.Exists(runtime))
-            hash = HashService.Sha256Async(runtime).GetAwaiter().GetResult();
+            hash = HashService.Sha256(runtime);
 
         var expected = ExpectedRuntimeHash(gpuGeneration);
+        var manifest = ReadManifest(gameDir);
+        var runtimeHashValid =
+            hash != null &&
+            (
+                (expected != null &&
+                 hash.Equals(expected, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(manifest?.RuntimeHash) &&
+                 hash.Equals(manifest.RuntimeHash, StringComparison.OrdinalIgnoreCase))
+            );
 
         var ini = Path.Combine(gameDir, "OptiScaler.ini");
         var forwarder = Path.Combine(gameDir, "nvngx.dll_dlssnr.dll");
@@ -79,7 +88,7 @@ public sealed class InstallerService
             ReadInstalledVersion(gameDir),
             File.Exists(runtime),
             hash,
-            expected != null && hash?.Equals(expected, StringComparison.OrdinalIgnoreCase) == true);
+            runtimeHashValid);
     }
 
     public async Task<string> InstallAsync(
@@ -205,8 +214,12 @@ public sealed class InstallerService
                 workingScale,
                 enableNeuralRendering);
 
-            File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-version"), release.Tag);
-            File.WriteAllText(Path.Combine(gameDir, ".dlssnr-manager-proxy"), proxy);
+            AtomicFile.WriteAllText(
+                Path.Combine(gameDir, ".dlssnr-manager-version"),
+                release.Tag);
+            AtomicFile.WriteAllText(
+                Path.Combine(gameDir, ".dlssnr-manager-proxy"),
+                proxy);
 
             var managedFiles = archiveRelativeFiles
                 .Where(x => !x.Equals("OptiScaler.dll", StringComparison.OrdinalIgnoreCase))
@@ -232,9 +245,11 @@ public sealed class InstallerService
                 managedFiles,
                 baselineBackup);
 
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 manifestPath,
-                JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
+                JsonSerializer.Serialize(
+                    manifest,
+                    new JsonSerializerOptions { WriteIndented = true }));
 
             return backup;
         }
@@ -262,6 +277,55 @@ public sealed class InstallerService
             }
             catch { }
         }
+    }
+
+    public void RegisterManagedFiles(
+        string gameDir,
+        IEnumerable<string> absolutePaths)
+    {
+        var manifestPath = Path.Combine(gameDir, ManifestFile);
+        var manifest = ReadManifest(gameDir)
+            ?? throw new InvalidOperationException(
+                "Cannot register managed files because the install manifest is missing.");
+
+        var managed = new HashSet<string>(
+            manifest.ManagedFiles ?? [],
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in absolutePaths)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                continue;
+
+            string relative;
+            try
+            {
+                relative = Path.GetRelativePath(gameDir, Path.GetFullPath(path));
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!TryResolveUnderRoot(gameDir, relative, out var resolved) ||
+                !File.Exists(resolved))
+                continue;
+
+            managed.Add(relative);
+        }
+
+        var updated = manifest with
+        {
+            ManagedFiles = managed
+                .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .ToList()
+        };
+
+        AtomicFile.WriteAllText(
+            manifestPath,
+            JsonSerializer.Serialize(
+                updated,
+                new JsonSerializerOptions { WriteIndented = true }));
     }
 
     public void ApplyPreset(string gameDir, string workingScale, bool enableNeuralRendering = true)
@@ -347,10 +411,9 @@ public sealed class InstallerService
         {
             foreach (var relative in manifest.ManagedFiles)
             {
-                if (!IsSafeRelativePath(relative))
+                if (!TryResolveUnderRoot(gameDir, relative, out var file))
                     continue;
 
-                var file = Path.Combine(gameDir, relative);
                 if (File.Exists(file))
                     File.Delete(file);
             }
@@ -358,11 +421,13 @@ public sealed class InstallerService
             RemoveEmptyManagedDirectories(gameDir, manifest.ManagedFiles);
 
             if (!string.IsNullOrWhiteSpace(manifest.BaselineBackup) &&
-                IsSafeRelativePath(manifest.BaselineBackup))
+                TryResolveUnderRoot(
+                    gameDir,
+                    manifest.BaselineBackup,
+                    out var baseline) &&
+                Directory.Exists(baseline))
             {
-                var baseline = Path.Combine(gameDir, manifest.BaselineBackup);
-                if (Directory.Exists(baseline))
-                    CopyTree(baseline, gameDir, true);
+                CopyTree(baseline, gameDir, true);
             }
 
             if (!preserveBackups)
@@ -374,6 +439,24 @@ public sealed class InstallerService
 
             return;
         }
+
+        var backupsRoot = Path.Combine(
+            gameDir,
+            ".dlssnr-manager-backups");
+        var managerEvidence =
+            File.Exists(Path.Combine(gameDir, ".dlssnr-manager-version")) ||
+            File.Exists(Path.Combine(gameDir, ".dlssnr-manager-proxy")) ||
+            Directory.Exists(backupsRoot);
+
+        if (!managerEvidence)
+        {
+            throw new InvalidOperationException(
+                "No DLSS NR Manager manifest, marker or backup was found. " +
+                "Refusing destructive legacy uninstall because the detected OptiScaler files may belong to a manual installation.");
+        }
+
+        if (preserveBackups)
+            _ = CreateBackup(gameDir);
 
         var managedProxy = ReadManagedProxy(gameDir);
 
@@ -524,11 +607,9 @@ public sealed class InstallerService
     {
         foreach (var relative in archiveRelativeFiles)
         {
-            if (!IsSafeRelativePath(relative))
+            if (!TryResolveUnderRoot(gameDir, relative, out var destination) ||
+                !TryResolveUnderRoot(backup, relative, out var backupFile))
                 continue;
-
-            var destination = Path.Combine(gameDir, relative);
-            var backupFile = Path.Combine(backup, relative);
 
             try
             {
@@ -567,17 +648,49 @@ public sealed class InstallerService
         catch { }
     }
 
-    private static bool IsSafeRelativePath(string relative)
-        => !string.IsNullOrWhiteSpace(relative)
-           && !Path.IsPathRooted(relative)
-           && !relative.StartsWith("..", StringComparison.Ordinal)
-           && !relative.Contains($"{Path.DirectorySeparatorChar}..{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
+    private static bool TryResolveUnderRoot(
+        string rootPath,
+        string relative,
+        out string resolved)
+    {
+        resolved = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(relative) ||
+            Path.IsPathRooted(relative))
+            return false;
+
+        try
+        {
+            var root = Path.GetFullPath(rootPath)
+                .TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+
+            var candidate = Path.GetFullPath(
+                Path.Combine(root, relative));
+
+            if (!candidate.StartsWith(
+                    root,
+                    StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            resolved = candidate;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private static void RemoveEmptyManagedDirectories(string gameDir, IEnumerable<string> managedFiles)
     {
         var directories = managedFiles
-            .Where(IsSafeRelativePath)
-            .Select(relative => Path.GetDirectoryName(Path.Combine(gameDir, relative)))
+            .Select(relative =>
+                TryResolveUnderRoot(gameDir, relative, out var path)
+                    ? Path.GetDirectoryName(path)
+                    : null)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderByDescending(path => path!.Length)

@@ -19,7 +19,9 @@ public sealed class GitHubReleaseService
 
     public GitHubReleaseService()
     {
-        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DlssNrManager", "1.2"));
+        _http.Timeout = TimeSpan.FromSeconds(30);
+        _http.DefaultRequestHeaders.UserAgent.Add(
+            new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
 
@@ -159,20 +161,21 @@ public sealed class GitHubReleaseService
                 cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            await using var source =
+            await using (var source =
                 await response.Content.ReadAsStreamAsync(
-                    cancellationToken);
-            await using var target = new FileStream(
+                    cancellationToken))
+            await using (var target = new FileStream(
                 temp,
                 FileMode.Create,
                 FileAccess.Write,
                 FileShare.None,
                 128 * 1024,
-                useAsync: true);
-
-            await source.CopyToAsync(
-                target,
-                cancellationToken);
+                useAsync: true))
+            {
+                await source.CopyToAsync(
+                    target,
+                    cancellationToken);
+            }
 
             if (new FileInfo(temp).Length < 1024)
             {
@@ -183,7 +186,7 @@ public sealed class GitHubReleaseService
             if (!string.IsNullOrWhiteSpace(expectedSha256))
             {
                 var actual =
-                    await HashService.Sha256Async(temp);
+                    await HashService.Sha256Async(temp, cancellationToken);
 
                 if (!actual.Equals(
                         expectedSha256,

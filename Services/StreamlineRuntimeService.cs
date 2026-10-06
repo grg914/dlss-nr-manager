@@ -26,7 +26,7 @@ public sealed class StreamlineRuntimeService
     {
         _http.Timeout = TimeSpan.FromMinutes(10);
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", "1.3"));
+            new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
@@ -55,7 +55,7 @@ public sealed class StreamlineRuntimeService
 
         if (File.Exists(runtime))
         {
-            var validation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration);
+            var validation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration, cancellationToken);
             if (IsTrustedNvidiaRuntime(validation))
             {
                 return new StreamlineRuntimeResult(
@@ -359,20 +359,21 @@ public sealed class StreamlineRuntimeService
                 cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            await using var input =
+            await using (var input =
                 await response.Content.ReadAsStreamAsync(
-                    cancellationToken);
-            await using var output = new FileStream(
+                    cancellationToken))
+            await using (var output = new FileStream(
                 temp,
                 FileMode.Create,
                 FileAccess.Write,
                 FileShare.None,
                 128 * 1024,
-                true);
-
-            await input.CopyToAsync(
-                output,
-                cancellationToken);
+                true))
+            {
+                await input.CopyToAsync(
+                    output,
+                    cancellationToken);
+            }
 
             if (new FileInfo(temp).Length < 1024)
             {

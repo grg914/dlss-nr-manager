@@ -827,18 +827,39 @@ public sealed class MinecraftPreflightService
         foreach (var argument in arguments)
             psi.ArgumentList.Add(argument);
 
-        using var process = Process.Start(psi)
-            ?? throw new InvalidOperationException(
-                $"Could not start {Path.GetFileName(executable)}.");
+        using var process = ExternalProcessTracker.Start(psi);
 
-        var stdout = process.StandardOutput.ReadToEndAsync(linkedCts.Token);
-        var stderr = process.StandardError.ReadToEndAsync(linkedCts.Token);
-        await process.WaitForExitAsync(linkedCts.Token);
+        try
+        {
+            var stdout = process.StandardOutput.ReadToEndAsync(linkedCts.Token);
+            var stderr = process.StandardError.ReadToEndAsync(linkedCts.Token);
+            await process.WaitForExitAsync(linkedCts.Token);
 
-        return new ProcessResult(
-            process.ExitCode,
-            await stdout,
-            await stderr);
+            return new ProcessResult(
+                process.ExitCode,
+                await stdout,
+                await stderr);
+        }
+        catch (OperationCanceledException) when (
+            timeoutCts?.IsCancellationRequested == true &&
+            !cancellationToken.IsCancellationRequested)
+        {
+            ExternalProcessTracker.Kill(process);
+            throw new TimeoutException(
+                $"{Path.GetFileName(executable)} did not finish within {timeout}.");
+        }
+        catch (OperationCanceledException)
+        {
+            ExternalProcessTracker.Kill(process);
+            throw;
+        }
+        finally
+        {
+            if (!process.HasExited)
+                ExternalProcessTracker.Kill(process);
+            else
+                ExternalProcessTracker.Untrack(process);
+        }
     }
 
     private enum VersionDetection

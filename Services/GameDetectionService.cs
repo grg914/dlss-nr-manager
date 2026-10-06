@@ -36,14 +36,14 @@ public sealed class GameDetectionService
                 return cached;
         }
 
-        var apps = DetectSteamApps()
-            .Concat(DetectEpicApps())
-            .Concat(DetectGogApps())
-            .Concat(LauncherGameDiscovery.DetectItchApps())
-            .Concat(DetectUbisoftApps())
-            .Concat(DetectEaApps())
-            .Concat(LauncherGameDiscovery.DetectXboxApps())
-            .Concat(DetectBattleNetApps())
+        var apps = SafeDiscover("Steam", DetectSteamApps)
+            .Concat(SafeDiscover("Epic", DetectEpicApps))
+            .Concat(SafeDiscover("GOG", DetectGogApps))
+            .Concat(SafeDiscover("itch.io", LauncherGameDiscovery.DetectItchApps))
+            .Concat(SafeDiscover("Ubisoft Connect", DetectUbisoftApps))
+            .Concat(SafeDiscover("EA App", DetectEaApps))
+            .Concat(SafeDiscover("Xbox App", LauncherGameDiscovery.DetectXboxApps))
+            .Concat(SafeDiscover("Battle.net", DetectBattleNetApps))
             .Where(x => !string.IsNullOrWhiteSpace(x.Root) && Directory.Exists(x.Root))
             .GroupBy(x => x.Root, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
@@ -64,6 +64,22 @@ public sealed class GameDetectionService
 
         TryWriteCache(result);
         return result;
+    }
+
+    private static IReadOnlyList<(string Name, string Platform, string Root, string? ArtworkUrl)> SafeDiscover(
+        string source,
+        Func<IEnumerable<(string Name, string Platform, string Root, string? ArtworkUrl)>> detector)
+    {
+        try
+        {
+            return detector().ToList();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn(
+                $"{source} game discovery failed and was skipped: {ex.Message}");
+            return [];
+        }
     }
 
     public string? DetectCyberpunk()
@@ -431,9 +447,12 @@ public sealed class GameDetectionService
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(CachePath)!);
-            File.WriteAllText(
+            AtomicFile.WriteAllText(
                 CachePath,
-                JsonSerializer.Serialize(new ScanCache(DateTimeOffset.UtcNow, games.ToList()),
+                JsonSerializer.Serialize(
+                    new ScanCache(
+                        DateTimeOffset.UtcNow,
+                        games.ToList()),
                     new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { }
@@ -536,10 +555,11 @@ public sealed class GameDetectionService
 
         foreach (var file in SafeEnumerateFiles(manifestDir, "*.item"))
         {
-            JsonDocument? json = null;
+            (string Name, string Root)? detected = null;
+
             try
             {
-                json = JsonDocument.Parse(File.ReadAllText(file));
+                using var json = JsonDocument.Parse(File.ReadAllText(file));
                 var root = json.RootElement;
                 if (!root.TryGetProperty("InstallLocation", out var installLocation))
                     continue;
@@ -553,12 +573,20 @@ public sealed class GameDetectionService
                     ? displayName.GetString()!
                     : Path.GetFileName(path);
 
-                yield return (name, "Epic", path, null);
+                if (!string.IsNullOrWhiteSpace(name))
+                    detected = (name, path);
             }
-            finally
+            catch
             {
-                json?.Dispose();
+                // A single corrupt Epic manifest must not abort the entire game scan.
             }
+
+            if (detected.HasValue)
+                yield return (
+                    detected.Value.Name,
+                    "Epic",
+                    detected.Value.Root,
+                    null);
         }
     }
 

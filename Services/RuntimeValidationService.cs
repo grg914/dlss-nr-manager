@@ -11,12 +11,15 @@ public static class RuntimeValidationService
     private static readonly Guid WintrustActionGenericVerifyV2 =
         new("00AAC56B-CD44-11d0-8CC2-00C04FC295EE");
 
-    public static async Task<RuntimeValidation> ValidateAsync(string path, string gpuGeneration)
+    public static async Task<RuntimeValidation> ValidateAsync(
+        string path,
+        string gpuGeneration,
+        CancellationToken cancellationToken = default)
     {
         if (!File.Exists(path))
             throw new FileNotFoundException("Runtime DLL was not found.", path);
 
-        var hash = await HashService.Sha256Async(path);
+        var hash = await HashService.Sha256Async(path, cancellationToken);
         var expected = gpuGeneration == "RTX 50"
             ? InstallerService.Rtx50Hash
             : gpuGeneration is "RTX 20" or "RTX 30" or "RTX 40"

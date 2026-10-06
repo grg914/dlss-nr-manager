@@ -15,8 +15,10 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: '8.0.x'
 
@@ -39,7 +41,7 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Publish
-        run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+        run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -warnaserror -o publish
 
       - name: Create zip
         shell: pwsh
@@ -68,7 +70,7 @@ jobs:
             Write-Host "Validated $($asset.Name) • SHA-256 $actual"
           }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: DlssNrManager-win-x64
           path: |
@@ -76,7 +78,7 @@ jobs:
             DlssNrManager-win-x64.zip
 
       - name: Create or update GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: main
