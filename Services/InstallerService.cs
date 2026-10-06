@@ -246,11 +246,15 @@ public sealed class InstallerService
                 workingScale,
                 enableNeuralRendering);
 
+            journal.Track(versionMarkerPath);
+            journal.Track(proxyMarkerPath);
+            journal.Track(manifestPath);
+
             AtomicFile.WriteAllText(
-                Path.Combine(gameDir, ".dlssnr-manager-version"),
+                versionMarkerPath,
                 release.Tag);
             AtomicFile.WriteAllText(
-                Path.Combine(gameDir, ".dlssnr-manager-proxy"),
+                proxyMarkerPath,
                 proxy);
 
             var managedFiles = archiveRelativeFiles
@@ -277,9 +281,6 @@ public sealed class InstallerService
                 managedFiles,
                 baselineBackup);
 
-            journal.Track(versionMarkerPath);
-            journal.Track(proxyMarkerPath);
-            journal.Track(manifestPath);
             journal.Stage("VERIFIED");
 
             AtomicFile.WriteAllText(
@@ -605,7 +606,20 @@ public sealed class InstallerService
     {
         try
         {
-            return Directory.EnumerateFiles(gameDir, "*.exe", SearchOption.TopDirectoryOnly)
+            var preferred =
+                RendererDetectionService.ReadPreferredExecutable(gameDir);
+            if (preferred != null)
+                return preferred;
+
+            var detected =
+                RendererDetectionService.Detect(gameDir).Preferred?.Executable;
+            if (detected != null)
+                return detected;
+
+            return Directory.EnumerateFiles(
+                    gameDir,
+                    "*.exe",
+                    SearchOption.TopDirectoryOnly)
                 .OrderByDescending(x => new FileInfo(x).Length)
                 .FirstOrDefault();
         }
