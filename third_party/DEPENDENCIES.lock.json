@@ -24,6 +24,8 @@
       "path": "third_party/OptiScaler",
       "url": "https://github.com/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass.git",
       "ref": "1bd39091337cc07ba961c8e59ded57e21dc95b18",
+      "tree": "2e71bd96f977cf432120f6650579478a463cf6dd",
+      "require_force_include_manifest": true,
       "redistribution": "GPL-3.0"
     },
     {
