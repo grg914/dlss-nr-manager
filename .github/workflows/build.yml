@@ -69,6 +69,7 @@ jobs:
             "tools/refresh-minecraft-runtime-lock.ps1",
             "tools/generate-components-manifest.ps1",
             "tools/verify-caustica-scandi-assets.ps1",
+            "tools/verify-streamline-runtime-asset.ps1",
             "tools/download-runtime-seed.ps1",
             "tools/prepare-offline-dotnet.ps1",
             "tools/build-nuget-offline-seed.ps1"
@@ -160,6 +161,28 @@ jobs:
           $causticaPath = Join-Path "asset-audit" ([string]$caustica.name)
           $spbrPath = Join-Path "asset-audit" "SPBRScandi.zip"
           & .\tools\verify-caustica-scandi-assets.ps1 -CausticaJar $causticaPath -SpbrZip $spbrPath
+
+      - name: Audit manager-owned NVIDIA Streamline runtime seed
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Path "runtime-audit" -Force | Out-Null
+          gh release download runtime-seed-v1 --repo "${{ github.repository }}" --pattern "streamline-runtime-v2.14.1-win-x64.zip" --dir "runtime-audit" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to download manager-owned Streamline runtime seed." }
+
+          $zip = Join-Path "runtime-audit" "streamline-runtime-v2.14.1-win-x64.zip"
+          $release = gh api "repos/${{ github.repository }}/releases/tags/runtime-seed-v1" | ConvertFrom-Json
+          $asset = @($release.assets) | Where-Object { $_.name -eq "streamline-runtime-v2.14.1-win-x64.zip" } | Select-Object -First 1
+          if (-not $asset -or -not ([string]$asset.digest).StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Manager-owned Streamline runtime seed has no GitHub SHA-256 digest."
+          }
+
+          $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
+          $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Streamline runtime seed ZIP failed SHA-256 verification." }
+
+          & .\tools\verify-streamline-runtime-asset.ps1 -ZipPath $zip
 
       - name: Enforce zero-upstream production audit
         shell: pwsh
