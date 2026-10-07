@@ -175,6 +175,68 @@ function Resolve-UpstreamState {
         }
     }
 
+    if ($strategy -eq "latest-compatible-release") {
+        $tagNames = @(Get-GitRemoteTagNames -Repository $repository)
+        $tagPattern = if ($Policy.tag_regex) { [string]$Policy.tag_regex } else { "^[vV]?(?<version>\d+(?:\.\d+){1,3})$" }
+        $releasePattern = if ($Policy.release_name_regex) { [string]$Policy.release_name_regex } else { "" }
+        $assetPattern = if ($Policy.release_asset_regex) { [string]$Policy.release_asset_regex } else { "" }
+
+        if ([string]::IsNullOrWhiteSpace($releasePattern) -and [string]::IsNullOrWhiteSpace($assetPattern)) {
+            throw "latest-compatible-release requires release_name_regex and/or release_asset_regex for $repository."
+        }
+
+        $candidates = foreach ($tagName in $tagNames) {
+            $version = Get-TagVersion -Tag ([string]$tagName) -Pattern $tagPattern
+            if ($version) {
+                [pscustomobject]@{
+                    Tag = [string]$tagName
+                    Version = $version
+                }
+            }
+        }
+
+        foreach ($candidate in @($candidates | Sort-Object Version -Descending)) {
+            $encodedTag = [Uri]::EscapeDataString([string]$candidate.Tag)
+            $release = Invoke-GitHubJson "https://api.github.com/repos/$repository/releases/tags/$encodedTag"
+
+            if ($release.draft -or $release.prerelease) { continue }
+
+            $nameMatches = -not [string]::IsNullOrWhiteSpace($releasePattern) -and (
+                ([string]$release.name -match $releasePattern) -or
+                ([string]$release.tag_name -match $releasePattern)
+            )
+            $assetMatches = -not [string]::IsNullOrWhiteSpace($assetPattern) -and (
+                @($release.assets | Where-Object { [string]$_.name -match $assetPattern }).Count -gt 0
+            )
+
+            $compatible = if (
+                -not [string]::IsNullOrWhiteSpace($releasePattern) -and
+                -not [string]::IsNullOrWhiteSpace($assetPattern)
+            ) {
+                $nameMatches -and $assetMatches
+            }
+            else {
+                $nameMatches -or $assetMatches
+            }
+
+            if (-not $compatible) { continue }
+
+            $commit = Resolve-CommitInfo -Repository $repository -Ref ([string]$candidate.Tag)
+            return [pscustomobject]@{
+                Ref = $commit.Sha
+                Tree = $commit.Tree
+                Version = [string]$candidate.Tag
+                Release = $release
+                Branch = $null
+            }
+        }
+
+        $criteria = @()
+        if (-not [string]::IsNullOrWhiteSpace($releasePattern)) { $criteria += "release '$releasePattern'" }
+        if (-not [string]::IsNullOrWhiteSpace($assetPattern)) { $criteria += "asset '$assetPattern'" }
+        throw "No stable compatible release matching $($criteria -join ' and ') was found for $repository."
+    }
+
     if ($strategy -eq "latest-tag") {
         # GitHub's REST tag endpoint is ordered by the tagged commit and can
         # require an unbounded number of pages on repositories with a large
