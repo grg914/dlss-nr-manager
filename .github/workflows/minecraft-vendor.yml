@@ -54,10 +54,15 @@ jobs:
         run: |
           $root = "build-local/minecraft-runtime-26.2/package"
           $manifestPath = Join-Path $root "minecraft-runtime.json"
+          $runtimeLockPath = "third_party/minecraft/RUNTIME.lock.json"
           $zip = "build-local/minecraft-runtime-26.2/minecraft-runtime-26.2.zip"
 
           if (!(Test-Path -LiteralPath $manifestPath)) {
             throw "minecraft-runtime.json was not generated."
+          }
+
+          if (!(Test-Path -LiteralPath $runtimeLockPath)) {
+            throw "Minecraft RUNTIME.lock.json is missing."
           }
 
           if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1MB) {
@@ -65,35 +70,78 @@ jobs:
           }
 
           $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          $runtimeLock = Get-Content -LiteralPath $runtimeLockPath -Raw | ConvertFrom-Json
+          $runtimeLockSha = (Get-FileHash -LiteralPath $runtimeLockPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
           if ($manifest.SchemaVersion -ne 1) {
             throw "Unexpected Minecraft runtime schema: $($manifest.SchemaVersion)"
           }
 
-          if ($manifest.MinecraftVersion -ne "26.2") {
-            throw "Unexpected Minecraft runtime target: $($manifest.MinecraftVersion)"
+          if ($manifest.MinecraftVersion -ne [string]$runtimeLock.minecraft_version) {
+            throw "Minecraft runtime version does not match lock."
           }
 
-          if ([string]::IsNullOrWhiteSpace([string]$manifest.FabricLoaderVersion)) {
-            throw "Fabric Loader version is missing."
+          if ([string]$manifest.RuntimeLockSha256 -ne $runtimeLockSha) {
+            throw "Minecraft runtime manifest does not record the exact RUNTIME.lock.json digest."
           }
 
-          if (@($manifest.FabricLibraries).Count -lt 1) {
-            throw "Fabric Loader profile contains no bundled libraries."
+          if ([string]$manifest.FabricLoaderVersion -ne [string]$runtimeLock.fabric_loader.version) {
+            throw "Fabric Loader version does not match runtime lock."
           }
 
-          $fabricApi = @($manifest.Components) |
-            Where-Object { $_.Slug -eq "fabric-api" } |
-            Select-Object -First 1
-
-          if (-not $fabricApi) {
-            throw "Required Fabric API component was not bundled."
+          if ([string]$manifest.FabricProfileId -ne [string]$runtimeLock.fabric_loader.profile_id) {
+            throw "Fabric profile id does not match runtime lock."
           }
 
-          Write-Host "Minecraft runtime bundle validated."
+          $manifestLibraries = @($manifest.FabricLibraries)
+          $lockedLibraries = @($runtimeLock.fabric_loader.libraries)
+          if ($manifestLibraries.Count -ne $lockedLibraries.Count) {
+            throw "Fabric library count does not match runtime lock."
+          }
+
+          foreach ($lockedLibrary in $lockedLibraries) {
+            $actual = $manifestLibraries | Where-Object { $_.Name -eq $lockedLibrary.name } | Select-Object -First 1
+            if (-not $actual) {
+              throw "Locked Fabric library missing from manifest: $($lockedLibrary.name)"
+            }
+            if (([string]$actual.Sha1).ToLowerInvariant() -ne ([string]$lockedLibrary.sha1).ToLowerInvariant()) {
+              throw "Fabric library SHA-1 mismatch in manifest: $($lockedLibrary.name)"
+            }
+          }
+
+          if ([string]$manifest.FabricInstaller.Version -ne [string]$runtimeLock.fabric_installer.version) {
+            throw "Fabric Installer version does not match runtime lock."
+          }
+          if (([string]$manifest.FabricInstaller.Sha256).ToLowerInvariant() -ne ([string]$runtimeLock.fabric_installer.sha256).ToLowerInvariant()) {
+            throw "Fabric Installer SHA-256 does not match runtime lock."
+          }
+
+          $manifestComponents = @($manifest.Components)
+          $lockedComponents = @($runtimeLock.components)
+          if ($manifestComponents.Count -ne $lockedComponents.Count) {
+            throw "Minecraft component count does not match runtime lock."
+          }
+
+          foreach ($lockedComponent in $lockedComponents) {
+            $actual = $manifestComponents | Where-Object { $_.Slug -eq $lockedComponent.slug } | Select-Object -First 1
+            if (-not $actual) {
+              throw "Locked Minecraft component missing from manifest: $($lockedComponent.slug)"
+            }
+            if ([string]$actual.Version -ne [string]$lockedComponent.version) {
+              throw "Minecraft component version mismatch: $($lockedComponent.slug)"
+            }
+            if ([string]$actual.FileName -ne [string]$lockedComponent.file_name) {
+              throw "Minecraft component filename mismatch: $($lockedComponent.slug)"
+            }
+            if (([string]$actual.Sha512).ToLowerInvariant() -ne ([string]$lockedComponent.sha512).ToLowerInvariant()) {
+              throw "Minecraft component SHA-512 mismatch: $($lockedComponent.slug)"
+            }
+          }
+
+          Write-Host "Minecraft runtime bundle validated against RUNTIME.lock.json."
           Write-Host "Fabric Loader: $($manifest.FabricLoaderVersion)"
-          Write-Host "Fabric libraries: $(@($manifest.FabricLibraries).Count)"
-          Write-Host "Bundled components: $(@($manifest.Components).Count)"
+          Write-Host "Fabric libraries: $($manifestLibraries.Count)"
+          Write-Host "Bundled components: $($manifestComponents.Count)"
           Write-Host "Bundle SHA-256: $((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant())"
 
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
