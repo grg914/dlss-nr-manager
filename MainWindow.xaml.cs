@@ -23,10 +23,9 @@ public partial class MainWindow : Window
     private readonly ComponentUpdateService _components = new();
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
-    private readonly MinecraftDlssPackageService _minecraftDlss = new();
     private readonly MinecraftPreflightService _minecraftPreflight = new();
     private readonly MinecraftOneClickService _minecraftOneClick;
-    private readonly StreamlineRuntimeService _streamline = new();
+    private readonly GenericNvidiaRuntimeService _genericNvidiaRuntime = new();
     private readonly NvidiaDlssNrDiscoveryService _nvidiaNrDiscovery = new();
     private readonly PcCleanupService _pcCleanup = new();
 
@@ -40,8 +39,7 @@ public partial class MainWindow : Window
     private IReadOnlyList<DetectedGame> _detectedGames = [];
     private IReadOnlyList<MinecraftInstallCandidate> _minecraftInstances = [];
     private MinecraftPreflightResult? _minecraftPreflightResult;
-    private string? _minecraftDlssZipPath;
-    private string? _minecraftDlssNrPath;
+    private string? _gameDlssZipPath;
     private IReadOnlyList<PcCleanupItem> _cleanupItems = [];
     private AiOriginDetectionResult? _lastAiOriginResult;
     private string? _lastAiOriginSource;
@@ -133,6 +131,13 @@ public partial class MainWindow : Window
         PresetBox.IsEnabled = _gpuCapabilities.NeuralRendering;
         AutoNvidiaRuntimeCheck.IsEnabled = _gpuCapabilities.NeuralRendering;
         SelectRuntimeButton.IsEnabled = _gpuCapabilities.NeuralRendering;
+        GameDlssSrCheck.IsChecked = _gpuCapabilities.SuperResolution;
+        GameDlssFgCheck.IsChecked = _gpuCapabilities.FrameGeneration;
+        GameDlssReflexCheck.IsChecked = _gpuCapabilities.IsSupportedRtx;
+        GameDlssNrCheck.IsChecked = _gpuCapabilities.NeuralRendering;
+        GameDlssSrCheck.IsEnabled = _gpuCapabilities.SuperResolution;
+        GameDlssFgCheck.IsEnabled = _gpuCapabilities.FrameGeneration;
+        GameDlssNrCheck.IsEnabled = _gpuCapabilities.NeuralRendering;
         AppLogger.Info($"GPU detected: {_gpu.Name} • {_gpu.Generation} • {_gpuCapabilities.Summary}");
 
         if (!_gpuCapabilities.IsSupportedRtx)
@@ -623,6 +628,7 @@ public partial class MainWindow : Window
             return;
 
         _runtimePath = dialog.FileName;
+        GameDlssNrBox.Text = dialog.FileName;
         RuntimePathText.Text = "Validating runtime…";
 
         try
@@ -635,6 +641,7 @@ public partial class MainWindow : Window
             if (!validation.Trusted)
             {
                 _runtimePath = null;
+                GameDlssNrBox.Text = "No local nvngx_dlssnr.dll selected";
                 RuntimePathText.Text =
                     "Runtime rejected • it is neither a known validated build nor a trusted x64 NVIDIA-signed runtime.\n" +
                     $"SHA-256: {validation.Hash}\nAuthenticode: {signature}";
@@ -651,6 +658,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             _runtimePath = null;
+            GameDlssNrBox.Text = "No local nvngx_dlssnr.dll selected";
             RuntimePathText.Text = $"Runtime validation failed: {ex.Message}";
         }
     }
@@ -729,9 +737,9 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    RuntimePathText.Text = "Checking the official NVIDIA Streamline package for a published DLSSNR runtime…";
+                    RuntimePathText.Text = "Checking the manager-owned Streamline bundle for a validated DLSSNR runtime…";
                     var progress = new Progress<string>(message => RuntimePathText.Text = message);
-                    var runtime = await _streamline.EnsureLatestDlssNrAsync(
+                    var runtime = await _genericNvidiaRuntime.EnsureLatestNeuralRuntimeAsync(
                         _gpu.Generation,
                         progress);
 
@@ -856,13 +864,15 @@ public partial class MainWindow : Window
                     var resourceProgress = new Progress<string>(
                         message => RuntimePathText.Text = message);
 
-                    var staged = await _streamline.StageSelectedResourcesAsync(
+                    var staged = await _genericNvidiaRuntime.StageManagerOwnedAsync(
                         gameDir,
-                        includeSuperResolution: _gpuCapabilities.SuperResolution,
-                        includeFrameGeneration: _gpuCapabilities.FrameGeneration,
-                        includeReflex: _gpuCapabilities.IsSupportedRtx,
-                        includeNeuralRendering: enableNeuralRendering,
-                        resourceProgress);
+                        new GenericNvidiaFeatureSelection(
+                            _gpuCapabilities.SuperResolution,
+                            _gpuCapabilities.FrameGeneration,
+                            _gpuCapabilities.IsSupportedRtx,
+                            enableNeuralRendering),
+                        resourceProgress,
+                        trackForManualCleanup: false);
 
                     if (staged.Count > 0)
                     {
@@ -886,7 +896,7 @@ public partial class MainWindow : Window
                     RuntimePathText.Text =
                         staged.Count == 0
                             ? $"NVIDIA resources checked • {_gpu.Generation} supported feature set already satisfied."
-                            : $"Added {staged.Count} managed official NVIDIA resource file(s) for {_gpu.Generation}.";
+                            : $"Added {staged.Count} manager-owned NVIDIA resource file(s) for {_gpu.Generation}.";
                 }
                 catch (Exception ex)
                 {
@@ -2311,236 +2321,179 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SelectMinecraftDlssZip_Click(object sender, RoutedEventArgs e)
+    private GenericNvidiaFeatureSelection CaptureGameNvidiaSelection()
+        => new(
+            GameDlssSrCheck.IsChecked == true,
+            GameDlssFgCheck.IsChecked == true,
+            GameDlssReflexCheck.IsChecked == true,
+            GameDlssNrCheck.IsChecked == true);
+
+    private void SelectGameDlssZip_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Select your local DLSS / Streamline package",
+            Title = "Select a local NVIDIA DLSS / Streamline package",
             Filter = "ZIP archives (*.zip)|*.zip|All files|*.*"
         };
 
         if (dialog.ShowDialog() != true)
             return;
 
-        _minecraftDlssZipPath = dialog.FileName;
-        MinecraftDlssZipBox.Text = dialog.FileName;
+        _gameDlssZipPath = dialog.FileName;
+        GameDlssZipBox.Text = dialog.FileName;
 
         try
         {
-            var inspection = _minecraftDlss.Inspect(
+            var inspection = _genericNvidiaRuntime.InspectLocalPackage(
                 dialog.FileName,
-                CaptureMinecraftDlssSelection());
+                CaptureGameNvidiaSelection());
 
-            MinecraftStatusText.Text = inspection.MissingRequiredFiles.Count == 0
-                ? $"DLSS package ready • {inspection.PresentFiles.Count} files detected."
-                : "DLSS package missing selected files: "
-                  + string.Join(", ", inspection.MissingRequiredFiles);
+            RuntimePathText.Text = inspection.MissingRequiredFiles.Count == 0
+                ? $"Local package ready • {inspection.PresentFiles.Count} runtime file(s) detected. Fingerprints are checked again before staging."
+                : "Local package is missing selected runtime files: " +
+                  string.Join(", ", inspection.MissingRequiredFiles);
         }
         catch (Exception ex)
         {
-            MinecraftStatusText.Text = $"DLSS package inspection failed: {ex.Message}";
+            RuntimePathText.Text = $"Local package inspection failed: {ex.Message}";
         }
     }
 
-    private void SelectMinecraftDlssNr_Click(object sender, RoutedEventArgs e)
+    private async void CheckGameNvidiaRuntime_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
         {
-            Title = "Select nvngx_dlssnr.dll",
-            Filter = "NVIDIA DLSSNR runtime (nvngx_dlssnr.dll)|nvngx_dlssnr.dll|DLL files (*.dll)|*.dll"
-        };
-
-        if (dialog.ShowDialog() != true)
+            MessageBox.Show("Select a game target first.");
             return;
+        }
 
-        _minecraftDlssNrPath = dialog.FileName;
-        MinecraftDlssNrBox.Text = dialog.FileName;
-        MinecraftStatusText.Text = "DLSSNR runtime selected. It will be hash-validated before staging.";
-    }
-
-    private MinecraftDlssFeatureSelection CaptureMinecraftDlssSelection()
-        => new(
-            MinecraftDlssSrCheck.IsChecked == true,
-            MinecraftDlssFgCheck.IsChecked == true,
-            MinecraftDlssReflexCheck.IsChecked == true,
-            MinecraftDlssNrCheck.IsChecked == true);
-
-    private async void CheckMinecraftNvidiaNr_Click(object sender, RoutedEventArgs e)
-    {
         try
         {
-            MinecraftCheckNvidiaNrButton.IsEnabled = false;
-            MinecraftNvidiaNrStatusText.Text = "Checking official NVIDIA sources…";
+            var safety = await Task.Run(() => GameSafetyService.Assess(gameDir));
+            GameSafetyText.Text = safety.Message;
 
-            var progress = new Progress<string>(
-                message => MinecraftNvidiaNrStatusText.Text = message);
-
-            var instance = SelectedMinecraftInstance();
-            IReadOnlyList<string> staged = [];
-
-            if (instance != null)
+            if (safety.AntiCheatDetected)
             {
-                var runtimeDirectory = Path.Combine(
-                    instance.RootDirectory,
-                    ".dlss-nr-manager-runtime");
-                Directory.CreateDirectory(runtimeDirectory);
-
-                staged = await _streamline.StageSelectedResourcesAsync(
-                    runtimeDirectory,
-                    includeSuperResolution: true,
-                    includeFrameGeneration: true,
-                    includeReflex: true,
-                    includeNeuralRendering: true,
-                    progress);
-
-                AppLogger.Info(
-                    $"Manager-owned NVIDIA runtime staging completed: {staged.Count} file(s) added to '{runtimeDirectory}'.");
+                MessageBox.Show(
+                    "Manager-owned NVIDIA runtime staging is blocked because known anti-cheat files were detected.",
+                    "Anti-cheat detected — runtime staging blocked",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Stop);
+                return;
             }
 
-            var result = await _nvidiaNrDiscovery.CheckAsync(progress);
+            GameCheckNvidiaRuntimeButton.IsEnabled = false;
+            RuntimePathText.Text = "Checking manager-owned NVIDIA Streamline runtime…";
 
-            var stagingSummary = instance == null
-                ? "Select a Minecraft instance to stage manager-owned NVIDIA runtime files."
-                : staged.Count == 0
-                    ? "NVIDIA runtime files are already up to date."
-                    : $"Staged {staged.Count} missing manager-owned NVIDIA runtime file(s).";
+            var progress = new Progress<string>(message => RuntimePathText.Text = message);
+            var staged = await _genericNvidiaRuntime.StageManagerOwnedAsync(
+                gameDir,
+                CaptureGameNvidiaSelection(),
+                progress);
 
-            var neuralRenderingSummary = result.PublicSdkReady
-                ? $"DLSS Neural Rendering: validated manager-owned runtime ready ({result.StreamlineVersion})."
-                : $"DLSS Neural Rendering: manager-owned runtime bootstrap incomplete ({result.StreamlineVersion}).";
+            if (staged.Count > 0 && InstallerService.ReadManifest(gameDir) != null)
+                _installer.RegisterManagedFiles(gameDir, staged);
 
-            MinecraftNvidiaNrStatusText.Text =
-                $"{stagingSummary} {neuralRenderingSummary}";
+            var availability = await _nvidiaNrDiscovery.CheckAsync();
 
-            MessageBox.Show(
-                stagingSummary + Environment.NewLine + Environment.NewLine +
-                neuralRenderingSummary +
-                (instance == null
-                    ? Environment.NewLine + Environment.NewLine +
-                      "No files were changed because no Minecraft instance is selected."
-                    : string.Empty),
-                "NVIDIA runtime files",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            RuntimePathText.Text = staged.Count == 0
+                ? $"Manager-owned runtime verified • no selected files were missing. {availability.Summary}"
+                : $"Staged {staged.Count} manager-owned NVIDIA runtime file(s). {availability.Summary}";
         }
         catch (Exception ex)
         {
-            AppLogger.Warn($"NVIDIA DLSS-NR availability check failed: {ex}");
-            MinecraftNvidiaNrStatusText.Text =
-                "NVIDIA availability check failed. See diagnostic logs.";
-
+            AppLogger.Warn($"Generic NVIDIA runtime staging failed: {ex}");
+            RuntimePathText.Text = $"NVIDIA runtime staging failed: {ex.Message}";
             MessageBox.Show(
                 ex.Message,
-                "NVIDIA runtime check failed",
+                "NVIDIA runtime staging failed",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
         finally
         {
-            MinecraftCheckNvidiaNrButton.IsEnabled = true;
+            GameCheckNvidiaRuntimeButton.IsEnabled = true;
         }
     }
 
-    private void StageMinecraftDlssPackage_Click(object sender, RoutedEventArgs e)
+    private void StageGameDlssPackage_Click(object sender, RoutedEventArgs e)
     {
-        var instance = SelectedMinecraftInstance();
-
-        if (instance == null)
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
         {
-            MessageBox.Show("Select a Minecraft instance first.");
+            MessageBox.Show("Select a game target first.");
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_minecraftDlssZipPath) ||
-            !File.Exists(_minecraftDlssZipPath))
+        if (string.IsNullOrWhiteSpace(_gameDlssZipPath) ||
+            !File.Exists(_gameDlssZipPath))
         {
-            MessageBox.Show("Select your local DLSS package ZIP first.");
+            MessageBox.Show("Select a local DLSS / Streamline package ZIP first.");
             return;
         }
 
         try
         {
-            var installed = _minecraftDlss.StageSelectedRuntime(
-                _minecraftDlssZipPath,
-                instance.RootDirectory,
-                CaptureMinecraftDlssSelection(),
+            var staged = _genericNvidiaRuntime.StageLocalPackage(
+                _gameDlssZipPath,
+                gameDir,
+                CaptureGameNvidiaSelection(),
                 requireValidatedHashes: true);
 
-            MinecraftStatusText.Text =
-                $"Staged {installed.Count} validated DLSS/Streamline files in .dlss-nr-manager-runtime.";
+            if (staged.Count > 0 && InstallerService.ReadManifest(gameDir) != null)
+                _installer.RegisterManagedFiles(gameDir, staged);
+
+            RuntimePathText.Text = staged.Count == 0
+                ? "Selected NVIDIA runtime files are already present; existing game DLLs were left untouched."
+                : $"Staged {staged.Count} validated NVIDIA runtime file(s) from the selected package.";
         }
         catch (Exception ex)
         {
             MessageBox.Show(
                 ex.Message,
-                "Stage Minecraft DLSS package",
+                "Stage NVIDIA runtime package",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
     }
 
-    private void StageMinecraftDlssNr_Click(object sender, RoutedEventArgs e)
+    private void ClearGameNvidiaRuntime_Click(object sender, RoutedEventArgs e)
     {
-        var instance = SelectedMinecraftInstance();
-
-        if (instance == null)
+        var gameDir = GamePathBox.Text;
+        if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir))
         {
-            MessageBox.Show("Select a Minecraft instance first.");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(_minecraftDlssNrPath) ||
-            !File.Exists(_minecraftDlssNrPath))
-        {
-            MessageBox.Show("Select nvngx_dlssnr.dll first.");
-            return;
-        }
-
-        try
-        {
-            var staged = _minecraftDlss.StageNeuralRenderingRuntime(
-                _minecraftDlssNrPath,
-                instance.RootDirectory,
-                requireValidatedHash: true);
-
-            MinecraftStatusText.Text =
-                $"Validated DLSSNR runtime staged at {staged}.";
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                ex.Message,
-                "Stage DLSSNR runtime",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-    }
-
-    private void ClearMinecraftDlssRuntime_Click(object sender, RoutedEventArgs e)
-    {
-        var instance = SelectedMinecraftInstance();
-
-        if (instance == null)
-        {
-            MessageBox.Show("Select a Minecraft instance first.");
+            _gameDlssZipPath = null;
+            _runtimePath = null;
+            GameDlssZipBox.Text = "No local DLSS / Streamline package selected";
+            GameDlssNrBox.Text = "No local nvngx_dlssnr.dll selected";
+            RuntimePathText.Text = "Local runtime selections cleared.";
             return;
         }
 
         if (MessageBox.Show(
-                "Delete the staged .dlss-nr-manager-runtime directory for this Minecraft instance?",
-                "Clear staged Minecraft runtime",
+                "Remove NVIDIA runtime files manually staged by the generic Jeux & DLSS runtime manager? Existing vendor files and files modified after staging are preserved. Local selections will also be cleared.",
+                "Clear managed NVIDIA runtime",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
         try
         {
-            _minecraftDlss.ClearStagedRuntime(instance.RootDirectory);
-            MinecraftStatusText.Text = "Staged Minecraft DLSS runtime removed.";
+            var result = _genericNvidiaRuntime.ClearManagedRuntime(gameDir);
+            _gameDlssZipPath = null;
+            _runtimePath = null;
+            GameDlssZipBox.Text = "No local DLSS / Streamline package selected";
+            GameDlssNrBox.Text = "No local nvngx_dlssnr.dll selected";
+            RuntimePathText.Text =
+                $"Generic NVIDIA runtime cleanup complete • removed {result.RemovedFiles} file(s)" +
+                (result.PreservedModifiedFiles > 0
+                    ? $" • preserved {result.PreservedModifiedFiles} modified file(s)."
+                    : ".");
         }
         catch (Exception ex)
         {
-            MinecraftStatusText.Text = $"Unable to clear staged runtime: {ex.Message}";
+            RuntimePathText.Text = $"Unable to clear generic NVIDIA runtime: {ex.Message}";
         }
     }
 
