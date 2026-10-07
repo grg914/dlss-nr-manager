@@ -62,7 +62,7 @@ function Select-LatestModrinthRelease {
 Write-Host "Refreshing Fabric Loader metadata for Minecraft $MinecraftVersion..."
 $loaderRows = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion")
 $loader = $loaderRows |
-    Where-Object { -not $_.loader.stable -or [bool]$_.loader.stable } |
+    Where-Object { [bool]$_.loader.stable } |
     Select-Object -First 1
 
 if (-not $loader) { throw "No stable Fabric Loader was found for Minecraft $MinecraftVersion." }
