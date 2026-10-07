@@ -34,7 +34,7 @@ export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
 
 pushd "$BUILD/ffmpeg" >/dev/null
 
-"$SOURCE/configure"   --target-os=mingw32   --arch=x86_64   --enable-cross-compile   --cross-prefix=x86_64-w64-mingw32-   --prefix="$INSTALL_PREFIX"   --pkg-config=pkg-config   --pkg-config-flags=--static   --extra-cflags="-I$NV_PREFIX/include"   --extra-ldflags="-static -static-libgcc"   --disable-autodetect   --disable-debug   --disable-doc   --disable-ffplay   --disable-pthreads   --enable-w32threads   --enable-static   --disable-shared   --enable-ffnvcodec   --enable-nvenc   --enable-nvdec   --enable-cuvid
+bash "$SOURCE/configure"   --target-os=mingw32   --arch=x86_64   --enable-cross-compile   --cross-prefix=x86_64-w64-mingw32-   --prefix="$INSTALL_PREFIX"   --pkg-config=pkg-config   --pkg-config-flags=--static   --extra-cflags="-I$NV_PREFIX/include"   --extra-ldflags="-static -static-libgcc"   --disable-autodetect   --disable-debug   --disable-doc   --disable-ffplay   --disable-pthreads   --enable-w32threads   --enable-static   --disable-shared   --enable-ffnvcodec   --enable-nvenc   --enable-nvdec   --enable-cuvid
 
 grep -Eq '^#define CONFIG_HEVC_NVENC_ENCODER 1$' ffbuild/config_components.h || {
   echo "FFmpeg configure did not enable hevc_nvenc." >&2
