@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "minecraft_version": "26.2",
+  "fabric_loader": {
+    "version": "0.19.3",
+    "profile_id": "fabric-loader-0.19.3-26.2",
+    "profile_sha256": "ff1bbaacd2ed7cd0f06ee3070218bad16f32a200bcae6a1a948861e6e959623b",
+    "libraries": [
+      {
+        "name": "org.ow2.asm:asm:9.10.1",
+        "sha1": "ada2141c0cc52ee8f5c48cd5fa4ce0e794f22236"
+      },
+      {
+        "name": "org.ow2.asm:asm-analysis:9.10.1",
+        "sha1": "8d49f14d51f632cb1d87c88d1ceaf50db0d8af1b"
+      },
+      {
+        "name": "org.ow2.asm:asm-commons:9.10.1",
+        "sha1": "4229e4c55fd8e01c23f9fe9884075cc628aacc50"
+      },
+      {
+        "name": "org.ow2.asm:asm-tree:9.10.1",
+        "sha1": "e244332a17564c1d1572449399a842de35881be2"
+      },
+      {
+        "name": "org.ow2.asm:asm-util:9.10.1",
+        "sha1": "7bb9d450e8d4cbf9f9e04096c44bbfe7fba80b15"
+      },
+      {
+        "name": "net.fabricmc:sponge-mixin:0.17.3+mixin.0.8.7",
+        "sha1": "41c4a3984a80f4679e759fb9f495587acc5cdac7"
+      },
+      {
+        "name": "net.fabricmc:fabric-loader:0.19.3",
+        "sha1": "354dfaa02d0552e11867f85dff7cdbfaf813ba3e"
+      }
+    ]
+  },
+  "fabric_installer": {
+    "version": "1.1.2",
+    "sha256": "61e035bf7bf70153e127440ce34de47c9036f0a2d0c65d1529454bd35ceefe4f"
+  },
+  "components": [
+    {
+      "name": "Fabric API",
+      "slug": "fabric-api",
+      "kind": "mod",
+      "loader": "fabric",
+      "version": "0.161.0+26.2",
+      "file_name": "fabric-api-0.161.0+26.2.jar",
+      "sha512": "2502fa5ade78e9a120b3747bc1a9a2167d6671743bea45bf115d3174c94121aeda87c549446d1a604a9c11fb828de17a551e3514ce42f3e93069dd14bdaee55b",
+      "required": true
+    },
+    {
+      "name": "Lithium",
+      "slug": "lithium",
+      "kind": "mod",
+      "loader": "fabric",
+      "version": "mc26.2-0.25.3-fabric",
+      "file_name": "lithium-fabric-0.25.3+mc26.2.jar",
+      "sha512": "148b638f3c6229fbaf487120a2344a0af5e411a5aa6533d5db9d75da0a8c0d8304f63eb4cca13f4d03b2c9b4c23d559dd74c1d832422ef8a3087bd005e62a8bd",
+      "required": false
+    },
+    {
+      "name": "FerriteCore",
+      "slug": "ferrite-core",
+      "kind": "mod",
+      "loader": "fabric",
+      "version": "9.0.0-fabric",
+      "file_name": "ferritecore-9.0.0-fabric.jar",
+      "sha512": "d81fa97e11784c19d42f89c2f433831d007603dd7193cee45fa177e4a6a9c52b384b198586e04a0f7f63cd996fed713322578bde9a8db57e1188854ae5cbe584",
+      "required": false
+    },
+    {
+      "name": "Krypton",
+      "slug": "krypton",
+      "kind": "mod",
+      "loader": "fabric",
+      "version": "0.3.1",
+      "file_name": "krypton-0.3.1.jar",
+      "sha512": "b8d9af34cd0050493afb8a6232cb8f785daa9d8887b7045f6e6a53c6bb9b5ffc4318fd9b0347a940eacfeba4773f10cb80ae0be1e79ce4c1888f96eda21e564e",
+      "required": false
+    },
+    {
+      "name": "BadOptimizations",
+      "slug": "badoptimizations",
+      "kind": "mod",
+      "loader": "fabric",
+      "version": "2.4.1",
+      "file_name": "BadOptimizations-2.4.1-26.2-fabric.jar",
+      "sha512": "f91c409d4ce68d027ac0a11b6d2828c5f6d057e749ff0ce596f3a84a65fc1e3905b08f4d97a21a7302e2bfaf4ff865907272bd9c7ffa8487701b22e40dfe2f97",
+      "required": false
+    },
+    {
+      "name": "Dynamic FPS",
+      "slug": "dynamic-fps",
+      "kind": "mod",
+      "loader": "fabric",
+      "version": "3.11.9",
+      "file_name": "dynamic-fps-3.11.9+minecraft-26.2.0-fabric.jar",
+      "sha512": "79b13548d7e9de9abfa23e062724a885e5341f371c500d6570056ecea7db00c2f7ace5a7288179ad8baec575b4aa992b91dccbc940c584cb5cddf0bc7aeb892f",
+      "required": false
+    },
+    {
+      "name": "SPBR LabPBR",
+      "slug": "spbr",
+      "kind": "resourcepack",
+      "loader": "",
+      "version": "22.1",
+      "file_name": "SPBR-22_1.zip",
+      "sha512": "f209bcd243c929880018097ebdd7eca301895b7851730f0e18d8791df35fd6491227a0f5157b5334da4cac3da110d0bd723e4337afd78d0655b015ce160af95f",
+      "required": false
+    }
+  ],
+  "excluded_components": [
+    {
+      "name": "C2ME",
+      "slug": "c2me-fabric",
+      "reason": "No stable Modrinth release for Minecraft 26.2 was available when this runtime lock was created."
+    }
+  ]
+}
