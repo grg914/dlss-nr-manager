@@ -3,7 +3,8 @@ param(
     [switch]$NormalizeExisting,
     [switch]$IncludeMinecraftSources,
     [switch]$IncludeRestrictedNvidiaSdk,
-    [switch]$StageImported
+    [switch]$StageImported,
+    [string[]]$Only
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,6 +16,16 @@ if (!(Test-Path -LiteralPath $LockPath)) {
 }
 
 $Lock = Get-Content -LiteralPath $LockPath -Raw | ConvertFrom-Json
+
+function Test-SourceSelected {
+    param([Parameter(Mandatory=$true)][string]$Id)
+
+    if (-not $Only -or $Only.Count -eq 0) {
+        return $true
+    }
+
+    return @($Only) -contains $Id
+}
 
 function Assert-ImmutableRef {
     param(
@@ -420,12 +431,21 @@ function Import-Repo {
 
 if ($NormalizeExisting) {
     foreach ($source in @($Lock.sources)) {
+        if (-not (Test-SourceSelected -Id ([string]$source.id))) {
+            Write-Host "SKIP $($source.path) (not selected by -Only)"
+            continue
+        }
+
         $group = if ($source.group) { [string]$source.group } else { "core" }
         Normalize-ExistingImport -Source $source -Group $group
     }
 
     if ($IncludeRestrictedNvidiaSdk) {
         foreach ($source in @($Lock.local_only)) {
+            if (-not (Test-SourceSelected -Id ([string]$source.id))) {
+                continue
+            }
+
             Normalize-ExistingImport -Source $source -Group "local-only"
         }
     }
@@ -437,6 +457,11 @@ if ($NormalizeExisting) {
 }
 
 foreach ($source in @($Lock.sources)) {
+    if (-not (Test-SourceSelected -Id ([string]$source.id))) {
+        Write-Host "SKIP $($source.path) (not selected by -Only)"
+        continue
+    }
+
     $group = if ($source.group) { [string]$source.group } else { "core" }
 
     if ($group -eq "minecraft" -and -not $IncludeMinecraftSources) {
@@ -460,6 +485,10 @@ if ($IncludeRestrictedNvidiaSdk) {
     Write-Warning "NVIDIA/DLSS is imported only into third_party-local because its SDK license restricts standalone redistribution."
 
     foreach ($source in @($Lock.local_only)) {
+        if (-not (Test-SourceSelected -Id ([string]$source.id))) {
+            continue
+        }
+
         $importArgs = @{
             Id = [string]$source.id
             Url = [string]$source.url
