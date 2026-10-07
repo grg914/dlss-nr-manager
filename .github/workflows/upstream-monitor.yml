@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
   actions: write
 
 concurrency:
@@ -105,8 +106,32 @@ jobs:
       - name: Record restricted updates
         if: steps.refresh.outputs.notify_ids != ''
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          "Restricted/manual upstream updates detected: ${{ steps.refresh.outputs.notify_ids }}" >> $env:GITHUB_STEP_SUMMARY
+          $ids = "${{ steps.refresh.outputs.notify_ids }}"
+          "Restricted/manual upstream updates detected: $ids" >> $env:GITHUB_STEP_SUMMARY
+
+          $title = "[upstream] restricted update: $ids"
+          $existing = gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number" |
+            Select-Object -First 1
+
+          if ([string]::IsNullOrWhiteSpace($existing)) {
+            $body = @"
+          A newer upstream revision was detected for a dependency that cannot be automatically promoted because it crosses a license-restricted/local build boundary.
+
+          Dependency ids: $ids
+
+          No restricted NVIDIA SDK/runtime material was downloaded into the public repository and no production asset was changed automatically.
+
+          Resolve this by supplying the required licensed input locally, rebuilding the affected manager-owned runtime, validating signatures/hashes, then updating the corresponding lock.
+          "@
+            gh issue create --repo "${{ github.repository }}" --title $title --body $body
+            if ($LASTEXITCODE -ne 0) { throw "Unable to create restricted upstream update issue." }
+          }
+          else {
+            Write-Host "Restricted upstream issue #$existing is already open."
+          }
 
   validate-windows:
     needs: prepare
