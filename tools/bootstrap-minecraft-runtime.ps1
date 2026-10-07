@@ -6,6 +6,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "minecraft-fabric-profile.ps1")
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $RuntimeLockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
 $UserAgent = "DlssNrManager-MinecraftBootstrap/1.0 (+https://github.com/grg914/dlss-nr-manager)"
@@ -206,18 +207,26 @@ if ([string]::IsNullOrWhiteSpace($loaderVersion) -or
 
 Write-Host "Using pinned Fabric Loader $loaderVersion for Minecraft $MinecraftVersion..."
 
-Write-Host "Resolving Fabric Loader profile and Maven libraries..."
-$profileUrl = "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion/$loaderVersion/profile/json"
+Write-Host "Resolving deterministic Fabric Loader profile and Maven libraries..."
+$escapedMinecraftVersion = [Uri]::EscapeDataString($MinecraftVersion)
+$loaderRows = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$escapedMinecraftVersion")
+$loaderInfo = $loaderRows |
+    Where-Object { [string]$_.loader.version -eq $loaderVersion } |
+    Select-Object -First 1
+
+if (-not $loaderInfo) {
+    throw "Pinned Fabric Loader $loaderVersion is no longer exposed by Fabric Meta for Minecraft $MinecraftVersion."
+}
+
+$profile = New-DlssNrFabric262ClientProfile -LoaderInfo $loaderInfo -MinecraftVersion $MinecraftVersion
 $profilePath = Join-Path $package "fabric-profile.json"
-Invoke-WebRequest -Uri $profileUrl -Headers $headers -OutFile $profilePath
+Write-DlssNrFabricProfile -Profile $profile -Path $profilePath
 
 $expectedProfileSha256 = ([string]$RuntimeLock.fabric_loader.profile_sha256).ToLowerInvariant()
 $actualProfileSha256 = (Get-FileHash -LiteralPath $profilePath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($expectedProfileSha256 -notmatch "^[0-9a-f]{64}$" -or $actualProfileSha256 -ne $expectedProfileSha256) {
     throw "Fabric Loader profile SHA-256 mismatch. Lock=$expectedProfileSha256 Actual=$actualProfileSha256"
 }
-
-$profile = Get-Content -LiteralPath $profilePath -Raw | ConvertFrom-Json
 $profileId = [string]$profile.id
 $expectedProfileId = [string]$RuntimeLock.fabric_loader.profile_id
 if ([string]::IsNullOrWhiteSpace($profileId) -or $profileId -ne $expectedProfileId) {
