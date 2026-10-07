@@ -1,0 +1,104 @@
+name: Minecraft Runtime Vendor
+
+on:
+  pull_request:
+    paths:
+      - 'Services/MinecraftIntegrationService.cs'
+      - 'tools/bootstrap-minecraft-runtime.ps1'
+      - 'third_party/minecraft/**'
+      - '.github/workflows/minecraft-vendor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minecraft-vendor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bootstrap:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          lfs: false
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "tools/bootstrap-minecraft-runtime.ps1"),
+            [ref]$tokens,
+            [ref]$parseErrors
+          ) | Out-Null
+
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
+            throw "Minecraft bootstrap PowerShell syntax validation failed."
+          }
+
+      - name: Build and validate Minecraft 26.2 runtime bundle
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\bootstrap-minecraft-runtime.ps1 -NoUpload
+          if ($LASTEXITCODE -ne 0) {
+            throw "Minecraft runtime bootstrap validation failed."
+          }
+
+      - name: Inspect generated Minecraft runtime manifest
+        shell: pwsh
+        run: |
+          $root = "build-local/minecraft-runtime-26.2/package"
+          $manifestPath = Join-Path $root "minecraft-runtime.json"
+          $zip = "build-local/minecraft-runtime-26.2/minecraft-runtime-26.2.zip"
+
+          if (!(Test-Path -LiteralPath $manifestPath)) {
+            throw "minecraft-runtime.json was not generated."
+          }
+
+          if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1MB) {
+            throw "minecraft-runtime-26.2.zip was not generated correctly."
+          }
+
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+
+          if ($manifest.SchemaVersion -ne 1) {
+            throw "Unexpected Minecraft runtime schema: $($manifest.SchemaVersion)"
+          }
+
+          if ($manifest.MinecraftVersion -ne "26.2") {
+            throw "Unexpected Minecraft runtime target: $($manifest.MinecraftVersion)"
+          }
+
+          if ([string]::IsNullOrWhiteSpace([string]$manifest.FabricLoaderVersion)) {
+            throw "Fabric Loader version is missing."
+          }
+
+          if (@($manifest.FabricLibraries).Count -lt 1) {
+            throw "Fabric Loader profile contains no bundled libraries."
+          }
+
+          $fabricApi = @($manifest.Components) |
+            Where-Object { $_.Slug -eq "fabric-api" } |
+            Select-Object -First 1
+
+          if (-not $fabricApi) {
+            throw "Required Fabric API component was not bundled."
+          }
+
+          Write-Host "Minecraft runtime bundle validated."
+          Write-Host "Fabric Loader: $($manifest.FabricLoaderVersion)"
+          Write-Host "Fabric libraries: $(@($manifest.FabricLibraries).Count)"
+          Write-Host "Bundled components: $(@($manifest.Components).Count)"
+          Write-Host "Bundle SHA-256: $((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant())"
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: minecraft-runtime-26.2
+          path: build-local/minecraft-runtime-26.2/minecraft-runtime-26.2.zip
+          if-no-files-found: error
+          compression-level: 0
