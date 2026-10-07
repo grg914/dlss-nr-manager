@@ -128,6 +128,7 @@ jobs:
           $assets = @(
             "video2dlssnr_release.zip",
             "ffmpeg-dlssnr-win-x64.zip",
+            "ffmpeg-source-*.tar.xz",
             "minecraft-runtime-26.2.zip",
             "streamline-runtime-v*-win-x64.zip",
             "realesrgan-ncnn-vulkan-windows-x64.zip",
@@ -138,15 +139,17 @@ jobs:
           )
           & .\tools\download-runtime-seed.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG" -Assets $assets -Destination "release-assets"
 
+          $ffmpegSource = Get-ChildItem release-assets -Filter "ffmpeg-source-*.tar.xz" -File | Select-Object -First 1
           $streamline = Get-ChildItem release-assets -Filter "streamline-runtime-v*-win-x64.zip" -File | Select-Object -First 1
           $optiscaler = Get-ChildItem release-assets -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File | Select-Object -First 1
           $reshade = Get-ChildItem release-assets -Filter "ReShade-Setup-*-vendored.zip" -File | Select-Object -First 1
-          if (-not $streamline -or -not $optiscaler -or -not $reshade) { throw "One or more manager-owned native runtime assets are missing." }
+          if (-not $ffmpegSource -or -not $streamline -or -not $optiscaler -or -not $reshade) { throw "One or more manager-owned runtime/source assets are missing." }
 
           # PowerShell scripts fail by throwing; $LASTEXITCODE belongs to the last native
           # process and can be stale even after a successful script invocation.
           & .\tools\verify-streamline-runtime-asset.ps1 -ZipPath $streamline.FullName
 
+          "ffmpeg_source=$($ffmpegSource.Name)" >> $env:GITHUB_OUTPUT
           "streamline=$($streamline.Name)" >> $env:GITHUB_OUTPUT
           "optiscaler=$($optiscaler.Name)" >> $env:GITHUB_OUTPUT
           "reshade=$($reshade.Name)" >> $env:GITHUB_OUTPUT
@@ -293,6 +296,7 @@ jobs:
             (Join-Path "release-assets" "${{ steps.optional.outputs.caustica }}"),
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
+            (Join-Path "release-assets" "${{ steps.seed.outputs.ffmpeg_source }}"),
             "release-assets/video2dlssnr_release.zip",
             "release-assets/minecraft-runtime-26.2.zip",
             (Join-Path "release-assets" "${{ steps.seed.outputs.streamline }}"),
@@ -349,6 +353,7 @@ jobs:
             "release-assets/components-manifest.json",
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
+            (Join-Path "release-assets" "${{ steps.seed.outputs.ffmpeg_source }}"),
             "release-assets/video2dlssnr_release.zip",
             "release-assets/minecraft-runtime-26.2.zip",
             "release-assets/temurin-25-jre-win-x64.zip",
