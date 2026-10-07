@@ -7,7 +7,7 @@ Decision utilisateur:
 - ne pas casser/modifier Caustica ni SPBRScandi.
 
 Implementation:
-- branche cible: hardening-minecraft-native-ngx-policy-v2;
+- branche cible: hardening-minecraft-native-ngx-policy-v3;
 - ajout Services/MinecraftRenderPipelinePolicy.cs;
 - backend Minecraft centralise sur Vulkan;
 - le runtime manager-owned .dlss-nr-manager-runtime refuse OptiScaler.ini, OptiScaler.dll, dxgi.dll et d3d12.dll;

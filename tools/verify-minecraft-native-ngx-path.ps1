@@ -3,6 +3,18 @@ param()
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
+function Test-ContainsText {
+    param(
+        [Parameter(Mandatory=$true)][string]$Content,
+        [Parameter(Mandatory=$true)][string]$Needle
+    )
+
+    return $Content.IndexOf(
+        $Needle,
+        [StringComparison]::OrdinalIgnoreCase
+    ) -ge 0
+}
+
 $OperationalMinecraftFiles = @(
     "Services/MinecraftOneClickService.cs",
     "Services/MinecraftIntegrationService.cs",
@@ -16,7 +28,7 @@ if (!(Test-Path -LiteralPath $PolicyPath)) {
 }
 
 $Policy = Get-Content -LiteralPath $PolicyPath -Raw
-if ($Policy -notmatch 'RequiredBackends*=s*"vulkan"') {
+if (!(Test-ContainsText $Policy 'public const string RequiredBackend = "vulkan";')) {
     throw "Minecraft render policy no longer pins Vulkan as the required backend."
 }
 
@@ -26,17 +38,17 @@ foreach ($requiredForbiddenName in @(
     "dxgi.dll",
     "d3d12.dll"
 )) {
-    if ($Policy -notmatch [regex]::Escape($requiredForbiddenName)) {
+    if (!(Test-ContainsText $Policy $requiredForbiddenName)) {
         throw "Minecraft render policy does not protect against '$requiredForbiddenName'."
     }
 }
 
 $ForbiddenOperationalPatterns = @(
-    'OptiScaler',
-    'dxgi.dll',
-    'd3d12.dll',
-    'VulkanUpscaler',
-    'OutputScaling'
+    "OptiScaler",
+    "dxgi.dll",
+    "d3d12.dll",
+    "VulkanUpscaler",
+    "OutputScaling"
 )
 
 foreach ($relative in $OperationalMinecraftFiles) {
@@ -47,29 +59,30 @@ foreach ($relative in $OperationalMinecraftFiles) {
 
     $content = Get-Content -LiteralPath $path -Raw
     foreach ($pattern in $ForbiddenOperationalPatterns) {
-        if ($content -match $pattern) {
-            throw "Minecraft native NGX policy violation in '$relative': forbidden pattern '$pattern'."
+        if (Test-ContainsText $content $pattern) {
+            throw "Minecraft native NGX policy violation in '$relative': forbidden text '$pattern'."
         }
     }
 }
 
 $OneClick = Get-Content -LiteralPath (Join-Path $Root "Services/MinecraftOneClickService.cs") -Raw
-if ($OneClick -notmatch 'SetPreferredGraphicsBackend(root,s*MinecraftRenderPipelinePolicy.RequiredBackend)') {
+if (!(Test-ContainsText $OneClick "SetPreferredGraphicsBackend(root, MinecraftRenderPipelinePolicy.RequiredBackend);")) {
     throw "Minecraft one-click no longer routes the backend through MinecraftRenderPipelinePolicy.RequiredBackend."
 }
-if ($OneClick -notmatch 'SPBRScandi.zip') {
+if (!(Test-ContainsText $OneClick "SPBRScandi.zip")) {
     throw "Minecraft one-click no longer contains the validated SPBRScandi installation path."
 }
 
 $Integration = Get-Content -LiteralPath (Join-Path $Root "Services/MinecraftIntegrationService.cs") -Raw
-if ($Integration -notmatch 'IsProductionCausticaJar') {
+if (!(Test-ContainsText $Integration "IsProductionCausticaJar")) {
     throw "Minecraft integration no longer selects the production Caustica JAR through the validated selector."
 }
 
 $Package = Get-Content -LiteralPath (Join-Path $Root "Services/MinecraftDlssPackageService.cs") -Raw
+$PolicyCall = "MinecraftRenderPipelinePolicy.EnsureManagerRuntimeIsNativeNgxOnly("
 $PolicyCalls = [regex]::Matches(
     $Package,
-    'MinecraftRenderPipelinePolicy.EnsureManagerRuntimeIsNativeNgxOnly('
+    [regex]::Escape($PolicyCall)
 ).Count
 if ($PolicyCalls -lt 2) {
     throw "Minecraft DLSS package staging is not guarded in both staging paths."
@@ -80,7 +93,7 @@ foreach ($runtime in @(
     "nvngx_dlssg.dll",
     "nvngx_dlssnr.dll"
 )) {
-    if ($Package -notmatch [regex]::Escape($runtime)) {
+    if (!(Test-ContainsText $Package $runtime)) {
         throw "Minecraft direct NGX runtime marker is missing: $runtime"
     }
 }
