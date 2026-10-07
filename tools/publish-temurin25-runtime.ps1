@@ -1,0 +1,84 @@
+param(
+    [string]$Repository = "grg914/dlss-nr-manager",
+    [string]$ReleaseTag = "runtime-seed-v1"
+)
+
+$ErrorActionPreference = "Stop"
+$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$BuildRoot = Join-Path $Root "build-local\temurin25"
+Remove-Item -LiteralPath $BuildRoot -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path $BuildRoot | Out-Null
+
+$headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "DlssNrManager-TemurinRefresh/1.0" }
+if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) { $headers.Authorization = "Bearer $env:GITHUB_TOKEN" }
+
+$releases = @(Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/adoptium/temurin25-binaries/releases?per_page=30")
+$release = $releases | Where-Object { -not $_.draft -and -not $_.prerelease -and ([string]$_.tag_name -match "^jdk-25(?:\.|\+|$)") } | Sort-Object { [DateTimeOffset]$_.published_at } -Descending | Select-Object -First 1
+if (-not $release) { throw "No stable Temurin 25 release was found." }
+
+$asset = @($release.assets) | Where-Object { [string]$_.name -match "^OpenJDK25U-jre_x64_windows_hotspot_.*\.zip$" } | Select-Object -First 1
+if (-not $asset) { throw "Stable Temurin 25 release has no Windows x64 HotSpot JRE ZIP." }
+
+$digest = [string]$asset.digest
+if ([string]::IsNullOrWhiteSpace($digest) -or -not $digest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Temurin release asset has no GitHub SHA-256 digest."
+}
+$expected = $digest.Substring(7).ToLowerInvariant()
+$sourceZip = Join-Path $BuildRoot ([string]$asset.name)
+$managerZip = Join-Path $BuildRoot "temurin-25-jre-win-x64.zip"
+Invoke-WebRequest -Headers $headers -Uri ([string]$asset.browser_download_url) -OutFile $sourceZip
+$actual = (Get-FileHash -LiteralPath $sourceZip -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $expected) { throw "Temurin SHA-256 mismatch. Expected $expected, got $actual." }
+Copy-Item -LiteralPath $sourceZip -Destination $managerZip -Force
+
+$extract = Join-Path $BuildRoot "verify"
+Expand-Archive -LiteralPath $managerZip -DestinationPath $extract -Force
+$java = Get-ChildItem -LiteralPath $extract -Filter "java.exe" -File -Recurse | Where-Object { $_.FullName -match "[\\/]bin[\\/]java\.exe$" } | Select-Object -First 1
+if (-not $java) { throw "Temurin archive contains no bin\java.exe." }
+$versionOutput = (& $java.FullName -version 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch '(?i)version\s+"25(?:\.|")') {
+    throw "Downloaded Temurin runtime did not verify as Java 25: $versionOutput"
+}
+
+$managerHeaders = @{ Accept = "application/vnd.github+json"; "User-Agent" = "DlssNrManager-TemurinRefresh/1.0" }
+if (-not [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { $managerHeaders.Authorization = "Bearer $env:GH_TOKEN" }
+elseif (-not [string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) { $managerHeaders.Authorization = "Bearer $env:GITHUB_TOKEN" }
+
+$changed = $true
+try {
+    $seed = Invoke-RestMethod -Headers $managerHeaders -Uri "https://api.github.com/repos/$Repository/releases/tags/$ReleaseTag"
+    $existing = @($seed.assets) | Where-Object { [string]$_.name -eq "temurin-25-jre-win-x64.zip" } | Select-Object -First 1
+    if ($existing -and ([string]$existing.digest).StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+        $changed = ([string]$existing.digest).Substring(7).ToLowerInvariant() -ne $actual
+    }
+} catch {
+    Write-Host "Runtime seed metadata not yet available; Temurin asset will be published."
+}
+
+$metadata = [ordered]@{
+    schema = 1
+    version = [string]$release.tag_name
+    upstream_repository = "adoptium/temurin25-binaries"
+    upstream_release = [string]$release.tag_name
+    upstream_asset = [string]$asset.name
+    manager_asset = "temurin-25-jre-win-x64.zip"
+    sha256 = $actual
+    validated_java_version = ($versionOutput.Trim())
+    refreshed_at_utc = [DateTime]::UtcNow.ToString("o")
+}
+$metadataPath = Join-Path $BuildRoot "temurin-25-jre.json"
+$metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
+
+if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN) -and [string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) {
+    throw "GH_TOKEN or GITHUB_TOKEN is required to publish the manager-owned Temurin runtime."
+}
+$env:GH_TOKEN = if (-not [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { $env:GH_TOKEN } else { $env:GITHUB_TOKEN }
+gh release upload $ReleaseTag $managerZip $metadataPath --repo $Repository --clobber
+if ($LASTEXITCODE -ne 0) { throw "Failed to publish manager-owned Temurin 25 runtime." }
+
+Write-Host "Temurin 25 manager runtime ready: $($release.tag_name) • SHA-256 $actual • changed=$changed"
+if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
+    "changed=$($changed.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "version=$([string]$release.tag_name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "sha256=$actual" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+}
