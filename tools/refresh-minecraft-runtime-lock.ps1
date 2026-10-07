@@ -71,12 +71,15 @@ $loader = $loaderRows |
 if (-not $loader) { throw "No stable Fabric Loader was found for Minecraft $MinecraftVersion." }
 
 $loaderVersion = [string]$loader.loader.version
-# The game-scoped loader listing is already populated with launcherMeta and
-# intermediary metadata. Reuse that response instead of issuing another
-# compatibility-sensitive Fabric Meta request.
-$loaderInfo = $loader
-if (-not $loaderInfo.launcherMeta -or [string]$loaderInfo.loader.version -ne $loaderVersion) {
-    throw "Fabric loader metadata did not resolve launcher metadata for $MinecraftVersion / $loaderVersion."
+$escapedMinecraftVersion = [Uri]::EscapeDataString($MinecraftVersion)
+$escapedLoaderVersion = [Uri]::EscapeDataString($loaderVersion)
+
+# Fabric documents the game+loader detail endpoint as the source that includes
+# launcherMeta (libraries and main class) for a specific compatible loader.
+# Do not rely on the shape of the game-scoped listing for these details.
+$loaderInfo = Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$escapedMinecraftVersion/$escapedLoaderVersion"
+if (-not $loaderInfo -or [string]$loaderInfo.loader.version -ne $loaderVersion) {
+    throw "Fabric loader detail metadata did not resolve $MinecraftVersion / $loaderVersion."
 }
 
 $launcherMeta = $loaderInfo.launcherMeta
@@ -121,18 +124,24 @@ foreach ($library in @($launcherMeta.libraries.client)) {
     }
 }
 
-$mainClass = if ($launcherMeta.mainClass -is [string]) {
-    [string]$launcherMeta.mainClass
+$mainClassNode = $launcherMeta.mainClass
+$mainClass = ""
+
+if ($mainClassNode -is [string]) {
+    $mainClass = [string]$mainClassNode
 }
-elseif ($launcherMeta.mainClass.PSObject.Properties["client"]) {
-    [string]$launcherMeta.mainClass.client
+elseif ($null -ne $mainClassNode) {
+    # Invoke-RestMethod returns JSON objects as PowerShell objects. Access the
+    # client member directly so this remains compatible with Windows PowerShell
+    # 5.1 used by the refresh workflow.
+    $mainClass = [string]$mainClassNode.client
 }
-else {
-    ""
-}
+
 if ([string]::IsNullOrWhiteSpace($mainClass)) {
-    throw "Fabric loader detail metadata exposes no client main class."
+    throw "Fabric loader detail metadata exposes no client main class for $MinecraftVersion / $loaderVersion."
 }
+
+Write-Host "Fabric Loader detail -> $loaderVersion / $mainClass"
 
 $libraries = @()
 foreach ($library in $librarySpecs) {
