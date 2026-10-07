@@ -59,6 +59,32 @@ function Copy-WithSha512 {
     return $actual
 }
 
+function Copy-WithSha1 {
+    param(
+        [string]$Url,
+        [string]$Destination,
+        [string]$ExpectedSha1,
+        [string]$Label
+    )
+
+    if ($ExpectedSha1 -notmatch "^[0-9a-fA-F]{40}$") {
+        throw "$Label has an invalid SHA-1 hash."
+    }
+
+    $parent = Split-Path -Parent $Destination
+    if (-not [string]::IsNullOrWhiteSpace($parent)) {
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    }
+
+    Invoke-WebRequest -Uri $Url -Headers $headers -OutFile $Destination
+    $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA1).Hash.ToLowerInvariant()
+    if ($actual -ne $ExpectedSha1.ToLowerInvariant()) {
+        throw "$Label SHA-1 mismatch. Expected=$ExpectedSha1 Actual=$actual"
+    }
+
+    return $actual
+}
+
 function Resolve-ModrinthComponent {
     param(
         [string]$Name,
@@ -143,6 +169,61 @@ if ([string]::IsNullOrWhiteSpace($loaderVersion)) {
     throw "No stable Fabric Loader $MinimumFabricLoader+ found for Minecraft $MinecraftVersion."
 }
 
+Write-Host "Resolving Fabric Loader profile and Maven libraries..."
+$profileUrl = "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion/$loaderVersion/profile/json"
+$profilePath = Join-Path $package "fabric-profile.json"
+Invoke-WebRequest -Uri $profileUrl -Headers $headers -OutFile $profilePath
+
+$profile = Get-Content -LiteralPath $profilePath -Raw | ConvertFrom-Json
+$profileId = [string]$profile.id
+if ([string]::IsNullOrWhiteSpace($profileId)) {
+    throw "Fabric Meta profile has no id."
+}
+
+$fabricLibraries = @()
+$librariesRoot = Join-Path $filesDir "libraries"
+New-Item -ItemType Directory -Force -Path $librariesRoot | Out-Null
+
+foreach ($library in @($profile.libraries)) {
+    $coordinate = [string]$library.name
+    $baseUrl = [string]$library.url
+    $parts = @($coordinate -split ":")
+
+    if ($parts.Count -ne 3 -or
+        [string]::IsNullOrWhiteSpace($baseUrl)) {
+        throw "Unsupported Fabric library coordinate: $coordinate"
+    }
+
+    $group = $parts[0]
+    $artifact = $parts[1]
+    $version = $parts[2]
+    $groupPath = $group.Replace(".", "/")
+    $mavenPath = "$groupPath/$artifact/$version/$artifact-$version.jar"
+
+    $baseUri = [Uri]($baseUrl.TrimEnd("/") + "/")
+    if ($baseUri.Scheme -ne "https") {
+        throw "Fabric library uses a non-HTTPS repository: $baseUrl"
+    }
+
+    $libraryUrl = ([Uri]::new($baseUri, $mavenPath)).AbsoluteUri
+    $sha1Response = Invoke-WebRequest -Uri ($libraryUrl + ".sha1") -Headers $headers
+    $sha1 = ([string]$sha1Response.Content).Trim().Split()[0].ToLowerInvariant()
+    if ($sha1 -notmatch "^[0-9a-f]{40}$") {
+        throw "Fabric library SHA-1 sidecar is invalid for $coordinate."
+    }
+
+    $relativeLocal = $mavenPath.Replace("/", [IO.Path]::DirectorySeparatorChar)
+    $destination = Join-Path $librariesRoot $relativeLocal
+    $actualSha1 = Copy-WithSha1 -Url $libraryUrl -Destination $destination -ExpectedSha1 $sha1 -Label $coordinate
+
+    $fabricLibraries += [ordered]@{
+        Name = $coordinate
+        MavenPath = $mavenPath
+        RelativePath = "files/libraries/$mavenPath"
+        Sha1 = $actualSha1
+    }
+}
+
 Write-Host "Resolving Fabric Installer..."
 $installerEntries = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/installer")
 $installer = $installerEntries | Where-Object { $_.stable -eq $true } | Select-Object -First 1
@@ -206,6 +287,9 @@ $manifest = [ordered]@{
     MinecraftVersion = $MinecraftVersion
     CreatedAtUtc = [DateTime]::UtcNow.ToString("o")
     FabricLoaderVersion = $loaderVersion
+    FabricProfileId = $profileId
+    FabricProfileRelativePath = "fabric-profile.json"
+    FabricLibraries = $fabricLibraries
     FabricInstaller = [ordered]@{
         Version = [string]$installer.version
         FileName = $installerName
@@ -220,7 +304,8 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -En
 $notice = @(
     "This bundle mirrors exact upstream release artifacts selected once during the bootstrap.",
     "DLSS NR Manager verifies Fabric Installer SHA-256 and Modrinth SHA-512 before packaging.",
-    "The application later consumes only this manager-owned bundle, not Fabric Meta or Modrinth APIs.",
+    "The bundle also contains the exact Fabric Loader profile JSON and all referenced Maven libraries so Fabric installation is offline after bootstrap.",
+    "The application later consumes only this manager-owned bundle, not Fabric Meta, Fabric Maven or Modrinth APIs.",
     "Each included component remains subject to its upstream license."
 ) -join [Environment]::NewLine
 [IO.File]::WriteAllText((Join-Path $package "NOTICE.txt"), $notice + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
