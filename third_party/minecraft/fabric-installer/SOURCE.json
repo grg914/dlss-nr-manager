@@ -1,0 +1,6 @@
+{
+  "id": "minecraft-fabric-installer",
+  "group": "minecraft",
+  "url": "https://github.com/FabricMC/fabric-installer.git",
+  "ref": "6e7d1acd6a951a19a323060ac955f5e7bc51e3ce"
+}
