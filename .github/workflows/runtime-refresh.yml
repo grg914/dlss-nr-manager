@@ -8,6 +8,12 @@ on:
       - 'tools/generate-components-manifest.ps1'
       - 'tools/publish-streamline-runtime.ps1'
       - 'tools/bootstrap-minecraft-runtime.ps1'
+      - 'tools/build-realesrgan.ps1'
+      - 'tools/build-optiscaler.ps1'
+      - 'tools/build-reshade.ps1'
+      - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
+      - 'third_party/OptiScaler/**'
+      - 'third_party/ReShade/**'
   workflow_dispatch:
     inputs:
       changed_ids:
@@ -111,9 +117,86 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$RUNTIME_SEED_TAG" build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip --repo "${{ github.repository }}" --clobber
 
+  native-runtime:
+    needs: seed-release
+    if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan') || contains(needs.seed-release.outputs.changed_ids, 'optiscaler') || contains(needs.seed-release.outputs.changed_ids, 'reshade')
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          lfs: true
+
+      - name: Build Real-ESRGAN manager-owned runtime
+        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
+          if ($LASTEXITCODE -ne 0) { throw "Real-ESRGAN seed build failed." }
+
+          $packageDir = "build-local/realesrgan-ncnn-vulkan-windows-x64"
+          $zip = "build-local/realesrgan-ncnn-vulkan-windows-x64.zip"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          Copy-Item "build-realesrgan/Release/realesrgan-ncnn-vulkan.exe" $packageDir -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/LICENSE" (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt" (Join-Path $packageDir "LICENSE-ncnn.txt") -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING" (Join-Path $packageDir "LICENSE-libwebp.txt") -Force
+          $vcomp = "$env:WINDIR\System32\vcomp140.dll"
+          if (Test-Path -LiteralPath $vcomp) { Copy-Item -LiteralPath $vcomp -Destination $packageDir -Force }
+          Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
+          gh release upload $env:RUNTIME_SEED_TAG $zip --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish Real-ESRGAN seed asset." }
+
+      - name: Build OptiScaler manager-owned runtime
+        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'optiscaler')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory build-optiscaler -Clean
+          if ($LASTEXITCODE -ne 0) { throw "OptiScaler seed build failed." }
+
+          $zip = Get-ChildItem "build-optiscaler" -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+          if (-not $zip) { throw "OptiScaler seed package was not generated." }
+
+          $existing = gh release view $env:RUNTIME_SEED_TAG --repo "${{ github.repository }}" --json assets --jq '.assets[].name' |
+            Where-Object { $_ -like "OptiScaler-NR-*-vendored-win-x64.zip" -and $_ -ne $zip.Name }
+          foreach ($name in @($existing)) {
+            gh release delete-asset $env:RUNTIME_SEED_TAG $name --repo "${{ github.repository }}" --yes
+          }
+
+          gh release upload $env:RUNTIME_SEED_TAG $zip.FullName --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish OptiScaler seed asset." }
+
+      - name: Build ReShade manager-owned runtime
+        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'reshade')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-reshade.ps1 -OutputDirectory build-reshade -Clean
+          if ($LASTEXITCODE -ne 0) { throw "ReShade seed build failed." }
+
+          $zip = Get-ChildItem "build-reshade" -Filter "ReShade-Setup-*-vendored.zip" -File |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+          if (-not $zip) { throw "ReShade seed package was not generated." }
+
+          $existing = gh release view $env:RUNTIME_SEED_TAG --repo "${{ github.repository }}" --json assets --jq '.assets[].name' |
+            Where-Object { $_ -like "ReShade-Setup-*-vendored.zip" -and $_ -ne $zip.Name }
+          foreach ($name in @($existing)) {
+            gh release delete-asset $env:RUNTIME_SEED_TAG $name --repo "${{ github.repository }}" --yes
+          }
+
+          gh release upload $env:RUNTIME_SEED_TAG $zip.FullName --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish ReShade seed asset." }
+
   dispatch-release:
-    needs: [seed-release, windows-runtime, ffmpeg-runtime]
-    if: always() && needs.seed-release.result == 'success' && needs.windows-runtime.result == 'success' && (needs.ffmpeg-runtime.result == 'success' || needs.ffmpeg-runtime.result == 'skipped') && github.event_name == 'workflow_dispatch'
+    needs: [seed-release, windows-runtime, ffmpeg-runtime, native-runtime]
+    if: always() && needs.seed-release.result == 'success' && needs.windows-runtime.result == 'success' && (needs.ffmpeg-runtime.result == 'success' || needs.ffmpeg-runtime.result == 'skipped') && (needs.native-runtime.result == 'success' || needs.native-runtime.result == 'skipped') && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch production release after seed promotion
