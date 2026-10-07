@@ -214,7 +214,7 @@ $lock.fabric_loader.profile_sha256 = $profileSha256
 Write-Host "Fabric Loader -> $loaderVersion ($($libraries.Count) libraries)"
 
 Write-Host "Refreshing Fabric Installer metadata..."
-$metadata = [xml](Invoke-WebRequest -Uri "https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml" -Headers $headers).Content
+$metadata = [xml](Invoke-WebRequest -UseBasicParsing -Uri "https://maven.fabricmc.net/net/fabricmc/fabric-installer/maven-metadata.xml" -Headers $headers).Content
 $installerVersion = [string]$metadata.metadata.versioning.release
 if ([string]::IsNullOrWhiteSpace($installerVersion)) {
     $installerVersion = [string]$metadata.metadata.versioning.latest
