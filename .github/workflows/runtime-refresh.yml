@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       changed_ids:
-        description: 'Comma-separated dependency ids, or all'
+        description: 'Comma-separated dependency ids, all, or release-only to dispatch Release without rebuilding runtime assets'
         required: false
         default: 'all'
 
