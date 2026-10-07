@@ -1,0 +1,240 @@
+param(
+    [string]$Repository = "grg914/dlss-nr-manager",
+    [string]$ReleaseTag,
+    [string]$MinecraftVersion = "26.2",
+    [string]$MinimumFabricLoader = "0.19.3"
+)
+
+$ErrorActionPreference = "Stop"
+$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$UserAgent = "DlssNrManager-MinecraftBootstrap/1.0 (+https://github.com/grg914/dlss-nr-manager)"
+
+if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
+    throw "GitHub CLI (gh) is required to publish the Minecraft runtime bundle."
+}
+
+& gh auth status --hostname github.com 1>$null 2>$null
+if ($LASTEXITCODE -ne 0) { throw "GitHub CLI is not authenticated. Run gh auth login first." }
+
+if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
+    $ReleaseTag = (& gh release view --repo $Repository --json tagName --jq ".tagName").Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($ReleaseTag)) {
+        throw "Unable to resolve the latest release tag for $Repository."
+    }
+}
+
+$headers = @{ "User-Agent" = $UserAgent; Accept = "application/json" }
+$work = Join-Path $Root "build-local\minecraft-runtime-$MinecraftVersion"
+$package = Join-Path $work "package"
+$filesDir = Join-Path $package "files"
+$licensesDir = Join-Path $package "licenses"
+$zip = Join-Path $work "minecraft-runtime-$MinecraftVersion.zip"
+
+if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $filesDir, $licensesDir | Out-Null
+
+function Invoke-Json {
+    param([string]$Uri)
+    return Invoke-RestMethod -Uri $Uri -Headers $headers -Method Get
+}
+
+function Copy-WithSha512 {
+    param(
+        [string]$Url,
+        [string]$Destination,
+        [string]$ExpectedSha512,
+        [string]$Label
+    )
+
+    if ($ExpectedSha512 -notmatch "^[0-9a-fA-F]{128}$") {
+        throw "$Label has an invalid SHA-512 hash."
+    }
+
+    Invoke-WebRequest -Uri $Url -Headers $headers -OutFile $Destination
+    $actual = (Get-FileHash -LiteralPath $Destination -Algorithm SHA512).Hash.ToLowerInvariant()
+    if ($actual -ne $ExpectedSha512.ToLowerInvariant()) {
+        throw "$Label SHA-512 mismatch. Expected=$ExpectedSha512 Actual=$actual"
+    }
+
+    return $actual
+}
+
+function Resolve-ModrinthComponent {
+    param(
+        [string]$Name,
+        [string]$Slug,
+        [string]$Kind,
+        [string]$Loader
+    )
+
+    $gameVersions = [Uri]::EscapeDataString(("[`"$MinecraftVersion`"]"))
+    $uri = "https://api.modrinth.com/v2/project/$Slug/version?game_versions=$gameVersions"
+    if (-not [string]::IsNullOrWhiteSpace($Loader)) {
+        $loaders = [Uri]::EscapeDataString(("[`"$Loader`"]"))
+        $uri += "&loaders=$loaders"
+    }
+
+    $versions = @(Invoke-Json $uri)
+    $version = $versions | Where-Object {
+        -not $_.version_type -or $_.version_type -eq "release"
+    } | Select-Object -First 1
+
+    if (-not $version) {
+        throw "No stable Modrinth release found for $Name / Minecraft $MinecraftVersion."
+    }
+
+    $extension = if ($Kind -eq "resourcepack") { ".zip" } else { ".jar" }
+    $candidates = @($version.files | Where-Object {
+        $_.filename -and
+        $_.filename.EndsWith($extension, [StringComparison]::OrdinalIgnoreCase) -and
+        $_.filename -notmatch "(?i)(sources|source|dev|javadoc)"
+    })
+
+    $file = $candidates | Where-Object { $_.primary -eq $true } | Select-Object -First 1
+    if (-not $file) { $file = $candidates | Select-Object -First 1 }
+    if (-not $file) { throw "No downloadable $extension file found for $Name." }
+
+    $sha512 = [string]$file.hashes.sha512
+    $safeName = [IO.Path]::GetFileName([string]$file.filename)
+    if ([string]::IsNullOrWhiteSpace($safeName) -or $safeName -ne [string]$file.filename) {
+        throw "Unsafe Modrinth filename returned for $Name."
+    }
+
+    $destination = Join-Path $filesDir $safeName
+    Write-Host "Downloading $Name $($version.version_number)..."
+    $actual = Copy-WithSha512 -Url ([string]$file.url) -Destination $destination -ExpectedSha512 $sha512 -Label $Name
+
+    return [ordered]@{
+        Name = $Name
+        Slug = $Slug
+        Kind = $Kind
+        Loader = $Loader
+        Version = [string]$version.version_number
+        FileName = $safeName
+        RelativePath = "files/$safeName"
+        Sha512 = $actual
+    }
+}
+
+Write-Host "Resolving Fabric Loader for Minecraft $MinecraftVersion..."
+$loaderEntries = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion")
+$loaderVersion = $loaderEntries | ForEach-Object { $_.loader } | Where-Object {
+    $_.stable -eq $true -and
+    [Version]::TryParse([string]$_.version, [ref]([Version]$null))
+} | ForEach-Object { [string]$_.version } | Where-Object {
+    [Version]$_ -ge [Version]$MinimumFabricLoader
+} | Select-Object -First 1
+
+if ([string]::IsNullOrWhiteSpace($loaderVersion)) {
+    throw "No stable Fabric Loader $MinimumFabricLoader+ found for Minecraft $MinecraftVersion."
+}
+
+Write-Host "Resolving Fabric Installer..."
+$installerEntries = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/installer")
+$installer = $installerEntries | Where-Object { $_.stable -eq $true } | Select-Object -First 1
+if (-not $installer -or [string]::IsNullOrWhiteSpace([string]$installer.url)) {
+    throw "No stable Fabric Installer found."
+}
+
+$installerUri = [Uri][string]$installer.url
+if ($installerUri.Scheme -ne "https" -or $installerUri.Host -ne "maven.fabricmc.net") {
+    throw "Unexpected Fabric Installer origin: $($installer.url)"
+}
+$installerName = [IO.Path]::GetFileName($installerUri.LocalPath)
+$installerPath = Join-Path $filesDir $installerName
+$installerSha256 = ((Invoke-WebRequest -Uri (([string]$installer.url) + ".sha256") -Headers $headers).Content.Trim().Split()[0]).ToLowerInvariant()
+if ($installerSha256 -notmatch "^[0-9a-f]{64}$") { throw "Fabric Installer SHA-256 sidecar is invalid." }
+Invoke-WebRequest -Uri ([string]$installer.url) -Headers $headers -OutFile $installerPath
+$actualInstallerSha = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualInstallerSha -ne $installerSha256) {
+    throw "Fabric Installer SHA-256 mismatch. Expected=$installerSha256 Actual=$actualInstallerSha"
+}
+
+$projects = @(
+    @{ Name = "Fabric API"; Slug = "fabric-api"; Kind = "mod"; Loader = "fabric" },
+    @{ Name = "Lithium"; Slug = "lithium"; Kind = "mod"; Loader = "fabric" },
+    @{ Name = "FerriteCore"; Slug = "ferrite-core"; Kind = "mod"; Loader = "fabric" },
+    @{ Name = "Krypton"; Slug = "krypton"; Kind = "mod"; Loader = "fabric" },
+    @{ Name = "C2ME"; Slug = "c2me-fabric"; Kind = "mod"; Loader = "fabric" },
+    @{ Name = "BadOptimizations"; Slug = "badoptimizations"; Kind = "mod"; Loader = "fabric" },
+    @{ Name = "Dynamic FPS"; Slug = "dynamic-fps"; Kind = "mod"; Loader = "fabric" },
+    @{ Name = "SPBR LabPBR"; Slug = "spbr"; Kind = "resourcepack"; Loader = "" }
+)
+
+$components = @()
+foreach ($project in $projects) {
+    $components += Resolve-ModrinthComponent -Name $project.Name -Slug $project.Slug -Kind $project.Kind -Loader $project.Loader
+}
+
+$licenseSources = @(
+    @{ Id = "fabric-installer"; Path = "third_party/minecraft/fabric-installer" },
+    @{ Id = "fabric-api"; Path = "third_party/minecraft/fabric-api" },
+    @{ Id = "lithium"; Path = "third_party/minecraft/lithium" },
+    @{ Id = "ferritecore"; Path = "third_party/minecraft/ferritecore" },
+    @{ Id = "krypton"; Path = "third_party/minecraft/krypton" },
+    @{ Id = "c2me"; Path = "third_party/minecraft/c2me" },
+    @{ Id = "badoptimizations"; Path = "third_party/minecraft/badoptimizations" },
+    @{ Id = "dynamic-fps"; Path = "third_party/minecraft/dynamic-fps" }
+)
+foreach ($item in $licenseSources) {
+    $root = Join-Path $Root $item.Path
+    if (!(Test-Path -LiteralPath $root)) { continue }
+    $license = Get-ChildItem -LiteralPath $root -File -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -match "^(?i)(LICENSE|COPYING)(\..*)?$"
+    } | Select-Object -First 1
+    if ($license) {
+        Copy-Item -LiteralPath $license.FullName -Destination (Join-Path $licensesDir ($item.Id + "-" + $license.Name)) -Force
+    }
+}
+
+$manifest = [ordered]@{
+    SchemaVersion = 1
+    MinecraftVersion = $MinecraftVersion
+    CreatedAtUtc = [DateTime]::UtcNow.ToString("o")
+    FabricLoaderVersion = $loaderVersion
+    FabricInstaller = [ordered]@{
+        Version = [string]$installer.version
+        FileName = $installerName
+        RelativePath = "files/$installerName"
+        Sha256 = $actualInstallerSha
+    }
+    Components = $components
+}
+$manifestPath = Join-Path $package "minecraft-runtime.json"
+$manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
+
+$notice = @(
+    "This bundle mirrors exact upstream release artifacts selected once during the bootstrap.",
+    "DLSS NR Manager verifies Fabric Installer SHA-256 and Modrinth SHA-512 before packaging.",
+    "The application later consumes only this manager-owned bundle, not Fabric Meta or Modrinth APIs.",
+    "Each included component remains subject to its upstream license."
+) -join [Environment]::NewLine
+[IO.File]::WriteAllText((Join-Path $package "NOTICE.txt"), $notice + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+
+if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+Compress-Archive -Path (Join-Path $package "*") -DestinationPath $zip -Force
+if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1MB) {
+    throw "Minecraft runtime bundle was not generated correctly."
+}
+
+$bundleSha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+Write-Host "Uploading minecraft-runtime-$MinecraftVersion.zip to $Repository $ReleaseTag..."
+& gh release upload $ReleaseTag $zip --repo $Repository --clobber
+if ($LASTEXITCODE -ne 0) { throw "Minecraft runtime release upload failed." }
+
+$releaseJson = & gh api "repos/$Repository/releases/tags/$ReleaseTag"
+if ($LASTEXITCODE -ne 0) { throw "Unable to verify manager release after Minecraft upload." }
+$release = $releaseJson | ConvertFrom-Json
+$remote = @($release.assets) | Where-Object { $_.name -eq "minecraft-runtime-$MinecraftVersion.zip" } | Select-Object -First 1
+if (-not $remote) { throw "Uploaded Minecraft runtime asset was not found." }
+if ([long]$remote.size -ne (Get-Item -LiteralPath $zip).Length) { throw "Remote Minecraft runtime size mismatch." }
+if ($remote.digest -and ([string]$remote.digest).StartsWith("sha256:")) {
+    $remoteHash = ([string]$remote.digest).Substring(7).ToLowerInvariant()
+    if ($remoteHash -ne $bundleSha) { throw "Remote Minecraft runtime digest mismatch." }
+}
+
+Write-Host "Published minecraft-runtime-$MinecraftVersion.zip"
+Write-Host "Fabric Loader: $loaderVersion"
+Write-Host "Fabric Installer: $($installer.version)"
+Write-Host "Components: $($components.Count)"
+Write-Host "SHA-256: $bundleSha"
