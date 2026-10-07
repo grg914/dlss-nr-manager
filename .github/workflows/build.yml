@@ -58,6 +58,7 @@ jobs:
             "tools/refresh-upstream.ps1",
             "tools/refresh-minecraft-runtime-lock.ps1",
             "tools/generate-components-manifest.ps1",
+            "tools/verify-caustica-scandi-assets.ps1",
             "tools/download-runtime-seed.ps1",
             "tools/prepare-offline-dotnet.ps1",
             "tools/build-nuget-offline-seed.ps1"
@@ -99,6 +100,51 @@ jobs:
               throw "Upstream policy '$($policy.id)' has no dependency lock entry."
             }
           }
+
+      - name: Audit manager-owned Caustica and Scandi assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "DlssNrManager-Build"
+          }
+
+          $release = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases/latest"
+          $assets = @($release.assets)
+          $caustica = $assets |
+            Where-Object {
+              $_.name -match "(?i)^Caustica-RTX-Minecraft-26\.2-build-.*\.jar$" -and
+              $_.name -notmatch "(?i)(sources|dev|javadoc)"
+            } |
+            Select-Object -First 1
+          $spbr = $assets | Where-Object { $_.name -eq "SPBRScandi.zip" } | Select-Object -First 1
+
+          if (-not $caustica) { throw "Latest stable manager release has no Caustica RTX Minecraft 26.2 JAR." }
+          if (-not $spbr) { throw "Latest stable manager release has no SPBRScandi.zip." }
+
+          New-Item -ItemType Directory -Path "asset-audit" -Force | Out-Null
+
+          foreach ($asset in @($caustica, $spbr)) {
+            if (-not ([string]$asset.digest).StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+              throw "Manager-owned asset '$($asset.name)' has no SHA-256 digest."
+            }
+
+            $destination = Join-Path "asset-audit" ([string]$asset.name)
+            Invoke-WebRequest -Headers $headers -Uri ([string]$asset.browser_download_url) -OutFile $destination
+
+            $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
+            $actual = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) {
+              throw "Manager-owned asset '$($asset.name)' failed SHA-256 verification."
+            }
+          }
+
+          $causticaPath = Join-Path "asset-audit" ([string]$caustica.name)
+          $spbrPath = Join-Path "asset-audit" "SPBRScandi.zip"
+          & .\tools\verify-caustica-scandi-assets.ps1 -CausticaJar $causticaPath -SpbrZip $spbrPath
 
       - name: Enforce zero-upstream production audit
         shell: pwsh
