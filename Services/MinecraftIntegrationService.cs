@@ -2432,6 +2432,16 @@ public sealed class MinecraftIntegrationService
         catch { }
     }
 
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+        }
+        catch { }
+    }
+
     private sealed record MinecraftRuntimeBundle(
         string RootDirectory,
         MinecraftRuntimeManifest Manifest);
