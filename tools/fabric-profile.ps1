@@ -1,22 +1,36 @@
 function New-DeterministicFabricProfile {
     param(
-        [Parameter(Mandatory=$true)]$LoaderInfo,
-        [Parameter(Mandatory=$true)][string]$MinecraftVersion,
-        [Parameter(Mandatory=$true)][string]$LoaderVersion
+        [Parameter(Mandatory=$true)]$FabricLoader,
+        [Parameter(Mandatory=$true)][string]$MinecraftVersion
     )
 
-    $launcherMeta = $LoaderInfo.launcherMeta
-    if (-not $launcherMeta) {
-        throw "Fabric loader metadata exposes no launcherMeta for $MinecraftVersion / $LoaderVersion."
+    $loaderVersion = [string]$FabricLoader.version
+    $profileId = [string]$FabricLoader.profile_id
+    $mainClass = [string]$FabricLoader.main_class
+    $expectedProfileId = "fabric-loader-$loaderVersion-$MinecraftVersion"
+
+    if ([string]::IsNullOrWhiteSpace($loaderVersion)) {
+        throw "Minecraft runtime lock exposes no Fabric Loader version."
+    }
+    if ([string]::IsNullOrWhiteSpace($profileId) -or $profileId -ne $expectedProfileId) {
+        throw "Minecraft runtime lock has invalid Fabric profile id. Expected=$expectedProfileId Actual=$profileId"
+    }
+    if ([string]::IsNullOrWhiteSpace($mainClass)) {
+        throw "Minecraft runtime lock exposes no Fabric client main class."
     }
 
     $libraries = @()
-
-    foreach ($library in @($launcherMeta.libraries.common)) {
+    foreach ($library in @($FabricLoader.libraries)) {
         $name = [string]$library.name
         $url = [string]$library.url
+
         if ([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($url)) {
-            throw "Fabric launcher metadata contains an invalid common library."
+            throw "Minecraft runtime lock contains a Fabric library without name/url."
+        }
+
+        $uri = [Uri]$url
+        if ($uri.Scheme -ne "https") {
+            throw "Minecraft runtime lock contains a non-HTTPS Fabric library URL: $url"
         }
 
         $libraries += [ordered]@{
@@ -25,60 +39,11 @@ function New-DeterministicFabricProfile {
         }
     }
 
-    # Minecraft 26.x is unobfuscated, so Fabric no longer adds intermediary
-    # as a launcher library. Older targets still require it.
-    if ($MinecraftVersion -notmatch "^26(?:\.|$)") {
-        $intermediaryMaven = [string]$LoaderInfo.intermediary.maven
-        if ([string]::IsNullOrWhiteSpace($intermediaryMaven)) {
-            throw "Fabric loader metadata exposes no intermediary coordinate for $MinecraftVersion."
-        }
-
-        $libraries += [ordered]@{
-            name = $intermediaryMaven
-            url = "https://maven.fabricmc.net/"
-        }
+    if ($libraries.Count -eq 0) {
+        throw "Minecraft runtime lock contains no Fabric libraries."
     }
 
-    $loaderMaven = [string]$LoaderInfo.loader.maven
-    if ([string]::IsNullOrWhiteSpace($loaderMaven)) {
-        throw "Fabric loader metadata exposes no loader Maven coordinate."
-    }
-
-    $libraries += [ordered]@{
-        name = $loaderMaven
-        url = "https://maven.fabricmc.net/"
-    }
-
-    foreach ($library in @($launcherMeta.libraries.client)) {
-        $name = [string]$library.name
-        $url = [string]$library.url
-        if ([string]::IsNullOrWhiteSpace($name) -or [string]::IsNullOrWhiteSpace($url)) {
-            throw "Fabric launcher metadata contains an invalid client library."
-        }
-
-        $libraries += [ordered]@{
-            name = $name
-            url = $url
-        }
-    }
-
-    $mainClass = if ($launcherMeta.mainClass -is [string]) {
-        [string]$launcherMeta.mainClass
-    }
-    elseif ($launcherMeta.mainClass.PSObject.Properties["client"]) {
-        [string]$launcherMeta.mainClass.client
-    }
-    else {
-        ""
-    }
-
-    if ([string]::IsNullOrWhiteSpace($mainClass)) {
-        throw "Fabric launcher metadata exposes no client main class."
-    }
-
-    $profileId = "fabric-loader-$LoaderVersion-$MinecraftVersion"
     $stableTime = "1970-01-01T00:00:00+0000"
-
     return [ordered]@{
         id = $profileId
         inheritsFrom = $MinecraftVersion
@@ -96,13 +61,12 @@ function New-DeterministicFabricProfile {
 
 function Write-DeterministicFabricProfile {
     param(
-        [Parameter(Mandatory=$true)]$LoaderInfo,
+        [Parameter(Mandatory=$true)]$FabricLoader,
         [Parameter(Mandatory=$true)][string]$MinecraftVersion,
-        [Parameter(Mandatory=$true)][string]$LoaderVersion,
         [Parameter(Mandatory=$true)][string]$OutputPath
     )
 
-    $profile = New-DeterministicFabricProfile -LoaderInfo $LoaderInfo -MinecraftVersion $MinecraftVersion -LoaderVersion $LoaderVersion
+    $profile = New-DeterministicFabricProfile -FabricLoader $FabricLoader -MinecraftVersion $MinecraftVersion
     $json = $profile | ConvertTo-Json -Depth 16 -Compress
     [IO.File]::WriteAllText($OutputPath, $json, [Text.UTF8Encoding]::new($false))
     return $profile
