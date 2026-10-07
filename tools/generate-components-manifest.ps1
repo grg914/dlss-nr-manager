@@ -28,7 +28,7 @@ function Get-Source {
 
 function Add-Asset {
     param(
-        [Parameter(Mandatory=$true)][System.Collections.ArrayList]$List,
+        [Parameter(Mandatory=$true)][AllowEmptyCollection()][System.Collections.ArrayList]$List,
         [Parameter(Mandatory=$true)][string]$Id,
         [Parameter(Mandatory=$true)][string]$DisplayName,
         [Parameter(Mandatory=$true)][string]$Pattern,
