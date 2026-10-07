@@ -71,11 +71,12 @@ $loader = $loaderRows |
 if (-not $loader) { throw "No stable Fabric Loader was found for Minecraft $MinecraftVersion." }
 
 $loaderVersion = [string]$loader.loader.version
-$encodedMinecraft = [Uri]::EscapeDataString($MinecraftVersion)
-$encodedLoader = [Uri]::EscapeDataString($loaderVersion)
-$loaderInfo = Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$encodedMinecraft/$encodedLoader"
-if (-not $loaderInfo -or [string]$loaderInfo.loader.version -ne $loaderVersion) {
-    throw "Fabric loader detail metadata did not resolve $MinecraftVersion / $loaderVersion."
+# The game-scoped loader listing is already populated with launcherMeta and
+# intermediary metadata. Reuse that response instead of issuing another
+# compatibility-sensitive Fabric Meta request.
+$loaderInfo = $loader
+if (-not $loaderInfo.launcherMeta -or [string]$loaderInfo.loader.version -ne $loaderVersion) {
+    throw "Fabric loader metadata did not resolve launcher metadata for $MinecraftVersion / $loaderVersion."
 }
 
 $launcherMeta = $loaderInfo.launcherMeta
