@@ -544,6 +544,12 @@ jobs:
             Write-Host "Validated $($asset.Name) • SHA-256 $actual"
           }
 
+      - name: Generate trusted component manifest
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-components-manifest.ps1 -AssetsDirectory release-assets -OutputPath release-assets/components-manifest.json
+          if ($LASTEXITCODE -ne 0) { throw "Component manifest generation failed." }
+
       - name: Generate final SHA-256 checksums
         shell: pwsh
         run: |
@@ -571,7 +577,8 @@ jobs:
             "release-assets/realesr-animevideov3-x3.param",
             "release-assets/realesr-animevideov3-x3.bin",
             "release-assets/realesr-animevideov3-x4.param",
-            "release-assets/realesr-animevideov3-x4.bin"
+            "release-assets/realesr-animevideov3-x4.bin",
+            "release-assets/components-manifest.json"
           )
 
           foreach ($optional in @(
@@ -604,29 +611,50 @@ jobs:
             SHA256SUMS.txt
 
       - name: Create or update GitHub release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          target_commitish: main
-          name: DLSS NR Manager v${{ steps.version.outputs.version }}
-          files: |
-            publish/DlssNrManager.exe
-            DlssNrManager-win-x64.zip
-            SHA256SUMS.txt
-            release-assets/SPBRScandi.zip
-            release-assets/ScandiShaderV2.zip
-            release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
-            release-assets/realesrgan-ncnn-vulkan-windows-x64.zip
-            release-assets/ffmpeg-dlssnr-win-x64.zip
-            release-assets/video2dlssnr_release.zip
-            release-assets/minecraft-runtime-26.2.zip
-            release-assets/streamline-runtime-v*-win-x64.zip
-            release-assets/OptiScaler-NR-*-vendored-win-x64.zip
-            release-assets/ReShade-Setup-*-vendored.zip
-            release-assets/ai-origin-primary-int8.onnx
-            release-assets/ai-origin-secondary-int8.onnx
-            release-assets/realesr*.param
-            release-assets/realesr*.bin
-          fail_on_unmatched_files: false
-          generate_release_notes: true
-          make_latest: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $version = "${{ steps.version.outputs.version }}"
+
+          gh release view $tag --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo "${{ github.repository }}" --target main --title "DLSS NR Manager v$version" --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw "Unable to create release $tag." }
+          }
+
+          $files = @(
+            "publish/DlssNrManager.exe",
+            "DlssNrManager-win-x64.zip",
+            "SHA256SUMS.txt",
+            "release-assets/components-manifest.json",
+            "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
+            "release-assets/ffmpeg-dlssnr-win-x64.zip",
+            "release-assets/video2dlssnr_release.zip",
+            "release-assets/minecraft-runtime-26.2.zip",
+            "release-assets/ai-origin-primary-int8.onnx",
+            "release-assets/ai-origin-secondary-int8.onnx"
+          )
+
+          foreach ($pattern in @(
+            "release-assets/SPBRScandi.zip",
+            "release-assets/ScandiShaderV2.zip",
+            "release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar",
+            "release-assets/streamline-runtime-v*-win-x64.zip",
+            "release-assets/OptiScaler-NR-*-vendored-win-x64.zip",
+            "release-assets/ReShade-Setup-*-vendored.zip",
+            "release-assets/realesr*.param",
+            "release-assets/realesr*.bin"
+          )) {
+            $files += @(Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+          }
+
+          $files = @($files | Where-Object { Test-Path -LiteralPath $_ } | Sort-Object -Unique)
+          foreach ($file in $files) {
+            gh release upload $tag $file --repo "${{ github.repository }}" --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed to upload release asset: $file" }
+          }
+
+          gh release edit $tag --repo "${{ github.repository }}" --latest
+          if ($LASTEXITCODE -ne 0) { throw "Unable to mark $tag as latest." }
