@@ -107,7 +107,7 @@ function Resolve-UpstreamState {
     if ($strategy -eq "latest-release") {
         if ($Policy.release_name_regex) {
             $releasePattern = [string]$Policy.release_name_regex
-            $release = @(Invoke-GitHubJson "https://api.github.com/repos/$repository/releases?per_page=100") |
+            $release = @(Get-GitHubPagedCollection -Uri "https://api.github.com/repos/$repository/releases") |
                 Where-Object {
                     -not $_.draft -and
                     -not $_.prerelease -and
