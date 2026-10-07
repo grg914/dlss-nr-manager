@@ -1,12 +1,6 @@
-name: Minecraft Runtime Vendor
+name: Minecraft Runtime Refresh Validation
 
 on:
-  pull_request:
-    paths:
-      - 'Services/MinecraftIntegrationService.cs'
-      - 'tools/bootstrap-minecraft-runtime.ps1'
-      - 'third_party/minecraft/**'
-      - '.github/workflows/minecraft-vendor.yml'
   workflow_dispatch:
 
 permissions:
