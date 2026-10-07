@@ -86,6 +86,12 @@ Add-Asset $components "reshade" "ReShade" "ReShade-Setup-*-vendored.zip" "reshad
 Add-Asset $components "caustica" "Caustica RTX" "Caustica-RTX-Minecraft-26.2-build-*.jar" "caustica"
 Add-Asset $components "ai-origin-primary" "AI Origin Detector Primary" "ai-origin-primary-int8.onnx" "ai-primary"
 Add-Asset $components "ai-origin-secondary" "AI Origin Detector Secondary" "ai-origin-secondary-int8.onnx" "ai-secondary"
+$javaMetadataPath = Join-Path $assetsRoot "temurin-25-jre.json"
+$javaVersion = $null
+if (Test-Path -LiteralPath $javaMetadataPath) {
+    try { $javaVersion = [string](Get-Content -LiteralPath $javaMetadataPath -Raw | ConvertFrom-Json).version } catch { $javaVersion = $null }
+}
+Add-Asset $components "java25" "Eclipse Temurin JRE 25" "temurin-25-jre-win-x64.zip" "" $javaVersion
 
 $manifest = [ordered]@{
     schema = 1
