@@ -339,6 +339,53 @@ else {
     $productionWorkflowIssues | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" }
 }
 
+$minecraftProfileIssues = @()
+$runtimeLockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
+$fabricProfileHelper = Join-Path $PSScriptRoot "fabric-profile.ps1"
+$tempFabricProfile = $null
+
+try {
+    if (!(Test-Path -LiteralPath $runtimeLockPath)) {
+        $minecraftProfileIssues += "Minecraft runtime lock is missing."
+    }
+    elseif (!(Test-Path -LiteralPath $fabricProfileHelper)) {
+        $minecraftProfileIssues += "Deterministic Fabric profile helper is missing."
+    }
+    else {
+        . $fabricProfileHelper
+        $runtimeLock = Get-Content -LiteralPath $runtimeLockPath -Raw | ConvertFrom-Json
+        $tempFabricProfile = Join-Path $env:TEMP ("fabric-profile-verify-" + [Guid]::NewGuid().ToString("N") + ".json")
+        $null = Write-DeterministicFabricProfile -FabricLoader $runtimeLock.fabric_loader -MinecraftVersion ([string]$runtimeLock.minecraft_version) -OutputPath $tempFabricProfile
+
+        $expectedFabricProfileHash = ([string]$runtimeLock.fabric_loader.profile_sha256).ToLowerInvariant()
+        $actualFabricProfileHash = (Get-FileHash -LiteralPath $tempFabricProfile -Algorithm SHA256).Hash.ToLowerInvariant()
+
+        if ($expectedFabricProfileHash -notmatch "^[0-9a-f]{64}$") {
+            $minecraftProfileIssues += "Minecraft runtime lock has an invalid Fabric profile SHA-256."
+        }
+        elseif ($actualFabricProfileHash -ne $expectedFabricProfileHash) {
+            $minecraftProfileIssues += "Deterministic Fabric profile hash mismatch. Lock=$expectedFabricProfileHash Actual=$actualFabricProfileHash"
+        }
+    }
+}
+catch {
+    $minecraftProfileIssues += "Deterministic Fabric profile verification failed: $($_.Exception.Message)"
+}
+finally {
+    if ($tempFabricProfile -and (Test-Path -LiteralPath $tempFabricProfile)) {
+        Remove-Item -LiteralPath $tempFabricProfile -Force
+    }
+}
+
+Write-Host ""
+if ($minecraftProfileIssues.Count -eq 0) {
+    Write-Host "Deterministic Minecraft/Fabric runtime profile: OK"
+}
+else {
+    Write-Host "Minecraft/Fabric runtime profile issues:"
+    $minecraftProfileIssues | ForEach-Object { Write-Host "  - $_" }
+}
+
 $localSdkPath = Join-Path $Root "third_party-local/NVIDIA-DLSS"
 if (Test-Path -LiteralPath $localSdkPath) {
     Write-Host "Local NVIDIA DLSS SDK: present (local-only / Git-ignored)"
@@ -356,7 +403,8 @@ $failed =
     $retentionIssues.Count -gt 0 -or
     $forceIncludeIssues.Count -gt 0 -or
     $references.Count -gt 0 -or
-    $productionWorkflowIssues.Count -gt 0
+    $productionWorkflowIssues.Count -gt 0 -or
+    $minecraftProfileIssues.Count -gt 0
 
 if ($Strict -and $failed) {
     exit 1
