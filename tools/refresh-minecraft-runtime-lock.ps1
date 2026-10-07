@@ -63,12 +63,22 @@ function Select-LatestModrinthRelease {
 }
 
 Write-Host "Refreshing Fabric Loader metadata for Minecraft $MinecraftVersion..."
-$loaderRows = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion")
+
+# Invoke-RestMethod can surface a top-level JSON array as one collection object
+# on Windows PowerShell 5.1. Enumerate it explicitly before filtering, otherwise
+# member-access enumeration aggregates every loader coordinate into one string.
+$loaderRows = @(
+    foreach ($row in (Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion")) {
+        $row
+    }
+)
+
 $loader = $loaderRows |
-    Where-Object { [bool]$_.loader.stable } |
+    Where-Object { $_.loader -and [bool]$_.loader.stable } |
     Select-Object -First 1
 
 if (-not $loader) { throw "No stable Fabric Loader was found for Minecraft $MinecraftVersion." }
+if (@($loader).Count -ne 1) { throw "Fabric Loader selection did not resolve exactly one compatible loader." }
 
 $loaderVersion = [string]$loader.loader.version
 $loaderMaven = [string]$loader.loader.maven
