@@ -47,6 +47,11 @@ jobs:
             throw "The runner has no preinstalled .NET 8 SDK. Production releases must not download toolchains."
           }
 
+      - name: Enforce Minecraft native Vulkan/NGX policy
+        shell: pwsh
+        run: |
+          & .\tools\verify-minecraft-native-ngx-path.ps1
+
       - name: Enforce zero-upstream production audit
         shell: pwsh
         run: |

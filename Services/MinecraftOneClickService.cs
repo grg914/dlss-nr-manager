@@ -124,7 +124,7 @@ public sealed class MinecraftOneClickService
             disabled = DisableConflictingRendererMods(root, backup, progress);
 
             progress?.Report("Forcing Minecraft 26.2 to prefer the Vulkan graphics backend…");
-            SetPreferredGraphicsBackend(root, "vulkan");
+            SetPreferredGraphicsBackend(root, MinecraftRenderPipelinePolicy.RequiredBackend);
 
             if (fabricBefore.Version == null ||
                 fabricBefore.Version < Version.Parse(MinecraftIntegrationService.MinimumFabricLoader) ||
@@ -199,7 +199,7 @@ public sealed class MinecraftOneClickService
 
             var notes = new List<string>
             {
-                "Minecraft graphics backend preference set to Vulkan.",
+                "Minecraft graphics backend preference set to Vulkan; this profile keeps Caustica on its direct NGX path without an intermediary upscaler/proxy.",
                 "Caustica RTX provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and NVIDIA Reflex through its own renderer.",
                 "The project Caustica build also includes RTX Performance Mode, the native ScandiShader RTX look and capability-gated DLSS Neural Rendering controls.",
                 "Open Video Settings → Ray Tracing after first launch to choose DLSS quality, Frame Generation multiplier, Reflex, Neural Rendering when available, RTX Performance Mode and ScandiShader RTX Look.",

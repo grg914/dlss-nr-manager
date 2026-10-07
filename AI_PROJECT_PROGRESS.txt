@@ -1,3 +1,44 @@
+CHECKPOINT 0E - SOLUTION A VALIDEE / DURCISSEMENT MINECRAFT NATIVE NGX (2026-10-07)
+
+Decision utilisateur:
+- Solution A validee explicitement.
+- objectif: performance maximale.
+- OptiScaler doit rester hors du pipeline Minecraft.
+- ne pas casser/modifier Caustica ni SPBRScandi.
+
+Implementation:
+- branche cible: hardening-minecraft-native-ngx-policy-final;
+- ajout Services/MinecraftRenderPipelinePolicy.cs;
+- backend Minecraft centralise sur Vulkan;
+- le runtime manager-owned .dlss-nr-manager-runtime refuse OptiScaler.ini, OptiScaler.dll, dxgi.dll et d3d12.dll;
+- MinecraftDlssPackageService applique ce garde-fou sur les deux chemins de staging;
+- ajout de tests xUnit de la policy;
+- ajout tools/verify-minecraft-native-ngx-path.ps1;
+- Build et Release executent cet audit avant les validations existantes;
+- l'audit CI verifie aussi la presence du selecteur Caustica production, de SPBRScandi et des marqueurs NGX NVIDIA directs.
+
+Non modifies:
+- Caustica-RTX/;
+- binaire Caustica distribue;
+- SPBRScandi.zip;
+- ScandiShader;
+- OptiScaler.ini;
+- DLL OptiScaler.
+
+Statut de validation:
+- CODE ECRIT / CI A LANCER.
+- ne pas fusionner tant que Build PR n'est pas SUCCESS.
+
+Prochaine action exacte:
+1. creer la branche finale depuis le commit construit;
+2. ouvrir la PR de durcissement;
+3. verifier le diff pour confirmer zero modification Caustica/SPBR;
+4. verifier le Build PR et inspecter tout echec;
+5. fusionner uniquement si vert;
+6. verifier ensuite le Build main post-merge.
+
+---
+
 0. CHECKPOINT DE REPRISE - AUTORITATIF (POST-CLEANUP GITHUB - 2026-10-07)
 
 CE BLOC EST LA SOURCE DE VERITE POUR LA REPRISE.
