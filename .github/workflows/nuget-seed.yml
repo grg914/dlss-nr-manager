@@ -1,6 +1,10 @@
 name: NuGet Offline Seed
 
 on:
+  push:
+    branches: [ refactor/phase4-zero-upstream-production ]
+    paths:
+      - '.github/workflows/nuget-seed.yml'
   workflow_dispatch:
 
 permissions:
