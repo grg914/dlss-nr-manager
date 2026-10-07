@@ -8,7 +8,8 @@
       "repository": "grg914/Caustica-RTX",
       "strategy": "default-branch-head",
       "enabled": true,
-      "promotion": "auto-after-validation"
+      "promotion": "notify-only",
+      "reason": "Caustica native/runtime rebuild requires local license-restricted NVIDIA SDK inputs; detect source changes automatically but promote only after a licensed local rebuild."
     },
     {
       "id": "streamline",
@@ -118,7 +119,9 @@
       "strategy": "latest-release",
       "enabled": true,
       "promotion": "auto-after-validation",
-      "lock_tag_field": "source_tag"
+      "lock_tag_field": "source_tag",
+      "managed_package_id": "Microsoft.ML.OnnxRuntime",
+      "managed_project_path": "DlssNrManager.csproj"
     },
     {
       "id": "ai-primary",
