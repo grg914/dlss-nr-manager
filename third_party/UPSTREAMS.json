@@ -111,8 +111,9 @@
       "provider": "github",
       "repository": "ScoopInstaller/Versions",
       "strategy": "default-branch-head",
-      "enabled": true,
-      "promotion": "auto-after-validation"
+      "enabled": false,
+      "promotion": "manual",
+      "reason": "Historical/reference metadata only; it is not used by the production runtime and must not trigger application releases."
     },
     {
       "id": "onnxruntime",
