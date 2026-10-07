@@ -322,6 +322,7 @@ function Import-Repo {
         [Parameter(Mandatory=$true)][string]$Ref,
         [Parameter(Mandatory=$true)][string]$Destination,
         [string]$Group = "core",
+        [string]$ExpectedTree,
         $Retention = $null
     )
 
