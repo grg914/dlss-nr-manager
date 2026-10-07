@@ -190,6 +190,12 @@ public sealed class MediaService
                 ?? throw new InvalidOperationException(
                     $"Latest DLSS NR Manager release has no {FfmpegAsset} asset.");
 
+            if (string.IsNullOrWhiteSpace(asset.Sha256))
+            {
+                throw new InvalidDataException(
+                    $"Manager-owned FFmpeg asset {FfmpegAsset} has no SHA-256 digest.");
+            }
+
             var zip = Path.Combine(RootDirectory, FfmpegAsset);
             var temp = Path.Combine(RootDirectory, "ffmpeg-extract");
             if (Directory.Exists(temp))
