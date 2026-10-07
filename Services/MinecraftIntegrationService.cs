@@ -40,9 +40,9 @@ public sealed class MinecraftIntegrationService
     public const string MinecraftVersion = "26.2";
     public const string MinimumFabricLoader = "0.19.3";
 
-    private const string FabricInstallerMavenBase =
-        "https://maven.fabricmc.net/net/fabricmc/fabric-installer";
     private const string ManagerRepository = "grg914/dlss-nr-manager";
+    private const string MinecraftRuntimeAsset =
+        "minecraft-runtime-26.2.zip";
     private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
 
     private readonly HttpClient _http = new();
@@ -341,33 +341,34 @@ public sealed class MinecraftIntegrationService
             progress,
             cancellationToken);
 
-        var installerPackage = await GetLatestFabricInstallerAsync(
+        var runtimeBundle = await EnsureMinecraftRuntimeBundleAsync(
             progress,
             cancellationToken);
 
-        var loaderVersion = await GetRecommendedFabricLoaderAsync(
-            progress,
-            cancellationToken);
+        var installerPackage = runtimeBundle.Manifest.FabricInstaller;
+        var loaderVersion = runtimeBundle.Manifest.FabricLoaderVersion;
+        var installer = ResolveBundlePath(
+            runtimeBundle.RootDirectory,
+            installerPackage.RelativePath);
 
-        var installerRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "DlssNrManager",
-            "minecraft",
-            "fabric-installer");
+        if (!File.Exists(installer))
+        {
+            throw new FileNotFoundException(
+                "Manager-owned Minecraft runtime bundle is missing its Fabric Installer.",
+                installer);
+        }
 
-        Directory.CreateDirectory(installerRoot);
-
-        var installer = Path.Combine(
-            installerRoot,
-            installerPackage.FileName);
-
-        await DownloadAndVerifyAsync(
-            installerPackage.DownloadUrl,
+        var installerSha = await Sha256Async(
             installer,
-            installerPackage.Sha256,
-            progress,
-            $"Fabric Installer {installerPackage.Version}",
             cancellationToken);
+
+        if (!installerSha.Equals(
+                installerPackage.Sha256,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Bundled Fabric Installer SHA-256 mismatch. Expected {installerPackage.Sha256}, got {installerSha}.");
+        }
 
         progress?.Report(
             $"Installing Fabric Loader {loaderVersion} for Minecraft {MinecraftVersion} using Fabric Installer {installerPackage.Version}…");
@@ -509,13 +510,13 @@ public sealed class MinecraftIntegrationService
             if (installFabricApi)
             {
                 progress?.Report(
-                    $"Finding the latest Fabric API build for Minecraft {MinecraftVersion}…");
+                    $"Finding bundled Fabric API build for Minecraft {MinecraftVersion}…");
 
-                var fabricApi = await InstallModrinthProjectAsync(
+                var fabricApi = await InstallBundledMinecraftProjectAsync(
                     instance.RootDirectory,
                     mods,
                     backup,
-                    new ModrinthProject(
+                    new MinecraftProject(
                         "Fabric API",
                         "fabric-api",
                         "fabric-api",
@@ -579,21 +580,21 @@ public sealed class MinecraftIntegrationService
 
             if (installRtxPerformancePack)
             {
-                progress?.Report("Installing RTX-safe Minecraft performance mods…");
+                progress?.Report("Installing bundled RTX-safe Minecraft performance mods…");
 
                 foreach (var project in new[]
                 {
-                    new ModrinthProject("Lithium", "lithium", "lithium", "lithium"),
-                    new ModrinthProject("FerriteCore", "ferrite-core", "ferritecore", "ferritecore"),
-                    new ModrinthProject("Krypton", "krypton", "krypton", "krypton"),
-                    new ModrinthProject("C2ME", "c2me-fabric", "c2me", "c2me"),
-                    new ModrinthProject("BadOptimizations", "badoptimizations", "badoptimizations", "badoptimizations"),
-                    new ModrinthProject("Dynamic FPS", "dynamic-fps", "dynamic-fps", "dynamic_fps")
+                    new MinecraftProject("Lithium", "lithium", "lithium", "lithium"),
+                    new MinecraftProject("FerriteCore", "ferrite-core", "ferritecore", "ferritecore"),
+                    new MinecraftProject("Krypton", "krypton", "krypton", "krypton"),
+                    new MinecraftProject("C2ME", "c2me-fabric", "c2me", "c2me"),
+                    new MinecraftProject("BadOptimizations", "badoptimizations", "badoptimizations", "badoptimizations"),
+                    new MinecraftProject("Dynamic FPS", "dynamic-fps", "dynamic-fps", "dynamic_fps")
                 })
                 {
                     try
                     {
-                        var component = await InstallModrinthProjectAsync(
+                        var component = await InstallBundledMinecraftProjectAsync(
                             instance.RootDirectory,
                             mods,
                             backup,
@@ -637,14 +638,14 @@ public sealed class MinecraftIntegrationService
                 Directory.CreateDirectory(resourcePacks);
 
                 var spbrProject =
-                    new ModrinthProject(
+                    new MinecraftProject(
                         "SPBR LabPBR",
                         "spbr",
                         "spbr");
 
                 try
                 {
-                    var spbr = await InstallModrinthProjectAsync(
+                    var spbr = await InstallBundledMinecraftProjectAsync(
                         instance.RootDirectory,
                         resourcePacks,
                         backup,
@@ -876,205 +877,105 @@ public sealed class MinecraftIntegrationService
         }
     }
 
-    private async Task<MinecraftComponentResult> InstallModrinthProjectAsync(
+    private async Task<MinecraftComponentResult> InstallBundledMinecraftProjectAsync(
         string minecraftRoot,
         string destinationDirectory,
         string backup,
-        ModrinthProject project,
+        MinecraftProject project,
         string? loader,
         IProgress<string>? progress,
         CancellationToken cancellationToken,
         bool requireReleaseBuild = false)
     {
-        var versionsUrl =
-            $"https://api.modrinth.com/v2/project/{project.Slug}/version" +
-            $"?game_versions={Uri.EscapeDataString("[\"" + MinecraftVersion + "\"]")}" +
-            (string.IsNullOrWhiteSpace(loader)
-                ? ""
-                : $"&loaders={Uri.EscapeDataString("[\"" + loader + "\"]")}");
+        _ = loader;
+        _ = requireReleaseBuild;
 
-        using var versions = await GetJsonAsync(
-            versionsUrl,
+        var runtimeBundle = await EnsureMinecraftRuntimeBundleAsync(
+            progress,
             cancellationToken);
 
-        if (versions.RootElement.ValueKind != JsonValueKind.Array ||
-            versions.RootElement.GetArrayLength() == 0)
+        var component = runtimeBundle.Manifest.Components
+            .FirstOrDefault(candidate =>
+                candidate.Slug.Equals(
+                    project.Slug,
+                    StringComparison.OrdinalIgnoreCase));
+
+        if (component == null)
         {
             throw new InvalidOperationException(
-                $"No Modrinth build of {project.Name} was found for Minecraft {MinecraftVersion}" +
-                (string.IsNullOrWhiteSpace(loader) ? "." : $" / {loader}."));
+                $"Manager-owned Minecraft runtime bundle has no {project.Name} component.");
         }
 
-        JsonElement? selectedVersion = null;
-        JsonElement? selectedFile = null;
+        var source = ResolveBundlePath(
+            runtimeBundle.RootDirectory,
+            component.RelativePath);
 
-        var versionCandidates = versions.RootElement
-            .EnumerateArray()
-            .Where(version =>
-                !requireReleaseBuild ||
-                !version.TryGetProperty("version_type", out var typeElement) ||
-                string.Equals(
-                    typeElement.GetString(),
-                    "release",
-                    StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        if (versionCandidates.Count == 0 && requireReleaseBuild)
+        if (!File.Exists(source))
         {
-            throw new InvalidOperationException(
-                $"No stable Modrinth release of {project.Name} was found for Minecraft {MinecraftVersion}" +
-                (string.IsNullOrWhiteSpace(loader) ? "." : $" / {loader}."));
+            throw new FileNotFoundException(
+                $"Bundled {project.Name} file is missing.",
+                source);
         }
 
-        foreach (var version in versionCandidates)
-        {
-            if (!version.TryGetProperty("files", out var files) ||
-                files.ValueKind != JsonValueKind.Array)
-                continue;
-
-            var candidates = files.EnumerateArray()
-                .Where(file =>
-                {
-                    var filename = file.TryGetProperty("filename", out var filenameElement)
-                        ? filenameElement.GetString() ?? ""
-                        : "";
-
-                    var expectedExtension =
-                        string.IsNullOrWhiteSpace(loader)
-                            ? ".zip"
-                            : ".jar";
-
-                    return !string.IsNullOrWhiteSpace(filename) &&
-                           filename.Equals(
-                               Path.GetFileName(filename),
-                               StringComparison.Ordinal) &&
-                           filename.EndsWith(
-                               expectedExtension,
-                               StringComparison.OrdinalIgnoreCase) &&
-                           !ContainsAny(
-                               filename,
-                               "sources",
-                               "source",
-                               "dev",
-                               "javadoc");
-                })
-                .ToList();
-
-            var primary = candidates.FirstOrDefault(file =>
-                file.TryGetProperty("primary", out var primaryElement) &&
-                primaryElement.ValueKind == JsonValueKind.True);
-
-            var chosen = primary.ValueKind != JsonValueKind.Undefined
-                ? primary
-                : candidates.FirstOrDefault();
-
-            if (chosen.ValueKind == JsonValueKind.Undefined)
-                continue;
-
-            selectedVersion = version;
-            selectedFile = chosen;
-            break;
-        }
-
-        if (selectedVersion == null || selectedFile == null)
-        {
-            throw new InvalidOperationException(
-                $"Modrinth returned no downloadable file for {project.Name}.");
-        }
-
-        var file = selectedFile.Value;
-        var filename = file.GetProperty("filename").GetString()
-            ?? throw new InvalidDataException(
-                $"Modrinth file name is missing for {project.Name}.");
-
-        var url = file.GetProperty("url").GetString()
-            ?? throw new InvalidDataException(
-                $"Modrinth download URL is missing for {project.Name}.");
-
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var downloadUri) ||
-            !downloadUri.Scheme.Equals(
-                Uri.UriSchemeHttps,
-                StringComparison.OrdinalIgnoreCase) ||
-            !(downloadUri.Host.Equals(
-                  "cdn.modrinth.com",
-                  StringComparison.OrdinalIgnoreCase) ||
-              downloadUri.Host.Equals(
-                  "api.modrinth.com",
-                  StringComparison.OrdinalIgnoreCase)))
+        var filename = Path.GetFileName(component.FileName);
+        if (string.IsNullOrWhiteSpace(filename) ||
+            !filename.Equals(
+                component.FileName,
+                StringComparison.Ordinal))
         {
             throw new InvalidDataException(
-                $"Unexpected Modrinth download origin for {project.Name}: {url}");
+                $"Bundled filename is invalid for {project.Name}: {component.FileName}");
         }
 
-        var versionNumber = selectedVersion.Value.TryGetProperty(
-                "version_number",
-                out var versionElement)
-            ? versionElement.GetString() ?? "unknown"
-            : "unknown";
+        var expectedExtension =
+            component.Kind.Equals(
+                "resourcepack",
+                StringComparison.OrdinalIgnoreCase)
+                ? ".zip"
+                : ".jar";
 
-        string? sha512 = null;
-        if (file.TryGetProperty("hashes", out var hashes) &&
-            hashes.TryGetProperty("sha512", out var sha512Element))
-        {
-            sha512 = sha512Element.GetString();
-        }
-
-        if (string.IsNullOrWhiteSpace(sha512) ||
-            sha512.Length != 128 ||
-            !sha512.All(Uri.IsHexDigit))
+        if (!filename.EndsWith(
+                expectedExtension,
+                StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
-                $"Modrinth did not provide a valid SHA-512 hash for {project.Name}.");
+                $"Bundled {project.Name} has unexpected file type: {filename}");
         }
 
-        var destination = Path.Combine(destinationDirectory, filename);
+        if (string.IsNullOrWhiteSpace(component.Sha512) ||
+            component.Sha512.Length != 128 ||
+            !component.Sha512.All(Uri.IsHexDigit))
+        {
+            throw new InvalidDataException(
+                $"Bundled SHA-512 metadata is invalid for {project.Name}.");
+        }
+
+        var destination = Path.Combine(
+            destinationDirectory,
+            filename);
         var temp = destination + ".download";
-        progress?.Report($"Downloading {project.Name} {versionNumber}…");
+
+        progress?.Report(
+            $"Installing manager-owned {project.Name} {component.Version}…");
 
         try
         {
-            using (var response = await _http.GetAsync(
-                       downloadUri,
-                       HttpCompletionOption.ResponseHeadersRead,
-                       cancellationToken))
-            {
-                response.EnsureSuccessStatusCode();
-
-                if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
-                {
-                    throw new InvalidDataException(
-                        $"{project.Name} exceeds the 1 GB download safety limit.");
-                }
-
-                await using var input =
-                    await response.Content.ReadAsStreamAsync(cancellationToken);
-                await using var output = new FileStream(
-                    temp,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None,
-                    128 * 1024,
-                    useAsync: true);
-
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    MaxComponentDownloadBytes,
-                    cancellationToken);
-            }
+            File.Copy(source, temp, true);
 
             await using (var stream = File.OpenRead(temp))
             {
                 var actual = Convert.ToHexString(
-                    await SHA512.HashDataAsync(stream, cancellationToken));
+                    await SHA512.HashDataAsync(
+                        stream,
+                        cancellationToken));
 
                 if (!actual.Equals(
-                        sha512,
+                        component.Sha512,
                         StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidDataException(
-                        $"SHA-512 mismatch for {project.Name}. " +
-                        $"Expected {sha512}, got {actual}.");
+                        $"SHA-512 mismatch for bundled {project.Name}. " +
+                        $"Expected {component.Sha512}, got {actual}.");
                 }
             }
 
@@ -1097,9 +998,9 @@ public sealed class MinecraftIntegrationService
 
         return new MinecraftComponentResult(
             project.Name,
-            versionNumber,
+            component.Version,
             destination,
-            $"Modrinth:{project.Slug}");
+            ManagerRepository);
     }
 
     private static async Task BackupMatchingFileAsync(
@@ -1367,262 +1268,288 @@ public sealed class MinecraftIntegrationService
         }
     }
 
-    private async Task<string> GetRecommendedFabricLoaderAsync(
+    private async Task<MinecraftRuntimeBundle> EnsureMinecraftRuntimeBundleAsync(
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        progress?.Report(
-            $"Checking Fabric Meta for the recommended loader for Minecraft {MinecraftVersion}…");
-
-        try
-        {
-            using var json = await GetJsonAsync(
-                $"https://meta.fabricmc.net/v2/versions/loader/{MinecraftVersion}",
-                cancellationToken);
-
-            if (json.RootElement.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var entry in json.RootElement.EnumerateArray())
-                {
-                    if (!entry.TryGetProperty("loader", out var loader) ||
-                        !loader.TryGetProperty("version", out var versionElement))
-                        continue;
-
-                    var version = versionElement.GetString();
-                    var stable =
-                        loader.TryGetProperty("stable", out var stableElement) &&
-                        stableElement.ValueKind == JsonValueKind.True;
-
-                    if (!stable ||
-                        string.IsNullOrWhiteSpace(version) ||
-                        !Version.TryParse(version, out var parsed) ||
-                        parsed < Version.Parse(MinimumFabricLoader))
-                        continue;
-
-                    progress?.Report(
-                        $"Fabric Loader {version} selected for Minecraft {MinecraftVersion}.");
-                    return version;
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            AppLogger.Warn(
-                $"Fabric Meta loader lookup failed; falling back to {MinimumFabricLoader}: {ex.Message}");
-        }
-
-        progress?.Report(
-            $"Fabric Meta lookup unavailable; using minimum compatible Fabric Loader {MinimumFabricLoader}.");
-        return MinimumFabricLoader;
-    }
-
-    private async Task<FabricInstallerPackage> GetLatestFabricInstallerAsync(
-        IProgress<string>? progress,
-        CancellationToken cancellationToken)
-    {
-        progress?.Report(
-            "Checking Fabric Meta for the latest stable installer…");
-
-        using var json = await GetJsonAsync(
-            "https://meta.fabricmc.net/v2/versions/installer",
+        var release = await FindReleaseAsync(
+            ManagerRepository,
+            candidate => candidate.Assets.Any(asset =>
+                asset.Name.Equals(
+                    MinecraftRuntimeAsset,
+                    StringComparison.OrdinalIgnoreCase)),
+            includePrerelease: true,
             cancellationToken);
 
-        if (json.RootElement.ValueKind != JsonValueKind.Array)
+        var asset = SelectAsset(
+            release,
+            name => name.Equals(
+                MinecraftRuntimeAsset,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(asset.Sha256))
         {
             throw new InvalidDataException(
-                "Fabric Meta returned an invalid installer response.");
+                $"Manager-owned {MinecraftRuntimeAsset} has no SHA-256 digest.");
         }
 
-        foreach (var item in json.RootElement.EnumerateArray())
+        var safeTag = string.Concat(
+            release.Tag.Select(ch =>
+                Path.GetInvalidFileNameChars().Contains(ch)
+                    ? '_'
+                    : ch));
+
+        var cacheRoot = Path.Combine(
+            Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData),
+            "DlssNrManager",
+            "minecraft",
+            "runtime-" + MinecraftVersion,
+            safeTag);
+
+        var contentRoot = Path.Combine(cacheRoot, "content");
+        var manifestPath = Path.Combine(
+            contentRoot,
+            "minecraft-runtime.json");
+
+        if (File.Exists(manifestPath))
         {
-            var stable =
-                item.TryGetProperty("stable", out var stableElement) &&
-                stableElement.ValueKind == JsonValueKind.True;
-
-            if (!stable)
-                continue;
-
-            var version =
-                item.TryGetProperty("version", out var versionElement)
-                    ? versionElement.GetString()
-                    : null;
-
-            var downloadUrl =
-                item.TryGetProperty("url", out var urlElement)
-                    ? urlElement.GetString()
-                    : null;
-
-            if (string.IsNullOrWhiteSpace(version) ||
-                string.IsNullOrWhiteSpace(downloadUrl) ||
-                !Uri.TryCreate(
-                    downloadUrl,
-                    UriKind.Absolute,
-                    out var uri) ||
-                !uri.Scheme.Equals(
-                    Uri.UriSchemeHttps,
-                    StringComparison.OrdinalIgnoreCase) ||
-                !uri.Host.Equals(
-                    "maven.fabricmc.net",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            var fileName = Path.GetFileName(uri.LocalPath);
-            if (string.IsNullOrWhiteSpace(fileName) ||
-                !fileName.EndsWith(
-                    ".jar",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            string? sha256 = null;
-
             try
             {
-                using var hashResponse = await _http.GetAsync(
-                    downloadUrl + ".sha256",
+                var cached = await LoadMinecraftRuntimeManifestAsync(
+                    manifestPath,
                     cancellationToken);
 
-                if (hashResponse.IsSuccessStatusCode)
-                {
-                    sha256 = (
-                        await hashResponse.Content.ReadAsStringAsync(
-                            cancellationToken))
-                        .Trim()
-                        .Split(
-                            new[] { ' ', '\t', '\r', '\n' },
-                            StringSplitOptions.RemoveEmptyEntries)
-                        .FirstOrDefault();
+                await ValidateMinecraftRuntimeBundleAsync(
+                    contentRoot,
+                    cached,
+                    cancellationToken);
 
-                    if (string.IsNullOrWhiteSpace(sha256) ||
-                        sha256.Length != 64 ||
-                        !sha256.All(Uri.IsHexDigit))
-                    {
-                        sha256 = null;
-                    }
-                }
+                return new MinecraftRuntimeBundle(
+                    contentRoot,
+                    cached);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
+            catch (Exception ex) when (
+                ex is not OperationCanceledException)
             {
                 AppLogger.Warn(
-                    $"Fabric Installer SHA-256 sidecar lookup failed: {ex.Message}");
+                    $"Cached Minecraft runtime bundle is invalid; refreshing it: {ex.Message}");
+                TryDeleteDirectory(cacheRoot);
             }
-
-            return new FabricInstallerPackage(
-                version,
-                fileName,
-                downloadUrl,
-                sha256);
         }
 
-        throw new InvalidOperationException(
-            "Fabric Meta did not return a stable Fabric Installer.");
+        Directory.CreateDirectory(cacheRoot);
+        var zip = Path.Combine(
+            cacheRoot,
+            MinecraftRuntimeAsset);
+        var extract = Path.Combine(
+            cacheRoot,
+            "_extract");
+
+        progress?.Report(
+            $"Downloading manager-owned Minecraft {MinecraftVersion} runtime bundle…");
+
+        await DownloadAssetAsync(
+            asset,
+            zip,
+            progress,
+            cancellationToken);
+
+        TryDeleteDirectory(extract);
+        Directory.CreateDirectory(extract);
+
+        SafeZip.Extract(
+            zip,
+            extract,
+            maxExpandedBytes:
+                MaxComponentDownloadBytes * 4);
+
+        var extractedManifest = Path.Combine(
+            extract,
+            "minecraft-runtime.json");
+
+        if (!File.Exists(extractedManifest))
+        {
+            throw new InvalidDataException(
+                $"{MinecraftRuntimeAsset} does not contain minecraft-runtime.json.");
+        }
+
+        var manifest = await LoadMinecraftRuntimeManifestAsync(
+            extractedManifest,
+            cancellationToken);
+
+        await ValidateMinecraftRuntimeBundleAsync(
+            extract,
+            manifest,
+            cancellationToken);
+
+        TryDeleteDirectory(contentRoot);
+        Directory.Move(extract, contentRoot);
+        TryDelete(zip);
+
+        return new MinecraftRuntimeBundle(
+            contentRoot,
+            manifest);
     }
 
-    private async Task DownloadAndVerifyAsync(
-        string url,
-        string destination,
-        string? expectedSha256,
-        IProgress<string>? progress,
-        string componentName,
+    private static async Task<MinecraftRuntimeManifest> LoadMinecraftRuntimeManifestAsync(
+        string path,
         CancellationToken cancellationToken)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
-            !uri.Scheme.Equals(
-                Uri.UriSchemeHttps,
-                StringComparison.OrdinalIgnoreCase) ||
-            !uri.Host.Equals(
-                "maven.fabricmc.net",
+        await using var stream = File.OpenRead(path);
+
+        var manifest =
+            await JsonSerializer.DeserializeAsync<MinecraftRuntimeManifest>(
+                stream,
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                },
+                cancellationToken);
+
+        return manifest ??
+               throw new InvalidDataException(
+                   "Minecraft runtime manifest is empty.");
+    }
+
+    private static async Task ValidateMinecraftRuntimeBundleAsync(
+        string root,
+        MinecraftRuntimeManifest manifest,
+        CancellationToken cancellationToken)
+    {
+        if (manifest.SchemaVersion != 1)
+        {
+            throw new InvalidDataException(
+                $"Unsupported Minecraft runtime manifest schema {manifest.SchemaVersion}.");
+        }
+
+        if (!manifest.MinecraftVersion.Equals(
+                MinecraftVersion,
                 StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
-                $"Unexpected Fabric download URL: {url}");
+                $"Minecraft runtime bundle targets {manifest.MinecraftVersion}, expected {MinecraftVersion}.");
         }
 
-        var temp = destination + ".download";
-
-        try
+        if (!Version.TryParse(
+                manifest.FabricLoaderVersion,
+                out var loaderVersion) ||
+            loaderVersion <
+            Version.Parse(MinimumFabricLoader))
         {
-            progress?.Report($"Downloading {componentName}…");
+            throw new InvalidDataException(
+                $"Minecraft runtime bundle has incompatible Fabric Loader {manifest.FabricLoaderVersion}.");
+        }
 
-            using (var response = await _http.GetAsync(
-                       uri,
-                       HttpCompletionOption.ResponseHeadersRead,
-                       cancellationToken))
+        var installer = ResolveBundlePath(
+            root,
+            manifest.FabricInstaller.RelativePath);
+
+        if (!File.Exists(installer))
+        {
+            throw new FileNotFoundException(
+                "Minecraft runtime bundle is missing Fabric Installer.",
+                installer);
+        }
+
+        if (string.IsNullOrWhiteSpace(
+                manifest.FabricInstaller.Sha256) ||
+            manifest.FabricInstaller.Sha256.Length != 64 ||
+            !manifest.FabricInstaller.Sha256.All(Uri.IsHexDigit))
+        {
+            throw new InvalidDataException(
+                "Minecraft runtime bundle has invalid Fabric Installer SHA-256 metadata.");
+        }
+
+        var installerHash = await Sha256Async(
+            installer,
+            cancellationToken);
+
+        if (!installerHash.Equals(
+                manifest.FabricInstaller.Sha256,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                "Minecraft runtime bundle Fabric Installer hash mismatch.");
+        }
+
+        foreach (var component in manifest.Components)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var componentPath = ResolveBundlePath(
+                root,
+                component.RelativePath);
+
+            if (!File.Exists(componentPath))
             {
-                response.EnsureSuccessStatusCode();
-
-                if (response.Content.Headers.ContentLength is > MaxComponentDownloadBytes)
-                {
-                    throw new InvalidDataException(
-                        $"{componentName} exceeds the 1 GB download safety limit.");
-                }
-
-                await using var input =
-                    await response.Content.ReadAsStreamAsync(
-                        cancellationToken);
-                await using var output = new FileStream(
-                    temp,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None,
-                    128 * 1024,
-                    useAsync: true);
-
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    MaxComponentDownloadBytes,
-                    cancellationToken);
+                throw new FileNotFoundException(
+                    $"Minecraft runtime component is missing: {component.Name}",
+                    componentPath);
             }
 
-            if (new FileInfo(temp).Length < 100 * 1024)
+            if (string.IsNullOrWhiteSpace(component.Sha512) ||
+                component.Sha512.Length != 128 ||
+                !component.Sha512.All(Uri.IsHexDigit))
             {
                 throw new InvalidDataException(
-                    $"{componentName} download is unexpectedly small.");
+                    $"Minecraft runtime component has invalid SHA-512 metadata: {component.Name}");
             }
 
-            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            await using var componentStream =
+                File.OpenRead(componentPath);
+
+            var actual = Convert.ToHexString(
+                await SHA512.HashDataAsync(
+                    componentStream,
+                    cancellationToken));
+
+            if (!actual.Equals(
+                    component.Sha512,
+                    StringComparison.OrdinalIgnoreCase))
             {
-                await using var stream = File.OpenRead(temp);
-                var actual = Convert.ToHexString(
-                    await SHA256.HashDataAsync(
-                        stream,
-                        cancellationToken));
-
-                if (!actual.Equals(
-                        expectedSha256,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new InvalidDataException(
-                        $"{componentName} SHA-256 mismatch. " +
-                        $"Expected {expectedSha256}, got {actual}.");
-                }
-
-                progress?.Report(
-                    $"{componentName} SHA-256 verified.");
+                throw new InvalidDataException(
+                    $"Minecraft runtime component hash mismatch: {component.Name}");
             }
+        }
+    }
 
-            File.Move(
-                temp,
-                destination,
-                overwrite: true);
-        }
-        catch
+    private static string ResolveBundlePath(
+        string root,
+        string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
         {
-            TryDelete(temp);
-            throw;
+            throw new InvalidDataException(
+                "Minecraft runtime manifest contains an empty path.");
         }
+
+        var fullRoot =
+            Path.GetFullPath(root)
+                .TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
+
+        var normalizedRelative = relativePath
+            .Replace(
+                '/',
+                Path.DirectorySeparatorChar);
+
+        var fullPath = Path.GetFullPath(
+            Path.Combine(
+                fullRoot,
+                normalizedRelative));
+
+        if (!fullPath.StartsWith(
+                fullRoot,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Minecraft runtime path escapes the bundle root: {relativePath}");
+        }
+
+        return fullPath;
     }
 
     private static async Task CopyWithLimitAsync(
@@ -2282,13 +2209,35 @@ public sealed class MinecraftIntegrationService
         catch { }
     }
 
-    private sealed record FabricInstallerPackage(
+    private sealed record MinecraftRuntimeBundle(
+        string RootDirectory,
+        MinecraftRuntimeManifest Manifest);
+
+    private sealed record MinecraftRuntimeManifest(
+        int SchemaVersion,
+        string MinecraftVersion,
+        DateTimeOffset CreatedAtUtc,
+        string FabricLoaderVersion,
+        MinecraftRuntimeInstaller FabricInstaller,
+        IReadOnlyList<MinecraftRuntimeComponent> Components);
+
+    private sealed record MinecraftRuntimeInstaller(
         string Version,
         string FileName,
-        string DownloadUrl,
-        string? Sha256);
+        string RelativePath,
+        string Sha256);
 
-    private sealed record ModrinthProject(
+    private sealed record MinecraftRuntimeComponent(
+        string Name,
+        string Slug,
+        string Kind,
+        string Loader,
+        string Version,
+        string FileName,
+        string RelativePath,
+        string Sha512);
+
+    private sealed record MinecraftProject(
         string Name,
         string Slug,
         string FileToken,
