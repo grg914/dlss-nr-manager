@@ -55,6 +55,8 @@ Cross-feature security, licensing and distribution rules are documented in:
 - [Data storage/removal policy](docs/DATA_STORAGE_REMOVAL_POLICY.md)
 - [Component lifecycle/distribution policy](docs/COMPONENT_LIFECYCLE_POLICY.md)
 - [Feature policy matrix](docs/FEATURE_POLICY_MATRIX.md)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Release signing/provenance policy](docs/RELEASE_SIGNING_PROVENANCE_POLICY.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 
 The project does not treat "publicly downloadable" as equivalent to "redistributable". Restricted NVIDIA SDK inputs and gated/restricted AI model weights remain local/manual where their licenses require it.
