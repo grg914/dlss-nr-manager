@@ -16,7 +16,10 @@
       "path": "third_party/NVIDIA-Streamline",
       "url": "https://github.com/NVIDIA-RTX/Streamline.git",
       "ref": "2122257e0fce486f91b385aa63b9a09b0a34b363",
-      "redistribution": "MIT root source; preserve third-party notices"
+      "release_tag": "v2.14.1",
+      "release_asset": "streamline-sdk-v2.14.1.zip",
+      "release_sha256": "92c4d954631a1710da86ca3fa8d5034f2b9503838c95fc4ae977ae149319781b",
+      "redistribution": "MIT root source; preserve third-party notices and NVIDIA runtime licenses"
     },
     {
       "id": "optiscaler",
