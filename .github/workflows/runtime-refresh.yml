@@ -12,6 +12,7 @@ on:
       - 'tools/build-optiscaler.ps1'
       - 'tools/build-reshade.ps1'
       - 'tools/generate-components-manifest.ps1'
+      - 'tools/build-nuget-offline-seed.ps1'
       - 'tools/publish-streamline-runtime.ps1'
       - 'tools/publish-temurin25-runtime.ps1'
       - 'tools/bootstrap-minecraft-runtime.ps1'
