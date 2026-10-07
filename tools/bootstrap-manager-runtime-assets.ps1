@@ -3,6 +3,7 @@ param(
     [string]$ReleaseTag,
     [string]$NvidiaSdkPath,
     [string]$NeuralRuntimePath,
+    [string]$NeuralStreamlineRuntimePath,
     [string]$SuperResolutionRuntimePath,
     [switch]$SkipVideoTests
 )
@@ -51,7 +52,20 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $streamlineScript = Join-Path $PSScriptRoot "publish-streamline-runtime.ps1"
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $streamlineScript -Repository $Repository -ReleaseTag $ReleaseTag
+$streamlineArgs = @(
+    "-NoProfile",
+    "-ExecutionPolicy", "Bypass",
+    "-File", $streamlineScript,
+    "-Repository", $Repository,
+    "-ReleaseTag", $ReleaseTag
+)
+if (-not [string]::IsNullOrWhiteSpace($NeuralStreamlineRuntimePath)) {
+    $streamlineArgs += @("-NeuralStreamlineRuntimePath", $NeuralStreamlineRuntimePath)
+}
+if (-not [string]::IsNullOrWhiteSpace($NeuralRuntimePath)) {
+    $streamlineArgs += @("-NeuralNgxRuntimePath", $NeuralRuntimePath)
+}
+& powershell.exe @streamlineArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Streamline runtime bootstrap failed."
 }

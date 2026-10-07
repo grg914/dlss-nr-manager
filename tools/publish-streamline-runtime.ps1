@@ -1,11 +1,14 @@
 param(
     [string]$Repository = "grg914/dlss-nr-manager",
-    [string]$ReleaseTag
+    [string]$ReleaseTag,
+    [string]$NeuralStreamlineRuntimePath,
+    [string]$NeuralNgxRuntimePath
 )
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$lockPath = Join-Path $Root "third_party\DEPENDENCIES.lock.json"
+$ExpectedSlDlssNrSha256 = "9f6672e5e0170dc118a3188d21bda187e1fc1aa3502895b21ab846d23165c11d"
+$ExpectedNvngxDlssNrSha256 = "e16bcf15e16e13f527491cdf7845b2fe6521a738d8f7c9c721866a8496e1fc8e"
 
 if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI (gh) is required to bootstrap the manager-owned Streamline runtime."
@@ -16,6 +19,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "GitHub CLI is not authenticated. Run gh auth login first."
 }
 
+$lockPath = Join-Path $Root "third_party\DEPENDENCIES.lock.json"
 $lock = Get-Content -LiteralPath $lockPath -Raw | ConvertFrom-Json
 $entry = @($lock.sources) | Where-Object { $_.id -eq "streamline" } | Select-Object -First 1
 if (-not $entry) { throw "Streamline lock entry is missing." }
@@ -38,6 +42,115 @@ if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
     }
 }
 
+$work = Join-Path $Root "build-local\streamline-bootstrap"
+$download = Join-Path $work $sourceAsset
+$extract = Join-Path $work "extract"
+$package = Join-Path $work ("streamline-runtime-" + $sourceTag + "-win-x64")
+$zip = "$package.zip"
+$preserve = Join-Path $work "preserve"
+
+if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $work | Out-Null
+
+function Test-ControlledRuntime {
+    param([string]$Path, [string]$ExpectedName, [string]$ExpectedSha256)
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or !(Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+
+    $resolved = (Resolve-Path -LiteralPath $Path).Path
+    if (-not ([IO.Path]::GetFileName($resolved)).Equals($ExpectedName, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Controlled runtime must be named ${ExpectedName}: $resolved"
+    }
+
+    $actual = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $ExpectedSha256) {
+        throw "$ExpectedName controlled-input SHA-256 mismatch. Expected=$ExpectedSha256 Actual=$actual"
+    }
+
+    return $resolved
+}
+
+function Try-RecoverManagerRuntime {
+    param([string]$FileName, [string]$ExpectedSha256)
+
+    $releaseJson = & gh api "repos/$Repository/releases/tags/$ReleaseTag" 2>$null
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($releaseJson)) {
+        return $null
+    }
+
+    $release = $releaseJson | ConvertFrom-Json
+    $existing = @($release.assets) |
+        Where-Object { $_.name -like "streamline-runtime-v*-win-x64.zip" } |
+        Sort-Object name -Descending |
+        Select-Object -First 1
+
+    if (-not $existing) { return $null }
+
+    $preserveZip = Join-Path $work ("preserve-" + [string]$existing.name)
+    Invoke-WebRequest -Uri ([string]$existing.browser_download_url) -OutFile $preserveZip
+
+    if (Test-Path -LiteralPath $preserve) {
+        Remove-Item -LiteralPath $preserve -Recurse -Force
+    }
+
+    Expand-Archive -LiteralPath $preserveZip -DestinationPath $preserve -Force
+    $found = Get-ChildItem -LiteralPath $preserve -Filter $FileName -File -Recurse -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if (-not $found) { return $null }
+
+    $actual = (Get-FileHash -LiteralPath $found.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $ExpectedSha256) {
+        throw "Preserved manager-owned $FileName SHA-256 mismatch. Expected=$ExpectedSha256 Actual=$actual"
+    }
+
+    return $found.FullName
+}
+
+$slCandidates = @(
+    $NeuralStreamlineRuntimePath,
+    $env:DLSS_NR_STREAMLINE_PLUGIN,
+    (Join-Path $Root "third_party-local\NVIDIA-DLSS\sl.dlss_nr.dll")
+)
+$ngxCandidates = @(
+    $NeuralNgxRuntimePath,
+    $env:DLSS_NR_RUNTIME,
+    (Join-Path $Root "third_party-local\NVIDIA-DLSS\nvngx_dlssnr.dll")
+)
+
+$controlledSl = $null
+foreach ($candidate in $slCandidates) {
+    $controlledSl = Test-ControlledRuntime $candidate "sl.dlss_nr.dll" $ExpectedSlDlssNrSha256
+    if ($controlledSl) { break }
+}
+
+$controlledNgx = $null
+foreach ($candidate in $ngxCandidates) {
+    $controlledNgx = Test-ControlledRuntime $candidate "nvngx_dlssnr.dll" $ExpectedNvngxDlssNrSha256
+    if ($controlledNgx) { break }
+}
+
+if (-not $controlledSl) {
+    $controlledSl = Try-RecoverManagerRuntime "sl.dlss_nr.dll" $ExpectedSlDlssNrSha256
+}
+if (-not $controlledNgx) {
+    $controlledNgx = Try-RecoverManagerRuntime "nvngx_dlssnr.dll" $ExpectedNvngxDlssNrSha256
+}
+
+if (-not $controlledSl -or -not $controlledNgx) {
+    $currentAssets = @(gh release view $ReleaseTag --repo $Repository --json assets --jq ".assets[].name" 2>$null)
+    $hasExisting = @($currentAssets | Where-Object { $_ -like "streamline-runtime-v*-win-x64.zip" }).Count -gt 0
+
+    if ($hasExisting) {
+        Write-Warning "Restricted Neural Rendering pair is unavailable in this runner. Preserving the existing manager-owned Streamline asset unchanged. First NR-pair publication must be run locally with -NeuralStreamlineRuntimePath and -NeuralNgxRuntimePath."
+        exit 0
+    }
+
+    throw "First manager-owned Streamline Neural Rendering publication requires controlled local inputs sl.dlss_nr.dll and nvngx_dlssnr.dll."
+}
+
 $officialJson = & gh api "repos/NVIDIA-RTX/Streamline/releases/tags/$sourceTag"
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($officialJson)) {
     throw "Unable to resolve official NVIDIA Streamline release $sourceTag."
@@ -54,15 +167,6 @@ if ($officialDigest -ne $expectedSha256) {
     throw "Official Streamline digest changed. Lock=$expectedSha256 GitHub=$officialDigest"
 }
 
-$work = Join-Path $Root "build-local\streamline-bootstrap"
-$download = Join-Path $work $sourceAsset
-$extract = Join-Path $work "extract"
-$package = Join-Path $work ("streamline-runtime-" + $sourceTag + "-win-x64")
-$zip = "$package.zip"
-
-if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $work | Out-Null
-
 Write-Host "Downloading official NVIDIA Streamline $sourceTag..."
 Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $download
 
@@ -74,13 +178,7 @@ if ($actualSha256 -ne $expectedSha256) {
 Expand-Archive -LiteralPath $download -DestinationPath $extract -Force
 New-Item -ItemType Directory -Force -Path $package | Out-Null
 
-$required = @(
-    "sl.interposer.dll",
-    "sl.common.dll",
-    "sl.dlss.dll",
-    "nvngx_dlss.dll"
-)
-
+$required = @("sl.interposer.dll", "sl.common.dll", "sl.dlss.dll", "nvngx_dlss.dll")
 $optional = @(
     "sl.dlss_d.dll",
     "nvngx_dlssd.dll",
@@ -121,6 +219,9 @@ foreach ($name in $optional) {
     }
 }
 
+Copy-Item -LiteralPath $controlledSl -Destination (Join-Path $package "sl.dlss_nr.dll") -Force
+Copy-Item -LiteralPath $controlledNgx -Destination (Join-Path $package "nvngx_dlssnr.dll") -Force
+
 $vendoredStreamline = Join-Path $Root "third_party\NVIDIA-Streamline"
 foreach ($licenseName in @("license.txt", "3rd-party-licenses.md", "SOURCE.json")) {
     $source = Join-Path $vendoredStreamline $licenseName
@@ -144,12 +245,30 @@ foreach ($dll in $copiedDlls) {
     }
 }
 
+$finalSlHash = (Get-FileHash -LiteralPath (Join-Path $package "sl.dlss_nr.dll") -Algorithm SHA256).Hash.ToLowerInvariant()
+$finalNgxHash = (Get-FileHash -LiteralPath (Join-Path $package "nvngx_dlssnr.dll") -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($finalSlHash -ne $ExpectedSlDlssNrSha256 -or $finalNgxHash -ne $ExpectedNvngxDlssNrSha256) {
+    throw "Restricted Neural Rendering pair changed during package assembly."
+}
+
 $manifest = [ordered]@{
     source_repository = "NVIDIA-RTX/Streamline"
     source_tag = $sourceTag
     source_commit = $sourceRef
     source_asset = $sourceAsset
     source_sha256 = $expectedSha256
+    restricted_inputs = @(
+        [ordered]@{
+            name = "sl.dlss_nr.dll"
+            sha256 = $ExpectedSlDlssNrSha256
+            provenance = "controlled-local-input-or-preserved-manager-owned-asset"
+        },
+        [ordered]@{
+            name = "nvngx_dlssnr.dll"
+            sha256 = $ExpectedNvngxDlssNrSha256
+            provenance = "controlled-local-input-or-preserved-manager-owned-asset"
+        }
+    )
     files = @($copiedDlls | Sort-Object Name | ForEach-Object {
         [ordered]@{
             name = $_.Name
@@ -158,7 +277,7 @@ $manifest = [ordered]@{
         }
     })
 }
-$manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package "STREAMLINE_RUNTIME.json") -Encoding UTF8
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $package "STREAMLINE_RUNTIME.json") -Encoding UTF8
 
 if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
 Compress-Archive -Path (Join-Path $package "*") -DestinationPath $zip -Force

@@ -406,34 +406,119 @@
                     </Border>
                   </Grid>
 
+                  <Button x:Name="DiagnoseButton"
+                          Style="{StaticResource CyanButton}"
+                          Content="Diagnose game"
+                          HorizontalAlignment="Stretch"
+                          Click="Diagnose_Click"/>
+                </StackPanel>
+              </Border>
+
+              <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                <StackPanel>
+                  <TextBlock Text="NVIDIA DLSS / Streamline runtime" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="Central manager for NVIDIA runtime files used by Jeux &amp; DLSS. Manager-owned packages come from DLSS NR Manager releases; Minecraft RTX remains isolated on its protected Caustica Vulkan/NGX path."
+                             Style="{StaticResource SectionSubtitle}"
+                             TextWrapping="Wrap"
+                             Margin="0,4,0,14"/>
+
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="GameDlssZipBox"
+                             IsReadOnly="True"
+                             MinHeight="38"
+                             Text="No local DLSS / Streamline package selected"/>
+                    <Button Grid.Column="2"
+                            Content="Select DLSS ZIP"
+                            Click="SelectGameDlssZip_Click"/>
+                  </Grid>
+
+                  <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="GameDlssNrBox"
+                             IsReadOnly="True"
+                             MinHeight="38"
+                             Text="No local nvngx_dlssnr.dll selected"/>
+                    <Button Grid.Column="2"
+                            x:Name="SelectRuntimeButton"
+                            Content="Select DLSSNR DLL"
+                            Click="SelectRuntime_Click"/>
+                  </Grid>
+
+                  <Border Background="#0E1620"
+                          BorderBrush="#25384C"
+                          BorderThickness="1"
+                          CornerRadius="7"
+                          Padding="10"
+                          Margin="0,0,0,10">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+                      <StackPanel>
+                        <TextBlock Text="Manager-owned runtime" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="RuntimePathText"
+                                   Text="Not checked yet. Select a game, then validate or stage the manager-owned NVIDIA runtime."
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="10"
+                                   TextWrapping="Wrap"
+                                   Margin="0,3,12,0"/>
+                      </StackPanel>
+                      <Button Grid.Column="1"
+                              x:Name="GameCheckNvidiaRuntimeButton"
+                              Content="Check &amp; stage manager runtime"
+                              Click="CheckGameNvidiaRuntime_Click"/>
+                    </Grid>
+                  </Border>
+
+                  <CheckBox x:Name="AutoNvidiaRuntimeCheck"
+                            Content="Automatically resolve Neural Rendering from the manager-owned Streamline bundle"
+                            IsChecked="True"
+                            Margin="0,0,0,10"/>
+
+                  <WrapPanel Margin="0,0,0,10">
+                    <CheckBox x:Name="GameDlssSrCheck"
+                              Content="DLSS Super Resolution"
+                              IsChecked="True"
+                              Margin="0,0,18,6"/>
+                    <CheckBox x:Name="GameDlssFgCheck"
+                              Content="Frame Generation"
+                              IsChecked="True"
+                              Margin="0,0,18,6"/>
+                    <CheckBox x:Name="GameDlssReflexCheck"
+                              Content="Reflex"
+                              IsChecked="True"
+                              Margin="0,0,18,6"/>
+                    <CheckBox x:Name="GameDlssNrCheck"
+                              Content="Neural Rendering"
+                              IsChecked="True"
+                              Margin="0,0,18,6"/>
+                  </WrapPanel>
+
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="10"/>
+                      <ColumnDefinition Width="8"/>
                       <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Button Grid.Column="0"
-                            x:Name="SelectRuntimeButton"
-                            Style="{StaticResource CyanButton}"
-                            Content="Select DLSSNR runtime"
-                            Click="SelectRuntime_Click"/>
+                            x:Name="GameStageLocalNvidiaButton"
+                            Content="Stage selected package"
+                            Click="StageGameDlssPackage_Click"/>
                     <Button Grid.Column="2"
-                            x:Name="DiagnoseButton"
-                            Style="{StaticResource CyanButton}"
-                            Content="Diagnose game"
-                            Click="Diagnose_Click"/>
+                            x:Name="GameClearNvidiaRuntimeButton"
+                            Content="Clear managed runtime"
+                            Click="ClearGameNvidiaRuntime_Click"/>
                   </Grid>
-
-                  <CheckBox x:Name="AutoNvidiaRuntimeCheck"
-                            Content="Automatically check NVIDIA Streamline and use an official DLSSNR runtime when NVIDIA publishes one"
-                            IsChecked="True"
-                            Margin="0,9,0,0"/>
-
-                  <TextBlock x:Name="RuntimePathText"
-                             Margin="0,7,0,0"
-                             Foreground="{StaticResource Muted}"
-                             TextWrapping="Wrap"
-                             FontSize="11"/>
                 </StackPanel>
               </Border>
 
@@ -494,10 +579,10 @@
                   </Grid>
 
                   <CheckBox x:Name="AutoNvidiaResourcesCheck"
-                            Content="Add missing official NVIDIA Streamline/DLSS resources to the selected game"
+                            Content="Add missing manager-owned NVIDIA Streamline/DLSS resources to the selected game"
                             IsChecked="True"
                             Margin="0,14,0,0"
-                            ToolTip="Downloads the latest official NVIDIA Streamline release and copies only missing SR/FG/Reflex/NR runtime DLLs. Existing game DLLs are never overwritten."/>
+                            ToolTip="Uses the validated manager-owned Streamline bundle from DLSS NR Manager releases and copies only missing SR/FG/Reflex/NR runtime DLLs. Existing game DLLs are never overwritten."/>
 
                   <Border Background="#26180A"
                           BorderBrush="#8B5A16"
@@ -746,118 +831,12 @@
                       CornerRadius="9"
                       Padding="11">
                 <StackPanel>
-                  <TextBlock Text="Local NVIDIA DLSS / Streamline runtime"
-                             FontWeight="SemiBold"/>
-                  <TextBlock Text="Public NVIDIA binaries are downloaded only from official NVIDIA/DLSS or NVIDIA-RTX/Streamline GitHub releases. DLSS-NR-specific files that NVIDIA has not published are never replaced with renamed or unofficial DLLs; you can still select an official local runtime when you have one."
+                  <TextBlock Text="NVIDIA runtime" FontWeight="SemiBold"/>
+                  <TextBlock Text="Managed automatically by the protected Caustica Vulkan/NGX pipeline. Manual DLSS / Streamline staging is intentionally unavailable in Minecraft RTX so generic game actions cannot inject OptiScaler proxies or alter the Caustica render path."
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
-                             FontSize="11"
-                             Margin="0,4,0,10"/>
-
-                  <Grid Margin="0,0,0,8">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="MinecraftDlssZipBox"
-                             IsReadOnly="True"
-                             MinHeight="38"
-                             Text="No DLSS package selected"/>
-                    <Button Grid.Column="2"
-                            Content="Select DLSS ZIP"
-                            Click="SelectMinecraftDlssZip_Click"/>
-                  </Grid>
-
-                  <Grid Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="MinecraftDlssNrBox"
-                             IsReadOnly="True"
-                             MinHeight="38"
-                             Text="No nvngx_dlssnr.dll selected"/>
-                    <Button Grid.Column="2"
-                            Content="Select DLSSNR DLL"
-                            Click="SelectMinecraftDlssNr_Click"/>
-                  </Grid>
-
-                  <Border Background="#0E1620"
-                          BorderBrush="#25384C"
-                          BorderThickness="1"
-                          CornerRadius="7"
-                          Padding="10"
-                          Margin="0,0,0,10">
-                    <StackPanel>
-                      <Grid>
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="*"/>
-                          <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                          <TextBlock Text="NVIDIA DLSS / Streamline runtime"
-                                     FontWeight="SemiBold"/>
-                          <TextBlock x:Name="MinecraftNvidiaNrStatusText"
-                                     Text="Not checked yet. Public NVIDIA runtime files can be downloaded for the selected instance."
-                                     Foreground="{StaticResource Muted}"
-                                     FontSize="10"
-                                     TextWrapping="Wrap"
-                                     Margin="0,3,12,0"/>
-                        </StackPanel>
-                        <Button Grid.Column="1"
-                                x:Name="MinecraftCheckNvidiaNrButton"
-                                Content="Check &amp; download NVIDIA files"
-                                Click="CheckMinecraftNvidiaNr_Click"/>
-                      </Grid>
-                      <TextBlock Text="Downloads only missing official NVIDIA production runtime files for the selected Minecraft instance. Existing files are left untouched. DLSS Neural Rendering availability is reported separately and never blocks the normal Caustica RTX runtime."
-                                 Foreground="{StaticResource Muted}"
-                                 FontSize="10"
-                                 TextWrapping="Wrap"
-                                 Margin="0,7,0,0"/>
-                    </StackPanel>
-                  </Border>
-
-                  <WrapPanel Margin="0,0,0,10">
-                    <CheckBox x:Name="MinecraftDlssSrCheck"
-                              Content="DLSS Super Resolution"
-                              IsChecked="True"
-                              Margin="0,0,18,6"/>
-                    <CheckBox x:Name="MinecraftDlssFgCheck"
-                              Content="Frame Generation"
-                              IsChecked="True"
-                              Margin="0,0,18,6"/>
-                    <CheckBox x:Name="MinecraftDlssReflexCheck"
-                              Content="Reflex"
-                              IsChecked="True"
-                              Margin="0,0,18,6"/>
-                    <CheckBox x:Name="MinecraftDlssNrCheck"
-                              Content="Neural Rendering"
-                              IsChecked="True"
-                              Margin="0,0,18,6"/>
-                  </WrapPanel>
-
-                  <Grid>
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <Button Grid.Column="0"
-                            Style="{StaticResource PrimaryButton}"
-                            Content="Stage DLSS package"
-                            Click="StageMinecraftDlssPackage_Click"/>
-                    <Button Grid.Column="2"
-                            Content="Stage DLSSNR only"
-                            Click="StageMinecraftDlssNr_Click"/>
-                    <Button Grid.Column="4"
-                            Content="Clear staged runtime"
-                            Click="ClearMinecraftDlssRuntime_Click"/>
-                  </Grid>
+                             FontSize="10"
+                             Margin="0,4,0,0"/>
                 </StackPanel>
               </Border>
 
@@ -868,7 +847,7 @@
                          FontSize="11"
                          Margin="0,10,0,0"/>
 
-              <TextBlock Text="Caustica RTX currently provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. DLSS Super Resolution is not falsely enabled by copying DLLs: it requires renderer support. The one-click installer relies on Caustica's implemented NVIDIA path and keeps the manual runtime tools below as advanced staging only."
+              <TextBlock Text="Caustica RTX currently provides path tracing, DLSS Ray Reconstruction, Frame Generation/MFG and Reflex. DLSS Super Resolution is not falsely enabled by copying DLLs: it requires renderer support. The one-click installer relies on Caustica's implemented NVIDIA path; generic NVIDIA runtime staging is kept exclusively in Jeux &amp; DLSS."
                          Foreground="{StaticResource Warning}"
                          TextWrapping="Wrap"
                          FontSize="10"
