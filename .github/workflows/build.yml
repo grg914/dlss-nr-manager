@@ -117,6 +117,7 @@ jobs:
         run: |
           $required = @(
             "SECURITY.md",
+            "SUPPORT.md",
             "CONTRIBUTING.md",
             "THIRD_PARTY_NOTICES.md",
             "docs/NETWORK_OFFLINE_PRIVACY_POLICY.md",
