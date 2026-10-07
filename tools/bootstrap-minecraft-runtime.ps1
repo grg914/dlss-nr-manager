@@ -2,24 +2,29 @@ param(
     [string]$Repository = "grg914/dlss-nr-manager",
     [string]$ReleaseTag,
     [string]$MinecraftVersion = "26.2",
-    [string]$MinimumFabricLoader = "0.19.3"
+    [string]$MinimumFabricLoader = "0.19.3",
+    [switch]$NoUpload
 )
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $UserAgent = "DlssNrManager-MinecraftBootstrap/1.0 (+https://github.com/grg914/dlss-nr-manager)"
 
-if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
-    throw "GitHub CLI (gh) is required to publish the Minecraft runtime bundle."
-}
+if (-not $NoUpload) {
+    if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
+        throw "GitHub CLI (gh) is required to publish the Minecraft runtime bundle."
+    }
 
-& gh auth status --hostname github.com 1>$null 2>$null
-if ($LASTEXITCODE -ne 0) { throw "GitHub CLI is not authenticated. Run gh auth login first." }
+    & gh auth status --hostname github.com 1>$null 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "GitHub CLI is not authenticated. Run gh auth login first."
+    }
 
-if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
-    $ReleaseTag = (& gh release view --repo $Repository --json tagName --jq ".tagName").Trim()
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($ReleaseTag)) {
-        throw "Unable to resolve the latest release tag for $Repository."
+    if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
+        $ReleaseTag = (& gh release view --repo $Repository --json tagName --jq ".tagName").Trim()
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($ReleaseTag)) {
+            throw "Unable to resolve the latest release tag for $Repository."
+        }
     }
 }
 
@@ -326,6 +331,17 @@ if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1
 }
 
 $bundleSha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+
+if ($NoUpload) {
+    Write-Host "Minecraft runtime bundle validation completed without release upload."
+    Write-Host "Bundle: $zip"
+    Write-Host "Fabric Loader: $loaderVersion"
+    Write-Host "Fabric Installer: $($installer.version)"
+    Write-Host "Components: $($components.Count)"
+    Write-Host "SHA-256: $bundleSha"
+    exit 0
+}
+
 Write-Host "Uploading minecraft-runtime-$MinecraftVersion.zip to $Repository $ReleaseTag..."
 & gh release upload $ReleaseTag $zip --repo $Repository --clobber
 if ($LASTEXITCODE -ne 0) { throw "Minecraft runtime release upload failed." }
