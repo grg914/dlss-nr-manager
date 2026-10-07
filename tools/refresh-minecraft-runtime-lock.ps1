@@ -37,13 +37,29 @@ function Select-LatestModrinthRelease {
         $uri += "&loaders=$loaders"
     }
 
-    $versions = @(Invoke-Json $uri) |
+    # Windows PowerShell 5.1 may surface a top-level JSON array from
+    # Invoke-RestMethod as one collection object. Enumerate the Modrinth
+    # response explicitly before filtering, just like the Fabric Loader list.
+    $versionRows = @(
+        foreach ($versionRow in (Invoke-Json $uri)) {
+            $versionRow
+        }
+    )
+
+    $versions = $versionRows |
         Where-Object { -not $_.version_type -or [string]$_.version_type -eq "release" } |
         Sort-Object { [DateTimeOffset]$_.date_published } -Descending
 
     foreach ($version in $versions) {
         $extension = if ($Kind -eq "resourcepack") { ".zip" } else { ".jar" }
-        $file = @($version.files) |
+
+        $fileRows = @(
+            foreach ($fileRow in $version.files) {
+                $fileRow
+            }
+        )
+
+        $file = $fileRows |
             Where-Object {
                 ([string]$_.filename).EndsWith($extension, [StringComparison]::OrdinalIgnoreCase)
             } |
