@@ -319,22 +319,21 @@ static int tta_decode_frame(AVCodecContext *avctx, AVFrame *frame,
         }
 
         // extract coded value
-        value = 1 + ((value >> 1) ^ ((value & 1) - 1));
+        *p = 1 + ((value >> 1) ^ ((value & 1) - 1));
 
         // run hybrid filter
-        value = s->dsp.filter_process(filter->qm, filter->dx, filter->dl,
-                                      &filter->error, value,
-                                      filter->shift, filter->round);
+        s->dsp.filter_process(filter->qm, filter->dx, filter->dl, &filter->error, p,
+                              filter->shift, filter->round);
 
         // fixed order prediction
 #define PRED(x, k) (int32_t)((((uint64_t)(x) << (k)) - (x)) >> (k))
         switch (s->bps) {
-        case 1: value += PRED(*predictor, 4); break;
+        case 1: *p += PRED(*predictor, 4); break;
         case 2:
-        case 3: value += PRED(*predictor, 5); break;
-        case 4: value +=      *predictor;     break;
+        case 3: *p += PRED(*predictor, 5); break;
+        case 4: *p +=      *predictor;     break;
         }
-        *predictor = *p = value;
+        *predictor = *p;
 
         // flip channels
         if (cur_chan < (s->channels-1))

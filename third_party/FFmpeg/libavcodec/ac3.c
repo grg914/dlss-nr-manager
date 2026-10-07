@@ -183,13 +183,8 @@ void ff_ac3_bit_alloc_calc_psd(int8_t *exp, int start, int end, int16_t *psd,
     }
 
     /* PSD integration */
-    /* the first 28 bands have one coefficient each */
-    for (bin = start; bin < FFMIN(end, 28); bin++)
-        band_psd[bin] = psd[bin];
-    if (bin >= end)
-        return;
-
-    band = ff_ac3_bin_to_band_tab[bin];
+    bin  = start;
+    band = ff_ac3_bin_to_band_tab[start];
     do {
         int v = psd[bin++];
         int band_end = FFMIN(ff_ac3_band_start_tab[band+1], end);

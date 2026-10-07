@@ -64,23 +64,6 @@ enum { kVTQPModulationLevel_Disable = 0 };
 #   define TARGET_CPU_ARM64 0
 #endif
 
-/*
- * Upper bound of the reorder depth of VideoToolbox H.264 and HEVC
- * output, in frames. The encoder shifts the decode timestamps
- * VideoToolbox reports by the pts distance of this many frames, and
- * the value is published as AVCodecContext.has_b_frames; understating
- * it outputs frames with dts greater than pts.
- *
- * The VideoToolbox API does not report the depth, so the value was
- * measured from encoder output on macOS 15 (Apple silicon). It bounds
- * the real depth instead of matching it everywhere: the software
- * H.264 encoder (require_sw) reorders by one frame, and untested
- * devices may reorder less. Keeping one value for every encoder is
- * safe because overstating only shifts dts earlier, and it is simpler
- * than branching per encoder.
- */
-#define REORDER_DELAY 2
-
 typedef OSStatus (*getParameterSetAtIndex)(CMFormatDescriptionRef videoDesc,
                                            size_t parameterSetIndex,
                                            const uint8_t **parameterSetPointerOut,
@@ -412,14 +395,20 @@ static void vtenc_reset(VTEncContext *vtctx)
         vtctx->supported_props = NULL;
     }
 
-    /* The colorimetry fields hold references borrowed from CoreVideo (Get
-     * semantics). Releasing them would free CoreVideo's cached string for
-     * codepoints without a constant name, and later lookups of the same
-     * codepoint would hand out a dangling pointer.
-     */
-    vtctx->color_primaries = NULL;
-    vtctx->transfer_function = NULL;
-    vtctx->ycbcr_matrix = NULL;
+    if (vtctx->color_primaries) {
+        CFRelease(vtctx->color_primaries);
+        vtctx->color_primaries = NULL;
+    }
+
+    if (vtctx->transfer_function) {
+        CFRelease(vtctx->transfer_function);
+        vtctx->transfer_function = NULL;
+    }
+
+    if (vtctx->ycbcr_matrix) {
+        CFRelease(vtctx->ycbcr_matrix);
+        vtctx->ycbcr_matrix = NULL;
+    }
 }
 
 static int vtenc_q_pop(VTEncContext *vtctx, bool wait, CMSampleBufferRef *buf, ExtraSEI *sei)
@@ -773,7 +762,6 @@ static void vtenc_output_callback(
     }
 
     if (!sample_buffer) {
-        vtenc_free_buf_node(info);
         return;
     }
 
@@ -1284,7 +1272,6 @@ static int vtenc_create_encoder(AVCodecContext   *avctx,
                                           bit_rate_num);
             if (status == kVTPropertyNotSupportedErr) {
                 av_log(avctx, AV_LOG_ERROR, "-constant_bit_rate true is not supported by the encoder.\n");
-                CFRelease(bit_rate_num);
                 return AVERROR_EXTERNAL;
             }
         } else {
@@ -1676,7 +1663,7 @@ static int vtenc_configure_encoder(AVCodecContext *avctx)
     if (vtctx->codec_id == AV_CODEC_ID_H264) {
         vtctx->get_param_set_func = CMVideoFormatDescriptionGetH264ParameterSetAtIndex;
 
-        vtctx->has_b_frames = avctx->max_b_frames > 0 ? REORDER_DELAY : 0;
+        vtctx->has_b_frames = avctx->max_b_frames > 0;
         if(vtctx->has_b_frames && (0xFF & vtctx->profile) == AV_PROFILE_H264_BASELINE){
             av_log(avctx, AV_LOG_WARNING, "Cannot use B-frames with baseline profile. Output will not contain B-frames.\n");
             vtctx->has_b_frames = 0;
@@ -1692,7 +1679,8 @@ static int vtenc_configure_encoder(AVCodecContext *avctx)
         vtctx->get_param_set_func = compat_keys.CMVideoFormatDescriptionGetHEVCParameterSetAtIndex;
         if (!vtctx->get_param_set_func) return AVERROR(EINVAL);
         if (!get_vt_hevc_profile_level(avctx, &profile_level)) return AVERROR(EINVAL);
-        vtctx->has_b_frames = avctx->max_b_frames > 0 ? REORDER_DELAY : 0;
+        // HEVC has b-byramid
+        vtctx->has_b_frames = avctx->max_b_frames > 0 ? 2 : 0;
     } else if (vtctx->codec_id == AV_CODEC_ID_PRORES) {
         avctx->codec_tag = av_bswap32(codec_type);
     }
@@ -1806,8 +1794,9 @@ static av_cold int vtenc_init(AVCodecContext *avctx)
 
     if (!status && has_b_frames_cfbool) {
         //Some devices don't output B-frames for main profile, even if requested.
+        // HEVC has b-pyramid
         if (CFBooleanGetValue(has_b_frames_cfbool))
-            vtctx->has_b_frames = REORDER_DELAY;
+            vtctx->has_b_frames = avctx->codec_id == AV_CODEC_ID_HEVC ? 2 : 1;
         else
             vtctx->has_b_frames = 0;
         CFRelease(has_b_frames_cfbool);
@@ -2232,6 +2221,7 @@ static int vtenc_cm_to_avpacket(
     size_t  out_buf_size;
     size_t  sei_nalu_size = 0;
     int64_t dts_delta;
+    int64_t time_base_num;
     int nalu_count;
     CMTime  pts;
     CMTime  dts;
@@ -2323,11 +2313,6 @@ static int vtenc_cm_to_avpacket(
     pts = CMSampleBufferGetPresentationTimeStamp(sample_buffer);
     dts = CMSampleBufferGetDecodeTimeStamp      (sample_buffer);
 
-    if (CMTIME_IS_INVALID(pts)) {
-        av_log(avctx, AV_LOG_ERROR, "PTS is invalid.\n");
-        return AVERROR_EXTERNAL;
-    }
-
     if (CMTIME_IS_INVALID(dts)) {
         if (!vtctx->has_b_frames) {
             dts = pts;
@@ -2338,9 +2323,9 @@ static int vtenc_cm_to_avpacket(
     }
 
     dts_delta = vtctx->dts_delta >= 0 ? vtctx->dts_delta : 0;
-    pkt->pts = av_rescale_q(pts.value, (AVRational){1, pts.timescale}, avctx->time_base);
-    pkt->dts = av_rescale_q(dts.value, (AVRational){1, dts.timescale}, avctx->time_base)
-               - dts_delta;
+    time_base_num = avctx->time_base.num;
+    pkt->pts = pts.value / time_base_num;
+    pkt->dts = dts.value / time_base_num - dts_delta;
 
     return 0;
 }
@@ -2470,8 +2455,8 @@ static int create_cv_pixel_buffer(AVCodecContext   *avctx,
     return 0;
 }
 
-static int create_encoder_dict(const AVFrame *frame,
-                               CFDictionaryRef* dict_out)
+static int create_encoder_dict_h264(const AVFrame *frame,
+                                    CFDictionaryRef* dict_out)
 {
     CFDictionaryRef dict = NULL;
     if (frame->pict_type == AV_PICTURE_TYPE_I) {
@@ -2504,7 +2489,7 @@ static int vtenc_send_frame(AVCodecContext *avctx,
     if (status)
         goto out;
 
-    status = create_encoder_dict(frame, &frame_dict);
+    status = create_encoder_dict_h264(frame, &frame_dict);
     if (status)
         goto out;
 
@@ -2691,14 +2676,9 @@ static int vtenc_populate_extradata(AVCodecContext   *avctx,
         goto pe_cleanup;
     }
 
-    if (!buf) {
-        // VideoToolbox reports a dropped frame as success with no buffer.
-        av_log(avctx, AV_LOG_ERROR, "Extradata frame dropped, no param sets\n");
-        status = AVERROR_EXTERNAL;
-        goto pe_cleanup;
-    }
-
     CFRelease(buf);
+
+
 
 pe_cleanup:
     CVPixelBufferRelease(pix_buf);
@@ -2713,8 +2693,8 @@ pe_cleanup:
     vtctx->frame_ct_out = 0;
 
     av_assert0(status != 0 || (avctx->extradata && avctx->extradata_size > 0));
-    // NULL once ownership passed to VideoToolbox, so a set node must be freed.
-    vtenc_free_buf_node(node);
+    if (!status)
+        vtenc_free_buf_node(node);
 
     return status;
 }

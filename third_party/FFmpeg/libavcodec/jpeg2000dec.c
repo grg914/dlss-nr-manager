@@ -39,7 +39,6 @@
 #include "bytestream.h"
 #include "codec_internal.h"
 #include "decode.h"
-#include "internal.h"
 #include "thread.h"
 #include "jpeg2000.h"
 #include "jpeg2000dsp.h"
@@ -2856,7 +2855,7 @@ static av_cold int jpeg2000_decode_init(AVCodecContext *avctx)
 }
 
 static int jpeg2000_decode_frame(AVCodecContext *avctx, AVFrame *picture,
-                                 const AVPacket *avpkt)
+                                 int *got_frame, AVPacket *avpkt)
 {
     Jpeg2000DecoderContext *s = avctx->priv_data;
     int ret;
@@ -2903,7 +2902,7 @@ static int jpeg2000_decode_frame(AVCodecContext *avctx, AVFrame *picture,
 
     if (avctx->skip_frame >= AVDISCARD_ALL) {
         jpeg2000_dec_cleanup(s);
-        return 0;
+        return avpkt->size;
     }
 
     /* get picture buffer */
@@ -2917,45 +2916,20 @@ static int jpeg2000_decode_frame(AVCodecContext *avctx, AVFrame *picture,
         if (++x == s->ncomponents)
             picture->flags |= AV_FRAME_FLAG_LOSSLESS;
 
-    ff_thread_finish_setup(avctx);
-
-    avctx->execute2(avctx, jpeg2000_decode_tile, picture, NULL,
-                    s->numXtiles * s->numYtiles);
+    avctx->execute2(avctx, jpeg2000_decode_tile, picture, NULL, s->numXtiles * s->numYtiles);
 
     jpeg2000_dec_cleanup(s);
+
+    *got_frame = 1;
 
     if (s->avctx->pix_fmt == AV_PIX_FMT_PAL8)
         memcpy(picture->data[1], s->palette, 256 * sizeof(uint32_t));
 
-    return 0;
+    return bytestream2_tell(&s->g);
 
 end:
-    /* Do not leave a partially initialized frame on the output. */
-    av_frame_unref(picture);
     jpeg2000_dec_cleanup(s);
     return ret;
-}
-
-static int jpeg2000_receive_frame(AVCodecContext *avctx, AVFrame *frame)
-{
-    AVPacket *const avpkt = avctx->internal->in_pkt;
-    int ret;
-
-    /* One codestream per packet. Loop so that skipped frames (produce no
-     * output) transparently pull the next packet instead of returning to the
-     * caller empty-handed. */
-    do {
-        ret = ff_decode_get_packet(avctx, avpkt);
-        if (ret < 0)
-            return ret;
-
-        ret = jpeg2000_decode_frame(avctx, frame, avpkt);
-        av_packet_unref(avpkt);
-        if (ret < 0)
-            return ret;
-    } while (!frame->buf[0]);
-
-    return 0;
 }
 
 #define OFFSET(x) offsetof(Jpeg2000DecoderContext, x)
@@ -2982,7 +2956,7 @@ const FFCodec ff_jpeg2000_decoder = {
     .p.capabilities   = AV_CODEC_CAP_SLICE_THREADS | AV_CODEC_CAP_FRAME_THREADS | AV_CODEC_CAP_DR1,
     .priv_data_size   = sizeof(Jpeg2000DecoderContext),
     .init             = jpeg2000_decode_init,
-    FF_CODEC_RECEIVE_FRAME_CB(jpeg2000_receive_frame),
+    FF_CODEC_DECODE_CB(jpeg2000_decode_frame),
     .p.priv_class     = &jpeg2000_class,
     .p.max_lowres     = 5,
     .p.profiles       = NULL_IF_CONFIG_SMALL(ff_jpeg2000_profiles),

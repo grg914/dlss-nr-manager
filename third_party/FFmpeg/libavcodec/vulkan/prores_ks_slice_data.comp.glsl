@@ -144,13 +144,12 @@ void main()
         int c = imageLoad(planes[plane], coord + ivec2(i, 0)).x;
         blocks[slice_block][row * 9 + i] = float(c) / (1 << (bits_per_sample - 1));
     }
-    barrier();
 
-    /* Column-wise DCT */
+    /* Row-wise DCT */
     fdct8(slice_block, row, 9);
     barrier();
 
-    /* Row-wise DCT */
+    /* Column-wise DCT */
     fdct8(slice_block, row*9, 1);
     barrier();
 

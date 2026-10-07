@@ -23,23 +23,6 @@
 #include "libavutil/avstring.h"
 #include "libavutil/file.h"
 
-static const uint8_t vectors[] =
-    "A\n"
-    "\xC3\xA9\n"                /* U+00E9 */
-    "\xE2\x82\xAC\n"            /* U+20AC */
-    "\xF0\x9F\x98\x80\n"        /* U+1F600 */
-    "\xF4\x8F\xBF\xBF\n"        /* U+10FFFF */
-    "\xF4\x90\x80\x80\n"        /* U+110000 */
-    "\xF8\x88\x80\x80\x80\n"    /* 5 byte form of U+200000 */
-    "\xC0\x80\n"                /* overlong NUL */
-    "\xE0\x80\x80\n"            /* overlong NUL */
-    "\xED\xA0\x80\n"            /* U+D800 surrogate */
-    "\xEF\xBF\xBF\n"            /* U+FFFF */
-    "\x80\n"                    /* stray continuation */
-    "\xFE\n"                    /* invalid lead byte */
-    "\xC3" "A\n"                /* missing continuation */
-    "\xE2\x82";                 /* truncated */
-
 static void print_sequence(const char *p, int l, int indent)
 {
     int i;
@@ -48,10 +31,21 @@ static void print_sequence(const char *p, int l, int indent)
     printf("%*s", indent-l*2, "");
 }
 
-static void decode(const uint8_t *p, const uint8_t *endp)
+int main(int argc, char **argv)
 {
+    int ret;
+    char *filename = argv[1];
+    uint8_t *file_buf;
+    size_t file_buf_size;
     uint32_t code;
+    const uint8_t *p, *endp;
 
+    ret = av_file_map(filename, &file_buf, &file_buf_size, 0, NULL);
+    if (ret < 0)
+        return 1;
+
+    p = file_buf;
+    endp = file_buf + file_buf_size;
     while (p < endp) {
         int l, r;
         const uint8_t *p0 = p;
@@ -71,21 +65,7 @@ static void decode(const uint8_t *p, const uint8_t *endp)
             printf("invalid sequence\n");
         }
     }
-}
 
-int main(int argc, char **argv)
-{
-    if (argc > 1) {
-        uint8_t *file_buf;
-        size_t file_buf_size;
-        int ret = av_file_map(argv[1], &file_buf, &file_buf_size, 0, NULL);
-        if (ret < 0)
-            return 1;
-        decode(file_buf, file_buf + file_buf_size);
-        av_file_unmap(file_buf, file_buf_size);
-    } else {
-        decode(vectors, vectors + sizeof(vectors) - 1);
-    }
-
+    av_file_unmap(file_buf, file_buf_size);
     return 0;
 }

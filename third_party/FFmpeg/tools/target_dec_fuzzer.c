@@ -174,16 +174,6 @@ static int fuzz_get_buffer2(AVCodecContext *ctx, AVFrame *frame, int flags)
     }
 }
 
-static void reset_cpu_flags(void)
-{
-    static int default_cpu_flags = -1;
-
-    if (default_cpu_flags < 0)
-        default_cpu_flags = av_get_cpu_flags();
-
-    av_force_cpu_flags(default_cpu_flags);
-}
-
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     uint64_t maxpixels_per_frame = 4096 * 4096;
     uint64_t maxpixels;
@@ -203,8 +193,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     uint64_t keyframes = 0;
     uint64_t flushpattern = -1;
     AVDictionary *opts = NULL;
-
-    reset_cpu_flags();
 
     if (!c) {
 #ifdef FFMPEG_DECODER
@@ -473,7 +461,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 }
                 if (ctx->codec_id != AV_CODEC_ID_DTS)
                     break;
-                av_fallthrough;
+            // fall-through
             case AV_CODEC_ID_DOLBY_E:
                 av_dict_set_int(&opts, "channel_order", !!(request_channel_layout & INT64_MIN), 0);
                 break;

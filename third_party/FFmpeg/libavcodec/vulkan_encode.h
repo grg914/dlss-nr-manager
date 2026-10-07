@@ -55,7 +55,7 @@ typedef struct FFVulkanEncodePicture {
     void                  *codec_rc_layer;
 
     FFVkExecContext       *exec;
-    FFVkBuffer            *pkt_buf;
+    AVBufferRef           *pkt_buf;
     int                    slices_offset;
 
     int non_independent_frame;
@@ -179,7 +179,7 @@ typedef struct FFVulkanEncodeContext {
      * and set here. */
     VkVideoSessionParametersKHR session_params;
 
-    AVRefStructPool *buf_pool;
+    AVBufferPool *buf_pool;
 
     VkFormat pic_format;
 
@@ -197,7 +197,7 @@ typedef struct FFVulkanEncodeContext {
 
     FFHWBaseEncodePicture *slots[32];
 
-    FFVkBuffer *prev_buf_ref;
+    AVBufferRef *prev_buf_ref;
     size_t prev_buf_size;
 } FFVulkanEncodeContext;
 

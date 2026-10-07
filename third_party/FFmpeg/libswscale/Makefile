@@ -16,7 +16,6 @@ OBJS = alphablend.o                                     \
        gamma.o                                          \
        graph.o                                          \
        input.o                                          \
-       jit.o                                            \
        lut3d.o                                          \
        options.o                                        \
        output.o                                         \
@@ -53,9 +52,5 @@ TESTPROGS = colorspace                                                  \
             floatimg_cmp                                                \
             pixdesc_query                                               \
             swscale                                                     \
-
-TESTPROGS-$(CONFIG_UNSTABLE) = sws_ops                                  \
-                               sws_ops_aarch64                          \
-                               rational64                               \
-
-DEVPROGS-$(CONFIG_UNSTABLE)  = uops_macros_gen                          \
+            sws_ops                                                     \
+            sws_ops_aarch64                                             \

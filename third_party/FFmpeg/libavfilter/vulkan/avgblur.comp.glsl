@@ -54,7 +54,7 @@ void main()
     for (int y = -filter_len.y; y <= filter_len.y; y++)
         for (int x = -filter_len.x; x <= filter_len.x; x++)
             sum += imageLoad(input_img[nonuniformEXT(gl_LocalInvocationID.z)],
-                             clamp(pos + ivec2(x, y), ivec2(0), size - 1));
+                             pos + ivec2(x, y));
 
     imageStore(output_img[nonuniformEXT(gl_LocalInvocationID.z)],
                pos, sum * filter_norm);

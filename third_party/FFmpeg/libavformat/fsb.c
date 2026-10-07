@@ -23,7 +23,6 @@
 #include "libavutil/intreadwrite.h"
 #include "avformat.h"
 #include "avio.h"
-#include "avio_internal.h"
 #include "demux.h"
 #include "internal.h"
 
@@ -94,9 +93,7 @@ static int fsb_read_header(AVFormatContext *s)
                 return ret;
             avio_seek(pb, 0x68, SEEK_SET);
             for (c = 0; c < par->ch_layout.nb_channels; c++) {
-                ret = ffio_read_size(pb, par->extradata + 32 * c, 32);
-                if (ret < 0)
-                    return ret;
+                avio_read(pb, par->extradata + 32 * c, 32);
                 avio_skip(pb, 14);
             }
         } else {
@@ -149,9 +146,7 @@ static int fsb_read_header(AVFormatContext *s)
                 return ret;
             avio_seek(pb, 0x80, SEEK_SET);
             for (c = 0; c < par->ch_layout.nb_channels; c++) {
-                ret = ffio_read_size(pb, par->extradata + 32 * c, 32);
-                if (ret < 0)
-                    return ret;
+                avio_read(pb, par->extradata + 32 * c, 32);
                 avio_skip(pb, 14);
             }
             par->block_align = 8 * par->ch_layout.nb_channels;

@@ -60,8 +60,6 @@ static int is_animated_webp_packet(AVPacket *pkt)
     if (pkt->size < skip + 4)
         return AVERROR_INVALIDDATA;
     if (AV_RL32(pkt->data + skip) == AV_RL32("VP8X")) {
-        if (pkt->size < skip + 9)
-            return AVERROR_INVALIDDATA;
         flags |= pkt->data[skip + 4 + 4];
     }
 
@@ -90,12 +88,9 @@ static int flush(AVFormatContext *s, int trailer, int64_t pts)
         skip = 12;
 
     if (AV_RL32(w->last_pkt->data + skip) == AV_RL32("VP8X")) {
-        int64_t vp8x_end = skip + 8 + (int64_t)AV_RL32(w->last_pkt->data + skip + 4);
-        if (vp8x_end > w->last_pkt->size)
-            return AVERROR_INVALIDDATA;
         flags |= w->last_pkt->data[skip + 4 + 4];
         vp8x = 1;
-        skip = vp8x_end;
+        skip += AV_RL32(w->last_pkt->data + skip + 4) + 8;
     }
 
     if (!w->wrote_webp_header) {

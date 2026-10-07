@@ -18,7 +18,6 @@
 
 #include <assert.h>
 #include <stddef.h>
-#include <string.h>
 
 #include "checkasm.h"
 #include "libavutil/intreadwrite.h"

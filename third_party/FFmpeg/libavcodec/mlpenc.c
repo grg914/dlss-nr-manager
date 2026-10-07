@@ -2241,9 +2241,10 @@ input_and_return:
         avctx->frame_num++;
 
     if (bytes_written > 0) {
-        ret = ff_af_queue_remove(&ctx->afq, avctx->frame_size, avpkt);
-        if (ret < 0)
-            return ret;
+        ff_af_queue_remove(&ctx->afq,
+                           FFMIN(avctx->frame_size, ctx->afq.remaining_samples),
+                           &avpkt->pts,
+                           &avpkt->duration);
 
         av_shrink_packet(avpkt, bytes_written);
 

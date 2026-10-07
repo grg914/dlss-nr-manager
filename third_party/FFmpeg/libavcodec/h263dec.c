@@ -56,9 +56,6 @@ static const enum AVPixelFormat h263_hwaccel_pixfmt_list_420[] = {
 #if CONFIG_MPEG4_NVDEC_HWACCEL
     AV_PIX_FMT_CUDA,
 #endif
-#if CONFIG_MPEG4_NVDEC_CUARRAY_HWACCEL
-    AV_PIX_FMT_CUARRAY,
-#endif
 #if CONFIG_MPEG4_VDPAU_HWACCEL
     AV_PIX_FMT_VDPAU,
 #endif
@@ -670,9 +667,6 @@ static const AVCodecHWConfigInternal *const h263_hw_config_list[] = {
 #endif
 #if CONFIG_MPEG4_NVDEC_HWACCEL
     HWACCEL_NVDEC(mpeg4),
-#endif
-#if CONFIG_MPEG4_NVDEC_CUARRAY_HWACCEL
-    HWACCEL_NVDEC_CUARRAY(mpeg4),
 #endif
 #if CONFIG_MPEG4_VDPAU_HWACCEL
     HWACCEL_VDPAU(mpeg4),

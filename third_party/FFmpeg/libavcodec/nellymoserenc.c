@@ -235,7 +235,7 @@ static inline float distance(float x, float y, int band)
     return tmp * tmp;
 }
 
-static int get_exponent_dynamic(NellyMoserEncodeContext *s, float *cand, int *idx_table)
+static void get_exponent_dynamic(NellyMoserEncodeContext *s, float *cand, int *idx_table)
 {
     int i, j, band, best_idx;
     float power_candidate, best_val;
@@ -243,9 +243,9 @@ static int get_exponent_dynamic(NellyMoserEncodeContext *s, float *cand, int *id
     float  (*opt )[OPT_SIZE] = s->opt ;
     uint8_t(*path)[OPT_SIZE] = s->path;
 
-    for (band = 0; band < NELLY_BANDS; band++)
-        for (i = 0; i < OPT_SIZE; i++)
-            opt[band][i] = INFINITY;
+    for (i = 0; i < NELLY_BANDS * OPT_SIZE; i++) {
+        opt[0][i] = INFINITY;
+    }
 
     for (i = 0; i < 64; i++) {
         opt[0][ff_nelly_init_table[i]] = distance(cand[0], ff_nelly_init_table[i], 0);
@@ -257,9 +257,9 @@ static int get_exponent_dynamic(NellyMoserEncodeContext *s, float *cand, int *id
         float tmp;
         int idx_min, idx_max, idx;
         power_candidate = cand[band];
-        for (q = 1000; !c && q < 2 * OPT_SIZE; q <<= 2) {
+        for (q = 1000; !c && q < OPT_SIZE; q <<= 2) {
             idx_min = FFMAX(0, cand[band] - q);
-            idx_max = FFMIN(OPT_SIZE - 1, cand[band - 1] + q);
+            idx_max = FFMIN(OPT_SIZE, cand[band - 1] + q);
             for (i = FFMAX(0, cand[band - 1] - q); i < FFMIN(OPT_SIZE, cand[band - 1] + q); i++) {
                 if ( isinf(opt[band - 1][i]) )
                     continue;
@@ -278,6 +278,7 @@ static int get_exponent_dynamic(NellyMoserEncodeContext *s, float *cand, int *id
                 }
             }
         }
+        av_assert1(c); //FIXME
     }
 
     best_val = INFINITY;
@@ -289,15 +290,12 @@ static int get_exponent_dynamic(NellyMoserEncodeContext *s, float *cand, int *id
             best_idx = i;
         }
     }
-    if (best_idx < 0)
-        return AVERROR(EINVAL);
     for (band = NELLY_BANDS - 1; band >= 0; band--) {
         idx_table[band] = path[band][best_idx];
         if (band) {
             best_idx -= ff_nelly_delta_table[path[band][best_idx]];
         }
     }
-    return 0;
 }
 
 /**
@@ -306,7 +304,7 @@ static int get_exponent_dynamic(NellyMoserEncodeContext *s, float *cand, int *id
  *  @param output          output buffer
  *  @param output_size     size of output buffer
  */
-static int encode_block(NellyMoserEncodeContext *s, unsigned char *output, int output_size)
+static void encode_block(NellyMoserEncodeContext *s, unsigned char *output, int output_size)
 {
     PutBitContext pb;
     int i, j, band, block, best_idx, power_idx = 0;
@@ -328,16 +326,10 @@ static int encode_block(NellyMoserEncodeContext *s, unsigned char *output, int o
         }
         cand[band] =
             log2(FFMAX(1.0, coeff_sum / (ff_nelly_band_sizes_table[band] << 7))) * 1024.0;
-        if (!isfinite(cand[band])) {
-            av_log(s->avctx, AV_LOG_ERROR, "Input contains NaN/+-Inf\n");
-            return AVERROR(EINVAL);
-        }
     }
 
     if (s->avctx->trellis) {
-        int ret = get_exponent_dynamic(s, cand, idx_table);
-        if (ret < 0)
-            return ret;
+        get_exponent_dynamic(s, cand, idx_table);
     } else {
         get_exponent_greedy(s, cand, idx_table);
     }
@@ -351,8 +343,6 @@ static int encode_block(NellyMoserEncodeContext *s, unsigned char *output, int o
             power_idx = ff_nelly_init_table[idx_table[0]];
             put_bits(&pb, 6, idx_table[0]);
         }
-        if (power_idx >= (31 - POW_TABLE_OFFSET) << 11)
-            return AVERROR(EINVAL);
         power_val = pow_table[power_idx & 0x7FF] / (1 << ((power_idx >> 11) + POW_TABLE_OFFSET));
         for (j = 0; j < ff_nelly_band_sizes_table[band]; i++, j++) {
             s->mdct_out[i] *= power_val;
@@ -386,7 +376,6 @@ static int encode_block(NellyMoserEncodeContext *s, unsigned char *output, int o
 
     flush_put_bits(&pb);
     memset(put_bits_ptr(&pb), 0, output + output_size - put_bits_ptr(&pb));
-    return 0;
 }
 
 static int encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
@@ -417,13 +406,11 @@ static int encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
 
     if ((ret = ff_get_encode_buffer(avctx, avpkt, NELLY_BLOCK_LEN, 0)) < 0)
         return ret;
-    if ((ret = encode_block(s, avpkt->data, avpkt->size)) < 0)
-        return ret;
+    encode_block(s, avpkt->data, avpkt->size);
 
     /* Get the next frame pts/duration */
-    ret = ff_af_queue_remove(&s->afq, avctx->frame_size, avpkt);
-    if (ret < 0)
-        return ret;
+    ff_af_queue_remove(&s->afq, avctx->frame_size, &avpkt->pts,
+                       &avpkt->duration);
 
     *got_packet_ptr = 1;
     return 0;
