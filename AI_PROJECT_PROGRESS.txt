@@ -25,7 +25,11 @@ Checkpoint persistant :
   - windows-runtime / Minecraft / Streamline : PASSED
   - java-runtime / Temurin 25 : PASSED
   - dispatch-release : PASSED
-- Release #22 : EN COURS au dernier contrôle, sur main bb523d2.
+- Release #22 : FAILED après avoir validé avec succès checkout, audit zero-upstream, version 3.1.1, feed NuGet offline, restore, tests, publish EXE, identité, ZIP, runtime seed, modèles LFS/IA/Real-ESRGAN.
+  Échec exact : étape "Reuse manager-owned Caustica and Scandi assets" -> "No manager-owned Caustica RTX Minecraft 26.2 asset was found in stable release history."
+  Vérification GitHub réelle : v3.0.0 contient bien Caustica-RTX-Minecraft-26.2-build-46.jar (SHA-256 40cfc86c...) et SPBRScandi.zip (SHA-256 1bb19e99...).
+  Cause confirmée : la réponse JSON top-level /releases n'était pas explicitement énumérée avant la boucle PowerShell ; le filtre Caustica était correct.
+  Correction ajoutée à PR #50 : énumération explicite des releases et de leurs assets, sans changer les critères Caustica/SPBR.
 - Build #645 sur main : FAILED dans Prepare manager-owned offline NuGet feed.
   Cause exacte observée : runtime-seed-v1/nuget-offline.zip a été remplacé pendant Runtime Seed Refresh #8 entre la lecture du digest GitHub et le téléchargement ; l'ancien digest attendu ne correspondait donc plus aux nouveaux octets téléchargés.
   Ce n'est pas une régression de compilation/application.
@@ -47,10 +51,10 @@ Règle de protection :
 - Aucun bypass n'est introduit.
 
 Prochaines actions exactes :
-1. Faire passer le Build final de PR #50 sur son dernier head.
+1. Faire passer le Build final de PR #50 sur son dernier head incluant le correctif Release #22.
 2. Fusionner PR #50 uniquement si ce Build est PASSED.
 3. Vérifier le Build main post-merge avec le downloader snapshot-consistent.
-4. Vérifier Release #22 ; si elle échoue sur une cause déjà corrigée seulement dans PR #50, laisser la fusion déclencher/retester le circuit corrigé au lieu de masquer l'erreur.
+4. Après fusion, exécuter une nouvelle Release sur le workflow corrigé et vérifier qu'elle franchit la récupération Caustica/SPBR puis crée réellement la release stable 3.1.1.
 5. Vérifier un nouvel Upstream Dependency Sync réel :
    - aucune tentative de push direct vers main ;
    - si Actions ne peut toujours pas créer de PR : branche automation/upstream-sync + issue persistante, workflow non-bouclant ;
