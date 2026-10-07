@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace DlssNrManager.Services;
 
@@ -336,102 +337,205 @@ public sealed class MinecraftIntegrationService
                 "Minecraft Launcher is currently running. Close it completely before installing Fabric so launcher_profiles.json cannot be overwritten while DLSS NR Manager is updating the instance.");
         }
 
-        var java = await EnsureJava25Async(
-            minecraftRoot,
-            progress,
-            cancellationToken);
-
         var runtimeBundle = await EnsureMinecraftRuntimeBundleAsync(
             progress,
             cancellationToken);
 
-        var installerPackage = runtimeBundle.Manifest.FabricInstaller;
-        var loaderVersion = runtimeBundle.Manifest.FabricLoaderVersion;
-        var installer = ResolveBundlePath(
-            runtimeBundle.RootDirectory,
-            installerPackage.RelativePath);
-
-        if (!File.Exists(installer))
-        {
-            throw new FileNotFoundException(
-                "Manager-owned Minecraft runtime bundle is missing its Fabric Installer.",
-                installer);
-        }
-
-        var installerSha = await Sha256Async(
-            installer,
-            cancellationToken);
-
-        if (!installerSha.Equals(
-                installerPackage.Sha256,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidDataException(
-                $"Bundled Fabric Installer SHA-256 mismatch. Expected {installerPackage.Sha256}, got {installerSha}.");
-        }
+        var manifest = runtimeBundle.Manifest;
+        var loaderVersion = manifest.FabricLoaderVersion;
 
         progress?.Report(
-            $"Installing Fabric Loader {loaderVersion} for Minecraft {MinecraftVersion} using Fabric Installer {installerPackage.Version}…");
+            $"Installing manager-owned Fabric Loader {loaderVersion} for Minecraft {MinecraftVersion}…");
 
-        var psi = new ProcessStartInfo(java)
-        {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
+        var profileSource = ResolveBundlePath(
+            runtimeBundle.RootDirectory,
+            manifest.FabricProfileRelativePath);
 
-        foreach (var arg in new[]
+        if (!File.Exists(profileSource))
         {
-            "-jar", installer,
-            "client",
-            "-dir", minecraftRoot,
-            "-mcversion", MinecraftVersion,
-            "-loader", loaderVersion
-        })
-            psi.ArgumentList.Add(arg);
+            throw new FileNotFoundException(
+                "Minecraft runtime bundle is missing its Fabric profile JSON.",
+                profileSource);
+        }
+
+        var profileId = manifest.FabricProfileId;
+        if (string.IsNullOrWhiteSpace(profileId) ||
+            !profileId.Equals(
+                Path.GetFileName(profileId),
+                StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Minecraft runtime bundle contains an invalid Fabric profile id: {profileId}");
+        }
+
+        var profileDirectory = Path.Combine(
+            minecraftRoot,
+            "versions",
+            profileId);
+        Directory.CreateDirectory(profileDirectory);
+
+        var profileDestination = Path.Combine(
+            profileDirectory,
+            profileId + ".json");
+
+        File.Copy(
+            profileSource,
+            profileDestination,
+            true);
+
+        var librariesRoot = Path.Combine(
+            minecraftRoot,
+            "libraries");
+        Directory.CreateDirectory(librariesRoot);
+
+        foreach (var library in manifest.FabricLibraries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var source = ResolveBundlePath(
+                runtimeBundle.RootDirectory,
+                library.RelativePath);
+
+            var destination = ResolveContainedPath(
+                librariesRoot,
+                library.MavenPath,
+                "Fabric library");
+
+            if (File.Exists(destination))
+            {
+                var existingHash = await Sha1Async(
+                    destination,
+                    cancellationToken);
+
+                if (existingHash.Equals(
+                        library.Sha1,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+            }
+
+            Directory.CreateDirectory(
+                Path.GetDirectoryName(destination)!);
+
+            var temp = destination + ".download";
+            try
+            {
+                File.Copy(source, temp, true);
+
+                var actual = await Sha1Async(
+                    temp,
+                    cancellationToken);
+
+                if (!actual.Equals(
+                        library.Sha1,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"Bundled Fabric library SHA-1 mismatch for {library.Name}. " +
+                        $"Expected {library.Sha1}, got {actual}.");
+                }
+
+                File.Move(temp, destination, true);
+            }
+            catch
+            {
+                TryDelete(temp);
+                throw;
+            }
+        }
 
         var launcherType = DetectPreferredFabricLauncherType(
             minecraftRoot);
 
-        if (!string.IsNullOrWhiteSpace(launcherType))
+        if (string.IsNullOrWhiteSpace(launcherType))
         {
-            psi.ArgumentList.Add("-launcher");
-            psi.ArgumentList.Add(launcherType);
-
-            progress?.Report(
-                $"Fabric profile target: {launcherType}.");
+            throw new FileNotFoundException(
+                "No supported Minecraft launcher_profiles JSON was found.");
         }
 
-        using var process = ExternalProcessTracker.Start(psi);
+        UpdateFabricLauncherProfile(
+            minecraftRoot,
+            launcherType,
+            profileId);
 
-        try
+        Directory.CreateDirectory(
+            Path.Combine(
+                minecraftRoot,
+                "mods"));
+
+        progress?.Report(
+            $"Fabric Loader {loaderVersion} installed fully from the manager-owned Minecraft runtime bundle. Restart Minecraft Launcher before continuing.");
+    }
+
+    private static void UpdateFabricLauncherProfile(
+        string minecraftRoot,
+        string launcherType,
+        string profileId)
+    {
+        var profileStoreName = launcherType.Equals(
+                "microsoft_store",
+                StringComparison.OrdinalIgnoreCase)
+            ? "launcher_profiles_microsoft_store.json"
+            : "launcher_profiles.json";
+
+        var profileStore = Path.Combine(
+            minecraftRoot,
+            profileStoreName);
+
+        if (!File.Exists(profileStore))
         {
-            var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
-
-            _ = await stdout;
-            var error = await stderr;
-
-            if (process.ExitCode != 0)
-                throw new InvalidOperationException(
-                    "Fabric Installer failed.\n" + Tail(error, 3000));
+            throw new FileNotFoundException(
+                "Minecraft launcher profile store was not found.",
+                profileStore);
         }
-        catch (OperationCanceledException)
+
+        var rootNode = JsonNode.Parse(
+                File.ReadAllText(profileStore))
+            as JsonObject
+            ?? throw new InvalidDataException(
+                "Minecraft launcher profile store is not a JSON object.");
+
+        var profiles =
+            rootNode["profiles"] as JsonObject;
+
+        if (profiles == null)
         {
-            ExternalProcessTracker.Kill(process);
-            throw;
-        }
-        finally
-        {
-            if (!process.HasExited)
-                ExternalProcessTracker.Kill(process);
-            else
-                ExternalProcessTracker.Untrack(process);
+            profiles = new JsonObject();
+            rootNode["profiles"] = profiles;
         }
 
-        progress?.Report("Fabric Loader installation finished. Restart Minecraft Launcher before continuing.");
+        var profileKey =
+            "fabric-loader-" + MinecraftVersion;
+
+        var profile =
+            profiles[profileKey] as JsonObject;
+
+        if (profile == null)
+        {
+            var now = DateTimeOffset.UtcNow
+                .ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+
+            profile = new JsonObject
+            {
+                ["name"] = profileKey,
+                ["type"] = "custom",
+                ["created"] = now,
+                ["lastUsed"] = now
+            };
+
+            profiles[profileKey] = profile;
+        }
+
+        profile["lastVersionId"] = profileId;
+
+        AtomicFile.WriteAllText(
+            profileStore,
+            rootNode.ToJsonString(
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                }));
     }
 
     private static string? DetectPreferredFabricLauncherType(
@@ -1473,6 +1577,75 @@ public sealed class MinecraftIntegrationService
                 "Minecraft runtime bundle Fabric Installer hash mismatch.");
         }
 
+        var profilePath = ResolveBundlePath(
+            root,
+            manifest.FabricProfileRelativePath);
+
+        if (!File.Exists(profilePath))
+        {
+            throw new FileNotFoundException(
+                "Minecraft runtime bundle is missing its Fabric profile JSON.",
+                profilePath);
+        }
+
+        using (var profileJson = JsonDocument.Parse(
+                   await File.ReadAllTextAsync(
+                       profilePath,
+                       cancellationToken)))
+        {
+            var profileId =
+                profileJson.RootElement.TryGetProperty(
+                    "id",
+                    out var idElement)
+                    ? idElement.GetString()
+                    : null;
+
+            if (!string.Equals(
+                    profileId,
+                    manifest.FabricProfileId,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "Minecraft runtime Fabric profile id does not match its manifest.");
+            }
+        }
+
+        foreach (var library in manifest.FabricLibraries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(library.Sha1) ||
+                library.Sha1.Length != 40 ||
+                !library.Sha1.All(Uri.IsHexDigit))
+            {
+                throw new InvalidDataException(
+                    $"Minecraft runtime Fabric library has invalid SHA-1 metadata: {library.Name}");
+            }
+
+            var libraryPath = ResolveBundlePath(
+                root,
+                library.RelativePath);
+
+            if (!File.Exists(libraryPath))
+            {
+                throw new FileNotFoundException(
+                    $"Minecraft runtime Fabric library is missing: {library.Name}",
+                    libraryPath);
+            }
+
+            var actualSha1 = await Sha1Async(
+                libraryPath,
+                cancellationToken);
+
+            if (!actualSha1.Equals(
+                    library.Sha1,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Minecraft runtime Fabric library hash mismatch: {library.Name}");
+            }
+        }
+
         foreach (var component in manifest.Components)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1547,6 +1720,45 @@ public sealed class MinecraftIntegrationService
         {
             throw new InvalidDataException(
                 $"Minecraft runtime path escapes the bundle root: {relativePath}");
+        }
+
+        return fullPath;
+    }
+
+    private static string ResolveContainedPath(
+        string root,
+        string relativePath,
+        string label)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new InvalidDataException(
+                $"{label} path is empty.");
+        }
+
+        var fullRoot =
+            Path.GetFullPath(root)
+                .TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
+
+        var normalizedRelative = relativePath
+            .Replace(
+                '/',
+                Path.DirectorySeparatorChar);
+
+        var fullPath = Path.GetFullPath(
+            Path.Combine(
+                fullRoot,
+                normalizedRelative));
+
+        if (!fullPath.StartsWith(
+                fullRoot,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"{label} path escapes its root: {relativePath}");
         }
 
         return fullPath;
@@ -2170,6 +2382,17 @@ public sealed class MinecraftIntegrationService
                 new JsonSerializerOptions { WriteIndented = true }));
     }
 
+    private static async Task<string> Sha1Async(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = File.OpenRead(path);
+        var hash = await SHA1.HashDataAsync(
+            stream,
+            cancellationToken);
+        return Convert.ToHexString(hash);
+    }
+
     private static async Task<string> Sha256Async(
         string path,
         CancellationToken cancellationToken)
@@ -2218,8 +2441,17 @@ public sealed class MinecraftIntegrationService
         string MinecraftVersion,
         DateTimeOffset CreatedAtUtc,
         string FabricLoaderVersion,
+        string FabricProfileId,
+        string FabricProfileRelativePath,
+        IReadOnlyList<MinecraftRuntimeLibrary> FabricLibraries,
         MinecraftRuntimeInstaller FabricInstaller,
         IReadOnlyList<MinecraftRuntimeComponent> Components);
+
+    private sealed record MinecraftRuntimeLibrary(
+        string Name,
+        string MavenPath,
+        string RelativePath,
+        string Sha1);
 
     private sealed record MinecraftRuntimeInstaller(
         string Version,
