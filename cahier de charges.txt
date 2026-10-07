@@ -1,0 +1,8353 @@
+1.Je veux que tu vérifies précisément mon installation et mes fichiers afin de déterminer si la version de Caustica que j’utilise est bien ma version compilée et corrigée, et non la version originale de base de Caustica.
+
+Fichier principal à vérifier
+
+Le fichier concerné est :
+
+Caustica-RTX-Minecraft-26.2-build-46.jar
+
+Je veux que tu vérifies notamment :
+
+Si ce .jar correspond bien à une version que j’ai moi-même compilée puis mise à jour/corrigée.
+
+S’il contient bien les modifications/corrections que j’ai apportées.
+
+S’il s’agit de la version que j’avais intégrée avec ScandiShader.
+
+Vérifier qu’il ne s’agit pas simplement du .jar original de Caustica renommé ou légèrement modifié.
+
+Comparer, lorsque c’est possible, sa structure interne, ses classes, ressources, métadonnées, fichiers de configuration et éventuelles différences avec la version Caustica de base.
+
+Identifier clairement les éléments qui permettent de confirmer ou d’infirmer qu’il s’agit de ma build corrigée/intégrée à ScandiShader.
+
+Si des informations manquent pour être certain, indique exactement ce qu’il faut fournir pour permettre une vérification fiable.
+
+Pack de textures
+
+Je veux également vérifier le fichier :
+
+SPBRScandi.zip
+
+Il s’agit du pack de textures associé à mon intégration.
+
+Vérifie :
+
+Si le fichier SPBRScandi.zip a bien été transféré correctement.
+
+Si son contenu est complet et cohérent.
+
+Si sa structure correspond bien à un pack de textures Minecraft valide.
+
+Si les fichiers nécessaires au fonctionnement de SPBR / ScandiShader sont présents.
+
+Si le pack est correctement lié/référencé par ma version de Caustica/ScandiShader.
+
+Vérifie notamment les chemins, noms de fichiers, fichiers de configuration, ressources et éventuelles références croisées entre le .jar et le .zip.
+
+Détermine si le .jar recherche réellement SPBRScandi.zip, et à quel emplacement ou via quel mécanisme.
+
+Vérifie qu’il n’existe pas un autre pack ou une autre ressource qui serait utilisé à sa place.
+
+Objectif final
+
+Je veux une vérification technique et factuelle, pas une simple supposition.
+
+À la fin, donne-moi clairement :
+
+Caustica-RTX-Minecraft-26.2-build-46.jar
+
+✅ Ma version compilée/corrigée
+
+⚠️ Probablement ma version, mais impossible de confirmer complètement
+
+❌ Version originale/base de Caustica
+
+ou indéterminable, avec les raisons.
+
+SPBRScandi.zip
+
+✅ Correctement transféré et exploitable
+
+⚠️ Présent mais problème ou élément manquant
+
+❌ Mauvais fichier / mauvais transfert / non utilisé
+
+ou indéterminable.
+
+Explique précisément comment le .jar et le .zip sont liés, où le lien est défini et quel fichier est réellement chargé par Minecraft/ScandiShader.
+
+Signale toute incohérence, doublon, ancienne version, mauvais chemin, mauvais nom de fichier ou ressource qui pourrait faire que Minecraft utilise la version originale de Caustica au lieu de ma version corrigée.
+
+Si nécessaire, demande-moi les fichiers, les logs, l’arborescence du dossier Minecraft, les fichiers de configuration ou les deux versions du .jar à comparer.
+
+Ne conclus jamais qu’un fichier est bien ma version simplement parce que son nom correspond : base-toi sur des preuves techniques présentes dans les fichiers, leur contenu, leur structure, leurs métadonnées et les différences avec la version originale.
+
+
+2.Je veux que tu m’aides à optimiser OptiScaler au maximum pour réduire au minimum la perte de FPS, tout en conservant une excellente qualité d’image et une bonne stabilité avec DLSS 5.
+
+Le contexte est Minecraft RTX, avec mon installation personnalisée de Caustica/ScandiShader.
+
+Objectif prioritaire
+
+Mon objectif est :
+
+PERFORMANCE > LATENCE > STABILITÉ > QUALITÉ D’IMAGE, mais sans dégrader inutilement l’image.
+
+Je veux éviter qu’OptiScaler introduise une perte de performances qui pourrait être supprimée par une meilleure configuration.
+
+Je veux notamment déterminer :
+
+Quels réglages OptiScaler ont réellement un coût en FPS.
+
+Lesquels peuvent être désactivés sans perdre de fonctionnalités importantes.
+
+Quels réglages peuvent créer une surcharge CPU/GPU.
+
+Quels réglages peuvent provoquer des copies supplémentaires de textures/buffers.
+
+Quels réglages de synchronisation peuvent provoquer des stalls ou attendre inutilement le GPU/CPU.
+
+S’il existe un chemin de rendu plus performant entre nvngx.dll, dxgi.dll et d3d12.dll.
+
+Si OptiScaler doit être utilisé ou s’il vaut mieux laisser certaines fonctions directement à DLSS.
+
+Si certaines fonctions d’OptiScaler sont inutiles dans mon cas et doivent être désactivées.
+
+Comment éviter toute double opération de sharpening, scaling, upscaling ou post-processing.
+
+Comment éviter les conflits entre OptiScaler, DLSS, Caustica, ScandiShader et mon pack SPBR.
+
+DLSS 5
+
+Je veux que tu prennes spécifiquement en compte DLSS 5 et que tu vérifies ce qui est réellement compatible avec la version d’OptiScaler utilisée.
+
+Ne pars pas du principe que tous les réglages DLSS classiques sont encore pertinents avec DLSS 5.
+
+Vérifie notamment :
+
+Le modèle DLSS réellement chargé.
+
+La version de nvngx_dlss.dll utilisée.
+
+Le rôle exact d’OptiScaler dans la chaîne de rendu.
+
+Si OptiScaler remplace DLSS, intercepte DLSS ou ajoute simplement certaines fonctionnalités autour de DLSS.
+
+Quels paramètres DLSS doivent être laissés en auto.
+
+Quels paramètres peuvent être forcés sans provoquer de perte de performances.
+
+Les éventuels coûts liés au sharpening, RCAS, MAS ou Output Scaling.
+
+Les éventuels coûts liés au Frame Generation.
+
+Les éventuels coûts liés aux copies ou synchronisations supplémentaires.
+
+Optimisation FPS
+
+Je veux que tu recherches en priorité la configuration permettant d'avoir :
+
+le moins de perte FPS possible avec OptiScaler.
+
+Analyse particulièrement :
+
+Upscaler
+
+DLSS natif ou DLSS via OptiScaler.
+
+Quel backend est réellement utilisé.
+
+Quel chemin DX12 est le plus performant.
+
+Vérifier si un backend intermédiaire est utilisé inutilement.
+
+Synchronisation
+
+TextureSyncMethod
+
+CopyBackSyncMethod
+
+SyncAfterDx12
+
+UseDelayedInit
+
+Détermine pour chacun :
+
+son rôle ;
+
+son coût potentiel ;
+
+son impact sur les FPS ;
+
+son impact sur la latence ;
+
+son risque d’instabilité.
+
+Je veux privilégier les méthodes les plus rapides tant qu’elles restent stables.
+
+Upscale Ratio
+Analyse :
+
+UpscaleRatioOverrideEnabled
+
+UpscaleRatioOverrideValue
+
+DrsMaxOverrideEnabled
+
+QualityRatioOverrideEnabled
+
+les ratios Quality / Balanced / Performance.
+
+Cherche le meilleur compromis FPS/qualité pour Minecraft RTX.
+
+DRS
+Vérifie si le Dynamic Resolution Scaling est actif.
+
+Si le DRS peut provoquer des variations inutiles de résolution ou une surcharge, propose la configuration optimale.
+
+Sharpening
+Vérifie :
+
+OverrideSharpness
+
+Sharpness
+
+RCAS
+
+MAS
+
+tout autre sharpening.
+
+Je ne veux surtout pas avoir deux systèmes de sharpening actifs simultanément.
+
+Pseudo Super Sampling
+Vérifie que :
+
+SuperSamplingEnabled
+
+n'est pas activé inutilement.
+
+Explique son coût en performances et détermine s'il doit être désactivé pour mon objectif FPS.
+
+Debug / Logging
+Vérifie tous les paramètres de debug, dump, logging ou diagnostic.
+
+Tout ce qui n'est pas nécessaire au fonctionnement normal doit être désactivé si cela peut réduire la charge ou éviter des opérations inutiles.
+
+Minecraft RTX spécifiquement
+
+Prends en compte les particularités de Minecraft RTX avec OptiScaler.
+
+Vérifie notamment :
+
+le comportement du jeu avec DLSS ;
+
+le ratio DLSS forcé par Minecraft ;
+
+les éventuelles limitations des ratios ;
+
+les problèmes connus avec certains ratios ;
+
+les problèmes éventuels avec dxgi.dll, d3d12.dll et nvngx.dll ;
+
+les éventuelles différences entre Bedrock Launcher et un launcher tiers ;
+
+les éventuels problèmes avec l'overlay OptiScaler ;
+
+les éventuels problèmes de permissions/logs ;
+
+les conflits avec le pipeline RTX de Minecraft.
+
+Ne recommande pas un réglage uniquement parce qu'il fonctionne : vérifie s'il est réellement optimal en performances.
+
+Caustica + ScandiShader
+
+Mon installation contient également :
+
+Caustica RTX
+
+ma version personnalisée/corrigée de Caustica
+
+ScandiShader
+
+SPBRScandi.zip
+
+OptiScaler
+
+DLSS 5
+
+Je veux que tu analyses la chaîne complète :
+
+Minecraft RTX → Caustica → ScandiShader → SPBRScandi → OptiScaler → DLSS
+
+et que tu détermines s'il existe :
+
+une double conversion ;
+
+une double mise à l'échelle ;
+
+un double sharpening ;
+
+une copie de texture inutile ;
+
+un post-process inutile ;
+
+une synchronisation supplémentaire ;
+
+un hook redondant ;
+
+un conflit entre les DLL ;
+
+une fonction exécutée deux fois.
+
+IMPORTANT : ne modifie rien immédiatement
+
+Avant de me proposer une configuration finale, présente-moi d'abord les solutions possibles.
+
+Classe-les ainsi :
+
+Solution A — Performance maximale
+
+Configuration visant le minimum absolu de perte FPS.
+
+Indique :
+
+FPS attendus relativement au fonctionnement sans OptiScaler ;
+
+avantages ;
+
+inconvénients ;
+
+risques ;
+
+qualité d'image.
+
+Solution B — Performance / qualité équilibrée
+
+Configuration recommandée pour jouer normalement.
+
+Indique :
+
+gain/perte FPS estimé ;
+
+qualité d'image ;
+
+latence ;
+
+stabilité.
+
+Solution C — Qualité maximale
+
+Configuration privilégiant la qualité d'image tout en essayant de limiter la perte FPS.
+
+Pour chaque solution
+
+Donne un tableau avec :
+
+Paramètre	Valeur	Impact FPS	Impact qualité	Risque
+Upscaler	...	...	...	...
+Sync	...	...	...	...
+Ratio	...	...	...	...
+Sharpening	...	...	...	...
+DRS	...	...	...	...
+SuperSampling	...	...	...	...
+Output Scaling	...	...	...	...
+Frame Generation	...	...	...	...
+Méthode de validation
+
+Ne donne pas de chiffres inventés.
+
+Si tu ne peux pas mesurer précisément le coût FPS d'un réglage sur ma machine, indique :
+
+"À mesurer sur ta configuration"
+
+et propose une méthode de benchmark permettant de mesurer précisément la différence.
+
+Je veux notamment comparer :
+
+Minecraft sans OptiScaler.
+
+Minecraft + OptiScaler configuration par défaut.
+
+Minecraft + configuration Performance.
+
+Minecraft + configuration Équilibrée.
+
+Minecraft + configuration Qualité.
+
+Compare ensuite :
+
+FPS moyen ;
+
+1% low ;
+
+0.1% low ;
+
+frametime ;
+
+utilisation GPU ;
+
+utilisation CPU ;
+
+VRAM ;
+
+latence si mesurable ;
+
+stabilité ;
+
+qualité d'image.
+
+Règle importante
+
+Ne modifie aucun fichier et ne me donne pas immédiatement une configuration définitive.
+
+Commence par :
+
+analyser ma configuration actuelle ;
+
+identifier les sources potentielles de perte FPS ;
+
+proposer les différentes solutions ;
+
+expliquer leurs avantages/inconvénients ;
+
+me dire laquelle tu recommandes ;
+
+attendre ma validation.
+
+Seulement après mon accord, donne-moi les modifications exactes à appliquer à OptiScaler.ini, aux DLL ou aux autres fichiers nécessaires.
+
+Si tu as besoin de fichiers pour effectuer une analyse fiable, demande-moi en priorité :
+
+OptiScaler.ini
+
+nvngx.ini s’il existe
+
+version exacte d’OptiScaler
+
+nvngx.dll
+
+dxgi.dll
+
+d3d12.dll
+
+nvngx_dlss.dll
+
+logs OptiScaler
+
+logs Minecraft
+
+arborescence du dossier Minecraft
+
+fichiers de configuration Caustica
+
+fichiers de configuration ScandiShader
+
+SPBRScandi.zip
+
+Ne suppose jamais qu'une DLL ou une configuration est correcte simplement à cause de son nom ou de sa version.
+
+Je veux une analyse technique basée sur les fichiers réels et, lorsque nécessaire, sur la documentation officielle du projet OptiScaler et les informations de compatibilité Minecraft RTX.
+
+
+3.
+
+Je veux ajouter à mon application un système complet de génération d’images et de vidéos par IA en LOCAL, à partir de texte.
+
+IMPORTANT : ne modifie rien et ne commence aucune installation avant de m’avoir présenté les solutions possibles et que je les valide.
+
+OBJECTIF :
+
+Ajouter un nouvel onglet dans mon application appelé par exemple "AI Studio".
+
+Cet onglet devra permettre de :
+
+- générer des images à partir de texte (Text-to-Image)
+- générer des images à partir d’une image (Image-to-Image)
+- faire de l’inpainting/outpainting si possible
+- utiliser des modèles, LoRA, ControlNet ou équivalents
+- générer des vidéos à partir de texte (Text-to-Video)
+- générer des vidéos à partir d’une image (Image-to-Video)
+- éventuellement faire du Video-to-Video
+- faire de l’upscaling image et vidéo
+- sauvegarder les résultats
+- gérer les générations en cours et leur progression
+
+Tout doit fonctionner principalement en LOCAL avec le GPU de l’utilisateur.
+
+Je veux éviter que les prompts, images ou vidéos soient envoyés dans le cloud.
+
+Internet doit uniquement être nécessaire pour télécharger les dépendances, modèles et mises à jour si l’utilisateur le souhaite.
+
+SOLUTIONS À ÉTUDIER :
+
+Compare les solutions actuellement disponibles, notamment :
+
+- ComfyUI
+- Hugging Face Diffusers
+- Wan 2.1 / Wan 2.2
+- LTX-Video
+- HunyuanVideo
+- CogVideoX
+- FLUX
+- Qwen Image
+- SDXL
+- Stable Diffusion
+- autres solutions pertinentes actuellement disponibles
+
+Ne te limite pas à cette liste : recherche les solutions les plus intéressantes et actuelles.
+
+Pour chaque solution, indique :
+
+- qualité
+- vitesse
+- VRAM nécessaire
+- RAM nécessaire
+- taille des modèles
+- compatibilité NVIDIA/CUDA
+- fonctionnement offline
+- facilité d’intégration
+- difficulté de maintenance
+- licence
+- possibilité de redistribution
+- possibilité d’utilisation commerciale
+- compatibilité avec mon application
+
+COMFYUI :
+
+Étudie particulièrement l’utilisation de ComfyUI comme moteur local/backend.
+
+Je veux savoir si mon application peut :
+
+Application
+↓
+AI Manager
+↓
+ComfyUI
+↓
+Modèle IA
+↓
+Résultat
+
+Je veux pouvoir contrôler ComfyUI depuis mon application :
+
+- lancer le moteur
+- arrêter le moteur
+- envoyer un workflow
+- envoyer un prompt
+- lancer une génération
+- suivre la progression
+- annuler une génération
+- récupérer l’image ou la vidéo
+- gérer les erreurs
+- gérer les modèles
+- gérer les workflows
+
+DIFFUSERS :
+
+Compare également avec une intégration directe de Hugging Face Diffusers.
+
+Je veux savoir si Diffusers directement intégré serait plus performant, plus simple ou plus léger que ComfyUI.
+
+ARCHITECTURE :
+
+Propose une architecture propre et modulaire, par exemple :
+
+MonApplication/
+├── AI/
+│   ├── Engine/
+│   ├── ComfyUI/
+│   ├── Diffusers/
+│   ├── Models/
+│   ├── Workflows/
+│   ├── Cache/
+│   ├── Outputs/
+│   └── Logs/
+├── UI/
+└── ...
+
+Je veux que le module IA soit indépendant du reste de l’application.
+
+Si je désactive le module IA, le reste de l’application doit continuer à fonctionner normalement.
+
+DEPENDANCES :
+
+Je veux que les dépendances soient gérées proprement.
+
+Analyse comment gérer :
+
+- Python
+- PyTorch
+- CUDA
+- xFormers
+- Triton
+- ComfyUI
+- Diffusers
+- autres dépendances nécessaires
+
+Je veux éviter une installation globale chaotique.
+
+Étudie :
+
+- environnement Python isolé
+- venv
+- runtime embarqué
+- versions verrouillées
+- cache des packages
+- installation offline
+- mise à jour
+- rollback
+
+CLONAGE DANS MON DEPOT :
+
+Je veux savoir quelles dépendances peuvent être clonées ou intégrées dans mon dépôt et lesquelles doivent rester externes.
+
+Pour chaque dépendance :
+
+- licence
+- taille
+- possibilité de redistribution
+- risques
+- dépendances
+- maintenance
+- mises à jour
+
+Attention aux licences open source et aux licences des modèles IA.
+
+MODELS MANAGER :
+
+Je veux un gestionnaire de modèles intégré à mon application.
+
+Il devra permettre :
+
+- voir les modèles installés
+- installer un modèle
+- supprimer un modèle
+- mettre à jour un modèle
+- vérifier les fichiers
+- vérifier les checksums
+- afficher la taille
+- afficher la VRAM recommandée
+- sélectionner le modèle actif
+- détecter les modèles manquants
+- gérer les téléchargements
+
+Exemple :
+
+AI MODELS
+
+IMAGE
+- FLUX
+- Qwen Image
+- SDXL
+- autres
+
+VIDEO
+- Wan
+- LTX-Video
+- HunyuanVideo
+- CogVideoX
+- autres
+
+Je veux que les modèles soient stockés séparément du code de l'application.
+
+AI STUDIO :
+
+Propose une interface moderne et simple.
+
+Mode IMAGE :
+
+- modèle
+- prompt
+- negative prompt
+- résolution
+- seed
+- steps
+- sampler
+- qualité
+- LoRA
+- génération
+
+Mode VIDEO :
+
+- modèle
+- prompt
+- negative prompt
+- résolution
+- durée
+- FPS
+- nombre de frames
+- seed
+- image de départ
+- image de fin si disponible
+- qualité
+- génération
+
+Je veux deux niveaux :
+
+MODE SIMPLE :
+uniquement les paramètres importants.
+
+MODE AVANCÉ :
+tous les paramètres disponibles.
+
+L'interface doit adapter automatiquement les paramètres au modèle sélectionné.
+
+JOB MANAGER :
+
+Les générations ne doivent pas bloquer l'application.
+
+Créer un système de tâches :
+
+Job #1
+Image
+Progression : 75 %
+
+Job #2
+Video
+Progression : 32 %
+
+Fonctions :
+
+- lancer
+- pause si possible
+- annuler
+- priorité
+- file d'attente
+- historique
+- logs
+- erreurs
+
+GPU :
+
+Détecter automatiquement :
+
+- GPU
+- VRAM
+- CUDA
+- version de PyTorch
+- compatibilité du modèle
+- mémoire disponible
+
+Créer éventuellement un bouton :
+
+AUTO OPTIMIZE
+
+qui sélectionne automatiquement les paramètres adaptés au GPU :
+
+- FP16
+- BF16
+- FP8
+- quantification
+- CPU offload
+- VAE tiling
+- attention optimisée
+- autres optimisations compatibles
+
+Ne recommande pas une optimisation sans expliquer son impact.
+
+PERFORMANCES :
+
+Je veux privilégier la vitesse tout en gardant une bonne qualité.
+
+Analyse notamment :
+
+- FP16
+- BF16
+- FP8
+- quantification
+- xFormers
+- efficient attention
+- Torch Compile
+- CUDA Graphs
+- VAE tiling
+- CPU offload
+- TeaCache ou équivalent
+- autres optimisations pertinentes
+
+Pour chaque optimisation indique :
+
+- gain potentiel
+- consommation VRAM
+- impact qualité
+- stabilité
+- compatibilité
+
+WORKFLOWS :
+
+Je veux pouvoir utiliser des workflows prédéfinis :
+
+- Photorealistic
+- Cinematic
+- Anime
+- Cyberpunk
+- Fantasy
+- Concept Art
+- Portrait
+- Product
+- Minecraft
+- Video Cinematic
+- Fast Preview
+- Maximum Quality
+
+Les workflows doivent pouvoir être sauvegardés et modifiés.
+
+SECURITE :
+
+Analyse les risques liés :
+
+- plugins
+- custom nodes
+- scripts Python
+- DLL
+- modèles
+- workflows téléchargés
+- accès réseau
+
+Je veux éviter qu'un plugin ou workflow puisse exécuter n'importe quoi sans contrôle.
+
+DISTRIBUTION :
+
+Je veux idéalement pouvoir distribuer mon application comme ceci :
+
+MyApplication/
+├── Application.exe
+├── AI/
+├── Runtime/
+├── Models/
+├── Workflows/
+├── Dependencies/
+└── Outputs/
+
+L'utilisateur devrait pouvoir installer l'application puis choisir les modèles qu'il veut télécharger.
+
+Je veux éviter autant que possible que l'utilisateur doive installer manuellement :
+
+- Python
+- Git
+- CUDA
+- PyTorch
+- ComfyUI
+- autres dépendances
+
+LICENCES :
+
+Vérifie les licences des logiciels ET des modèles.
+
+Je veux savoir :
+
+- si je peux les redistribuer
+- si je peux les intégrer dans mon application
+- si une utilisation commerciale est autorisée
+- quelles obligations de licence existent
+- quelles dépendances posent problème
+
+COMPARAISON FINALE :
+
+Présente-moi au minimum 3 architectures :
+
+1. Solution simple
+2. Solution recommandée
+3. Solution avancée
+
+Pour chacune indique :
+
+- architecture
+- modèles
+- VRAM
+- performances
+- complexité
+- maintenance
+- offline
+- distribution
+- licences
+
+Puis donne ta recommandation finale.
+
+IMPORTANT :
+
+NE MODIFIE RIEN POUR LE MOMENT.
+
+NE TELECHARGE RIEN.
+
+NE MODIFIE AUCUN FICHIER.
+
+NE COMMENCE PAS L'INSTALLATION.
+
+Je veux d'abord uniquement ton analyse et tes propositions.
+
+Après ton analyse, attends ma validation.
+
+Une fois que je valide une solution, nous pourrons commencer l'intégration étape par étape dans mon dépôt.
+
+Je veux une solution :
+
+- locale
+- modulaire
+- performante
+- stable
+- maintenable
+- évolutive
+- distribuable
+- compatible avec plusieurs modèles IA
+- capable d'ajouter de nouveaux modèles plus tard sans réécrire toute l'application.
+
+
+
+
+
+
+4.Je veux créer dans mon application un système de PROFILS MATÉRIELS ET D’OPTIMISATION AUTOMATIQUE.
+
+IMPORTANT :
+NE MODIFIE RIEN POUR LE MOMENT.
+
+Je veux d’abord que tu analyses les solutions possibles, que tu proposes l’architecture et les réglages recommandés, puis que tu attendes ma validation avant de modifier le projet.
+
+==================================================
+1. PROFIL PERSONNALISÉ DE MA MACHINE
+==================================================
+
+Je veux créer un profil spécialement optimisé pour ma configuration :
+
+GPU :
+NVIDIA GeForce RTX 5060 Ti 16 GB
+
+CPU :
+AMD Ryzen 7 9700X
+
+RAM :
+32 GB DDR5 6000 MT/s
+
+Pilote NVIDIA actuel :
+617.42 WHQL
+
+Ce profil doit être nommé par exemple :
+
+"RTX 5060 Ti 16GB + Ryzen 7 9700X"
+
+Je veux qu’il soit optimisé spécifiquement pour cette configuration.
+
+==================================================
+2. PROFIL NORMAL / COMPATIBILITÉ
+==================================================
+
+Je veux également un profil générique :
+
+"Normal / Compatible"
+
+Ce profil doit fonctionner sur les autres PC compatibles.
+
+Il doit privilégier :
+
+- stabilité
+- compatibilité
+- sécurité
+- détection automatique
+- réglages conservateurs
+- absence de réglages spécifiques à ma machine
+
+==================================================
+3. BOUTON POUR CHANGER DE PROFIL
+==================================================
+
+Ajouter dans l’application un bouton permettant de basculer entre :
+
+[ Profil automatique ]
+
+[ Profil RTX 5060 Ti 16GB + Ryzen 7 9700X ]
+
+[ Profil Normal / Compatible ]
+
+Exemple :
+
+PROFIL ACTIF :
+RTX 5060 Ti 16GB + Ryzen 7 9700X
+
+[ Changer de profil ]
+
+Je veux également une option :
+
+"AUTO"
+
+qui détecte automatiquement le matériel et sélectionne le meilleur profil.
+
+==================================================
+4. DÉTECTION AUTOMATIQUE DU PC
+==================================================
+
+L’application doit détecter automatiquement :
+
+GPU NVIDIA
+Nom exact du GPU
+VRAM
+Architecture GPU
+Version du pilote NVIDIA
+CUDA disponible
+Support des fonctionnalités nécessaires
+CPU
+Nombre de cœurs
+Nombre de threads
+RAM totale
+RAM disponible
+Version de Windows
+DirectX
+Vulkan si nécessaire
+PCIe si pertinent
+GPU intégré + GPU dédié si plusieurs GPU sont présents
+
+L’application doit être capable de distinguer par exemple :
+
+RTX 5090
+RTX 5080
+RTX 5070 Ti
+RTX 5070
+RTX 5060 Ti
+RTX 5060
+RTX 5050
+
+mais également les générations précédentes :
+
+RTX 40
+RTX 30
+RTX 20
+
+et déterminer automatiquement les capacités réelles du GPU.
+
+Ne fais PAS simplement une détection basée sur le nom de la carte.
+
+Utilise si possible les API NVIDIA appropriées, notamment NVAPI, ainsi que les API système nécessaires.
+
+NVIDIA NVAPI permet notamment de récupérer le nom du GPU, son architecture, les informations mémoire et les informations liées au pilote.
+
+==================================================
+5. COMPATIBILITÉ AVEC TOUTES LES CARTES RTX
+==================================================
+
+Je veux que l’application soit conçue pour être compatible avec autant de cartes RTX NVIDIA que possible.
+
+Le système doit automatiquement adapter les réglages selon :
+
+- génération GPU
+- architecture
+- VRAM
+- Tensor Cores
+- RT Cores
+- capacités CUDA
+- capacités DLSS
+- capacités Frame Generation
+- capacités Multi Frame Generation lorsque disponibles
+- capacités Ray Reconstruction
+- capacités AI
+- support matériel réel
+- version du pilote
+
+Ne suppose jamais qu’une fonctionnalité est disponible uniquement parce que le GPU est une RTX.
+
+Détecte réellement les fonctionnalités disponibles.
+
+==================================================
+6. ADAPTATION SELON LA VRAM
+==================================================
+
+Créer des catégories automatiques.
+
+Par exemple :
+
+<= 6 GB VRAM
+6-8 GB
+8-12 GB
+12-16 GB
+16-24 GB
+>24 GB
+
+Mais ne te limite pas obligatoirement à ces catégories.
+
+Je veux que les réglages s’adaptent automatiquement à la mémoire disponible.
+
+Exemple :
+
+RTX avec 8 GB :
+profil mémoire faible
+
+RTX 5060 Ti 16 GB :
+profil mémoire intermédiaire/haut
+
+RTX 5090 32 GB :
+profil haute capacité
+
+==================================================
+7. RTX 5060 Ti 16 GB
+==================================================
+
+Optimise spécifiquement ma RTX 5060 Ti 16 GB.
+
+La RTX 5060 Ti utilise l’architecture NVIDIA Blackwell, dispose de 16 GB GDDR7 dans ma configuration et de Tensor Cores de 5e génération.
+
+Je veux donc que le profil exploite correctement les capacités de cette génération sans appliquer des réglages prévus pour RTX 40 ou RTX 30.
+
+Analyse notamment :
+
+- CUDA
+- Tensor Cores
+- RT Cores
+- DLSS
+- Frame Generation
+- Multi Frame Generation
+- Ray Reconstruction
+- AI
+- ray tracing
+- mémoire GDDR7
+- gestion VRAM
+- compilation shaders
+- cache shaders
+- DirectX 12
+- Vulkan si pertinent
+
+==================================================
+8. RYZEN 7 9700X
+==================================================
+
+Optimise également le profil en fonction du Ryzen 7 9700X.
+
+Analyse :
+
+- nombre de cœurs
+- nombre de threads
+- scheduling
+- priorité CPU
+- tâches en arrière-plan
+- streaming de données
+- compilation shaders
+- gestion des threads
+- éventuel bottleneck CPU/GPU
+
+Je veux éviter qu’un réglage optimisé GPU crée inutilement une surcharge CPU.
+
+==================================================
+9. 32 GB DDR5 6000
+==================================================
+
+Prends également en compte les 32 GB de RAM DDR5 6000.
+
+Le profil doit éviter :
+
+- consommation RAM inutile
+- cache excessif
+- allocations inutiles
+- swap/pagefile inutile
+- fragmentation mémoire
+
+Détermine également si certains réglages doivent être adaptés lorsque la machine possède seulement :
+
+16 GB RAM
+32 GB RAM
+64 GB RAM
+128 GB RAM
+
+==================================================
+10. PILOTE NVIDIA 617.42
+==================================================
+
+Ma version actuelle du pilote NVIDIA est :
+
+617.42 WHQL
+
+Vérifie précisément la compatibilité de cette version avec :
+
+- RTX 5060 Ti
+- DLSS
+- RTX
+- DirectX 12
+- CUDA
+- fonctionnalités NVIDIA nécessaires à mon application
+- Frame Generation
+- Multi Frame Generation
+- Ray Reconstruction
+- autres fonctions utilisées par mon application
+
+Je veux que tu vérifies les informations directement dans la documentation NVIDIA actuelle.
+
+NE suppose pas que 617.42 est optimal simplement parce que c’est ma version actuelle.
+
+Détermine :
+
+- si ce pilote est recommandé
+- s’il est suffisamment récent
+- s’il existe une raison de rester sur 617.42
+- si une version plus récente est préférable
+- si une version plus récente risque de créer un problème avec mon application
+
+IMPORTANT :
+
+Ne demande pas automatiquement de mettre à jour le pilote.
+
+Si 617.42 est parfaitement adapté, indique-le.
+
+Si une autre version est préférable, explique précisément pourquoi avant toute modification.
+
+==================================================
+11. PROFILS BASÉS SUR LE PILOTE
+==================================================
+
+Je veux que le système détecte automatiquement la version du pilote.
+
+Exemple :
+
+Driver :
+617.42
+
+Puis :
+
+Driver compatible :
+YES
+
+ou :
+
+Driver ancien :
+UPDATE RECOMMENDED
+
+ou :
+
+Driver incompatible :
+DISABLE FEATURE
+
+Je veux pouvoir avoir des règles :
+
+GPU + Driver + Feature
+
+Exemple :
+
+RTX 5060 Ti
++
+Driver >= X
+=
+DLSS / FG / MFG activables
+
+RTX 3060
+=
+certaines fonctions désactivées
+
+RTX 4090
+=
+fonctions spécifiques RTX 40
+
+RTX 5090
+=
+fonctions spécifiques RTX 50
+
+==================================================
+12. MATRICE DE COMPATIBILITÉ
+==================================================
+
+Créer une vraie matrice de compatibilité.
+
+Exemple :
+
+GPU
+Architecture
+VRAM
+DLSS
+Frame Generation
+Multi Frame Generation
+Ray Reconstruction
+RTX
+AI
+Profil recommandé
+
+RTX 2060
+RTX 2070
+RTX 2080
+RTX 3060
+RTX 3070
+RTX 3080
+RTX 3090
+RTX 4060
+RTX 4070
+RTX 4080
+RTX 4090
+RTX 5060
+RTX 5060 Ti
+RTX 5070
+RTX 5070 Ti
+RTX 5080
+RTX 5090
+
+et les autres modèles RTX pertinents.
+
+Ne mets pas une fonctionnalité comme "compatible" uniquement parce qu’elle existe dans le logiciel.
+
+Vérifie la compatibilité matérielle réelle.
+
+==================================================
+13. PROFIL AUTOMATIQUE
+==================================================
+
+Créer un moteur :
+
+HardwareProfileManager
+
+qui fait :
+
+Détection matériel
+↓
+Détection GPU
+↓
+Détection architecture
+↓
+Détection VRAM
+↓
+Détection CPU
+↓
+Détection RAM
+↓
+Détection pilote
+↓
+Détection fonctionnalités
+↓
+Sélection du profil
+↓
+Application des réglages
+
+Exemple :
+
+Detected GPU:
+RTX 5060 Ti 16GB
+
+Architecture:
+Blackwell
+
+CPU:
+Ryzen 7 9700X
+
+RAM:
+32GB DDR5
+
+Driver:
+617.42
+
+Recommended Profile:
+RTX 5060 Ti 16GB + Ryzen 7 9700X
+
+==================================================
+14. PROFIL PERSONNALISÉ RTX 5060 Ti
+==================================================
+
+Créer un profil optimisé pour ma machine.
+
+Il doit rechercher le meilleur compromis :
+
+PERFORMANCES
++
+STABILITÉ
++
+QUALITÉ
++
+FAIBLE LATENCE
+
+Je veux éviter les optimisations "agressives" qui peuvent créer :
+
+- crash
+- stuttering
+- texture pop-in
+- instabilité
+- problèmes DLSS
+- problèmes Frame Generation
+- problèmes de VRAM
+- problèmes de shaders
+
+==================================================
+15. PROFIL NORMAL
+==================================================
+
+Créer un profil universel.
+
+Ce profil doit être beaucoup plus conservateur.
+
+Il doit fonctionner même si :
+
+- GPU différent
+- CPU différent
+- RAM différente
+- pilote différent
+- génération RTX différente
+
+Il doit utiliser uniquement les fonctionnalités réellement disponibles.
+
+==================================================
+16. AUTO / MANUEL
+==================================================
+
+Je veux trois modes :
+
+AUTO
+
+PERSONNALISÉ
+
+NORMAL
+
+AUTO :
+détection automatique et sélection du meilleur profil.
+
+PERSONNALISÉ :
+l’utilisateur choisit manuellement son profil.
+
+NORMAL :
+configuration universelle et conservatrice.
+
+==================================================
+17. INTERFACE
+==================================================
+
+Créer une interface simple.
+
+Exemple :
+
+PROFIL MATÉRIEL
+
+GPU :
+RTX 5060 Ti 16GB
+
+CPU :
+Ryzen 7 9700X
+
+RAM :
+32 GB DDR5 6000
+
+DRIVER :
+617.42 WHQL
+
+MODE :
+
+[ AUTO ]
+
+[ RTX 5060 Ti + Ryzen 7 9700X ]
+
+[ NORMAL ]
+
+État :
+✓ GPU détecté
+✓ Driver compatible
+✓ VRAM détectée
+✓ DLSS disponible
+✓ RTX disponible
+
+==================================================
+18. AVERTISSEMENTS
+==================================================
+
+Si l’utilisateur sélectionne manuellement un profil qui ne correspond pas à son PC :
+
+Afficher :
+
+"Ce profil n'est pas optimisé pour votre matériel."
+
+Puis proposer :
+
+[ Utiliser quand même ]
+
+[ Utiliser le profil automatique ]
+
+Si le GPU est incompatible avec une fonctionnalité :
+
+Afficher :
+
+"Cette fonctionnalité n'est pas disponible sur votre GPU."
+
+Ne jamais forcer une fonctionnalité incompatible.
+
+==================================================
+19. DÉTECTION DES CHANGEMENTS
+==================================================
+
+L'application doit vérifier au lancement si le matériel a changé.
+
+Par exemple :
+
+GPU changé
+Driver changé
+RAM changée
+Version Windows changée
+
+Si le driver change :
+
+Recalculer le profil automatiquement.
+
+Exemple :
+
+Ancien :
+617.42
+
+Nouveau :
+620.xx
+
+Afficher :
+
+"Le pilote NVIDIA a changé.
+Vérification de compatibilité en cours."
+
+==================================================
+20. CONFIGURATION DYNAMIQUE
+==================================================
+
+Je veux éviter de créer un fichier de configuration spécifique à chaque GPU.
+
+Créer plutôt un système de règles.
+
+Exemple :
+
+if GPU_ARCHITECTURE == BLACKWELL
+and VRAM >= 16GB
+and DRIVER >= X
+then
+use BLACKWELL_16GB_PROFILE
+
+Mais fais cela proprement dans une architecture maintenable.
+
+==================================================
+21. PROFILS ÉVOLUTIFS
+==================================================
+
+Je veux pouvoir ajouter plus tard :
+
+RTX 60
+RTX 70
+etc.
+
+sans modifier tout le moteur.
+
+L'architecture doit donc permettre :
+
+profiles/
+├── generic
+├── rtx20
+├── rtx30
+├── rtx40
+├── rtx50
+└── future
+
+==================================================
+22. PERFORMANCE
+==================================================
+
+Je veux que le moteur de profil lui-même soit très léger.
+
+La détection hardware ne doit pas :
+
+- consommer beaucoup de CPU
+- tourner en permanence
+- interroger constamment le GPU
+- provoquer du stuttering
+
+Faire la détection au lancement puis seulement lorsqu'elle est nécessaire.
+
+==================================================
+23. LOGS
+==================================================
+
+Créer un rapport de diagnostic.
+
+Exemple :
+
+Hardware Detection Report
+
+GPU:
+RTX 5060 Ti
+
+VRAM:
+16GB
+
+Architecture:
+Blackwell
+
+CPU:
+Ryzen 7 9700X
+
+RAM:
+32GB
+
+NVIDIA Driver:
+617.42
+
+DLSS:
+Available
+
+Ray Tracing:
+Available
+
+Frame Generation:
+Available
+
+Multi Frame Generation:
+Available / Not Available
+
+Recommended Profile:
+RTX 5060 Ti 16GB + Ryzen 7 9700X
+
+==================================================
+24. IMPORTANT : PROPOSER AVANT DE MODIFIER
+==================================================
+
+Avant de toucher au code, propose-moi au minimum :
+
+SOLUTION A :
+Profils simples
+
+SOLUTION B :
+Profils dynamiques avec détection GPU/VRAM/CPU/RAM
+
+SOLUTION C :
+Système complet avec détection GPU + architecture + VRAM + pilote + fonctionnalités + règles dynamiques
+
+Pour chaque solution indique :
+
+- avantages
+- inconvénients
+- performances
+- complexité
+- maintenance
+- compatibilité
+- risques
+
+Puis recommande la meilleure.
+
+==================================================
+25. CE QUE JE VEUX COMME PREMIÈRE RÉPONSE
+==================================================
+
+Pour ta première réponse :
+
+NE MODIFIE AUCUN FICHIER.
+
+NE TÉLÉCHARGE RIEN.
+
+N'INSTALLE RIEN.
+
+NE CHANGE AUCUN PARAMÈTRE.
+
+Je veux uniquement :
+
+1. analyse des solutions
+2. architecture recommandée
+3. système de détection recommandé
+4. méthode de détection GPU
+5. méthode de détection du pilote
+6. méthode de détection VRAM
+7. méthode de détection des fonctionnalités
+8. compatibilité RTX 20 / 30 / 40 / 50
+9. optimisation spécifique RTX 5060 Ti 16GB + Ryzen 7 9700X + 32GB DDR5 6000
+10. analyse du pilote NVIDIA 617.42
+11. interface proposée
+12. structure des profils
+13. matrice de compatibilité
+14. risques éventuels
+15. recommandation finale
+
+Puis ATTENDS MON ACCORD.
+
+Après mon accord seulement, nous passerons à l'intégration dans le projet.
+
+
+
+
+5.Je veux ajouter à mon application un système LOCAL d’amélioration vidéo en temps réel, inspiré du NVIDIA RTX Video Super Resolution (VSR) et du NVIDIA RTX Video HDR.
+
+IMPORTANT :
+NE MODIFIE RIEN POUR LE MOMENT.
+
+Je veux d’abord que tu analyses les solutions possibles, les limites techniques et les différentes architectures.
+
+Tu dois me proposer les solutions avant toute modification du projet.
+
+==================================================
+OBJECTIF
+==================================================
+
+Je veux ajouter à mon application une fonction permettant d’améliorer les vidéos lues localement sur le PC.
+
+L’objectif est d’avoir quelque chose de proche de :
+
+NVIDIA RTX Video Super Resolution
++
+NVIDIA RTX Video HDR
+
+mais intégré à mon propre système.
+
+Je veux idéalement pouvoir :
+
+- améliorer la résolution d’une vidéo
+- faire de l’upscaling IA
+- réduire les artefacts de compression
+- améliorer la netteté
+- améliorer les détails
+- convertir SDR vers HDR lorsque le matériel le permet
+- faire du tone mapping
+- gérer HDR10
+- gérer HLG si possible
+- conserver correctement les couleurs
+- traiter la vidéo en temps réel
+- utiliser le GPU NVIDIA
+- exploiter les Tensor Cores lorsque possible
+- fonctionner avec les vidéos locales
+- fonctionner avec différents lecteurs vidéo
+
+==================================================
+POINT TRÈS IMPORTANT
+==================================================
+
+Je voudrais idéalement que cette fonction puisse fonctionner avec :
+
+- VLC
+- MPC-HC
+- MPC-BE
+- Media Player
+- PotPlayer
+- mpv
+- lecteurs basés sur DirectShow
+- lecteurs basés sur Media Foundation
+- lecteurs utilisant DX11
+- lecteurs utilisant DX12
+- lecteurs utilisant Vulkan
+- autres lecteurs vidéo Windows
+
+Je veux déterminer ce qui est réellement POSSIBLE.
+
+Ne prétends pas qu’un système peut fonctionner avec "n’importe quel lecteur" si techniquement ce n’est pas possible.
+
+Explique précisément les limitations.
+
+==================================================
+NVIDIA RTX VIDEO SDK
+==================================================
+
+Étudie en priorité le :
+
+NVIDIA RTX Video SDK
+
+Il fournit notamment :
+
+- RTX Video Super Resolution
+- RTX Video HDR
+
+Je veux savoir s’il est possible de l’intégrer directement dans mon application.
+
+Analyse :
+
+- API
+- DLL
+- SDK
+- dépendances
+- licence
+- redistribution
+- compatibilité GPU
+- compatibilité pilote
+- fonctionnement offline
+- consommation VRAM
+- consommation GPU
+- performance temps réel
+- intégration DirectX
+- intégration D3D11
+- intégration D3D12
+- intégration Vulkan si disponible
+- possibilité de traiter des frames provenant d’un autre lecteur
+
+Vérifie les informations dans la documentation NVIDIA officielle actuelle.
+
+==================================================
+SOLUTION A — NVIDIA RTX VIDEO SDK
+==================================================
+
+Étudie une architecture basée directement sur le NVIDIA RTX Video SDK.
+
+Exemple :
+
+Video Player
+↓
+Video Frame
+↓
+RTX Video SDK
+↓
+RTX Video Super Resolution
+↓
+RTX Video HDR
+↓
+Display
+
+Je veux savoir si mon application peut réellement faire cela.
+
+==================================================
+SOLUTION B — MPC VIDEO RENDERER
+==================================================
+
+Étudie également MPC Video Renderer.
+
+Il semble déjà proposer :
+
+- Super Resolution
+- RTX Video Super Resolution
+- RTX Video HDR
+- HDR passthrough
+- HDR10
+- HLG
+- tone mapping
+- traitement vidéo GPU
+
+Analyse si je peux utiliser MPC Video Renderer comme composant dans mon application.
+
+Vérifie :
+
+- licence GPL
+- possibilité de redistribution
+- intégration
+- dépendances
+- maintenance
+- compatibilité
+- performances
+- possibilités de modification du code
+
+Attention :
+
+Je veux éviter de simplement copier un projet sans respecter sa licence.
+
+==================================================
+SOLUTION C — MPV / LIBPLACEBO
+==================================================
+
+Étudie également :
+
+- mpv
+- libplacebo
+- Vulkan
+- D3D11
+- D3D12
+- HDR
+- tone mapping
+- shaders
+- scaling
+
+Détermine si libplacebo pourrait être utilisé comme moteur de rendu vidéo dans mon application.
+
+Je veux savoir si cette solution permet :
+
+- upscaling
+- shaders
+- HDR
+- tone mapping
+- traitement GPU
+- rendu temps réel
+- contrôle précis de la chaîne vidéo
+
+Compare-la au NVIDIA RTX Video SDK.
+
+==================================================
+SOLUTION D — MOTEUR VIDÉO PERSONNEL
+==================================================
+
+Étudie la possibilité de créer mon propre pipeline :
+
+Decoder
+↓
+GPU Frame
+↓
+AI Upscaler
+↓
+HDR Processor
+↓
+Tone Mapping
+↓
+Renderer
+↓
+Display
+
+Je veux savoir si cette solution est réaliste.
+
+Elle pourrait utiliser :
+
+- FFmpeg
+- D3D11
+- D3D12
+- CUDA
+- TensorRT
+- ONNX Runtime
+- Vulkan
+- DirectX Video Processing
+- autres technologies pertinentes
+
+==================================================
+SOLUTION E — COUCHE SYSTÈME
+==================================================
+
+Je veux savoir s’il est techniquement possible de créer une couche qui puisse agir sur les vidéos affichées par différents lecteurs.
+
+Par exemple :
+
+Lecteur vidéo
+↓
+Frame
+↓
+Notre couche
+↓
+RTX VSR / AI Upscaling
+↓
+RTX HDR
+↓
+Écran
+
+Analyse plusieurs possibilités :
+
+- DirectShow filter
+- Media Foundation Transform
+- renderer replacement
+- D3D11 hook
+- D3D12 hook
+- Vulkan layer
+- Windows Graphics Capture
+- Desktop Duplication
+- capture de fenêtre
+- capture du swapchain
+- autre méthode
+
+Pour chaque solution indique :
+
+- compatibilité
+- performances
+- latence
+- qualité
+- consommation GPU
+- risques
+- stabilité
+- sécurité
+- compatibilité avec les lecteurs
+- limitations HDR
+- limitations DRM
+
+==================================================
+ATTENTION AU DRM
+==================================================
+
+Analyse également les limitations liées aux contenus protégés :
+
+- DRM
+- HDCP
+- PlayReady
+- Widevine
+- Netflix
+- Disney+
+- Prime Video
+- Blu-ray protégés
+- autres contenus protégés
+
+Je veux savoir clairement ce qui est possible et ce qui ne l’est pas.
+
+Ne propose pas de contourner un DRM.
+
+Le système doit uniquement traiter les frames auxquelles l’application a légalement accès.
+
+==================================================
+RTX VIDEO SUPER RESOLUTION
+==================================================
+
+Je veux une fonction :
+
+VIDEO SUPER RESOLUTION
+
+avec plusieurs niveaux :
+
+OFF
+
+AUTO
+
+LOW
+
+MEDIUM
+
+HIGH
+
+ULTRA
+
+Le système doit pouvoir adapter automatiquement le niveau selon :
+
+- résolution source
+- résolution écran
+- FPS
+- GPU
+- VRAM
+- charge GPU
+- température
+- puissance disponible
+
+Exemple :
+
+720p → 1440p
+1080p → 1440p
+1080p → 4K
+1440p → 4K
+
+Je veux éviter d’utiliser inutilement l’IA lorsque :
+
+1080p → 1080p
+
+ou lorsque le gain visuel est faible.
+
+==================================================
+RTX VIDEO HDR
+==================================================
+
+Ajouter une fonction :
+
+VIDEO HDR
+
+Modes :
+
+OFF
+
+AUTO
+
+RTX HDR
+
+HDR PASSTHROUGH
+
+SDR
+
+SDR → HDR
+
+Je veux détecter automatiquement :
+
+- source SDR
+- HDR10
+- HLG
+- éventuellement Dolby Vision selon les capacités
+- espace colorimétrique
+- profondeur de couleur
+- métadonnées HDR
+
+Je veux éviter de convertir une vidéo HDR déjà correcte en HDR une deuxième fois.
+
+==================================================
+CHAÎNE DE TRAITEMENT
+==================================================
+
+Je veux une chaîne intelligente.
+
+Exemple :
+
+Vidéo SDR 1080p
+↓
+Décodage matériel
+↓
+RTX Video Super Resolution
+↓
+SDR → HDR
+↓
+Tone Mapping
+↓
+10-bit
+↓
+Écran HDR
+
+Mais pour une vidéo HDR :
+
+Vidéo HDR 1080p
+↓
+Décodage matériel
+↓
+RTX Video Super Resolution
+↓
+HDR passthrough
+↓
+Tone Mapping si nécessaire
+↓
+Écran HDR
+
+Et pour une vidéo SDR sur écran SDR :
+
+Vidéo SDR
+↓
+Décodage
+↓
+Upscaling
+↓
+Écran SDR
+
+Je veux que l'application choisisse automatiquement le pipeline approprié.
+
+==================================================
+ÉVITER LES DOUBLES TRAITEMENTS
+==================================================
+
+Très important.
+
+Je veux détecter les cas où le lecteur utilise déjà :
+
+- RTX VSR
+- FSR
+- DLSS
+- XeSS
+- sharpening
+- HDR
+- tone mapping
+- scaling
+- interpolation
+- autres filtres
+
+Je veux éviter :
+
+Double upscaling
+Double sharpening
+Double HDR
+Double tone mapping
+Double conversion de couleurs
+Double interpolation
+
+L'application doit pouvoir afficher :
+
+"RTX VSR already active in player"
+
+ou :
+
+"Existing upscaler detected"
+
+et proposer :
+
+[ Désactiver notre traitement ]
+
+ou :
+
+[ Utiliser notre traitement ]
+
+==================================================
+INTERFACE
+==================================================
+
+Ajouter un nouvel onglet :
+
+VIDEO ENHANCER
+
+Interface simple :
+
+VIDEO ENHANCER
+
+Source :
+1080p SDR
+
+Display :
+2560x1440 HDR
+
+GPU :
+RTX 5060 Ti 16GB
+
+Mode :
+[ AUTO ]
+
+Super Resolution :
+[ RTX VSR ]
+
+Quality :
+[ HIGH ]
+
+HDR :
+[ RTX HDR ]
+
+Output :
+1440p HDR
+
+GPU Load :
+72 %
+
+VRAM :
+7.2 GB
+
+FPS :
+60
+
+Frame time :
+16.4 ms
+
+[ ENABLE ]
+
+==================================================
+MODE AUTOMATIQUE
+==================================================
+
+Créer un système :
+
+AUTO VIDEO ENHANCER
+
+Il détecte :
+
+- GPU
+- VRAM
+- driver
+- résolution source
+- résolution écran
+- FPS
+- HDR
+- SDR
+- format vidéo
+- codec
+- charge GPU
+- capacité Tensor Cores
+
+Puis sélectionne automatiquement le meilleur pipeline.
+
+==================================================
+RTX 5060 Ti 16GB
+==================================================
+
+Je veux optimiser spécialement mon PC :
+
+RTX 5060 Ti 16GB
+Ryzen 7 9700X
+32GB DDR5 6000
+
+Pilote :
+
+NVIDIA 617.42
+
+Analyse la compatibilité de cette configuration avec :
+
+- RTX Video Super Resolution
+- RTX Video HDR
+- Tensor Cores
+- AI processing
+- D3D11
+- D3D12
+- CUDA
+- autres composants nécessaires
+
+Ne suppose pas que le pilote est optimal.
+
+Vérifie la compatibilité réelle avec le pilote 617.42.
+
+Si une mise à jour du pilote est recommandée :
+
+explique pourquoi.
+
+Ne fais PAS la mise à jour automatiquement.
+
+==================================================
+AUTRES GPU RTX
+==================================================
+
+Le système doit également fonctionner avec :
+
+RTX 20
+RTX 30
+RTX 40
+RTX 50
+
+Détecter automatiquement :
+
+GPU
+Architecture
+VRAM
+Tensor Cores
+Driver
+Fonctionnalités disponibles
+
+Puis adapter le pipeline.
+
+Exemple :
+
+RTX 2060
+→ profil compatible
+
+RTX 3060
+→ profil compatible
+
+RTX 4070
+→ profil RTX 40
+
+RTX 5060 Ti
+→ profil RTX 50
+
+RTX 5090
+→ profil haute performance
+
+Si une fonction n'est pas disponible :
+
+ne pas l'activer.
+
+==================================================
+PERFORMANCE
+==================================================
+
+Le système doit privilégier :
+
+1. Fluidité
+2. Faible latence
+3. Qualité
+4. Faible consommation GPU
+
+Je veux éviter que l'upscaling vidéo provoque :
+
+- dropped frames
+- stuttering
+- frame pacing mauvais
+- input lag
+- freeze
+- saturation VRAM
+- saturation GPU
+
+Créer un système de monitoring :
+
+GPU usage
+VRAM
+FPS
+Dropped frames
+Frame time
+Processing time
+Queue
+Temperature si disponible
+
+==================================================
+ADAPTATION AUTOMATIQUE
+==================================================
+
+Si le traitement IA est trop lent :
+
+GPU 99 %
+Dropped frames
+↓
+réduire automatiquement la qualité
+
+Exemple :
+
+ULTRA
+↓
+HIGH
+↓
+MEDIUM
+↓
+LOW
+
+Mais uniquement en mode AUTO.
+
+En mode MANUEL :
+
+ne pas modifier automatiquement les réglages.
+
+==================================================
+CLONAGE DES DEPENDANCES
+==================================================
+
+Je veux que les dépendances nécessaires soient intégrées proprement à mon dépôt lorsque les licences le permettent.
+
+Je veux une structure du type :
+
+MyApplication/
+│
+├── VideoEnhancer/
+│   ├── Engine/
+│   ├── Decoder/
+│   ├── Renderer/
+│   ├── Upscaler/
+│   ├── HDR/
+│   ├── Shaders/
+│   ├── Runtime/
+│   ├── Models/
+│   ├── Cache/
+│   └── Logs/
+│
+├── Dependencies/
+│   ├── FFmpeg/
+│   ├── NVIDIA/
+│   ├── Vulkan/
+│   └── ...
+│
+└── ...
+
+Pour chaque dépendance indique :
+
+- licence
+- possibilité de redistribution
+- possibilité de vendoriser
+- taille
+- dépendances
+- DLL
+- maintenance
+- risques
+
+NE copie pas une dépendance dans mon dépôt si sa licence ne le permet pas.
+
+==================================================
+INSTALLATION
+==================================================
+
+Je veux idéalement que l'utilisateur n'ait pas besoin d'installer manuellement :
+
+- Python
+- FFmpeg
+- CUDA
+- SDK
+- autres runtimes
+
+si cela peut être évité légalement et techniquement.
+
+L'application doit pouvoir détecter ce qui est présent et installer/initialiser les composants nécessaires.
+
+==================================================
+PROFILS
+==================================================
+
+Intégrer le système de profils matériel déjà prévu dans mon application.
+
+Profils :
+
+AUTO
+
+RTX 5060 Ti 16GB + Ryzen 7 9700X
+
+NORMAL / COMPATIBLE
+
+et adaptation automatique pour :
+
+RTX 20
+RTX 30
+RTX 40
+RTX 50
+
+Le Video Enhancer doit utiliser le même HardwareProfileManager que le reste de mon application.
+
+==================================================
+PROFILS VIDÉO
+==================================================
+
+Créer des presets :
+
+LOW GPU
+
+BALANCED
+
+QUALITY
+
+ULTRA QUALITY
+
+RTX VSR
+
+RTX VSR + RTX HDR
+
+CUSTOM
+
+AUTO
+
+==================================================
+HDR
+==================================================
+
+Créer une gestion HDR complète :
+
+SDR
+HDR10
+HLG
+Dolby Vision si réellement supporté
+SDR → HDR
+HDR → SDR
+HDR passthrough
+Tone mapping
+
+Afficher clairement :
+
+SOURCE
+OUTPUT
+
+Exemple :
+
+SOURCE :
+1080p SDR
+
+OUTPUT :
+4K HDR10
+
+PROCESSING :
+RTX VSR + RTX HDR
+
+==================================================
+HISTORIQUE
+==================================================
+
+Je veux pouvoir enregistrer les statistiques :
+
+- vidéo
+- résolution
+- codec
+- FPS
+- GPU
+- mode
+- qualité
+- HDR
+- dropped frames
+- temps de traitement
+
+==================================================
+LIMITES TECHNIQUES
+==================================================
+
+Je veux que tu sois très clair sur les limites.
+
+En particulier :
+
+Peut-on réellement améliorer une vidéo affichée par un autre programme ?
+
+Peut-on intercepter tous les lecteurs ?
+
+Peut-on traiter VLC ?
+
+Peut-on traiter MPC-BE ?
+
+Peut-on traiter PotPlayer ?
+
+Peut-on traiter mpv ?
+
+Peut-on traiter Media Player ?
+
+Peut-on traiter les applications utilisant D3D11 ?
+
+Peut-on traiter D3D12 ?
+
+Peut-on traiter Vulkan ?
+
+Peut-on traiter une vidéo en plein écran ?
+
+Que se passe-t-il avec HDR ?
+
+Que se passe-t-il avec DRM ?
+
+Que se passe-t-il avec les vidéos protégées ?
+
+Je veux une réponse technique et réaliste.
+
+==================================================
+SOLUTIONS À PROPOSER
+==================================================
+
+Avant de modifier mon projet, propose au minimum :
+
+SOLUTION A
+Intégration NVIDIA RTX Video SDK
+
+SOLUTION B
+MPC Video Renderer / DirectShow
+
+SOLUTION C
+mpv / libplacebo
+
+SOLUTION D
+Moteur vidéo propriétaire avec FFmpeg + GPU
+
+SOLUTION E
+Architecture hybride
+
+Pour chaque solution :
+
+- qualité
+- performances
+- latence
+- compatibilité lecteurs
+- HDR
+- VSR
+- VRAM
+- difficulté
+- maintenance
+- licence
+- redistribution
+- sécurité
+- possibilité de fonctionner offline
+
+==================================================
+RECOMMANDATION
+==================================================
+
+Après comparaison, recommande la meilleure architecture.
+
+Je veux idéalement :
+
+Mon Application
+↓
+Video Enhancement Manager
+↓
+Hardware Profile Manager
+↓
+Video Engine
+↓
+Decoder
+↓
+GPU Processing
+↓
+RTX VSR / AI Upscaling
+↓
+RTX HDR / HDR processing
+↓
+Renderer
+↓
+Display
+
+Mais adapte cette architecture si une meilleure solution existe.
+
+==================================================
+IMPORTANT : PREMIÈRE ÉTAPE
+==================================================
+
+NE MODIFIE AUCUN FICHIER.
+
+NE TÉLÉCHARGE RIEN.
+
+N'INSTALLE RIEN.
+
+NE CLONE RIEN POUR LE MOMENT.
+
+Je veux d'abord uniquement :
+
+1. rechercher les solutions actuelles
+2. analyser le NVIDIA RTX Video SDK
+3. analyser MPC Video Renderer
+4. analyser mpv/libplacebo
+5. analyser FFmpeg
+6. analyser les possibilités DirectShow
+7. analyser Media Foundation
+8. analyser D3D11/D3D12/Vulkan
+9. analyser les possibilités d'intégration à mon application
+10. vérifier les licences
+11. vérifier la redistribution
+12. analyser les limitations DRM
+13. analyser la compatibilité RTX 20/30/40/50
+14. analyser spécifiquement RTX 5060 Ti 16GB
+15. analyser le pilote NVIDIA 617.42
+16. proposer les architectures
+17. proposer l'organisation du dépôt
+18. proposer l'interface
+19. proposer les profils
+20. donner une recommandation finale
+
+Ensuite :
+
+ATTENDS MON ACCORD.
+
+Après mon accord seulement, nous passerons à l'intégration étape par étape.
+
+Je veux une solution :
+
+- locale
+- temps réel
+- GPU
+- faible latence
+- compatible avec le maximum de lecteurs possible
+- compatible RTX
+- capable de faire VSR
+- capable de faire HDR
+- évolutive
+- maintenable
+- distribuable
+- respectueuse des licences
+- sans contournement de DRM.
+
+
+
+6.Je veux que tu analyses en profondeur ces deux projets GitHub :
+
+https://github.com/rakanki911/DLSS5-Swapper
+
+https://github.com/Kizzuwatnaa/DLSS5-Autopilot
+
+OBJECTIF :
+
+Je veux déterminer ce qui est intéressant à récupérer comme IDEES, OUTILS, ARCHITECTURES, FONCTIONS ou OPTIMISATIONS pour les intégrer à MON APPLICATION.
+
+Je ne veux pas simplement copier les deux projets.
+
+Je veux analyser leurs fonctionnalités et déterminer lesquelles peuvent améliorer mon application existante.
+
+IMPORTANT :
+
+NE MODIFIE RIEN POUR LE MOMENT.
+
+NE TELECHARGE RIEN.
+
+NE CLONE RIEN.
+
+NE REMPLACE AUCUNE DLL.
+
+NE MODIFIE AUCUN FICHIER.
+
+Je veux d'abord une analyse complète et des propositions.
+
+Attends ma validation avant toute modification.
+
+==================================================
+1. PROJETS À ANALYSER
+==================================================
+
+Analyse précisément :
+
+DLSS5-Swapper :
+https://github.com/rakanki911/DLSS5-Swapper
+
+DLSS5-Autopilot :
+https://github.com/Kizzuwatnaa/DLSS5-Autopilot
+
+Analyse :
+
+- architecture
+- code
+- dépendances
+- fonctionnement
+- routes DLSS
+- gestion des DLL
+- gestion des versions
+- détection GPU
+- détection pilote
+- détection API graphique
+- détection des jeux
+- gestion OptiScaler
+- ReShade
+- DLSS5-Feeder
+- RenoDX
+- multipass
+- Frame Generation
+- Ray Reconstruction
+- Super Resolution
+- sauvegardes
+- restauration
+- diagnostics
+- logs
+- benchmark
+- détection des erreurs
+- sélection automatique du meilleur chemin
+
+==================================================
+2. NE PAS COPIER AVEUGLEMENT
+==================================================
+
+Je veux distinguer :
+
+A. Fonction intéressante à reproduire
+
+B. Fonction que nous pouvons améliorer
+
+C. Fonction inutile pour mon application
+
+D. Fonction trop risquée
+
+E. Fonction dépendante d'un projet externe
+
+F. Fonction impossible à intégrer proprement
+
+G. Fonction nécessitant une licence ou autorisation particulière
+
+Pour chaque élément, explique pourquoi.
+
+==================================================
+3. LICENCES
+==================================================
+
+Vérifie les licences des deux projets.
+
+Vérifie également les licences de toutes les dépendances importantes.
+
+Je veux savoir :
+
+- ce qui peut être intégré
+- ce qui peut être forké
+- ce qui peut être modifié
+- ce qui peut être redistribué
+- ce qui doit rester externe
+- obligations de copyright
+- obligations de licence
+- third-party notices
+
+Ne copie aucun code sans vérifier sa licence.
+
+==================================================
+4. ARCHITECTURE À AJOUTER À MON APPLICATION
+==================================================
+
+Je veux créer un système centralisé :
+
+DLSS Manager
+
+ou :
+
+Neural Rendering Manager
+
+Architecture souhaitée :
+
+Application
+↓
+Hardware Profile Manager
+↓
+Driver Compatibility Manager
+↓
+Game Detection
+↓
+DLSS Manager
+↓
+Route Selector
+↓
+Rendering Backend
+↓
+DLSS / DLSS5 / OptiScaler / Feeder / ReShade
+↓
+Game
+
+Le système doit être modulaire.
+
+==================================================
+5. ROUTE SELECTOR
+==================================================
+
+C'est l'une des fonctions les plus intéressantes d'Autopilot.
+
+Je veux étudier un système capable de déterminer automatiquement la meilleure route.
+
+Exemple :
+
+Jeu détecté
+↓
+API graphique
+↓
+Architecture GPU
+↓
+VRAM
+↓
+Driver
+↓
+DLSS natif ?
+↓
+Frame Generation ?
+↓
+Ray Reconstruction ?
+↓
+Motion vectors ?
+↓
+Route compatible
+↓
+Score
+↓
+Meilleure route
+
+Routes possibles :
+
+1. Native DLSS
+
+2. DLSS5 / RenoDX
+
+3. DLSS5-Feeder
+
+4. OptiScaler
+
+5. ReShade
+
+6. Multipass
+
+7. DXVK si nécessaire
+
+8. autre route compatible
+
+Le système doit pouvoir dire :
+
+RECOMMANDATION :
+
+OptiScaler
+
+Confiance :
+87 %
+
+Raison :
+
+- DX12
+- RTX 5060 Ti
+- DLSS natif détecté
+- driver compatible
+- route testée
+- coût estimé inférieur
+
+==================================================
+6. SCORE DE COMPATIBILITÉ
+==================================================
+
+Créer un système de scoring.
+
+Exemple :
+
+Compatibility Score
+
+GPU :
+100 %
+
+Driver :
+95 %
+
+API :
+100 %
+
+Game :
+85 %
+
+Route :
+90 %
+
+Stabilité connue :
+80 %
+
+Final :
+92 %
+
+Puis :
+
+Recommended route :
+OptiScaler
+
+Alternative :
+Native DLSS
+
+Fallback :
+ReShade / Feeder
+
+==================================================
+7. HARDWARE PROFILE MANAGER
+==================================================
+
+Utilise le système de profils que nous avons déjà prévu.
+
+Détecter :
+
+GPU
+Architecture
+VRAM
+Tensor Cores
+RT Cores
+CPU
+RAM
+Driver
+Windows
+DirectX
+Vulkan
+CUDA
+DLSS capabilities
+
+Mon PC de référence :
+
+RTX 5060 Ti 16GB
+Ryzen 7 9700X
+32GB DDR5 6000
+NVIDIA Driver 617.42
+
+Créer un profil spécifique :
+
+RTX 5060 Ti 16GB + Ryzen 7 9700X
+
+Et un profil :
+
+Normal / Compatible
+
+==================================================
+8. DRIVER COMPATIBILITY MANAGER
+==================================================
+
+C'est très important.
+
+Je veux un système qui ne considère PAS automatiquement qu'un pilote récent est meilleur.
+
+Créer :
+
+DriverCompatibilityManager
+
+Il doit connaître :
+
+Driver version
+GPU
+Architecture
+DLSS runtime
+DLSS5 compatibility
+OptiScaler compatibility
+Feeder compatibility
+RenoDX compatibility
+Frame Generation compatibility
+Ray Reconstruction compatibility
+
+Exemple :
+
+Driver :
+617.42
+
+Analyse :
+
+- Native DLSS
+- DLSS5
+- Feeder
+- OptiScaler
+- RenoDX
+- neural pass
+- MFG
+- Frame Generation
+
+Puis :
+
+SUPPORTED
+WARNING
+EXPERIMENTAL
+UNSUPPORTED
+
+Ne jamais recommander une mise à jour de pilote sans vérifier les effets sur les fonctionnalités.
+
+==================================================
+9. DLSS DLL MANAGER
+==================================================
+
+Je veux un gestionnaire de DLL DLSS.
+
+Il doit pouvoir détecter :
+
+nvngx_dlss.dll
+nvngx_dlssg.dll
+nvngx_dlssd.dll
+nvngx_dlssnr.dll
+
+et autres DLL pertinentes.
+
+Pour chaque DLL :
+
+- version
+- date
+- architecture
+- checksum
+- source
+- compatibilité
+- jeu
+- sauvegarde disponible
+
+Afficher :
+
+Game:
+Example Game
+
+DLSS:
+3.7.20
+
+Latest compatible:
+X.X.X
+
+Ray Reconstruction:
+X.X.X
+
+Frame Generation:
+X.X.X
+
+Status:
+UPDATE AVAILABLE
+
+==================================================
+10. BACKUP / RESTORE
+==================================================
+
+Inspiré de DLSS5-Swapper.
+
+Chaque modification doit être réversible.
+
+Avant modification :
+
+Créer :
+
+_DLSSTool_Backup/
+
+ou équivalent.
+
+Conserver :
+
+- fichier original
+- checksum original
+- date
+- version
+- modification
+- route utilisée
+
+Fonctions :
+
+INSTALL
+
+UPDATE
+
+RESTORE ORIGINALS
+
+UNINSTALL
+
+VERIFY
+
+Ne jamais supprimer définitivement un fichier original sans autorisation explicite.
+
+==================================================
+11. MANIFEST
+==================================================
+
+Créer un manifest par jeu.
+
+Exemple :
+
+game-manifest.json
+
+Il doit contenir :
+
+Game
+Executable
+Path
+Graphics API
+GPU
+Driver
+DLSS version
+DLSS5 version
+OptiScaler version
+Feeder version
+ReShade version
+Route
+Backup
+Checksum
+Installation date
+Last test
+Compatibility result
+
+==================================================
+12. DIAGNOSTIC AUTOMATIQUE
+==================================================
+
+C'est une fonction très intéressante d'Autopilot.
+
+Après installation :
+
+Lancer le jeu.
+
+Attendre quelques secondes.
+
+Analyser :
+
+- logs
+- crash
+- ReShade log
+- OptiScaler log
+- Feeder log
+- Windows Event Viewer
+- modules chargés
+- DLL chargées
+- erreurs DXGI
+- erreurs D3D
+- erreurs NVSDK
+- erreurs CUDA si pertinentes
+
+Puis donner :
+
+WORKING
+
+PARTIALLY WORKING
+
+FAILED
+
+UNKNOWN
+
+==================================================
+13. DIAGNOSTIC EXPLICATIF
+==================================================
+
+Si ça échoue :
+
+NE PAS afficher simplement :
+
+"Installation failed."
+
+Afficher :
+
+CAUSE PROBABLE :
+
+OptiScaler DLL loaded
+but neural runtime failed.
+
+Possible cause :
+
+Driver incompatibility
+
+or
+
+DLL mismatch.
+
+Suggested solution :
+
+1. Restore originals
+2. Try Native DLSS
+3. Try Feeder
+4. Try another OptiScaler build
+
+==================================================
+14. AUTO-PILOT
+==================================================
+
+Je veux une fonction :
+
+AUTO PILOT
+
+Elle pourrait faire :
+
+1. détecter le jeu
+2. analyser le GPU
+3. analyser le pilote
+4. analyser l'API
+5. détecter DLSS
+6. détecter FSR
+7. détecter XeSS
+8. détecter Frame Generation
+9. détecter Ray Reconstruction
+10. choisir la route
+11. sauvegarder les fichiers
+12. installer
+13. lancer le jeu
+14. analyser les logs
+15. mesurer
+16. déterminer si ça fonctionne
+17. proposer une autre route si nécessaire
+
+IMPORTANT :
+
+L'Auto Pilot ne doit PAS appliquer automatiquement une modification risquée sans confirmation.
+
+Créer :
+
+SAFE MODE
+
+et :
+
+EXPERIMENTAL MODE
+
+==================================================
+15. SAFE MODE
+==================================================
+
+Safe Mode :
+
+- backup obligatoire
+- aucune modification si anti-cheat détecté
+- aucune modification si jeu en ligne sensible
+- confirmation utilisateur
+- possibilité de restore
+- vérification checksum
+- logs complets
+
+==================================================
+16. EXPERIMENTAL MODE
+==================================================
+
+Experimental Mode permet :
+
+- routes expérimentales
+- multipass
+- MFG expérimentaux
+- vieux jeux
+- anciennes API
+- DXVK
+- ReShade
+- Feeder
+- autres solutions
+
+Mais toujours avec avertissement.
+
+==================================================
+17. ANTI-CHEAT
+==================================================
+
+Détecter si le jeu possède :
+
+Easy Anti-Cheat
+BattlEye
+Denuvo Anti-Cheat
+RICOCHET
+Vanguard
+autres systèmes
+
+NE PAS contourner l'anti-cheat.
+
+Si détecté :
+
+Afficher :
+
+ANTI-CHEAT DETECTED
+
+Modification déconseillée.
+
+Ne jamais proposer de bypass.
+
+==================================================
+18. MULTIPASS
+==================================================
+
+DLSS5-Swapper propose une route multipass.
+
+Analyse précisément cette technologie.
+
+Je veux savoir :
+
+- comment elle fonctionne
+- coût GPU
+- coût en ms/frame
+- impact FPS
+- qualité
+- risques
+- compatibilité
+- intérêt sur RTX 5060 Ti 16GB
+
+Créer éventuellement :
+
+Neural Passes :
+
+1x
+2x
+3x
+5x
+10x
+
+Mais ne proposer ces options que si elles sont réellement supportées.
+
+Je veux surtout éviter une option qui détruit les FPS pour un gain visuel minime.
+
+==================================================
+19. OPTISCALER
+==================================================
+
+Nous avons déjà travaillé sur OptiScaler.
+
+Je veux intégrer intelligemment :
+
+OptiScaler Manager
+
+avec :
+
+- version
+- configuration
+- DLSS
+- FSR
+- XeSS
+- DLSS5
+- Neural Rendering
+- logs
+- diagnostics
+- benchmark
+
+Ne pas installer plusieurs couches incompatibles en même temps.
+
+Le système doit détecter :
+
+OptiScaler
++
+ReShade
++
+Feeder
++
+RenoDX
+
+et éviter les conflits.
+
+==================================================
+20. FEEDER
+==================================================
+
+Analyse DLSS5-Feeder.
+
+Je veux savoir s'il est pertinent de l'intégrer.
+
+Déterminer :
+
+- jeux sans DLSS
+- API supportées
+- motion vectors
+- compatibilité
+- coût
+- VRAM
+- stabilité
+
+Si le jeu possède déjà DLSS natif :
+
+préférer Native DLSS si c'est plus performant/stable.
+
+==================================================
+21. RENO DX
+==================================================
+
+Analyse RenoDX / DLSS5.
+
+Je veux savoir :
+
+- rôle exact
+- avantages
+- limitations
+- compatibilité
+- coût
+- interaction avec OptiScaler
+- interaction avec Feeder
+- interaction avec ReShade
+
+Ne jamais empiler plusieurs solutions si elles font la même chose.
+
+==================================================
+22. RE SHADER
+==================================================
+
+Analyse l'utilisation de ReShade comme couche.
+
+Déterminer quand il est préférable à :
+
+OptiScaler
+
+Feeder
+
+Native DLSS
+
+RenoDX
+
+et quand il doit être évité.
+
+==================================================
+23. FRAME GENERATION
+==================================================
+
+Analyser :
+
+DLSS Frame Generation
+
+DLSS Multi Frame Generation
+
+RTX 40
+
+RTX 50
+
+DLSSG
+
+nvngx_dlssg.dll
+
+et les solutions expérimentales.
+
+Je veux que l'application détecte automatiquement ce qui est réellement disponible.
+
+Ne jamais activer MFG sur une carte qui ne le supporte pas officiellement.
+
+==================================================
+24. RAY RECONSTRUCTION
+==================================================
+
+Analyser :
+
+nvngx_dlssd.dll
+
+et son intérêt.
+
+Déterminer :
+
+- jeux compatibles
+- jeux path traced
+- coût
+- gain qualité
+- compatibilité
+- interaction avec DLSS5
+
+==================================================
+25. GAME SCANNER
+==================================================
+
+Inspiré des deux projets.
+
+Je veux un Game Manager capable de trouver :
+
+Steam
+Epic
+GOG
+EA
+Ubisoft
+Battle.net
+Rockstar
+Xbox / Game Pass
+dossiers personnalisés
+émulateurs
+
+Mais éviter un scan complet du disque par défaut.
+
+Le scan doit être :
+
+rapide
+contrôlé
+optionnel
+
+==================================================
+26. EMULATEURS
+==================================================
+
+Analyser la possibilité de supporter :
+
+RPCS3
+Dolphin
+PCSX2
+Xenia
+Ryujinx
+Cemu
+DuckStation
+PPSSPP
+etc.
+
+Ne pas promettre une compatibilité universelle.
+
+Créer des profils par émulateur + renderer.
+
+==================================================
+27. OVERLAY
+==================================================
+
+Je veux éventuellement un overlay dans les jeux.
+
+Afficher :
+
+DLSS5
+
+GPU:
+RTX 5060 Ti
+
+VRAM:
+X GB
+
+Route:
+OptiScaler
+
+DLSS:
+X.X.X
+
+Neural:
+ON
+
+Neural cost:
+X ms
+
+FPS:
+X
+
+Frame time:
+X ms
+
+GPU:
+X %
+
+VRAM:
+X GB
+
+Mais l'overlay doit être désactivable.
+
+==================================================
+28. BENCHMARK
+==================================================
+
+Créer un benchmark intégré.
+
+Comparer :
+
+Native
+DLSS
+DLSS5
+OptiScaler
+Feeder
+RenoDX
+Multipass
+
+Mesurer :
+
+FPS
+1% low
+0.1% low
+frame time
+GPU usage
+VRAM
+CPU usage
+neural cost
+latence si mesurable
+
+Résultat :
+
+Native :
+82 FPS
+
+DLSS :
+112 FPS
+
+DLSS5 :
+108 FPS
+
+DLSS5 + Neural :
+102 FPS
+
+OptiScaler :
+105 FPS
+
+Puis recommander :
+
+DLSS5
+
+ou :
+
+OptiScaler
+
+selon les mesures réelles.
+
+NE PAS INVENTER LES CHIFFRES.
+
+==================================================
+29. FRAME COST MANAGER
+==================================================
+
+Une fonction très importante :
+
+COST PER FRAME
+
+Afficher :
+
+Neural pass :
++2.8 ms
+
+Upscaling :
++0.9 ms
+
+Frame Generation :
++0.7 ms
+
+Total :
++4.4 ms
+
+Je veux que l'application puisse déterminer si une fonction vaut réellement son coût.
+
+==================================================
+30. AUTO OPTIMIZER
+==================================================
+
+Créer :
+
+DLSS AUTO OPTIMIZER
+
+Il analyse :
+
+GPU
+VRAM
+Driver
+Game
+API
+Resolution
+FPS
+CPU
+Route
+
+et propose :
+
+BEST PERFORMANCE
+
+BALANCED
+
+BEST QUALITY
+
+LOW LATENCY
+
+==================================================
+31. MON PC
+==================================================
+
+Optimiser spécifiquement :
+
+RTX 5060 Ti 16GB
+Ryzen 7 9700X
+32GB DDR5 6000
+NVIDIA Driver 617.42
+
+Je veux une analyse spécifique de cette configuration.
+
+Ne suppose pas que 617.42 est optimal.
+
+Vérifie :
+
+- DLSS5
+- OptiScaler
+- Feeder
+- RenoDX
+- ReShade
+- Neural Rendering
+- Frame Generation
+- Multi Frame Generation
+- Ray Reconstruction
+
+avec ce pilote.
+
+Créer si nécessaire :
+
+PROFILE_RTX5060TI_16GB_9700X
+
+==================================================
+32. DRIVER DATABASE
+==================================================
+
+Créer une base :
+
+drivers.json
+
+avec :
+
+driver
+GPU
+architecture
+features
+known issues
+DLSS compatibility
+OptiScaler compatibility
+Feeder compatibility
+RenoDX compatibility
+
+Permettre de mettre cette base à jour sans modifier le programme.
+
+==================================================
+33. VERSION MANAGER
+==================================================
+
+Créer :
+
+Component Manager
+
+Il doit gérer :
+
+OptiScaler
+ReShade
+Feeder
+RenoDX
+DLSS
+DLSSG
+DLSSD
+DLSSNR
+
+Pour chaque composant :
+
+Installed
+Latest
+Compatible
+Recommended
+Experimental
+
+==================================================
+34. UPDATE MANAGER
+==================================================
+
+Ne pas simplement installer la dernière version.
+
+Faire :
+
+Latest version
+↓
+Compatibility check
+↓
+GPU check
+↓
+Driver check
+↓
+Game check
+↓
+Recommend version
+
+Exemple :
+
+Latest:
+X.X.X
+
+Recommended:
+Y.Y.Y
+
+Reason:
+Latest version introduces an issue with driver 617.42.
+
+==================================================
+35. SOURCES
+==================================================
+
+Pour chaque composant téléchargé, enregistrer :
+
+Source
+URL
+Version
+SHA256
+Date
+Licence
+
+Éviter les téléchargements depuis des miroirs inconnus.
+
+Privilégier :
+
+GitHub officiel
+NVIDIA
+éditeur original
+source officielle du projet
+
+==================================================
+36. DEPENDANCES
+==================================================
+
+Je veux pouvoir intégrer dans mon dépôt ce qui est légalement possible.
+
+Créer :
+
+Dependencies/
+
+avec isolation claire.
+
+Ne copie pas :
+
+- DLL NVIDIA propriétaires
+- modèles NVIDIA
+- composants sous licence incompatible
+
+sans vérifier les conditions de redistribution.
+
+==================================================
+37. CE QUE JE VEUX AJOUTER À MON APPLICATION
+==================================================
+
+Après analyse, propose une architecture :
+
+AI / Neural Rendering Manager
+├── Hardware
+├── Drivers
+├── Games
+├── DLSS
+├── DLSS5
+├── OptiScaler
+├── Feeder
+├── RenoDX
+├── ReShade
+├── FrameGeneration
+├── RayReconstruction
+├── Routes
+├── Diagnostics
+├── Benchmark
+├── Backup
+├── Restore
+└── Logs
+
+==================================================
+38. INTERFACE
+==================================================
+
+Propose un nouvel onglet :
+
+NEURAL RENDERING
+
+Avec :
+
+GPU
+Driver
+Game
+API
+Current Route
+Recommended Route
+DLSS
+DLSS5
+OptiScaler
+Feeder
+RenoDX
+Frame Generation
+Ray Reconstruction
+
+Boutons :
+
+[ AUTO OPTIMIZE ]
+
+[ INSTALL ]
+
+[ TEST ]
+
+[ BENCHMARK ]
+
+[ RESTORE ]
+
+[ DIAGNOSTIC ]
+
+==================================================
+39. DIAGNOSTIC CENTER
+==================================================
+
+Créer un centre :
+
+DIAGNOSTIC CENTER
+
+Il doit afficher :
+
+GPU
+Driver
+Game
+API
+DLSS
+DLSS5
+OptiScaler
+Feeder
+ReShade
+RenoDX
+Frame Generation
+Ray Reconstruction
+
+avec :
+
+✓ Compatible
+⚠ Experimental
+✗ Unsupported
+
+==================================================
+40. CE QUI M'INTÉRESSE PARTICULIÈREMENT
+==================================================
+
+Je veux que tu recherches si les deux projets possèdent des fonctions que mon application devrait ajouter :
+
+- détection automatique des routes
+- sélection automatique
+- test automatique
+- diagnostic automatique
+- benchmark
+- gestion des versions DLSS
+- gestion des DLL
+- sauvegarde
+- restauration
+- détection GPU
+- détection pilote
+- compatibilité par jeu
+- compatibilité par GPU
+- compatibilité par driver
+- compatibilité par API
+- logs
+- overlay
+- communauté / base de compatibilité
+- score de compatibilité
+- historique
+- rollback
+- détection anti-cheat
+- gestion des conflits
+- gestion des mises à jour
+
+==================================================
+41. COMPARAISON DES DEUX PROJETS
+==================================================
+
+Fais un tableau :
+
+Fonction
+DLSS5-Swapper
+DLSS5-Autopilot
+Mon application
+À ajouter ?
+
+Puis :
+
+MEILLEURE IMPLÉMENTATION
+
+==================================================
+42. CE QUE JE VEUX COMME RÉSULTAT
+==================================================
+
+Je veux que tu me donnes :
+
+1. Ce que DLSS5-Swapper fait mieux
+
+2. Ce que DLSS5-Autopilot fait mieux
+
+3. Ce que mon application possède déjà
+
+4. Ce qui manque à mon application
+
+5. Ce qu'il serait pertinent d'ajouter
+
+6. Ce qui ne vaut pas la peine d'être ajouté
+
+7. Ce qui est techniquement risqué
+
+8. Ce qui peut améliorer les performances
+
+9. Ce qui peut améliorer la stabilité
+
+10. Ce qui peut améliorer l'expérience utilisateur
+
+==================================================
+43. PROPOSER AVANT DE FAIRE
+==================================================
+
+Propose ensuite 3 architectures :
+
+SOLUTION A
+Simple
+
+SOLUTION B
+Recommandée
+
+SOLUTION C
+Complète / avancée
+
+Pour chacune :
+
+- fonctionnalités
+- complexité
+- performances
+- maintenance
+- risques
+- dépendances
+- licences
+- compatibilité
+
+Puis recommande une solution.
+
+==================================================
+44. IMPORTANT
+==================================================
+
+NE MODIFIE RIEN.
+
+NE CLONE AUCUN PROJET.
+
+NE COPIE AUCUN CODE.
+
+NE TELECHARGE AUCUNE DLL.
+
+NE CHANGE AUCUNE CONFIGURATION.
+
+NE REMPLACE AUCUN FICHIER.
+
+Je veux d'abord l'analyse et les propositions.
+
+Après ma validation uniquement, nous déciderons quoi intégrer.
+
+Je veux une architecture propre qui s'inspire des bonnes idées de :
+
+DLSS5-Swapper
+
+et
+
+DLSS5-Autopilot
+
+mais qui reste une architecture originale, maintenable et adaptée à mon application.
+
+Je veux également conserver la compatibilité avec :
+
+OptiScaler
+Caustica
+ScandiShader
+SPBRScandi
+DLSS
+DLSS5
+RTX Video
+AI Studio
+Video Enhancer
+Hardware Profile Manager
+
+sans créer de conflits entre ces différents modules.
+
+
+
+7.Je veux ajouter à mon application un nouveau module OSINT / RESEARCH permettant de rechercher, analyser et recouper des informations à partir de texte, noms de domaines, URLs, adresses IP, images, vidéos, documents et autres informations fournies par l'utilisateur.
+
+IMPORTANT :
+
+NE MODIFIE RIEN POUR LE MOMENT.
+
+NE TÉLÉCHARGE RIEN.
+
+NE CLONE RIEN.
+
+N'INSTALLE AUCUNE DÉPENDANCE.
+
+Je veux d'abord que tu analyses les solutions disponibles, que tu proposes plusieurs architectures et que tu me dises ce qui est réellement pertinent à intégrer.
+
+Attends ma validation avant toute modification du dépôt.
+
+==================================================
+1. OBJECTIF
+==================================================
+
+Je veux créer un nouvel onglet dans mon application :
+
+OSINT / RESEARCH
+
+L'objectif est d'avoir un outil simple mais puissant permettant de rechercher et recouper des informations provenant d'un maximum de sources externes accessibles légalement.
+
+Le module doit pouvoir travailler à partir de :
+
+- texte
+- nom
+- pseudo
+- domaine
+- URL
+- adresse IP
+- email fourni par l'utilisateur
+- entreprise
+- organisation
+- localisation
+- image
+- vidéo
+- document
+- fichier
+- métadonnées
+- hash
+- informations techniques
+
+Le système doit pouvoir combiner plusieurs types de recherches.
+
+==================================================
+2. IMPORTANT : USAGE LÉGITIME
+==================================================
+
+Le module doit être conçu pour :
+
+- recherche documentaire
+- cybersécurité défensive
+- analyse de domaines
+- vérification d'informations
+- recherche académique
+- fact-checking
+- recherche sur des entreprises et organisations
+- analyse de contenus publics
+- recherche sur ses propres données
+- analyse de fichiers fournis par l'utilisateur
+
+Ne pas concevoir le système pour :
+
+- harceler une personne
+- doxxer quelqu'un
+- obtenir des données privées
+- contourner des protections
+- accéder à des comptes
+- contourner des paywalls ou authentifications
+- suivre une personne en temps réel
+- collecter massivement des informations personnelles sensibles
+- contourner les systèmes anti-bot ou les limites d'accès des services
+
+Respecter les conditions d'utilisation et les robots/règles d'accès des services externes.
+
+==================================================
+3. SOLUTIONS À COMPARER
+==================================================
+
+Analyse les solutions existantes, notamment :
+
+- SpiderFoot
+- Maltego
+- Recon-ng
+- OSINT Framework
+- Sherlock
+- Amass
+- theHarvester
+- Subfinder
+- OWASP Amass
+- recherche inversée d'images
+- moteurs de recherche multimodaux
+- outils OCR
+- outils d'analyse vidéo
+- outils d'analyse EXIF
+- outils de threat intelligence
+- moteurs de recherche spécialisés
+
+Ne te limite pas à cette liste.
+
+Recherche les solutions actuellement pertinentes.
+
+Pour chaque solution :
+
+- fonctionnalités
+- licence
+- dépendances
+- API
+- possibilité d'intégration
+- possibilité de redistribution
+- fonctionnement local
+- besoin d'Internet
+- maintenance
+- performance
+- limites
+- risques
+- intérêt pour mon application
+
+==================================================
+4. SPIDERFOOT
+==================================================
+
+Analyse particulièrement SpiderFoot.
+
+Je veux savoir :
+
+- ce qu'il fait réellement
+- architecture
+- modules
+- API
+- sources supportées
+- dépendances
+- licence
+- possibilité d'intégration
+- possibilité de cloner/vendoriser les dépendances
+- possibilité d'utiliser son moteur comme backend
+
+Détermine s'il est préférable de :
+
+A. intégrer SpiderFoot directement
+
+B. lancer SpiderFoot comme service local
+
+C. utiliser uniquement certaines idées/modules
+
+D. créer mon propre moteur OSINT inspiré de SpiderFoot
+
+==================================================
+5. MALTEGO
+==================================================
+
+Analyse également Maltego.
+
+Je veux savoir ce qui pourrait être intéressant à reproduire dans mon application :
+
+- graphes
+- relations
+- transformations
+- sources
+- corrélation
+- enrichissement
+- scoring
+- visualisation
+
+Je veux savoir si son modèle est compatible avec une application locale et distribuable.
+
+==================================================
+6. ARCHITECTURE PROPOSÉE
+==================================================
+
+Je voudrais idéalement une architecture :
+
+Application
+↓
+OSINT Manager
+↓
+Query Engine
+↓
+Source Manager
+↓
+Collectors
+↓
+AI Analysis
+↓
+Correlation Engine
+↓
+Evidence Database
+↓
+Graph Engine
+↓
+Report Generator
+
+Propose une meilleure architecture si nécessaire.
+
+==================================================
+7. OSINT MANAGER
+==================================================
+
+Créer un module central :
+
+OSINT Manager
+
+Il doit gérer :
+
+- recherches
+- sources
+- tâches
+- cache
+- résultats
+- corrélations
+- historique
+- rapports
+- logs
+- API keys
+- rate limits
+- confidentialité
+
+==================================================
+8. RECHERCHE PAR TEXTE
+==================================================
+
+L'utilisateur peut entrer :
+
+"OpenAI"
+
+ou :
+
+"example.com"
+
+ou :
+
+"john@example.com"
+
+ou :
+
+"192.168.1.1"
+
+ou :
+
+"nom d'entreprise"
+
+Le système doit déterminer automatiquement les types de recherches pertinentes.
+
+Exemple :
+
+example.com
+
+↓
+DNS
+↓
+WHOIS/RDAP
+↓
+Certificats
+↓
+Sous-domaines
+↓
+Technologies
+↓
+URLs publiques
+↓
+Archives publiques
+↓
+Threat Intelligence
+↓
+Résultats
+
+==================================================
+9. RECHERCHE PAR IMAGE
+==================================================
+
+Je veux pouvoir importer une image.
+
+Le système doit analyser :
+
+- EXIF
+- métadonnées
+- dimensions
+- format
+- compression
+- hash
+- perceptual hash
+- OCR
+- texte visible
+- objets
+- scènes
+- logos
+- monuments
+- lieux
+- couleurs
+- similarité visuelle
+- éventuelles traces de modification
+
+Puis utiliser les informations obtenues pour effectuer des recherches externes lorsque cela est légalement possible.
+
+==================================================
+10. RECHERCHE INVERSÉE
+==================================================
+
+Étudier les possibilités d'intégration avec les services de recherche d'images disponibles publiquement.
+
+Pour chaque service :
+
+- API officielle disponible ?
+- conditions d'utilisation ?
+- recherche inversée possible ?
+- upload d'image possible ?
+- recherche par URL ?
+- limitations ?
+- coût ?
+- clé API ?
+- possibilité d'intégration ?
+
+Ne contourne jamais CAPTCHA, anti-bot ou authentification.
+
+Si aucune API officielle n'existe :
+
+indique clairement la limitation.
+
+==================================================
+11. ANALYSE IA DES IMAGES
+==================================================
+
+Je veux intégrer une IA multimodale capable d'analyser une image.
+
+Elle pourrait identifier :
+
+- objets
+- texte
+- environnement
+- architecture
+- type de lieu
+- indices visuels
+- logos
+- panneaux
+- véhicules
+- monuments
+- éléments techniques
+
+Mais l'IA doit présenter ses résultats comme :
+
+OBSERVATION
+
+et non comme une certitude.
+
+Exemple :
+
+"Le panneau semble contenir le mot X."
+
+et non :
+
+"Le panneau contient X."
+
+si la confiance est faible.
+
+==================================================
+12. GEOLOCALISATION VISUELLE
+==================================================
+
+Je veux étudier une fonction de recherche de lieu à partir d'une photo.
+
+Exemple :
+
+Photo
+↓
+OCR
+↓
+Architecture
+↓
+Panneaux
+↓
+Paysage
+↓
+Métadonnées
+↓
+Recherche web
+↓
+Images similaires
+↓
+Hypothèses de localisation
+
+Afficher :
+
+Hypothèse :
+Sion, Suisse
+
+Confiance :
+62 %
+
+Indices :
+
+- architecture
+- panneau
+- langue
+- relief
+- images similaires
+
+Ne jamais présenter une estimation comme une localisation certaine.
+
+==================================================
+13. ANALYSE VIDÉO
+==================================================
+
+Je veux pouvoir importer une vidéo.
+
+Le système doit pouvoir :
+
+- lire les métadonnées
+- extraire les frames
+- sélectionner automatiquement les frames importantes
+- faire OCR
+- analyser les scènes
+- détecter les changements de scène
+- rechercher du texte
+- analyser les lieux
+- analyser les objets
+- analyser les logos
+- créer un résumé
+- créer une timeline
+
+Exemple :
+
+00:00-00:12
+Rue / bâtiment
+
+00:12-00:25
+Véhicule
+
+00:25-00:41
+Panneau avec texte
+
+Puis utiliser ces informations pour lancer des recherches supplémentaires.
+
+==================================================
+14. KEYFRAME INTELLIGENCE
+==================================================
+
+Ne pas analyser chaque frame d'une vidéo inutilement.
+
+Créer un système intelligent :
+
+Video
+↓
+Scene Detection
+↓
+Keyframes
+↓
+OCR
+↓
+Vision AI
+↓
+Search
+↓
+Correlation
+
+Cela doit économiser :
+
+- GPU
+- CPU
+- RAM
+- temps
+- requêtes externes
+
+==================================================
+15. OCR
+==================================================
+
+Intégrer un OCR local si possible.
+
+Comparer :
+
+- Tesseract
+- PaddleOCR
+- EasyOCR
+- autres solutions modernes
+
+Déterminer le meilleur choix pour :
+
+- vitesse
+- précision
+- langues
+- GPU
+- offline
+- licence
+
+Le système doit pouvoir détecter automatiquement la langue lorsque possible.
+
+==================================================
+16. IA LOCALE
+==================================================
+
+Je veux privilégier les modèles IA locaux.
+
+Étudier :
+
+- modèles vision-language
+- OCR
+- embeddings
+- image similarity
+- CLIP
+- modèles multimodaux
+- modèles spécialisés
+
+Le système doit pouvoir fonctionner sans envoyer les fichiers à un service cloud lorsque le modèle local est disponible.
+
+Comparer les solutions compatibles avec ma machine :
+
+RTX 5060 Ti 16GB
+Ryzen 7 9700X
+32GB DDR5 6000
+
+Créer éventuellement :
+
+OSINT AI Local
+
+avec modèles adaptés à 16 GB VRAM.
+
+==================================================
+17. RECHERCHE WEB AVEC IA
+==================================================
+
+Je veux une fonction :
+
+AI RESEARCH
+
+L'utilisateur donne :
+
+"Analyse cette image et cherche des informations permettant d'identifier le lieu ou le contexte."
+
+L'IA doit :
+
+1. analyser le fichier
+2. extraire les indices
+3. créer des requêtes de recherche
+4. interroger les sources autorisées
+5. récupérer les résultats
+6. comparer les résultats
+7. éliminer les faux positifs
+8. construire des hypothèses
+9. afficher les sources
+10. donner un niveau de confiance
+
+==================================================
+18. MULTI-SOURCES
+==================================================
+
+Je veux utiliser un maximum de sources pertinentes.
+
+Catégories :
+
+WEB
+- moteurs de recherche
+- actualités
+- archives publiques
+- documentation
+- sites spécialisés
+
+DOMAINES
+- RDAP
+- DNS
+- certificats
+- sous-domaines
+- technologies publiques
+
+IMAGES
+- recherche inversée
+- images similaires
+- OCR
+- métadonnées
+
+ENTREPRISES
+- registres publics
+- sites officiels
+- données publiques
+
+CYBERSÉCURITÉ
+- CVE
+- bases de réputation
+- CT logs
+- threat intelligence publique
+
+GÉOGRAPHIE
+- OpenStreetMap
+- données géographiques publiques
+- cartes publiques
+
+MÉDIAS
+- métadonnées
+- archives
+- sources publiques
+
+Ne jamais utiliser de sources illégales ou nécessitant un accès non autorisé.
+
+==================================================
+19. SOURCE MANAGER
+==================================================
+
+Créer :
+
+Source Manager
+
+Il doit afficher :
+
+Source
+Type
+API
+Status
+Rate Limit
+API Key
+Dernière utilisation
+Fiabilité
+Licence
+
+Exemple :
+
+Google
+Search API
+Configured
+
+Bing
+Search API
+Not configured
+
+OpenStreetMap
+Available
+
+RDAP
+Available
+
+==================================================
+20. API KEYS
+==================================================
+
+Je veux un gestionnaire sécurisé des clés API.
+
+Les clés ne doivent jamais être :
+
+- écrites en clair dans les logs
+- incluses dans Git
+- intégrées dans le code source
+- affichées dans l'interface
+
+Utiliser :
+
+OS Credential Manager
+Windows Credential Manager
+ou équivalent sécurisé.
+
+==================================================
+21. RATE LIMIT
+==================================================
+
+Créer un gestionnaire de limites.
+
+Pour chaque source :
+
+- requêtes/minute
+- requêtes/jour
+- délai
+- erreurs
+- retry
+- backoff
+
+Ne jamais contourner une limite.
+
+==================================================
+22. CACHE
+==================================================
+
+Créer un cache local.
+
+Structure :
+
+OSINT/
+├── Cache/
+├── Results/
+├── Evidence/
+├── Reports/
+├── Images/
+├── Videos/
+└── Database/
+
+Stocker :
+
+- résultat
+- source
+- URL
+- date
+- hash
+- requête
+- métadonnées
+
+Permettre d'éviter les recherches répétées.
+
+==================================================
+23. EVIDENCE DATABASE
+==================================================
+
+Créer une base de preuves.
+
+Chaque information doit conserver :
+
+Source
+URL
+Date
+Type
+Hash
+Capture éventuelle
+Contexte
+Fiabilité
+Relation
+Recherche ayant produit le résultat
+
+Je veux pouvoir répondre :
+
+"D'où vient cette information ?"
+
+avec la source exacte.
+
+==================================================
+24. SOURCE TRUST SCORE
+==================================================
+
+Créer un score de fiabilité.
+
+Exemple :
+
+Official source
+★★★★★
+
+Government/public institution
+★★★★★
+
+Established media
+★★★★☆
+
+Unknown website
+★★☆☆☆
+
+Unverified social content
+★☆☆☆☆
+
+Le score doit être explicable.
+
+Ne jamais considérer une information comme vraie uniquement parce qu'elle apparaît plusieurs fois sur Internet.
+
+==================================================
+25. CORRELATION ENGINE
+==================================================
+
+Le système doit pouvoir relier les résultats.
+
+Exemple :
+
+Domain
+↓
+Company
+↓
+Website
+↓
+Person
+↓
+Public profile
+↓
+Image
+↓
+Location
+
+Mais chaque relation doit être accompagnée de :
+
+Source
+Confidence
+Evidence
+
+==================================================
+26. GRAPH VIEW
+==================================================
+
+Créer une visualisation :
+
+[Company]
+   |
+   ├── [Domain]
+   |
+   ├── [Website]
+   |
+   └── [Public source]
+
+Avec :
+
+- zoom
+- recherche
+- filtres
+- catégories
+- couleurs
+- liens
+- sources
+
+Chaque nœud doit pouvoir être ouvert.
+
+==================================================
+27. AI SUMMARY
+==================================================
+
+À la fin d'une recherche :
+
+AI SUMMARY
+
+Résumer :
+
+- faits confirmés
+- hypothèses
+- informations contradictoires
+- sources principales
+- informations manquantes
+- niveau de confiance
+
+L'IA doit distinguer :
+
+FACT
+INFERENCE
+UNCERTAIN
+CONFLICTING
+
+==================================================
+28. RECHERCHE ITÉRATIVE
+==================================================
+
+Créer :
+
+DEEP RESEARCH
+
+Exemple :
+
+Question initiale
+↓
+Recherche 1
+↓
+Indices
+↓
+Recherche 2
+↓
+Nouveaux indices
+↓
+Recherche 3
+↓
+Corrélation
+↓
+Rapport
+
+Mais imposer :
+
+- nombre maximal de requêtes
+- temps maximal
+- budget API
+- arrêt manuel
+
+Pour éviter les boucles infinies.
+
+==================================================
+29. PRIVACY MODE
+==================================================
+
+Créer :
+
+PRIVACY MODE
+
+Dans ce mode :
+
+- analyse IA locale
+- OCR local
+- métadonnées locales
+- aucune recherche externe automatique
+- aucun upload externe
+
+Puis :
+
+ONLINE MODE
+
+permet les recherches externes autorisées.
+
+==================================================
+30. OFFLINE MODE
+==================================================
+
+Le système doit pouvoir fonctionner hors ligne pour :
+
+- OCR
+- analyse image
+- analyse vidéo
+- métadonnées
+- hash
+- embeddings
+- base locale
+- recherche dans les résultats précédemment enregistrés
+
+Afficher clairement :
+
+OFFLINE
+
+ou :
+
+ONLINE
+
+==================================================
+31. CLONAGE DES DEPENDANCES
+==================================================
+
+Je veux intégrer dans mon dépôt les dépendances que les licences permettent de vendoriser.
+
+Architecture possible :
+
+MyApplication/
+├── OSINT/
+│   ├── Core/
+│   ├── AI/
+│   ├── Search/
+│   ├── Sources/
+│   ├── OCR/
+│   ├── Vision/
+│   ├── Video/
+│   ├── Graph/
+│   ├── Evidence/
+│   ├── Reports/
+│   ├── Cache/
+│   └── Logs/
+│
+├── Dependencies/
+│   ├── OSINT/
+│   ├── OCR/
+│   ├── Vision/
+│   ├── Video/
+│   └── Search/
+│
+└── ...
+
+Pour chaque dépendance :
+
+- licence
+- version
+- taille
+- source
+- checksum
+- dépendances
+- possibilité de redistribution
+- possibilité de modification
+
+Ne clone/vendorise jamais une dépendance sans vérifier sa licence.
+
+==================================================
+32. MODÈLES IA
+==================================================
+
+Les modèles IA doivent être gérés séparément du code.
+
+Créer :
+
+Models/
+├── Vision/
+├── OCR/
+├── Embeddings/
+├── VLM/
+└── Video/
+
+Créer un :
+
+AI Model Manager
+
+qui permet :
+
+- installer
+- supprimer
+- mettre à jour
+- vérifier
+- afficher taille
+- afficher VRAM
+- sélectionner
+- télécharger
+
+==================================================
+33. HARDWARE PROFILE
+==================================================
+
+Utiliser le Hardware Profile Manager déjà prévu.
+
+Ma machine :
+
+RTX 5060 Ti 16GB
+Ryzen 7 9700X
+32GB DDR5 6000
+NVIDIA Driver 617.42
+
+Créer un profil :
+
+OSINT RTX 5060 Ti 16GB
+
+Optimiser :
+
+- modèle local
+- quantification
+- VRAM
+- batch
+- OCR
+- vision
+- embeddings
+- vidéo
+
+Adapter automatiquement pour les autres RTX.
+
+==================================================
+34. RAPPORT
+==================================================
+
+Créer un générateur de rapport.
+
+Formats :
+
+HTML
+PDF
+JSON
+Markdown
+CSV
+
+Le rapport doit contenir :
+
+Question
+Date
+Sources
+Résultats
+Images
+Evidence
+Relations
+Confiance
+Hypothèses
+Conclusions
+
+Chaque information doit avoir sa source.
+
+==================================================
+35. EXPORT
+==================================================
+
+Permettre :
+
+Export JSON
+Export HTML
+Export PDF
+Export Markdown
+Export Graph
+
+Et un projet :
+
+.osintproject
+
+qui contient :
+
+- recherches
+- résultats
+- sources
+- evidence
+- graph
+- configuration
+
+==================================================
+36. SÉCURITÉ
+==================================================
+
+Le module doit être sécurisé.
+
+Analyser :
+
+- fichiers malveillants
+- archives
+- images
+- vidéos
+- documents
+- plugins
+- scripts
+- API externes
+
+Ne jamais exécuter automatiquement un fichier récupéré sur Internet.
+
+==================================================
+37. LIMITES JURIDIQUES ET TECHNIQUES
+==================================================
+
+Je veux que tu identifies clairement :
+
+- API nécessitant une licence
+- sources interdites
+- données privées
+- restrictions de scraping
+- robots.txt
+- conditions d'utilisation
+- rate limits
+- DRM
+- CAPTCHA
+- authentification
+- contenus protégés
+
+Ne propose aucun contournement.
+
+==================================================
+38. COMPARAISON
+==================================================
+
+Compare :
+
+SpiderFoot
+Maltego
+Recon-ng
+Amass
+Sherlock
+theHarvester
+OSINT Framework
+outils image
+outils vidéo
+outils OCR
+moteurs IA
+moteurs de recherche
+librairies locales
+
+Puis indique :
+
+À garder
+À intégrer
+À adapter
+À éviter
+
+==================================================
+39. ARCHITECTURES À PROPOSER
+==================================================
+
+Propose au minimum :
+
+SOLUTION A
+Simple OSINT
+
+SOLUTION B
+OSINT + IA locale
+
+SOLUTION C
+OSINT + IA locale + recherche externe + graph + vidéo
+
+Pour chacune :
+
+- fonctionnalités
+- complexité
+- performances
+- VRAM
+- dépendances
+- maintenance
+- licences
+- confidentialité
+- capacités offline
+- capacités online
+
+==================================================
+40. RECOMMANDATION
+==================================================
+
+Je veux une recommandation finale.
+
+Idéalement, je veux arriver à :
+
+OSINT / RESEARCH
+│
+├── Text Search
+├── Image Search
+├── Video Search
+├── Domain Research
+├── Company Research
+├── AI Research
+├── OCR
+├── Metadata
+├── Reverse Image
+├── Evidence
+├── Graph
+├── Sources
+├── Reports
+└── Settings
+
+==================================================
+41. INTERFACE
+==================================================
+
+Propose une interface moderne.
+
+Exemple :
+
+OSINT / RESEARCH
+
+Search type :
+[ AUTO ]
+
+Input :
+[____________________________]
+
+[ SEARCH ]
+
+Sources :
+☑ Web
+☑ Images
+☑ Domains
+☑ Public databases
+☑ Maps
+☑ Security
+☑ News
+
+AI Analysis :
+[ ON ]
+
+Deep Research :
+[ OFF ]
+
+Privacy Mode :
+[ ON ]
+
+Puis :
+
+RESULTS
+
+Confidence:
+87 %
+
+Sources:
+24
+
+Confirmed:
+12
+
+Uncertain:
+5
+
+Conflicting:
+2
+
+==================================================
+42. ANALYSE D'IMAGE
+==================================================
+
+Pour une image :
+
+IMAGE ANALYSIS
+
+EXIF
+OCR
+Objects
+Scene
+Location clues
+Similar images
+Web results
+AI analysis
+Confidence
+
+==================================================
+43. ANALYSE VIDEO
+==================================================
+
+Pour une vidéo :
+
+VIDEO ANALYSIS
+
+Duration
+Resolution
+Codec
+FPS
+Metadata
+Scenes
+Keyframes
+OCR
+Objects
+Locations
+Audio metadata
+AI summary
+
+Puis :
+
+[ SEARCH WEB ]
+
+==================================================
+44. AUTO RESEARCH
+==================================================
+
+Ajouter :
+
+AUTO RESEARCH
+
+L'IA choisit automatiquement :
+
+- les sources pertinentes
+- les requêtes
+- les frames importantes
+- les informations à rechercher
+- les relations
+- les sources à vérifier
+
+Mais elle doit respecter :
+
+- limites
+- rate limits
+- confidentialité
+- budget
+- nombre maximal de recherches
+
+==================================================
+45. SOURCES EXTERNES
+==================================================
+
+Je veux pouvoir ajouter des sources sous forme de plugins/connecteurs.
+
+Architecture :
+
+Sources/
+├── Search/
+├── Images/
+├── Domains/
+├── Companies/
+├── Maps/
+├── Security/
+├── News/
+└── Custom/
+
+Ajouter une nouvelle source ne doit pas nécessiter de modifier tout le programme.
+
+==================================================
+46. PLUGIN SYSTEM
+==================================================
+
+Créer si pertinent un système de connecteurs :
+
+Source Plugin
+
+Chaque plugin définit :
+
+name
+version
+type
+API
+authentication
+rate limit
+query
+parser
+license
+privacy
+enabled
+
+==================================================
+47. LOGS
+==================================================
+
+Chaque recherche doit être enregistrée.
+
+Exemple :
+
+Research #001
+
+Input:
+example.com
+
+Sources:
+12
+
+Queries:
+34
+
+Duration:
+42 sec
+
+Results:
+187
+
+Useful:
+23
+
+Errors:
+2
+
+==================================================
+48. IMPORTANT : NE PAS FAIRE DE SUR-SCRAPING
+==================================================
+
+Je veux un système intelligent.
+
+Ne pas envoyer 500 requêtes alors que 5 suffisent.
+
+Le moteur doit :
+
+- réutiliser le cache
+- regrouper les requêtes
+- limiter les doublons
+- prioriser les sources fiables
+- arrêter les recherches inutiles
+
+==================================================
+49. PREMIÈRE RÉPONSE
+==================================================
+
+Avant toute modification, donne-moi :
+
+1. analyse de SpiderFoot
+2. analyse de Maltego
+3. analyse des autres outils
+4. solutions de recherche image
+5. solutions de recherche vidéo
+6. solutions OCR
+7. solutions IA locales
+8. solutions de recherche web
+9. architecture recommandée
+10. architecture des dépendances
+11. système de plugins
+12. système de sources
+13. système de graph
+14. système de preuves
+15. système de scoring
+16. système de rapports
+17. gestion des modèles IA
+18. optimisation RTX 5060 Ti 16GB
+19. compatibilité autres RTX
+20. licences
+21. limites techniques
+22. risques
+23. trois solutions possibles
+24. recommandation finale
+
+==================================================
+50. RÈGLE ABSOLUE
+==================================================
+
+NE MODIFIE RIEN.
+
+NE CLONE RIEN.
+
+NE TELECHARGE RIEN.
+
+N'INSTALLE RIEN.
+
+NE COPIE AUCUN CODE.
+
+NE COMMENCE PAS L'INTÉGRATION.
+
+Présente d'abord les solutions.
+
+Attends ma validation.
+
+Après ma validation seulement, nous commencerons l'intégration étape par étape.
+
+Je veux une solution :
+
+- locale autant que possible
+- capable d'utiliser des sources externes
+- multimodale
+- capable d'analyser images et vidéos
+- assistée par IA
+- respectueuse des licences
+- respectueuse des conditions d'utilisation des sources
+- sécurisée
+- modulaire
+- maintenable
+- distribuable
+- extensible
+- compatible RTX
+- optimisée pour RTX 5060 Ti 16GB
+- capable de fonctionner offline lorsque cela est possible
+- capable de faire du Deep Research lorsque l'utilisateur l'autorise
+- avec traçabilité complète des sources et des preuves.
+
+
+
+
+8.AUDIT COMPLET, OPTIMISATION ET FINALISATION DU PROJET — VERSION 4.0
+Je veux effectuer un contrôle extrêmement complet de mon application et la préparer pour une version finale propre, stable et cohérente : VERSION 4.0.
+
+IMPORTANT :
+
+Cette opération doit être réalisée EN PLUSIEURS PHASES.
+
+Ne tente surtout pas de faire toute l'opération en une seule réponse ou une seule session.
+
+L'objectif est d'éviter :
+
+"Connexion interrompue"
+
+limite de requêtes
+
+réponse trop longue
+
+analyse interrompue
+
+modifications partielles
+
+fichiers oubliés
+
+dépendances non vérifiées
+
+bugs introduits pendant l'optimisation
+
+Tu dois travailler par étapes courtes, contrôlables et reprenables.
+
+RÈGLE PRINCIPALE
+À chaque phase :
+
+analyser
+
+identifier les problèmes
+
+corriger uniquement ce qui est nécessaire
+
+vérifier les modifications
+
+tester
+
+enregistrer les résultats dans les logs / rapports du projet
+
+faire un résumé très court
+
+passer à la phase suivante uniquement si l'état du projet est cohérent
+
+Si une phase devient trop importante :
+
+ARRÊTE-TOI À UN POINT PROPRE.
+
+Indique :
+
+PHASE TERMINÉE
+
+et attends ma confirmation pour continuer.
+
+Ne laisse jamais une modification à moitié terminée.
+
+PHASE 0 — INVENTAIRE COMPLET
+Avant toute modification importante, établir l'inventaire complet du projet.
+
+Analyser :
+
+structure des dossiers
+
+fichiers
+
+modules
+
+bibliothèques
+
+dépendances
+
+exécutables
+
+DLL
+
+modèles IA
+
+shaders
+
+scripts
+
+configurations
+
+assets
+
+ressources
+
+fichiers de build
+
+fichiers temporaires
+
+fichiers de cache
+
+fichiers de logs
+
+documentation
+
+Créer une cartographie :
+
+Application
+│
+├── Core
+├── UI
+├── Hardware
+├── NVIDIA
+├── DLSS
+├── OptiScaler
+├── Caustica
+├── ScandiShader
+├── SPBRScandi
+├── Video Enhancer
+├── OSINT
+├── AI
+├── Models
+├── Dependencies
+├── Tools
+├── Logs
+├── Config
+└── Tests
+
+Adapter cette structure à la structure réelle du projet.
+
+Ne pas déplacer arbitrairement les fichiers.
+
+PHASE 1 — CARTOGRAPHIE DES DÉPENDANCES
+Pour CHAQUE fichier source important :
+
+identifier :
+
+qui l'utilise
+
+quelles dépendances il utilise
+
+quelles dépendances l'utilisent
+
+quelles DLL il charge
+
+quelles API il appelle
+
+quelles configurations il utilise
+
+quels modules l'appellent
+
+quels fichiers il génère
+
+quels fichiers il modifie
+
+Construire une carte de dépendances.
+
+Exemple :
+
+Module A
+↓
+Module B
+↓
+DLL C
+↓
+Runtime D
+
+Vérifier :
+
+dépendance manquante
+
+dépendance dupliquée
+
+mauvaise version
+
+dépendance inutilisée
+
+chemin invalide
+
+DLL absente
+
+DLL incompatible
+
+import incorrect
+
+configuration incohérente
+
+PHASE 2 — VÉRIFICATION DES VERSIONS
+Vérifier toutes les versions.
+
+Inclure notamment :
+
+application
+
+NVIDIA
+
+DLSS
+
+DLSSG
+
+DLSSD
+
+DLSSNR
+
+OptiScaler
+
+Caustica
+
+ScandiShader
+
+SPBRScandi
+
+RTX Video
+
+modèles IA
+
+FFmpeg
+
+Vulkan
+
+DirectX
+
+CUDA si utilisée
+
+TensorRT si utilisée
+
+ONNX Runtime si utilisée
+
+OCR
+
+outils OSINT
+
+dépendances Python/C++/.NET/etc. si présentes
+
+Pour chaque composant :
+
+Installed
+Version
+Expected
+Compatible
+Recommended
+Status
+
+Ne jamais mettre à jour automatiquement un composant simplement parce qu'une version plus récente existe.
+
+Vérifier d'abord la compatibilité.
+
+PHASE 3 — DÉTECTION NVIDIA
+Améliorer fortement la détection NVIDIA.
+
+L'application doit fonctionner même lorsque le pilote NVIDIA a été installé avec :
+
+installation NVIDIA standard
+
+NVIDIA App
+
+GeForce Experience
+
+installation personnalisée
+
+NVCleanstall / NVClean
+
+installation minimale
+
+installation sans NVIDIA App
+
+NE PAS supposer que NVIDIA App ou GeForce Experience est installé.
+
+Détecter le pilote directement.
+
+Utiliser si pertinent :
+
+registre Windows
+
+WMI/CIM
+
+DXGI
+
+NVAPI
+
+fichiers système NVIDIA
+
+version des composants
+
+Device Manager
+
+autres méthodes fiables
+
+Créer un :
+
+NVIDIA Driver Detection Manager
+
+Il doit détecter :
+
+GPU
+VRAM
+architecture
+driver version
+driver branch
+CUDA capability si disponible
+Tensor capabilities
+RT capabilities
+DLSS compatibility
+Frame Generation capability
+Multi Frame Generation capability
+RTX Video capability
+
+Afficher :
+
+GPU :
+RTX 5060 Ti
+
+VRAM :
+16 GB
+
+Driver :
+617.42
+
+Detection:
+OK
+
+Driver Installation:
+STANDARD / NVCLEANSTALL / UNKNOWN
+
+Ne jamais dépendre de la présence de NVIDIA App.
+
+PHASE 4 — VÉRIFICATION DE LA CONFIGURATION MATÉRIELLE
+Analyser automatiquement :
+
+GPU
+CPU
+RAM
+VRAM
+OS
+résolution écran
+HDR
+DirectX
+Vulkan
+drivers
+
+Configuration de référence :
+
+RTX 5060 Ti 16 GB
+Ryzen 7 9700X
+32 GB DDR5 6000
+NVIDIA Driver 617.42
+
+Créer un profil matériel spécifique.
+
+Puis créer :
+
+NORMAL / GENERIC PROFILE
+
+pour les autres PC.
+
+PHASE 5 — AUDIT DE CHAQUE OPTION
+Vérifier CHAQUE option présente dans l'interface.
+
+Pour chaque bouton :
+
+existe-t-il réellement ?
+
+fonctionne-t-il ?
+
+appelle-t-il le bon module ?
+
+le module existe-t-il ?
+
+les paramètres sont-ils valides ?
+
+les erreurs sont-elles gérées ?
+
+l'option produit-elle réellement l'effet annoncé ?
+
+le bouton peut-il être utilisé deux fois ?
+
+que se passe-t-il si l'utilisateur annule ?
+
+que se passe-t-il si une dépendance manque ?
+
+que se passe-t-il si le GPU n'est pas compatible ?
+
+Créer une matrice :
+
+OPTION
+MODULE
+DEPENDANCES
+STATUS
+TEST
+ERREUR
+ACTION
+
+Aucune option fictive ne doit rester dans l'application.
+
+Si une fonction n'est pas réellement opérationnelle :
+
+la corriger ou la marquer clairement comme expérimentale/non disponible.
+
+PHASE 6 — AUDIT DES OUTILS
+Vérifier chaque outil intégré :
+
+DLSS Manager
+
+DLSS5
+
+DLSS5 Swapper/équivalent
+
+DLSS5 Autopilot/équivalent
+
+OptiScaler
+
+Caustica
+
+ScandiShader
+
+SPBRScandi
+
+Video Enhancer
+
+RTX Video
+
+VSR
+
+RTX HDR
+
+AI Image Generator
+
+AI Video Generator
+
+OSINT
+
+OCR
+
+Image Analysis
+
+Video Analysis
+
+recherche web
+
+recherche multimodale
+
+diagnostics
+
+benchmark
+
+hardware profiles
+
+driver manager
+
+dependency manager
+
+backup/restore
+
+logs
+
+Vérifier qu'ils sont :
+
+installés
+
+correctement reliés
+
+configurés
+
+fonctionnels
+
+correctement affichés
+
+correctement arrêtés
+
+correctement nettoyés
+
+PHASE 7 — ORGANISATION DE L'INTERFACE
+Je veux que tous les outils soient organisés visuellement par fonction.
+
+Ne pas avoir une interface avec des outils dispersés sans logique.
+
+Proposer une organisation similaire à :
+
+HOME
+état système
+
+GPU
+
+CPU
+
+RAM
+
+pilote
+
+profil actif
+
+état général
+
+GAMING / RENDERING
+DLSS
+
+DLSS5
+
+OptiScaler
+
+Frame Generation
+
+Ray Reconstruction
+
+Caustica
+
+ScandiShader
+
+SPBRScandi
+
+VIDEO
+Video Enhancer
+
+RTX Video
+
+VSR
+
+HDR
+
+Upscaling
+
+Video Analysis
+
+AI
+Image Generation
+
+Video Generation
+
+Vision
+
+OCR
+
+AI Models
+
+Local AI
+
+OSINT / RESEARCH
+Search
+
+Image Search
+
+Video Search
+
+AI Research
+
+Sources
+
+Evidence
+
+Graph
+
+Reports
+
+HARDWARE
+GPU
+
+CPU
+
+RAM
+
+Driver
+
+Profiles
+
+Monitoring
+
+TOOLS
+Benchmark
+
+Diagnostics
+
+Logs
+
+Dependency Manager
+
+Backup / Restore
+
+SETTINGS
+General
+
+GPU
+
+AI
+
+Network
+
+Privacy
+
+Logs
+
+Updates
+
+Adapter cette organisation à l'interface existante plutôt que de la reconstruire inutilement.
+
+PHASE 8 — GESTION DU CYCLE DE VIE DES OUTILS
+Très important.
+
+Chaque outil lancé par l'application doit avoir un cycle de vie propre :
+
+START
+↓
+RUN
+↓
+MONITOR
+↓
+STOP
+↓
+CLEANUP
+
+Lorsqu'un outil termine :
+
+arrêter ses processus
+
+fermer ses workers
+
+libérer GPU
+
+libérer RAM
+
+fermer fichiers
+
+fermer sockets
+
+arrêter threads
+
+arrêter subprocess
+
+supprimer uniquement les fichiers temporaires prévus
+
+PHASE 9 — FERMETURE PROPRE DE L'APPLICATION
+Lorsque l'utilisateur ferme l'application :
+
+TOUS les composants doivent être arrêtés proprement.
+
+Vérifier :
+
+subprocess
+
+workers
+
+threads
+
+GPU workers
+
+serveurs locaux
+
+API locales
+
+WebSocket
+
+FFmpeg
+
+Python
+
+modèles IA
+
+OCR
+
+OSINT workers
+
+téléchargements
+
+caches temporaires
+
+Créer un :
+
+Application Shutdown Manager
+
+Ordre recommandé :
+
+arrêter nouvelles tâches
+
+attendre les opérations critiques
+
+arrêter workers
+
+arrêter subprocess
+
+fermer modèles
+
+libérer GPU
+
+fermer connexions
+
+sauvegarder état
+
+écrire le log final
+
+quitter
+
+Après fermeture :
+
+aucun processus enfant de l'application ne doit rester actif sauf si explicitement prévu.
+
+PHASE 10 — GESTION DES CRASHES
+Ajouter une gestion propre :
+
+exception handler
+
+subprocess crash
+
+GPU error
+
+DLL error
+
+timeout
+
+API error
+
+réseau indisponible
+
+fichier absent
+
+permission denied
+
+driver incompatible
+
+modèle absent
+
+L'application ne doit pas simplement se fermer.
+
+Elle doit afficher :
+
+ERREUR
+
+Cause probable :
+...
+
+Module :
+...
+
+Solution :
+...
+
+Log :
+...
+
+PHASE 11 — LOGGING COMPLET
+Ajouter un système de logs centralisé.
+
+Créer par exemple :
+
+Logs/
+├── Application/
+├── NVIDIA/
+├── DLSS/
+├── OptiScaler/
+├── Video/
+├── AI/
+├── OSINT/
+├── Hardware/
+├── Dependencies/
+├── Errors/
+└── Diagnostics/
+
+Créer différents niveaux :
+
+TRACE
+DEBUG
+INFO
+WARNING
+ERROR
+CRITICAL
+
+Ne jamais enregistrer :
+
+mots de passe
+
+API keys
+
+tokens
+
+données privées inutiles
+
+PHASE 12 — SESSION DIAGNOSTIC
+Ajouter un mode :
+
+DIAGNOSTIC MODE
+
+Lorsqu'il est activé :
+
+logs détaillés
+
+versions
+
+GPU
+
+driver
+
+DLL
+
+processus
+
+modules
+
+erreurs
+
+timings
+
+ressources
+
+dépendances
+
+Créer :
+
+diagnostic-report.json
+
+et éventuellement :
+
+diagnostic-report.html
+
+PHASE 13 — ANALYSE DES BUGS
+Rechercher activement :
+
+exceptions
+
+race conditions
+
+deadlocks
+
+memory leaks
+
+GPU memory leaks
+
+handles non fermés
+
+processus zombies
+
+threads zombies
+
+fichiers verrouillés
+
+chemins invalides
+
+encodages incorrects
+
+paramètres invalides
+
+valeurs nulles
+
+valeurs hors limites
+
+configurations contradictoires
+
+imports inutilisés
+
+modules non utilisés
+
+Corriger les problèmes trouvés.
+
+PHASE 14 — VALIDATION DES PARAMÈTRES
+Vérifier tous les paramètres de configuration.
+
+Pour chaque paramètre :
+
+type
+
+valeur par défaut
+
+min
+
+max
+
+enum
+
+compatibilité
+
+dépendances
+
+Exemple :
+
+VRAM limit :
+16 GB
+
+Doit être impossible d'entrer :
+
+-5
+
+9999
+
+texte
+
+valeur incompatible
+
+Faire une validation côté interface ET côté backend.
+
+PHASE 15 — AUDIT DES CONFIGURATIONS
+Rechercher :
+
+options dupliquées
+
+paramètres contradictoires
+
+anciennes clés
+
+configurations obsolètes
+
+noms incohérents
+
+chemins codés en dur
+
+chemins utilisateur incorrects
+
+anciennes versions
+
+valeurs de debug
+
+options expérimentales laissées activées
+
+Nettoyer les configurations obsolètes.
+
+PHASE 16 — TEST DE CHAQUE MODULE
+Créer un plan de test.
+
+Pour chaque module :
+
+INIT
+LOAD
+RUN
+ERROR
+STOP
+RESTART
+SHUTDOWN
+
+Tester notamment :
+
+démarrage
+
+fonctionnement normal
+
+absence de dépendance
+
+GPU incompatible
+
+mauvais pilote
+
+fichier absent
+
+réseau absent
+
+utilisateur annule
+
+fermeture application
+
+redémarrage
+
+PHASE 17 — TEST D'INTÉGRATION
+Tester les interactions.
+
+Exemples :
+
+DLSS + OptiScaler
+
+OptiScaler + ScandiShader
+
+Caustica + ScandiShader
+
+Video Enhancer + RTX Video
+
+AI + GPU Manager
+
+OSINT + AI
+
+OSINT + OCR
+
+AI Video + Video Enhancer
+
+Hardware Profile + tous les modules
+
+Driver Manager + DLSS
+
+Vérifier qu'aucun module ne provoque :
+
+conflit
+
+double traitement
+
+double lancement
+
+double téléchargement
+
+DLL incompatible
+
+paramètres contradictoires
+
+PHASE 18 — TEST DU PROFIL RTX 5060 TI
+Tester spécifiquement :
+
+RTX 5060 Ti 16 GB
+Ryzen 7 9700X
+32 GB DDR5 6000
+Driver 617.42
+
+Vérifier tous les outils compatibles.
+
+Comparer :
+
+AUTO
+PERFORMANCE
+BALANCED
+QUALITY
+CUSTOM
+
+Optimiser automatiquement :
+
+VRAM
+
+GPU
+
+CPU
+
+batch
+
+threads
+
+cache
+
+IA
+
+upscaling
+
+DLSS
+
+vidéo
+
+PHASE 19 — TEST AUTRES RTX
+Vérifier que l'application détecte correctement :
+
+RTX 20
+RTX 30
+RTX 40
+RTX 50
+
+Ne pas activer une fonction incompatible.
+
+Créer :
+
+SUPPORTED
+LIMITED
+EXPERIMENTAL
+UNSUPPORTED
+
+PHASE 20 — RECHERCHE DOCUMENTATION
+Si un problème ou une incertitude technique apparaît :
+
+chercher la documentation officielle appropriée.
+
+Priorité :
+
+NVIDIA
+
+Microsoft
+
+documentation officielle du projet
+
+GitHub officiel
+
+documentation technique reconnue
+
+Ne pas modifier le projet sur la base d'une information non vérifiée si une documentation officielle est disponible.
+
+PHASE 21 — OPTIMISATION GÉNÉRALE
+Une fois les bugs corrigés, optimiser l'application.
+
+Rechercher :
+
+code inutile
+
+appels répétitifs
+
+processus inutiles
+
+services inutiles
+
+polling excessif
+
+threads inutiles
+
+allocations inutiles
+
+accès disque inutiles
+
+requêtes réseau inutiles
+
+chargement de modèles inutile
+
+chargement de DLL inutile
+
+consommation RAM excessive
+
+consommation VRAM excessive
+
+démarrage trop lent
+
+Optimiser sans sacrifier la stabilité.
+
+PRIORITÉ :
+
+stabilité
+
+sécurité
+
+compatibilité
+
+performances
+
+consommation
+
+esthétique
+
+PHASE 22 — NETTOYAGE
+Une fois toutes les fonctionnalités validées :
+
+rechercher :
+
+fichiers inutilisés
+
+fichiers temporaires
+
+anciens scripts
+
+anciens modules
+
+anciennes DLL
+
+builds obsolètes
+
+doublons
+
+imports inutiles
+
+fonctions mortes
+
+variables inutilisées
+
+configurations obsolètes
+
+logs de développement
+
+code de debug
+
+assets inutilisés
+
+NE SUPPRIME RIEN immédiatement.
+
+Créer d'abord :
+
+CLEANUP CANDIDATES
+
+avec :
+
+fichier
+raison
+dépendances
+risque
+action proposée
+
+Puis seulement après validation/sécurité :
+
+supprimer les éléments réellement inutiles.
+
+PHASE 23 — CONTRÔLE FINAL
+Faire une analyse complète de l'ensemble du projet.
+
+Recommencer autant de fois que nécessaire.
+
+Cycle :
+
+AUDIT
+↓
+CORRECTION
+↓
+TEST
+↓
+AUDIT
+↓
+CORRECTION
+↓
+TEST
+↓
+...
+
+Continuer jusqu'à ce qu'il n'y ait plus de problème connu significatif.
+
+IMPORTANT :
+
+Ne jamais dire :
+
+"100 % sans bug"
+
+simplement parce que les tests passent.
+
+Utiliser plutôt :
+
+NO KNOWN ISSUES FOUND
+
+ou :
+
+ALL PLANNED TESTS PASSED
+
+si tous les tests prévus sont réellement passés.
+
+PHASE 24 — TEST DE RÉGRESSION
+Après les optimisations :
+
+retester TOUTES les fonctionnalités importantes.
+
+Aucune optimisation ne doit casser :
+
+UI
+
+DLSS
+
+OptiScaler
+
+Caustica
+
+ScandiShader
+
+SPBRScandi
+
+Video Enhancer
+
+AI
+
+OSINT
+
+NVIDIA detection
+
+hardware profiles
+
+logging
+
+shutdown
+
+backup/restore
+
+PHASE 25 — BUILD FINAL
+Créer une build propre.
+
+Avant build :
+
+version
+
+dépendances
+
+assets
+
+DLL
+
+configuration
+
+licence
+
+documentation
+
+Vérifier qu'aucun fichier de développement inutile ne se retrouve dans la distribution.
+
+PHASE 26 — VERSION 4.0
+Une fois tout validé :
+
+mettre la version :
+
+4.0
+
+Mettre à jour :
+
+version interne
+
+version UI
+
+version executable
+
+manifest
+
+package
+
+documentation
+
+Ne pas annoncer 4.0 tant que les tests finaux ne sont pas terminés.
+
+PHASE 27 — README
+Mettre complètement à jour README.md.
+
+Le README doit présenter :
+
+nom de l'application
+
+version 4.0
+
+présentation
+
+fonctionnalités
+
+nouveautés
+
+architecture
+
+configuration matérielle
+
+compatibilité NVIDIA
+
+détection des pilotes
+
+DLSS
+
+DLSS5
+
+OptiScaler
+
+Caustica
+
+ScandiShader
+
+SPBRScandi
+
+Video Enhancer
+
+RTX Video
+
+AI
+
+génération image
+
+génération vidéo
+
+OSINT
+
+OCR
+
+recherche multimodale
+
+profils matériels
+
+diagnostics
+
+logs
+
+benchmark
+
+backup/restore
+
+sécurité
+
+confidentialité
+
+installation
+
+utilisation
+
+dépannage
+
+limitations
+
+dépendances
+
+licences
+
+Ne pas inventer de fonctionnalités.
+
+Le README doit refléter exactement ce qui fonctionne réellement.
+
+PHASE 28 — CHANGELOG
+Créer ou mettre à jour :
+
+CHANGELOG.md
+
+avec :
+
+Version 4.0
+
+Added
+Changed
+Improved
+Fixed
+Removed
+Security
+Dependencies
+
+Indiquer les changements importants.
+
+PHASE 29 — RAPPORT FINAL
+Créer un rapport final :
+
+FINAL_AUDIT_REPORT.md
+
+Il doit contenir :
+
+Projet
+Nom
+Version
+Date
+
+Environnement testé
+OS
+CPU
+GPU
+VRAM
+RAM
+Driver
+
+Modules
+Liste complète.
+
+Tests
+Nombre de tests
+Tests réussis
+Warnings
+Erreurs
+
+Dépendances
+État des dépendances.
+
+Sécurité
+Résultats.
+
+Performance
+Résultats.
+
+Nettoyage
+Fichiers supprimés
+Fichiers conservés
+Raisons
+
+Problèmes corrigés
+Liste complète.
+
+Problèmes connus
+Uniquement les problèmes réellement connus.
+
+Conclusion
+État final.
+
+PHASE 30 — RÉSUMÉ POUR MOI
+À la fin, donne-moi un résumé clair et facile à lire de TOUT ce que contient l'application.
+
+Format :
+
+APPLICATION 4.0
+
+Système
+Hardware detection
+
+NVIDIA Driver Manager
+
+Hardware Profiles
+
+Monitoring
+
+Diagnostics
+
+Gaming / Rendering
+DLSS
+
+DLSS5
+
+OptiScaler
+
+Frame Generation
+
+Ray Reconstruction
+
+Caustica
+
+ScandiShader
+
+SPBRScandi
+
+Video
+RTX Video
+
+Super Resolution
+
+HDR
+
+AI Video Enhancement
+
+Video Analysis
+
+AI
+AI Image Generation
+
+AI Video Generation
+
+Vision
+
+OCR
+
+Local Models
+
+Model Manager
+
+OSINT
+Web Research
+
+Image Research
+
+Video Research
+
+AI Research
+
+Sources
+
+Evidence
+
+Graph
+
+Reports
+
+Tools
+Benchmark
+
+Diagnostics
+
+Backup
+
+Restore
+
+Logs
+
+Dependency Manager
+
+Profils
+RTX 5060 Ti 16GB + Ryzen 7 9700X
+
+Generic / Normal
+
+Automatic hardware detection
+
+Puis :
+
+État final
+BUILD :
+4.0
+
+STATUS :
+...
+
+KNOWN ISSUES :
+...
+
+TESTS :
+...
+
+PHASE 31 — AVANT DE ME DONNER LA VERSION FINALE
+Vérifier une dernière fois :
+
+application démarre
+
+interface fonctionne
+
+tous les boutons répondent
+
+toutes les options valides
+
+dépendances présentes
+
+NVIDIA détecté
+
+pilote détecté
+
+NVCleanstall compatible
+
+GPU détecté
+
+VRAM détectée
+
+profils fonctionnent
+
+outils démarrent
+
+outils s'arrêtent
+
+application se ferme proprement
+
+aucun processus zombie
+
+logs fonctionnent
+
+erreurs correctement enregistrées
+
+backup fonctionne
+
+restore fonctionne
+
+configuration sauvegardée
+
+configuration rechargée
+
+build propre
+
+README à jour
+
+CHANGELOG à jour
+
+version 4.0 correcte
+
+RÈGLE DE FIN
+Ne passe à la phase suivante que lorsque la phase actuelle est suffisamment stable.
+
+Si une phase contient trop de travail :
+
+divise-la en sous-phases.
+
+Exemple :
+
+PHASE 6A
+PHASE 6B
+PHASE 6C
+
+Cela permet d'éviter les réponses trop longues et les interruptions.
+
+À chaque fin de phase, fournir uniquement :
+
+PHASE :
+STATUS :
+PROBLÈMES TROUVÉS :
+PROBLÈMES CORRIGÉS :
+TESTS :
+PROCHAINE PHASE :
+
+Puis continuer si possible.
+
+IMPORTANT
+Je veux une analyse réellement poussée.
+
+Ne te contente pas de vérifier si les fichiers existent.
+
+Vérifie les relations entre eux.
+
+Vérifie le fonctionnement réel.
+
+Vérifie les paramètres.
+
+Vérifie les dépendances.
+
+Vérifie les processus.
+
+Vérifie le nettoyage.
+
+Vérifie les erreurs.
+
+Vérifie les performances.
+
+Vérifie la compatibilité.
+
+Vérifie la sécurité.
+
+Vérifie la cohérence de l'interface.
+
+Vérifie la fermeture complète de l'application.
+
+Vérifie les régressions après chaque correction.
+
+Et recommence l'audit jusqu'à obtenir :
+
+NO KNOWN ISSUES FOUND
+
+ou une liste résiduelle précise des problèmes qui ne peuvent réellement pas être résolus.
+
+NE PAS INVENTER DES TESTS OU DES RÉSULTATS.
+
+NE PAS AFFIRMER QU'UN TEST A RÉUSSI S'IL N'A PAS ÉTÉ EFFECTUÉ.
+
+Quand tout est réellement terminé :
+
+préparer la version 4.0,
+
+mettre à jour README.md,
+
+mettre à jour CHANGELOG.md,
+
+générer le rapport final,
+
+me donner le résumé complet de tous les outils,
+
+puis STOPPER.
+
+Je testerai ensuite moi-même l'application.
+
+
+
+
+
+
+9.EXPÉRIMENTATION FAR CRY 2 — INTÉGRATION DLSS ET DLSS5
+Je veux reprendre l'expérimentation commencée précédemment sur Far Cry 2 afin d'étudier sérieusement la possibilité d'intégrer :
+
+DLSS Super Resolution
+
+DLAA si possible
+
+DLSS Frame Generation si techniquement possible
+
+DLSS5 / fonctionnalités DLSS5 compatibles avec le pipeline
+
+éventuellement d'autres solutions d'upscaling compatibles
+
+IMPORTANT :
+
+NE MODIFIE RIEN IMMÉDIATEMENT.
+
+NE REMPLACE AUCUN FICHIER ORIGINAL.
+
+NE SUPPRIME RIEN.
+
+NE COMMENCE PAS PAR INSTALLER DES DLL.
+
+Je veux d'abord une analyse technique complète et un plan d'expérimentation.
+
+Attends ma validation avant les modifications importantes.
+
+1. OBJECTIF
+L'objectif est de déterminer s'il est réellement possible d'ajouter à Far Cry 2 une chaîne moderne de rendu/upscaling, idéalement :
+
+Far Cry 2
+↓
+pipeline de rendu
+↓
+TAA / résolution interne / buffer compatible
+↓
+DLSS
+↓
+DLSS5 si possible
+↓
+affichage final
+
+Je veux obtenir la meilleure qualité possible avec le minimum de perte de FPS.
+
+2. IDENTIFIER LE PIPELINE DU JEU
+Avant toute tentative, déterminer précisément :
+
+version de Far Cry 2
+
+édition du jeu
+
+version de l'exécutable
+
+architecture 32/64 bits
+
+API utilisée
+
+DX9
+
+DX10
+
+autres chemins éventuels
+
+moteur Dunia utilisé
+
+système de rendu
+
+résolution interne
+
+anti-aliasing
+
+buffers disponibles
+
+motion vectors
+
+depth buffer
+
+velocity
+
+jitter
+
+exposure
+
+HDR
+
+post-processing
+
+Ne rien supposer.
+
+Vérifier dans les fichiers du jeu, documentation technique et sources publiques disponibles.
+
+3. DX9 ET DX10
+Tester séparément :
+
+DX9
+
+et
+
+DX10
+
+Ne pas considérer que les deux pipelines sont identiques.
+
+Déterminer lequel est le meilleur candidat pour l'expérimentation.
+
+Comparer :
+
+stabilité
+
+performances
+
+compatibilité injection
+
+accès aux buffers
+
+présentation finale
+
+qualité d'image
+
+Si DX10 est nettement préférable pour l'injection, le privilégier.
+
+4. ANALYSER LE SUPPORT EXISTANT
+Chercher sur Internet et dans la documentation actuelle :
+
+Far Cry 2 DLSS
+
+Far Cry 2 DLSS mod
+
+Far Cry 2 upscaler
+
+Far Cry 2 OptiScaler
+
+Far Cry 2 FSR
+
+Far Cry 2 XeSS
+
+Far Cry 2 ReShade
+
+Far Cry 2 DX9 injection
+
+Far Cry 2 DX10 injection
+
+Dunia upscaler
+
+Dunia temporal AA
+
+Dunia motion vectors
+
+Vérifier notamment la compatibilité actuelle d'OptiScaler et les méthodes d'injection documentées.
+
+Ne pas conclure que Far Cry 2 est compatible simplement parce qu'OptiScaler supporte de nombreux jeux : sa liste de compatibilité indique elle-même qu'elle n'est pas exhaustive et que les méthodes varient selon le jeu. 
+G
+GitHub
+
+5. OPTISCALER
+Analyser si OptiScaler peut réellement servir de base.
+
+Vérifier :
+
+API supportée
+
+méthode d'injection
+
+DLL utilisée
+
+fonctions interceptées
+
+dépendances
+
+nécessité d'un upscaler natif
+
+possibilité d'utiliser un input non-DLSS
+
+possibilité de fournir les buffers nécessaires
+
+compatibilité avec DX9
+
+compatibilité avec DX10
+
+possibilité de fonctionner sans modifier l'exécutable
+
+Ne pas forcer OptiScaler si le pipeline de Far Cry 2 ne fournit pas les données nécessaires.
+
+OptiScaler doit être considéré comme une piste d'expérimentation, pas comme une garantie de compatibilité. Sa documentation actuelle indique notamment qu'il cible principalement les jeux disposant déjà de DLSS 2+, FSR2+ ou XeSS, ce qui est particulièrement important à vérifier pour Far Cry 2. 
+G
+GitHub
+
+6. TROUVER LE POINT D'INJECTION
+Identifier précisément où intervenir.
+
+Rechercher :
+
+création du device
+
+swap chain
+
+Present
+
+render targets
+
+résolution interne
+
+passes de post-processing
+
+anti-aliasing
+
+temporal accumulation
+
+motion vectors
+
+depth
+
+tonemapping
+
+Créer un schéma :
+
+GAME
+↓
+RENDER
+↓
+ANTI-ALIASING
+↓
+POST PROCESS
+↓
+TONEMAP
+↓
+PRESENT
+
+Puis identifier :
+
+POINT D'INJECTION POSSIBLE
+
+7. INPUTS DLSS
+DLSS nécessite des informations adaptées.
+
+Vérifier si Far Cry 2 permet de récupérer correctement :
+
+couleur
+
+profondeur
+
+motion vectors
+
+jitter
+
+exposition
+
+résolution interne
+
+résolution finale
+
+Pour chaque élément :
+
+AVAILABLE
+PARTIALLY AVAILABLE
+NOT AVAILABLE
+CAN BE DERIVED
+
+Ne jamais envoyer artificiellement des données incorrectes à DLSS simplement pour faire fonctionner l'appel.
+
+8. MOTION VECTORS
+C'est un point critique.
+
+Analyser :
+
+format
+
+résolution
+
+espace des vecteurs
+
+direction
+
+amplitude
+
+caméra
+
+objets
+
+transparence
+
+HUD
+
+Tester la qualité des motion vectors.
+
+Si les motion vectors natifs sont insuffisants :
+
+étudier uniquement si techniquement réaliste la possibilité de :
+
+les dériver
+
+les convertir
+
+les corriger
+
+utiliser une autre source
+
+Ne pas sacrifier la stabilité pour obtenir un prototype.
+
+9. DEPTH BUFFER
+Identifier :
+
+format
+
+résolution
+
+convention
+
+near plane
+
+far plane
+
+reversed Z ou non
+
+moment où le depth buffer est disponible
+
+Créer un convertisseur si nécessaire.
+
+Tester :
+
+précision
+
+compatibilité
+
+stabilité
+
+10. JITTER
+Vérifier si le jeu utilise déjà un jitter temporel.
+
+Si non :
+
+étudier la possibilité d'en introduire un uniquement si cela est compatible avec le moteur et le reste du pipeline.
+
+Objectif :
+
+DLSS temporal accumulation
+
+sans :
+
+tremblement
+
+ghosting excessif
+
+désynchronisation
+
+HUD instable
+
+11. DLSS SUPER RESOLUTION
+Première expérimentation :
+
+DLSS Super Resolution uniquement.
+
+Ne pas commencer par DLSS5.
+
+Tester successivement :
+
+Native
+↓
+DLAA
+↓
+DLSS Quality
+↓
+DLSS Balanced
+↓
+DLSS Performance
+
+Mesurer :
+
+FPS
+
+frametime
+
+GPU usage
+
+VRAM
+
+CPU usage
+
+qualité
+
+ghosting
+
+flickering
+
+aliasing
+
+détails fins
+
+végétation
+
+transparence
+
+12. DLAA
+Si possible, tester :
+
+DLAA
+
+pour déterminer si le pipeline peut utiliser DLSS uniquement comme anti-aliasing sans réduction de résolution.
+
+Comparer :
+
+TAA original
+
+DLAA
+
+DLSS Quality
+
+Objectif :
+
+déterminer si DLAA donne une amélioration visuelle significative sur Far Cry 2.
+
+13. DLSS5
+Une fois DLSS Super Resolution fonctionnel :
+
+étudier séparément DLSS5.
+
+NE PAS supposer que DLSS5 peut simplement être ajouté au jeu.
+
+Identifier exactement quelles fonctions DLSS5 sont disponibles et quelles conditions elles nécessitent.
+
+Pour chaque fonction :
+
+compatible avec Far Cry 2 ?
+
+compatible avec le pipeline ?
+
+dépendance supplémentaire ?
+
+RTX nécessaire ?
+
+driver nécessaire ?
+
+coût GPU ?
+
+gain visuel ?
+
+risque de bugs ?
+
+Tester uniquement les fonctions réellement pertinentes.
+
+14. DLSS FRAME GENERATION
+Analyser séparément la Frame Generation.
+
+Ne pas l'activer automatiquement.
+
+Vérifier :
+
+motion vectors
+
+cadence
+
+frame pacing
+
+latence
+
+UI
+
+caméra
+
+animations
+
+CPU bottleneck
+
+Comparer :
+
+Native
+DLSS
+DLSS + FG
+
+Mesurer la latence réelle et pas uniquement le nombre de FPS affichés.
+
+15. DLSS5 / MULTI FRAME GENERATION
+Si une fonction de type Multi Frame Generation est pertinente pour le matériel détecté :
+
+analyser sa faisabilité séparément.
+
+Ne pas supposer qu'une ancienne application DX9/DX10 peut en bénéficier correctement.
+
+Vérifier :
+
+driver
+
+GPU
+
+API
+
+frame pacing
+
+présentation
+
+compatibilité du moteur
+
+Si impossible :
+
+le documenter clairement.
+
+16. RTX 5060 Ti
+Utiliser comme plateforme principale :
+
+RTX 5060 Ti 16 GB
+Ryzen 7 9700X
+32 GB DDR5 6000
+NVIDIA Driver 617.42
+
+Tester :
+
+GPU usage
+
+VRAM
+
+CPU
+
+frametime
+
+FPS moyen
+
+1% low
+
+0.1% low
+
+latence
+
+Créer un profil :
+
+Far Cry 2 RTX 5060 Ti
+
+17. PROFIL EXPÉRIMENTAL
+Créer un profil séparé :
+
+FAR CRY 2 — DLSS EXPERIMENTAL
+
+Il ne doit jamais modifier définitivement le profil normal.
+
+Structure :
+
+Normal
+Experimental
+Backup
+
+Permettre :
+
+ENABLE
+DISABLE
+RESTORE ORIGINAL
+
+18. BACKUP
+Avant chaque modification :
+
+sauvegarder :
+
+EXE
+
+DLL
+
+configuration
+
+fichiers modifiés
+
+shaders
+
+fichiers de jeu concernés
+
+Créer :
+
+Backups/FarCry2/
+
+avec timestamp.
+
+Aucune expérimentation ne doit rendre impossible le retour à l'installation originale.
+
+19. DÉTECTION AUTOMATIQUE
+L'application doit détecter :
+
+Far Cry 2 installé
+↓
+version
+↓
+API
+↓
+configuration
+↓
+GPU
+↓
+driver
+↓
+compatibilité
+↓
+profil recommandé
+
+Afficher par exemple :
+
+FAR CRY 2
+
+API :
+DX10
+
+GPU :
+RTX 5060 Ti 16 GB
+
+Driver :
+617.42
+
+DLSS :
+Experimental
+
+DLSS5 :
+Experimental / Unsupported / Available
+
+OptiScaler :
+Detected / Not detected
+
+20. TEST A/B
+Créer un vrai système de comparaison :
+
+ORIGINAL
+
+vs
+
+DLSS
+
+vs
+
+DLAA
+
+vs
+
+DLSS5
+
+avec exactement :
+
+même résolution
+
+même scène
+
+même qualité
+
+même caméra
+
+même durée
+
+Capturer :
+
+FPS
+frametime
+GPU
+CPU
+VRAM
+latence
+
+Et si possible des screenshots identiques.
+
+21. BENCHMARK
+Créer un benchmark Far Cry 2.
+
+Scénarios :
+
+intérieur
+
+extérieur
+
+végétation
+
+conduite
+
+combat
+
+scène chargée
+
+Pour chaque scénario :
+
+Average FPS
+1% Low
+0.1% Low
+Frametime
+GPU usage
+VRAM
+CPU usage
+
+22. QUALITÉ D'IMAGE
+Analyser spécialement :
+
+végétation
+
+herbe
+
+feuillage
+
+fumée
+
+transparence
+
+eau
+
+ombres
+
+lignes fines
+
+câbles
+
+grillages
+
+objets éloignés
+
+mouvement rapide
+
+caméra rapide
+
+particules
+
+Chercher :
+
+ghosting
+
+shimmering
+
+flickering
+
+trailing
+
+oversharpening
+
+perte de détails
+
+23. COMPATIBILITÉ AVEC LES MODS EXISTANTS
+Vérifier les interactions avec les modifications déjà présentes dans mon installation.
+
+Notamment :
+
+ReShade
+
+shaders
+
+mods graphiques
+
+corrections DX
+
+autres DLL
+
+overlays
+
+Ne jamais écraser une DLL sans identifier son propriétaire et sa fonction.
+
+24. LOGS
+Créer :
+
+Logs/FarCry2/
+
+avec :
+
+API détectée
+
+GPU
+
+driver
+
+DLL chargées
+
+point d'injection
+
+initialisation DLSS
+
+résolution
+
+inputs
+
+erreurs
+
+warnings
+
+temps d'exécution
+
+arrêt
+
+Permettre d'activer un mode :
+
+DEBUG
+
+pour les expérimentations.
+
+25. ANALYSE DES ÉCHECS
+Si DLSS ne fonctionne pas :
+
+ne pas simplement essayer plusieurs DLL au hasard.
+
+Identifier :
+
+API incompatible ?
+
+absence de motion vectors ?
+
+depth incompatible ?
+
+résolution interne incorrecte ?
+
+mauvaise interception ?
+
+mauvais format ?
+
+problème de synchronisation ?
+
+problème de présentation ?
+
+incompatibilité du moteur ?
+
+problème de pilote ?
+
+Documenter la cause probable.
+
+26. PLAN B
+Si DLSS direct est impossible, étudier dans cet ordre :
+
+A. OptiScaler
+
+B. injection via un upscaler compatible existant
+
+C. remplacement d'une autre passe d'upscaling
+
+D. solution de modding spécifique Far Cry 2
+
+E. solution basée sur ReShade uniquement si elle apporte réellement quelque chose
+
+F. autre méthode techniquement viable
+
+Ne pas utiliser une méthode qui ajoute beaucoup de latence ou de perte FPS simplement pour afficher "DLSS".
+
+27. PRIORITÉ AUX PERFORMANCES
+Le résultat recherché n'est pas seulement :
+
+"DLSS fonctionne".
+
+Je veux :
+
+DLSS fonctionnel
++
+qualité supérieure
++
+gain FPS réel
++
+frametime stable
++
+latence minimale
++
+pas de bugs graphiques majeurs
+
+Si DLSS donne une perte de performance dans une scène donnée :
+
+le signaler.
+
+28. COMPATIBILITÉ FUTURE
+Le système doit être conçu pour pouvoir éventuellement supporter :
+
+nouvelles versions DLSS
+
+nouvelles DLL
+
+nouvelles fonctions DLSS
+
+nouvelles versions OptiScaler
+
+nouvelles méthodes d'injection
+
+Sans modifier toute l'application.
+
+29. INTERFACE
+Ajouter si pertinent une section :
+
+FAR CRY 2 EXPERIMENTAL
+
+avec :
+
+API :
+[ DX9 / DX10 ]
+
+Upscaler :
+[ Native / DLAA / DLSS ]
+
+Mode :
+[ Quality / Balanced / Performance ]
+
+DLSS5 :
+[ OFF / AUTO / EXPERIMENTAL ]
+
+Frame Generation :
+[ OFF / EXPERIMENTAL ]
+
+Debug:
+[ OFF / ON ]
+
+Benchmark:
+[ RUN ]
+
+Backup:
+[ RESTORE ]
+
+30. SÉCURITÉ
+Ne jamais :
+
+télécharger automatiquement une DLL inconnue
+
+exécuter un fichier inconnu
+
+remplacer un fichier sans backup
+
+modifier le jeu original sans possibilité de restauration
+
+Vérifier les sources et les licences des composants utilisés.
+
+31. RECHERCHE DOCUMENTAIRE
+Si une information technique manque :
+
+chercher la documentation actuelle sur Internet.
+
+Priorité :
+
+documentation NVIDIA
+
+documentation OptiScaler
+
+GitHub officiel
+
+documentation Microsoft DirectX
+
+documentation du mod
+
+communautés techniques reconnues
+
+Pour chaque solution trouvée :
+
+indiquer la source.
+
+32. PHASES DE TRAVAIL
+Effectuer le travail en petites phases.
+
+PHASE 1
+Audit Far Cry 2
+
+PHASE 2
+Identification DX9/DX10
+
+PHASE 3
+Analyse du pipeline
+
+PHASE 4
+Recherche des solutions d'injection
+
+PHASE 5
+Analyse OptiScaler
+
+PHASE 6
+Prototype DLSS
+
+PHASE 7
+Validation DLSS
+
+PHASE 8
+DLAA
+
+PHASE 9
+Étude Frame Generation
+
+PHASE 10
+Étude DLSS5
+
+PHASE 11
+Optimisation
+
+PHASE 12
+Benchmark
+
+PHASE 13
+A/B test
+
+PHASE 14
+Nettoyage
+
+PHASE 15
+Documentation
+
+Ne pas effectuer toutes les phases dans une seule réponse.
+
+33. RÈGLE ABSOLUE
+Avant toute modification :
+
+présenter :
+
+ce qui est possible
+
+ce qui est incertain
+
+ce qui est probablement impossible
+
+les solutions possibles
+
+leurs avantages
+
+leurs inconvénients
+
+les risques
+
+les fichiers concernés
+
+les dépendances
+
+le plan de test
+
+Puis attendre ma validation.
+
+34. SI UNE SOLUTION ÉCHOUE
+Ne pas abandonner immédiatement.
+
+Analyser le problème.
+
+Comparer avec les méthodes utilisées sur d'autres jeux.
+
+Déterminer si l'échec vient :
+
+du moteur
+
+de l'API
+
+des inputs
+
+de l'injection
+
+du mod
+
+du pilote
+
+de la version DLSS
+
+Puis proposer le prochain prototype.
+
+35. CRITÈRE DE RÉUSSITE
+Le projet est considéré comme réussi uniquement si :
+
+DLSS fonctionne réellement
+
+ET
+
+l'image est stable
+
+ET
+
+le jeu reste stable
+
+ET
+
+les performances sont mesurées
+
+ET
+
+la latence est acceptable
+
+ET
+
+la restauration fonctionne
+
+ET
+
+les logs permettent de diagnostiquer les problèmes.
+
+Pour DLSS5, utiliser séparément :
+
+SUPPORTED
+PARTIALLY WORKING
+EXPERIMENTAL
+NOT SUPPORTED
+
+Ne jamais déclarer une fonctionnalité fonctionnelle sans test réel.
+
+36. RAPPORT FINAL
+Créer :
+
+FARCRY2_DLSS_EXPERIMENT_REPORT.md
+
+Contenant :
+
+configuration
+
+version du jeu
+
+API
+
+méthode utilisée
+
+DLL
+
+dépendances
+
+configuration DLSS
+
+résultats
+
+FPS
+
+frametime
+
+qualité
+
+bugs
+
+limitationsscaler et des inputs disponibles. Pour Far Cry 2, l'expérimentation doit donc d'abord établir si le moteur Dunia expose
+
+screenshots si disponibles
+
+conclusion
+
+37. PREMIÈRE RÉPONSE ATTENDUE
+Pour commencer, NE MODIFIE RIEN.
+
+Donne-moi uniquement :
+
+état actuel connu de Far Cry 2
+
+API DX9/DX10 pertinente
+
+possibilités réelles d'injection
+
+état de la compatibilité OptiScaler
+
+solutions alternatives
+
+faisabilité DLSS
+
+faisabilité DLAA
+
+faisabilité Frame Generation
+
+faisabilité DLSS5
+
+risques
+
+fichiers potentiellement concernés
+
+dépendances nécessaires
+
+méthode de test recommandée
+
+plan complet des phases
+
+Puis attends ma validation.
+
+Je veux privilégier :
+
+STABILITÉ
+↓
+COMPATIBILITÉ
+↓
+QUALITÉ D'IMAGE
+↓
+PERFORMANCES
+↓
+DLSS5
+
+et non l'inverse.
+
+Ne modifie rien avant ma validation.
+
+À noter : les recherches actuelles montrent qu'OptiScaler n'est pas un injecteur universel de DLSS pour n'importe quel jeu ; sa compatibilité dépend notamment du type d'upscaler et des inputs disponibles. 
+Pour Far Cry 2, l'expérimentation doit donc d'abord établir si le moteur Dunia expose suffisamment de données pour une intégration propre, plutôt que de partir directement sur un remplacement de DLL.
