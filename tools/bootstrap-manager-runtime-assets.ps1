@@ -23,12 +23,6 @@ if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
 
 Write-Host "Bootstrapping manager-owned runtime assets into $Repository $ReleaseTag..."
 
-$streamlineScript = Join-Path $PSScriptRoot "publish-streamline-runtime.ps1"
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $streamlineScript -Repository $Repository -ReleaseTag $ReleaseTag
-if ($LASTEXITCODE -ne 0) {
-    throw "Streamline runtime bootstrap failed."
-}
-
 $videoScript = Join-Path $PSScriptRoot "publish-video2dlssnr.ps1"
 $videoArgs = @(
     "-NoProfile",
@@ -54,6 +48,12 @@ if ($SkipVideoTests) {
 & powershell.exe @videoArgs
 if ($LASTEXITCODE -ne 0) {
     throw "video2dlssnr runtime bootstrap failed."
+}
+
+$streamlineScript = Join-Path $PSScriptRoot "publish-streamline-runtime.ps1"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $streamlineScript -Repository $Repository -ReleaseTag $ReleaseTag
+if ($LASTEXITCODE -ne 0) {
+    throw "Streamline runtime bootstrap failed."
 }
 
 $minecraftScript = Join-Path $PSScriptRoot "bootstrap-minecraft-runtime.ps1"
