@@ -67,7 +67,7 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-self-contained.ps1 -Strict -AllowLfsPointers
           if ($LASTEXITCODE -ne 0) { throw "Strict self-contained audit failed." }
 
-      - name: Publish dependency PR
+      - name: Publish dependency branch and PR when permitted
         id: publish
         if: steps.refresh.outputs.changed == 'true'
         shell: pwsh
@@ -101,11 +101,23 @@ jobs:
           - production release consumes manager-owned assets only
           "@
 
-          gh pr create --base main --head $branch --title "deps: automated upstream refresh ($ids)" --body $body
-          if ($LASTEXITCODE -ne 0) { throw "Failed to create upstream refresh PR." }
+          $pr = ""
+          $prOutput = @(& gh pr create --base main --head $branch --title "deps: automated upstream refresh ($ids)" --body $body 2>&1)
+          $prExit = $LASTEXITCODE
 
-          $pr = (gh pr view $branch --json number --jq ".number").Trim()
-          if ([string]::IsNullOrWhiteSpace($pr)) { throw "Unable to resolve created PR number." }
+          if ($prExit -eq 0) {
+            $pr = (gh pr view $branch --json number --jq ".number").Trim()
+            if ([string]::IsNullOrWhiteSpace($pr)) { throw "Unable to resolve created PR number." }
+          }
+          else {
+            $message = ($prOutput | Out-String).Trim()
+            if ($message -notmatch 'GitHub Actions is not permitted to create or approve pull requests') {
+              throw "Failed to create upstream refresh PR: $message"
+            }
+
+            Write-Warning "Repository policy blocks PR creation by GITHUB_TOKEN. Continuing with the pushed automation branch; promotion will occur only after Windows/Linux validation and an unchanged-main check."
+            "PR creation by GitHub Actions is disabled for this repository. Validation will continue on branch ``$branch`` and promotion will use the guarded branch fallback." >> $env:GITHUB_STEP_SUMMARY
+          }
 
           "branch=$branch" >> $env:GITHUB_OUTPUT
           "pr_number=$pr" >> $env:GITHUB_OUTPUT
@@ -213,14 +225,43 @@ jobs:
     if: needs.prepare.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Merge validated dependency PR
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Promote validated dependency update
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr merge ${{ needs.prepare.outputs.pr_number }} --repo ${{ github.repository }} --squash --delete-branch
-          if [ $? -ne 0 ]; then
-            echo "::error::Validated dependency PR could not be merged."
-            exit 1
+          set -euo pipefail
+          pr="${{ needs.prepare.outputs.pr_number }}"
+          branch="${{ needs.prepare.outputs.branch }}"
+
+          if [ -n "$pr" ]; then
+            gh pr merge "$pr" --repo "${{ github.repository }}" --squash --delete-branch
+          else
+            echo "::warning::GitHub Actions PR creation is disabled; using guarded validated-branch promotion."
+            git config user.name "dlss-nr-manager-upstream-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git fetch origin "main:refs/remotes/origin/main" "$branch:refs/remotes/origin/$branch"
+
+            expected_main="${{ github.sha }}"
+            current_main="$(git rev-parse refs/remotes/origin/main)"
+            if [ "$current_main" != "$expected_main" ]; then
+              echo "::error::main moved during upstream validation ($expected_main -> $current_main); refusing automatic promotion."
+              exit 1
+            fi
+
+            git checkout -B main refs/remotes/origin/main
+            git merge --squash "refs/remotes/origin/$branch"
+            if git diff --cached --quiet; then
+              echo "::error::Validated automation branch produced no promotable diff."
+              exit 1
+            fi
+
+            git commit -m "deps: promote validated upstream dependencies (${{ needs.prepare.outputs.changed_ids }})"
+            git push origin main
+            git push origin --delete "$branch"
           fi
 
       - name: Refresh manager-owned runtime seed
