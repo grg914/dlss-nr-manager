@@ -24,11 +24,23 @@ jobs:
   bootstrap:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Checkout bootstrap revision
+        shell: pwsh
+        run: |
+          $env:GIT_LFS_SKIP_SMUDGE = "1"
+          git init .
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+          git fetch --no-tags --prune --depth=1 origin "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch bootstrap revision." }
+          git checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Unable to checkout bootstrap revision." }
 
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: '8.0.x'
+      - name: Require preinstalled .NET 8
+        shell: pwsh
+        run: |
+          if (-not (@(dotnet --list-sdks) | Where-Object { $_ -match '^8\.' })) {
+            throw "No preinstalled .NET 8 SDK is available."
+          }
 
       - name: Generate complete offline NuGet seed
         shell: pwsh
