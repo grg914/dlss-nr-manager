@@ -1,0 +1,32 @@
+accessWidener v1 official
+
+accessible class net/minecraft/server/level/ChunkMap$TrackedEntity
+accessible class net/minecraft/server/level/ServerChunkCache$MainThreadExecutor
+accessible class net/minecraft/server/level/ServerLevel$EntityCallbacks
+accessible class net/minecraft/world/level/border/WorldBorder$BorderExtent
+accessible class net/minecraft/world/level/chunk/PaletteResize
+accessible class net/minecraft/world/level/chunk/Configuration
+accessible class net/minecraft/world/level/chunk/PalettedContainer$Data
+accessible class net/minecraft/world/level/material/FlowingFluid$BlockStatePairKey
+accessible class net/minecraft/world/phys/shapes/IndexMerger
+accessible field net/minecraft/util/Mth SIN [F
+accessible field net/minecraft/world/phys/shapes/VoxelShape shape Lnet/minecraft/world/phys/shapes/DiscreteVoxelShape;
+accessible method net/minecraft/nbt/CompoundTag <init> (Ljava/util/Map;)V
+accessible method net/minecraft/util/SortedArraySet <init> (ILjava/util/Comparator;)V
+accessible method net/minecraft/world/entity/ai/village/poi/PoiSection isValid ()Z
+accessible method net/minecraft/world/level/material/Fluid isEmpty ()Z
+accessible method net/minecraft/world/level/pathfinder/WalkNodeEvaluator getPathTypeFromState (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/pathfinder/PathType;
+accessible method net/minecraft/world/level/redstone/RedstoneWireEvaluator getWireSignal (Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)I
+accessible method net/minecraft/world/level/redstone/ExperimentalRedstoneWireEvaluator getWireSignal (Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)I
+accessible method net/minecraft/world/phys/shapes/Shapes findBits (DD)I
+accessible field net/minecraft/server/level/ChunkMap level Lnet/minecraft/server/level/ServerLevel;
+accessible field net/minecraft/world/level/chunk/Strategy LINEAR_PALETTE_FACTORY Lnet/minecraft/world/level/chunk/Palette$Factory;
+accessible field net/minecraft/world/level/chunk/Strategy SINGLE_VALUE_PALETTE_FACTORY Lnet/minecraft/world/level/chunk/Palette$Factory;
+accessible class net/minecraft/world/level/chunk/LevelChunk$RebindableTickingBlockEntityWrapper
+accessible method net/minecraft/world/level/chunk/storage/SectionStorage getOrLoad (J)Ljava/util/Optional;
+accessible method net/minecraft/world/entity/ai/village/poi/PoiRecord acquireTicket ()Z
+accessible class net/minecraft/world/entity/ai/behavior/AcquirePoi$JitteredLinearRetry
+
+
+accessible method net/minecraft/world/phys/shapes/VoxelShape findIndex (Lnet/minecraft/core/Direction$Axis;D)I
+accessible method net/minecraft/world/phys/shapes/CubeVoxelShape findIndex (Lnet/minecraft/core/Direction$Axis;D)I

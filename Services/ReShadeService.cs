@@ -8,8 +8,11 @@ namespace DlssNrManager.Services;
 public sealed class ReShadeService
 {
     private const long MaxInstallerBytes = 256L * 1024 * 1024;
-    private const string ManifestUrl =
-        "https://raw.githubusercontent.com/ScoopInstaller/Versions/master/bucket/reshade-addons.json";
+    private const long MaxPackageBytes = 384L * 1024 * 1024;
+    private const string ManagerLatestReleaseApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+    private const string AssetPrefix = "ReShade-Setup-";
+    private const string AssetSuffix = "-vendored.zip";
 
     private readonly HttpClient _http = new();
 
@@ -29,10 +32,10 @@ public sealed class ReShadeService
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        progress?.Report("Checking latest ReShade add-on build…");
+        progress?.Report("Checking manager-owned ReShade add-on build…");
 
         using var response = await _http.GetAsync(
-            ManifestUrl,
+            ManagerLatestReleaseApi,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -40,83 +43,131 @@ public sealed class ReShadeService
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
 
-        var version = json.RootElement.GetProperty("version").GetString()
-            ?? throw new InvalidOperationException("ReShade version missing from manifest.");
-        var url = json.RootElement.GetProperty("url").GetString()
-            ?? throw new InvalidOperationException("ReShade download URL missing from manifest.");
-        var hash = json.RootElement.GetProperty("hash").GetString()
-            ?? throw new InvalidOperationException("ReShade SHA-256 missing from manifest.");
-
-        if (hash.Length != 64 ||
-            hash.Any(ch => !Uri.IsHexDigit(ch)))
+        if (!json.RootElement.TryGetProperty("assets", out var assets) ||
+            assets.ValueKind != JsonValueKind.Array)
         {
             throw new InvalidDataException(
-                "ReShade manifest contains an invalid SHA-256 value.");
+                "Manager release does not contain an assets collection.");
         }
 
-        var actualUrl = url.Split('#')[0];
-        if (!Uri.TryCreate(actualUrl, UriKind.Absolute, out var downloadUri) ||
-            !downloadUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
-            !downloadUri.Host.Equals("reshade.me", StringComparison.OrdinalIgnoreCase))
+        string? assetName = null;
+        string? assetUrl = null;
+        string? digest = null;
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            var name = asset.TryGetProperty("name", out var nameElement)
+                ? nameElement.GetString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(name) ||
+                !name.StartsWith(AssetPrefix, StringComparison.OrdinalIgnoreCase) ||
+                !name.EndsWith(AssetSuffix, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            assetName = name;
+            assetUrl = asset.TryGetProperty("browser_download_url", out var urlElement)
+                ? urlElement.GetString()
+                : null;
+            digest = asset.TryGetProperty("digest", out var digestElement)
+                ? digestElement.GetString()
+                : null;
+            break;
+        }
+
+        if (string.IsNullOrWhiteSpace(assetName) ||
+            string.IsNullOrWhiteSpace(assetUrl))
+        {
+            throw new InvalidOperationException(
+                "Latest DLSS NR Manager release has no vendored ReShade setup asset.");
+        }
+
+        var versionLength =
+            assetName.Length - AssetPrefix.Length - AssetSuffix.Length;
+        if (versionLength <= 0)
         {
             throw new InvalidDataException(
-                $"Unexpected ReShade installer URL: {actualUrl}");
+                $"Unexpected manager-owned ReShade asset name: {assetName}");
+        }
+
+        var version = assetName.Substring(
+            AssetPrefix.Length,
+            versionLength);
+
+        string? expectedHash = null;
+        if (!string.IsNullOrWhiteSpace(digest) &&
+            digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+        {
+            expectedHash = digest["sha256:".Length..];
+        }
+
+        if (!Uri.TryCreate(assetUrl, UriKind.Absolute, out var downloadUri) ||
+            !downloadUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !downloadUri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected manager-owned ReShade package URL: {assetUrl}");
         }
 
         Directory.CreateDirectory(CacheDirectory);
-        var destination = Path.Combine(
+        var package = Path.Combine(
+            CacheDirectory,
+            assetName);
+        var installer = Path.Combine(
             CacheDirectory,
             $"ReShade_Setup_{version}_Addon.exe");
 
-        if (File.Exists(destination))
+        if (File.Exists(package) && !string.IsNullOrWhiteSpace(expectedHash))
         {
-            var existing = await HashService.Sha256Async(destination, cancellationToken);
-            if (existing.Equals(hash, StringComparison.OrdinalIgnoreCase))
-                return (version, destination);
-
-            File.Delete(destination);
+            var existingHash = await HashService.Sha256Async(
+                package,
+                cancellationToken);
+            if (!existingHash.Equals(
+                    expectedHash,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                File.Delete(package);
+                if (File.Exists(installer))
+                    File.Delete(installer);
+            }
         }
 
-        var temp = destination + ".download";
-        progress?.Report($"Downloading ReShade {version} with full add-on support…");
-
-        try
+        if (!File.Exists(package))
         {
-            await NetworkRetry.ExecuteAsync(
-                async (attempt, token) =>
-                {
-                    if (attempt > 1)
+            var temp = package + ".download";
+            progress?.Report(
+                $"Downloading manager-owned ReShade {version} package…");
+
+            try
+            {
+                await NetworkRetry.ExecuteAsync(
+                    async (attempt, token) =>
                     {
-                        try
+                        if (attempt > 1 && File.Exists(temp))
+                            File.Delete(temp);
+
+                        using var download = await _http.GetAsync(
+                            downloadUri,
+                            HttpCompletionOption.ResponseHeadersRead,
+                            token);
+                        download.EnsureSuccessStatusCode();
+
+                        if (download.Content.Headers.ContentLength is > MaxPackageBytes)
                         {
-                            if (File.Exists(temp))
-                                File.Delete(temp);
+                            throw new InvalidDataException(
+                                "ReShade package exceeds the 384 MB safety limit.");
                         }
-                        catch { }
-                    }
 
-                    using var download = await _http.GetAsync(
-                        downloadUri,
-                        HttpCompletionOption.ResponseHeadersRead,
-                        token);
-                    download.EnsureSuccessStatusCode();
+                        await using var input =
+                            await download.Content.ReadAsStreamAsync(token);
+                        await using var output = new FileStream(
+                            temp,
+                            FileMode.Create,
+                            FileAccess.Write,
+                            FileShare.None,
+                            128 * 1024,
+                            useAsync: true);
 
-                    if (download.Content.Headers.ContentLength is > MaxInstallerBytes)
-                    {
-                        throw new InvalidDataException(
-                            "ReShade installer exceeds the 256 MB safety limit.");
-                    }
-
-                    await using (var input =
-                        await download.Content.ReadAsStreamAsync(token))
-                    await using (var output = new FileStream(
-                        temp,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.None,
-                        128 * 1024,
-                        useAsync: true))
-                    {
                         var buffer = new byte[128 * 1024];
                         long total = 0;
 
@@ -129,48 +180,98 @@ public sealed class ReShadeService
                                 break;
 
                             total += read;
-                            if (total > MaxInstallerBytes)
+                            if (total > MaxPackageBytes)
                             {
                                 throw new InvalidDataException(
-                                    "ReShade installer exceeded the 256 MB safety limit.");
+                                    "ReShade package exceeded the 384 MB safety limit.");
                             }
 
                             await output.WriteAsync(
                                 buffer.AsMemory(0, read),
                                 token);
                         }
-                    }
 
-                    var actualHash =
-                        await HashService.Sha256Async(
-                            temp,
-                            token);
+                        if (!string.IsNullOrWhiteSpace(expectedHash))
+                        {
+                            var actualHash =
+                                await HashService.Sha256Async(
+                                    temp,
+                                    token);
+                            if (!actualHash.Equals(
+                                    expectedHash,
+                                    StringComparison.OrdinalIgnoreCase))
+                            {
+                                throw new InvalidDataException(
+                                    $"ReShade package SHA-256 mismatch. Expected {expectedHash}, got {actualHash}.");
+                            }
+                        }
+                    },
+                    cancellationToken,
+                    attempts: 3);
 
-                    if (!actualHash.Equals(
-                            hash,
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new InvalidDataException(
-                            $"ReShade installer SHA-256 mismatch. Expected {hash}, got {actualHash}.");
-                    }
-                },
-                cancellationToken,
-                attempts: 3);
+                File.Move(temp, package, true);
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(temp))
+                        File.Delete(temp);
+                }
+                catch { }
 
-            File.Move(temp, destination, true);
-            return (version, destination);
+                throw;
+            }
         }
-        catch
+
+        if (!File.Exists(installer))
         {
+            var extractRoot = Path.Combine(
+                CacheDirectory,
+                $".reshade-extract-{Guid.NewGuid():N}");
+
             try
             {
-                if (File.Exists(temp))
-                    File.Delete(temp);
-            }
-            catch { }
+                Directory.CreateDirectory(extractRoot);
+                SafeZip.Extract(
+                    package,
+                    extractRoot,
+                    maxExpandedBytes: MaxPackageBytes);
 
-            throw;
+                var candidate = Directory.EnumerateFiles(
+                        extractRoot,
+                        "ReShade Setup.exe",
+                        SearchOption.AllDirectories)
+                    .FirstOrDefault();
+
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    throw new InvalidDataException(
+                        "Manager-owned ReShade package does not contain ReShade Setup.exe.");
+                }
+
+                var installerInfo = new FileInfo(candidate);
+                if (installerInfo.Length <= 0 ||
+                    installerInfo.Length > MaxInstallerBytes)
+                {
+                    throw new InvalidDataException(
+                        "Extracted ReShade installer size is invalid.");
+                }
+
+                File.Copy(candidate, installer, true);
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(extractRoot))
+                        Directory.Delete(extractRoot, recursive: true);
+                }
+                catch { }
+            }
         }
+
+        return (version, installer);
     }
 
     public async Task LaunchAddonInstallerAsync(

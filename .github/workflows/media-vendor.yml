@@ -1,0 +1,49 @@
+name: Media Vendor Builds
+
+on:
+  pull_request:
+    paths:
+      - 'third_party/FFmpeg/**'
+      - 'third_party/nv-codec-headers/**'
+      - 'tools/build-ffmpeg-windows.sh'
+      - '.github/workflows/media-vendor.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: media-vendor-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ffmpeg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Install MinGW cross-build toolchain
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            mingw-w64 \
+            nasm \
+            pkg-config \
+            make \
+            zip \
+            binutils-mingw-w64-x86-64
+
+      - name: Build vendored FFmpeg Windows x64 runtime
+        shell: bash
+        run: |
+          bash ./tools/build-ffmpeg-windows.sh
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: FFmpeg-DlssNrManager-win-x64
+          path: build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip
+          if-no-files-found: error
+          compression-level: 0

@@ -1,0 +1,8 @@
+﻿{
+    "id":  "ai-primary",
+    "group":  "core",
+    "url":  "https://huggingface.co/onnx-community/ai-image-detection-ONNX",
+    "ref":  "e3cfe99f2841930a040a6281682c10c989965603",
+    "imported_at_utc":  "2026-10-06T21:57:23.2820754Z",
+    "normalized_at_utc":  "2026-10-06T22:17:41.8483346Z"
+}

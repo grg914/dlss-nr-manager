@@ -1,0 +1,25 @@
+{
+  "package" : "net.caffeinemc.mods.lithium.neoforge.mixin",
+  "required" : true,
+  "compatibilityLevel" : "JAVA_25",
+  "mixinextras" : {
+    "minVersion" : "0.5.3"
+  },
+  "plugin" : "net.caffeinemc.mods.lithium.mixin.LithiumMixinPlugin",
+  "injectors" : {
+    "defaultRequire" : 1
+  },
+  "overwrites" : {
+    "conformVisibility" : true
+  },
+  "mixins" : [
+    "block.hopper.HopperBlockEntityMixin",
+    "block.hopper.LevelMixin",
+    "chunk_load_tricks.ChunkLoadTricksMixin",
+    "util.initialization.DataMapHooksMixin",
+    "util.inventory_change_listening.ChestBlockEntityMixin"
+  ],
+  "client" : [
+    "startup.MinecraftMixin"
+  ]
+}

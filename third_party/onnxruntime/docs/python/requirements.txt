@@ -1,0 +1,17 @@
+matplotlib
+scikit-learn
+skl2onnx
+sphinx>=6.0.0 # Versions less than 6.0 contain security vulnerabilities.
+sphinx-gallery
+sphinxcontrib.googleanalytics
+furo
+pandas
+pydot
+flatbuffers
+numpy<2.0.0
+packaging
+protobuf>=4.25.8
+sympy
+onnx >= 1.21.0
+sphinx_exec_code
+sphinx_tabs

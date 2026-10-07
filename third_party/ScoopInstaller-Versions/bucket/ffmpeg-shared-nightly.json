@@ -1,0 +1,44 @@
+{
+    "version": "20261006-127222-g151814650f",
+    "description": "A complete, cross-platform solution to record, convert and stream audio and video.",
+    "homepage": "https://ffmpeg.org",
+    "license": "GPL-3.0-or-later",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-06-13-06/ffmpeg-N-127222-g151814650f-win64-gpl-shared.zip",
+            "hash": "5bf56d89fe6c3a9cd7053af1051a33bf3b95b37a3b43a39641eb5941ea52ebc5",
+            "extract_dir": "ffmpeg-N-127222-g151814650f-win64-gpl-shared"
+        },
+        "arm64": {
+            "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-06-13-06/ffmpeg-N-127222-g151814650f-winarm64-gpl-shared.zip",
+            "hash": "55ea6b72afa9c087c0df7a355b03af8d1c3ba570f631f9aff4a186ab980fa23a",
+            "extract_dir": "ffmpeg-N-127222-g151814650f-winarm64-gpl-shared"
+        }
+    },
+    "bin": [
+        "bin\\ffmpeg.exe",
+        "bin\\ffplay.exe",
+        "bin\\ffprobe.exe"
+    ],
+    "checkver": {
+        "github": "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases",
+        "jsonpath": "$..assets[?(@.browser_download_url =~ /ffmpeg-N-\\d+-g[0-9a-f]+-win64-gpl-shared\\.zip/i)].browser_download_url",
+        "regex": "autobuild-(?<buildtime>(?<year>\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})[\\d-]+)/ffmpeg-N-(?<commitnum>\\d+)-g(?<commithash>[0-9a-f]+)-win64-gpl-shared\\.zip",
+        "replace": "${year}${month}${day}-${commitnum}-g${commithash}"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-$matchBuildtime/ffmpeg-N-$matchCommitnum-g$matchCommithash-win64-gpl-shared.zip",
+                "extract_dir": "ffmpeg-N-$matchCommitnum-g$matchCommithash-win64-gpl-shared"
+            },
+            "arm64": {
+                "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-$matchBuildtime/ffmpeg-N-$matchCommitnum-g$matchCommithash-winarm64-gpl-shared.zip",
+                "extract_dir": "ffmpeg-N-$matchCommitnum-g$matchCommithash-winarm64-gpl-shared"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/checksums.sha256"
+        }
+    }
+}

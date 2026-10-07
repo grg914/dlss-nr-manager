@@ -1,0 +1,429 @@
+plugins {
+    id 'java-library'
+    id "me.champeau.jmh" version "0.7.2"
+    id 'com.modrinth.minotaur' version '2.+' apply false
+    id 'io.github.themrmilchmann.curseforge-publish' version '0.8.0' apply false
+    id 'com.gradleup.shadow' version '9.4.2' apply false
+    id 'io.github.tomtzook.gradle-cmake' version '1.2.2' apply false
+    id 'dev.yumi.gradle.licenser' version '4.0.0' apply false
+    id 'me.modmuss50.mod-publish-plugin' version "2.0.0-beta.2" apply false
+}
+
+@SuppressWarnings('unused')
+static def moduleDependencies(project, List<String> depNames) {
+    project.dependencies {
+        depNames.each {
+            api project.dependencies.project(path: ":$it", configuration: 'namedElements')
+        }
+    }
+}
+
+configure(allprojects) {
+    apply plugin: 'java'
+    apply plugin: 'java-library'
+    apply plugin: 'dev.yumi.gradle.licenser'
+
+    base {
+        archivesName = "${project.name.replace("c2me", project.archives_base_name)}-mc${project.minecraft_version}"
+    }
+    it.group = project.maven_group
+    it.version = project.mod_version + "." + getVersionSuffix()
+    java {
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
+    }
+
+    license {
+        include("**/*.java")
+        include("**/*.cl")
+        exclude("**/FastNoiseLiteCopy.java")
+
+        headerCommentManager.register(dev.yumi.gradle.licenser.api.comment.CStyleHeaderComment.INSTANCE, "cl")
+    }
+
+    if (it.name == "c2me-opts-accel-opencl") {
+        license {
+            rule(rootProject.file("licenses/LICENSE-ARR.txt"))
+        }
+        jar {
+            from(rootProject.file("licenses/LICENSE-ARR.txt"))
+        }
+    } else {
+        license {
+            rule(rootProject.file("licenses/LICENSE-MIT.txt"))
+        }
+        jar {
+            from(rootProject.file("licenses/LICENSE-MIT.txt"))
+        }
+    }
+
+    afterEvaluate {
+        if (it.plugins.hasPlugin("fabric-loom")) {
+            afterEvaluate {
+                migrateMappings.configure {
+                    outputDir = project.file("build/remappedSrc")
+                    doLast {
+                        copy {
+                            from project.file("build/remappedSrc")
+                            into project.file("src/main/java")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+base {
+    archivesName = "${project.archives_base_name}-mc${project.minecraft_version}"
+}
+
+clean.dependsOn gradle.includedBuild('FlowSched').task(':clean')
+
+allprojects {
+    apply plugin: 'net.fabricmc.fabric-loom-repositories'
+    repositories {
+        maven {
+            url = "https://repo.codemc.io/repository/relativitymc/"
+        }
+        maven {
+            url = "https://maven.bawnorton.com/releases"
+            content {
+                includeGroup "com.github.bawnorton.mixinsquared"
+            }
+        }
+        def lwjglCentral = mavenCentral {
+            content {
+                includeGroup "org.lwjgl"
+            }
+        }
+        exclusiveContent {
+            forRepositories lwjglCentral
+            filter {
+                includeGroup "org.lwjgl"
+            }
+        }
+        if (project.hasProperty("maven_use_gpr")) {
+            maven {
+                url = uri("https://maven.pkg.github.com/RelativityMC/yarn")
+                credentials {
+                    username = project.findProperty("gpr.maven.user") ?: System.getenv("GPR_MAVEN_USER")
+                    password = project.findProperty("gpr.maven.token") ?: System.getenv("GPR_MAVEN_TOKEN")
+                }
+            }
+            maven {
+                url = uri("https://maven.pkg.github.com/RelativityMC/intermediary")
+                credentials {
+                    username = project.findProperty("gpr.maven.user") ?: System.getenv("GPR_MAVEN_USER")
+                    password = project.findProperty("gpr.maven.token") ?: System.getenv("GPR_MAVEN_TOKEN")
+                }
+            }
+        }
+    }
+}
+
+configure (allprojects - project(":tests")) {
+    if (project != project(":") && project.parent != project(":")) return
+
+    apply plugin: 'fabric-loom'
+    apply plugin: 'maven-publish'
+
+    dependencies {
+        //to change the versions see the gradle.properties file
+        minecraft "com.mojang:minecraft:${project.minecraft_version}"
+        mappings "org.relativitymc:modern-yarn:${project.yarn_mappings}:v2"
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+        [
+                "fabric-networking-api-v1",
+                "fabric-lifecycle-events-v1",
+        ].forEach {
+            modCompileOnly(fabricApi.module(it, "${project.fabric_version}"))
+        }
+    }
+
+    remapJar {
+        addNestedDependencies = true
+    }
+
+    loom {
+//        intermediaryUrl = 'https://repo.codemc.io/repository/relativitymc/org/relativitymc/intermediary/%1$s/intermediary-%1$s-v2.jar'
+        setIntermediateMappingsProvider(com.ishland.c2me.gradle.MavenIntermediaryProvider.class) {
+            it.refreshDeps = loom.refreshDeps()
+            it.intermediaryUrl = 'https://repo.codemc.io/repository/relativitymc/org/relativitymc/intermediary/%1$s/intermediary-%1$s-v2.jar' // placeholder
+            it.intermediaryNotation = "org.relativitymc:intermediary:${minecraft_version}:v2"
+        }
+        useIntermediateMappings = true
+
+        uncompressNestedJars = true
+
+        def file = project(":c2me-base").file("src/main/resources/c2me-base.accesswidener")
+        accessWidenerPath = file
+        enableTransitiveAccessWideners = false
+//        logger.lifecycle(String.format("%s: Using access widener at %s", project, file.getAbsolutePath()))
+        runs {
+            server {
+                ideConfigGenerated project.rootProject == project
+            }
+            client {
+                ideConfigGenerated project.rootProject == project
+            }
+        }
+    }
+
+    processResources {
+        inputs.property "version", version + "+" + minecraft_version
+
+        filesMatching("fabric.mod.json") {
+            expand "version": version + "+" + minecraft_version
+        }
+    }
+
+    java {
+        withSourcesJar()
+    }
+
+    // ensure that the encoding is set to UTF-8, no matter what the system default is
+    // this fixes some edge cases with special characters not displaying correctly
+    // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
+    tasks.withType(JavaCompile) {
+        options.encoding = "UTF-8"
+    }
+
+    // reproducible
+    tasks.withType(AbstractArchiveTask) {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+
+    // configure the maven publication
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+            }
+        }
+
+        // select the repositories you want to publish to
+        repositories {
+            // uncomment to publish to the local maven
+            // mavenLocal()
+        }
+    }
+}
+
+configure (allprojects - project(":tests")) {
+    dependencies {
+        implementation "com.ibm.async:asyncutil:${async_util_version}"
+        implementation "com.electronwill.night-config:toml:${night_config_version}"
+        implementation "net.objecthunter:exp4j:${exp4j_version}"
+        implementation "org.jctools:jctools-core:${jctools_version}"
+        implementation "com.github.ben-manes.caffeine:caffeine:${caffeine_version}"
+        implementation annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:${mixinsquared_version}")
+        api "com.ishland.flowsched:flowsched"
+
+        // workaround loom issue for devlaunch
+        afterEvaluate {
+            minecraftServerRuntimeLibraries "org.lwjgl:lwjgl:${lwjgl_version}"
+            minecraftServerRuntimeLibraries "org.lwjgl:lwjgl-opencl:${lwjgl_version}"
+            minecraftServerRuntimeLibraries "org.lwjgl:lwjgl-zstd:${lwjgl_version}"
+            minecraftServerRuntimeLibraries("org.apache.commons:commons-compress:${apache_commons_compress_version}") {
+                transitive = false
+            }
+        }
+
+        if (project == rootProject) {
+            include implementation("com.ibm.async:asyncutil:${async_util_version}")
+            include implementation("com.electronwill.night-config:toml:${night_config_version}")
+            include implementation("com.electronwill.night-config:core:${night_config_version}")
+            include implementation("net.objecthunter:exp4j:${exp4j_version}")
+            include implementation("org.jctools:jctools-core:${jctools_version}")
+            include implementation(annotationProcessor("com.github.bawnorton.mixinsquared:mixinsquared-fabric:${mixinsquared_version}"))
+            include "io.reactivex.rxjava3:rxjava:${rxjava_version}"
+            include "org.reactivestreams:reactive-streams:${reactive_streams_version}"
+            include implementation("com.github.ben-manes.caffeine:caffeine:${caffeine_version}")
+        }
+
+        testImplementation platform("org.junit:junit-bom:${junit_version}")
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        testImplementation "net.fabricmc:fabric-loader-junit:${project.loader_version}"
+    }
+
+    test {
+        useJUnitPlatform()
+        workingDir getLayout().buildDirectory
+    }
+
+    jar.dependsOn test
+}
+
+subprojects {
+    afterEvaluate {
+        afterEvaluate {
+            genSourcesWithVineflower.enabled = false
+            genSourcesWithCfr.enabled = false
+            downloadAssets.enabled = false
+        }
+    }
+}
+
+def ghaChangelog = System.getenv("OVERRIDE_CHANGELOG")
+if (ghaChangelog == null) {
+    ghaChangelog = com.ishland.c2me.gradle.ParseGItHubActionChangelog.getChangelog()
+} else {
+    ghaChangelog = ghaChangelog.replace("\\n", "\n")
+}
+
+afterEvaluate {
+    logger.lifecycle("Version String: ${version}")
+    logger.lifecycle(ghaChangelog)
+}
+
+apply plugin: 'me.modmuss50.mod-publish-plugin'
+
+publishMods {
+    changelog = ghaChangelog
+    modLoaders.add("fabric")
+
+    def envDisplayName = System.getenv("OVERRIDE_DISPLAY_NAME")
+    displayName = envDisplayName != null ? envDisplayName : (project.version + " devbuild for " + project.minecraft_version)
+
+    def envType = System.getenv("OVERRIDE_RELEASE_TYPE")
+    type = envType != null ? me.modmuss50.mpp.ReleaseType.valueOf(envType) : me.modmuss50.mpp.ReleaseType.ALPHA
+
+    it.version = project.version + "+" + project.minecraft_version.replaceAll("-snapshot-", "-snap-")
+
+    dryRun = providers.environmentVariable("PUBLISH_DRY_RUN").getOrNull() == "YES_DRYRUN"
+
+    def cfVersions = project.curseforge_minecraft_versions.split(",")
+    if (cfVersions.length != 0) {
+        def cfOptions = curseforgeOptions {
+            accessToken = System.getenv("CURSEFORGE_TOKEN")
+            cfVersions.each { minecraftVersions.add(it.trim()) }
+            client = true
+            server = true
+            changelogType = "markdown"
+            javaVersions.add(JavaVersion.VERSION_25)
+        }
+
+        curseforge("curseforgeMITPackage") {
+            from cfOptions
+            file = remapJar.archiveFile
+            projectId = "533097"
+        }
+
+        curseforge("curseforgeOpenCLAccel") {
+            from cfOptions
+            file = project(":c2me-opts-accel-opencl").remapJar.archiveFile
+            projectId = "1563823"
+            requires("c2me")
+            requires("scalablelux")
+        }
+    }
+
+    {
+        def mrOptions = modrinthOptions {
+            accessToken = System.getenv("MODRINTH_TOKEN")
+            minecraftVersions.add(project.minecraft_version)
+        }
+
+        modrinth("modrinthMITPackage") {
+            from mrOptions
+            file = remapJar.archiveFile
+            projectId = "VSNURh3q"
+        }
+
+        modrinth("modrinthOpenCLAccel") {
+            from mrOptions
+            file = project(":c2me-opts-accel-opencl").remapJar.archiveFile
+            projectId = "qtPMklut"
+            requires {
+                id = "VSNURh3q"
+            }
+            requires {
+                id = "Ps1zyz6x"
+            }
+        }
+    }
+}
+
+//subprojects.forEach { remapJar.dependsOn("${it.path}:remapJar") }
+
+dependencies {
+    afterEvaluate {
+        (subprojects - project(":tests")).forEach {
+            if (it.parent != rootProject) return
+
+            def projectName = it.name
+            api project(path: ":${projectName}", configuration: "namedElements")
+            if (projectName != "c2me-opts-accel-opencl" && projectName != "tests") {
+                include project(":${projectName}")
+            }
+        }
+    }
+}
+
+String getVersionSuffix() {
+    def stdout = providers.exec {
+        commandLine 'git', 'describe', '--tags', '--dirty', '--broken'
+    }.standardOutput.asText.get()
+    stdout = stdout.toString().strip()
+    def suffix = ""
+    if (stdout.endsWith("-dirty")) {
+        stdout = stdout.substring(0, stdout.length() - "-dirty".length())
+        suffix = "-dirty"
+    }
+    if (stdout.endsWith("-broken")) {
+        stdout = stdout.substring(0, stdout.length() - "-broken".length())
+        suffix = "-broken"
+    }
+    if (stdout.indexOf('-') < 0) {
+        return "0" + suffix;
+    }
+    def split = stdout.split('-')
+    return split[split.length - 2] + suffix
+}
+
+jmhJar {
+    zip64 = true;
+}
+
+jmh {
+//    includes = ['some regular expression'] // include pattern (regular expression) for benchmarks to be executed
+//    excludes = ['some regular expression'] // exclude pattern (regular expression) for benchmarks to be executed
+    iterations = 5 // Number of measurement iterations to do.
+    benchmarkMode = ['avgt'] // Benchmark mode. Available modes are: [Throughput/thrpt, AverageTime/avgt, SampleTime/sample, SingleShotTime/ss, All/all]
+    batchSize = 1 // Batch size: number of benchmark method calls per operation. (some benchmark modes can ignore this setting)
+    fork = 2 // How many times to forks a single benchmark. Use 0 to disable forking altogether
+    failOnError = false // Should JMH fail immediately if any benchmark had experienced the unrecoverable error?
+//    forceGC = false // Should JMH force GC between iterations?
+//    jvm = 'myjvm' // Custom JVM to use when forking.
+//    jvmArgs = ['-XX:+UnlockDiagnosticVMOptions', '-XX:+LogCompilation', '-XX:+PrintAssembly', '-XX:+DebugNonSafepoints']
+//    jvmArgsAppend = ['Custom JVM args to use when forking (append these)']
+//    jvmArgsPrepend =[ 'Custom JVM args to use when forking (prepend these)']
+//    humanOutputFile = project.file("${project.buildDir}/reports/jmh/human.txt") // human-readable output file
+    resultsFile = project.file("${project.buildDir}/reports/jmh/results.txt") // results file
+//    operationsPerInvocation = 10 // Operations per invocation.
+//    benchmarkParameters =  [:] // Benchmark parameters.
+    profilers = ['perf'] // Use profilers to collect additional data. Supported profilers: [cl, comp, gc, stack, perf, perfnorm, perfasm, xperf, xperfasm, hs_cl, hs_comp, hs_gc, hs_rt, hs_thr, async]
+    timeOnIteration = '2s' // Time to spend at each measurement iteration.
+    resultFormat = 'CSV' // Result format type (one of CSV, JSON, NONE, SCSV, TEXT)
+//    synchronizeIterations = true // Synchronize iterations?
+    threads = 1 // Number of worker threads to run with.
+//    threadGroups = [2,3,4] //Override thread group distribution for asymmetric benchmarks.
+//    timeout = '1s' // Timeout for benchmark iteration.
+    timeUnit = 'ns' // Output time unit. Available time units are: [m, s, ms, us, ns].
+    verbosity = 'NORMAL' // Verbosity mode. Available modes are: [SILENT, NORMAL, EXTRA]
+    warmup = '1s' // Time to spend at each warmup iteration.
+    warmupBatchSize = 1 // Warmup batch size: number of benchmark method calls per operation.
+//    warmupForks = 0 // How many warmup forks to make for a single benchmark. 0 to disable warmup forks.
+    warmupIterations = 16 // Number of warmup iterations to do.
+    warmupMode = 'INDI' // Warmup mode for warming up selected benchmarks. Warmup modes are: [INDI, BULK, BULK_INDI].
+    warmupBenchmarks = ['.*Warmup'] // Warmup benchmarks to include in the run in addition to already selected. JMH will not measure these benchmarks, but only use them for the warmup.
+
+    zip64 = true // Use ZIP64 format for bigger archives
+    jmhVersion = '1.34' // Specifies JMH version
+    includeTests = true // Allows to include test sources into generate JMH jar, i.e. use it when benchmarks depend on the test classes.
+    duplicateClassesStrategy = DuplicatesStrategy.FAIL // Strategy to apply when encountring duplicate classes during creation of the fat jar (i.e. while executing jmhJar task)
+}

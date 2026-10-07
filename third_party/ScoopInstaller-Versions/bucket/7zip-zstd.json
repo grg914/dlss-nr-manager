@@ -1,0 +1,65 @@
+{
+    "version": "v26.02-1.5.7-r2",
+    "description": "7-Zip Zstandard is a multi-format file archiver based on 7-Zip that adds support for modern compression codecs including Zstandard, Brotli, LZ4, LZ5, Lizard, and Fast-LZMA2 while maintaining high compression ratios.",
+    "homepage": "https://mcmilk.de/projects/7-Zip-zstd/",
+    "license": {
+        "identifier": "BSD-3-Clause, LGPL-2.1-or-later",
+        "url": "https://github.com/mcmilk/7-Zip-zstd/blob/HEAD/COPYING"
+    },
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/mcmilk/7-Zip-zstd/releases/download/v26.02-v1.5.7-R2/7z26.02-zstd-x64.exe",
+            "hash": "22dc4608d911d7c831437b969db66a42d0477cd3f5d93987cae9f59774857fc1"
+        },
+        "32bit": {
+            "url": "https://github.com/mcmilk/7-Zip-zstd/releases/download/v26.02-v1.5.7-R2/7z26.02-zstd-x86.exe",
+            "hash": "9d509425fdbea2a85b77beaa246dfb63a71c0ac70dd443cf2ed3cddcf1b4992d"
+        },
+        "arm64": {
+            "url": "https://github.com/mcmilk/7-Zip-zstd/releases/download/v26.02-v1.5.7-R2/7z26.02-zstd-arm64.exe",
+            "hash": "9749af751056e203286175527e906acc1ad0ed7b0ccc1a22de05141d77170961"
+        }
+    },
+    "installer": {
+        "script": "Expand-7zipArchive -Path \"$dir\\$fname\" -Switches '-xr!$* -xr!unins*' -Removal"
+    },
+    "bin": [
+        "7z.exe",
+        "7za.exe",
+        "7zG.exe",
+        "7zFM.exe"
+    ],
+    "shortcuts": [
+        [
+            "7-zip.chm",
+            "7-Zip-Zstandard\\7-Zip Help"
+        ],
+        [
+            "7zFM.exe",
+            "7-Zip-Zstandard\\7-Zip ZS File Manager"
+        ]
+    ],
+    "persist": [
+        "Codecs",
+        "Formats"
+    ],
+    "checkver": {
+        "github": "https://api.github.com/repos/mcmilk/7-Zip-zstd/releases/latest",
+        "jsonpath": "$.assets[?(@.name =~ /7z(?!.+ndm)/i)].browser_download_url",
+        "regex": "(?i)download/(?<tag>v?(?<sevenzip>[^-]+)-v?(?<zstd>[^-]+)-R(?<release>\\d+))/(?<prefix>[^\"]+)-(?:arm|x)",
+        "replace": "v${sevenzip}-${zstd}-r${release}"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/mcmilk/7-Zip-zstd/releases/download/$matchTag/$matchPrefix-x64.exe"
+            },
+            "32bit": {
+                "url": "https://github.com/mcmilk/7-Zip-zstd/releases/download/$matchTag/$matchPrefix-x86.exe"
+            },
+            "arm64": {
+                "url": "https://github.com/mcmilk/7-Zip-zstd/releases/download/$matchTag/$matchPrefix-arm64.exe"
+            }
+        }
+    }
+}

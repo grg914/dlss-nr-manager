@@ -1,0 +1,8 @@
+﻿{
+    "id":  "minecraft-fabric-api",
+    "group":  "minecraft",
+    "url":  "https://github.com/FabricMC/fabric-api.git",
+    "ref":  "6a8ed6bc5a15a01cd6979998fc950f32a67010dc",
+    "imported_at_utc":  "2026-10-06T21:57:39.5711162Z",
+    "normalized_at_utc":  "2026-10-06T22:17:49.4217023Z"
+}

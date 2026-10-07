@@ -16,6 +16,10 @@ public sealed record ManagerReleaseInfo(
 public sealed class GitHubReleaseService
 {
     private const long MaxReleaseAssetBytes = 1024L * 1024 * 1024;
+    private const string ManagerReleasesApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases";
+    private const string OptiScalerAssetPrefix = "OptiScaler-NR-";
+    private const string OptiScalerAssetSuffix = "-vendored-win-x64.zip";
 
     private readonly HttpClient _http = new();
 
@@ -36,7 +40,7 @@ public sealed class GitHubReleaseService
         for (var page = 1; page <= maxPages; page++)
         {
             using var doc = await GetJsonWithRetryAsync(
-                $"https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page={pageSize}&page={page}",
+                $"{ManagerReleasesApi}?per_page={pageSize}&page={page}",
                 CancellationToken.None);
 
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
@@ -48,78 +52,18 @@ public sealed class GitHubReleaseService
             {
                 count++;
 
-                if (release.GetProperty("draft").GetBoolean())
+                if (release.TryGetProperty("draft", out var draft) &&
+                    draft.GetBoolean())
                     continue;
 
-                var prerelease =
-                    release.GetProperty("prerelease").GetBoolean();
-                if (prerelease && !includePrerelease)
+                var candidate = TryGetManagerOwnedOptiScaler(release);
+                if (candidate == null)
                     continue;
 
-                var tag =
-                    release.GetProperty("tag_name").GetString()
-                    ?? "unknown";
-                var name =
-                    release.GetProperty("name").GetString()
-                    ?? tag;
-
-                var candidates = release.GetProperty("assets")
-                    .EnumerateArray()
-                    .Select(asset =>
-                    {
-                        var assetName =
-                            asset.GetProperty("name").GetString()
-                            ?? string.Empty;
-                        var url =
-                            asset.GetProperty(
-                                "browser_download_url")
-                            .GetString();
-                        var digest =
-                            asset.TryGetProperty(
-                                "digest",
-                                out var digestElement)
-                                ? digestElement.GetString()
-                                : null;
-
-                        return new
-                        {
-                            AssetName = assetName,
-                            Url = url,
-                            Digest = digest
-                        };
-                    })
-                    .Where(x =>
-                        !string.IsNullOrWhiteSpace(x.Url) &&
-                        x.AssetName.EndsWith(
-                            ".zip",
-                            StringComparison.OrdinalIgnoreCase) &&
-                        x.AssetName.Contains(
-                            "OptiScaler-NR",
-                            StringComparison.OrdinalIgnoreCase) &&
-                        !x.AssetName.Contains(
-                            "rtx40-mfg",
-                            StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(x => x.AssetName.Length)
-                    .ToList();
-
-                var asset = candidates.FirstOrDefault();
-                if (asset == null)
+                if (candidate.Prerelease && !includePrerelease)
                     continue;
 
-                var sha256 =
-                    asset.Digest != null &&
-                    asset.Digest.StartsWith(
-                        "sha256:",
-                        StringComparison.OrdinalIgnoreCase)
-                        ? asset.Digest["sha256:".Length..]
-                        : null;
-
-                return new ReleaseInfo(
-                    tag,
-                    name,
-                    prerelease,
-                    asset.Url!,
-                    sha256);
+                return candidate;
             }
 
             if (count < pageSize)
@@ -133,60 +77,146 @@ public sealed class GitHubReleaseService
         int maxCount = 8,
         CancellationToken cancellationToken = default)
     {
-        using var doc = await GetJsonWithRetryAsync(
-            "https://api.github.com/repos/wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass/releases?per_page=30",
-            cancellationToken);
-
+        var limit = Math.Clamp(maxCount, 1, 20);
         var results = new List<ReleaseInfo>();
+        var seenTags = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
 
-        foreach (var release in doc.RootElement.EnumerateArray())
+        const int pageSize = 100;
+        const int maxPages = 5;
+
+        for (var page = 1;
+             page <= maxPages && results.Count < limit;
+             page++)
         {
-            if (release.GetProperty("draft").GetBoolean())
-                continue;
+            using var doc = await GetJsonWithRetryAsync(
+                $"{ManagerReleasesApi}?per_page={pageSize}&page={page}",
+                cancellationToken);
 
-            var prerelease = release.GetProperty("prerelease").GetBoolean();
-            var tag = release.GetProperty("tag_name").GetString() ?? "unknown";
-            var name = release.GetProperty("name").GetString() ?? tag;
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                break;
 
-            var asset = release.GetProperty("assets")
-                .EnumerateArray()
-                .Select(item => new
-                {
-                    Name = item.GetProperty("name").GetString() ?? "",
-                    Url = item.GetProperty("browser_download_url").GetString() ?? "",
-                    Digest = item.TryGetProperty("digest", out var digest)
-                        ? digest.GetString()
-                        : null
-                })
-                .Where(item =>
-                    item.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
-                    item.Name.Contains("OptiScaler-NR", StringComparison.OrdinalIgnoreCase) &&
-                    !item.Name.Contains("rtx40-mfg", StringComparison.OrdinalIgnoreCase) &&
-                    !string.IsNullOrWhiteSpace(item.Url))
-                .OrderBy(item => item.Name.Length)
-                .FirstOrDefault();
+            var count = 0;
 
-            if (asset == null)
-                continue;
+            foreach (var release in doc.RootElement.EnumerateArray())
+            {
+                count++;
 
-            var sha256 =
-                asset.Digest != null &&
-                asset.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
-                    ? asset.Digest["sha256:".Length..]
-                    : null;
+                if (release.TryGetProperty("draft", out var draft) &&
+                    draft.GetBoolean())
+                    continue;
 
-            results.Add(new ReleaseInfo(
-                tag,
-                name,
-                prerelease,
-                asset.Url,
-                sha256));
+                var candidate = TryGetManagerOwnedOptiScaler(release);
+                if (candidate == null ||
+                    !seenTags.Add(candidate.Tag))
+                    continue;
 
-            if (results.Count >= Math.Clamp(maxCount, 1, 20))
+                results.Add(candidate);
+                if (results.Count >= limit)
+                    break;
+            }
+
+            if (count < pageSize)
                 break;
         }
 
         return results;
+    }
+
+    private static ReleaseInfo? TryGetManagerOwnedOptiScaler(
+        JsonElement release)
+    {
+        if (!release.TryGetProperty("assets", out var assets) ||
+            assets.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            var name = asset.TryGetProperty(
+                    "name",
+                    out var nameElement)
+                ? nameElement.GetString() ?? ""
+                : "";
+
+            if (!TryParseOptiScalerTag(name, out var tag))
+                continue;
+
+            var url = asset.TryGetProperty(
+                    "browser_download_url",
+                    out var urlElement)
+                ? urlElement.GetString() ?? ""
+                : "";
+
+            if (string.IsNullOrWhiteSpace(url))
+                continue;
+
+            string? sha256 = null;
+            if (asset.TryGetProperty(
+                    "digest",
+                    out var digestElement))
+            {
+                var digest = digestElement.GetString();
+                if (!string.IsNullOrWhiteSpace(digest) &&
+                    digest.StartsWith(
+                        "sha256:",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    sha256 = digest["sha256:".Length..];
+                }
+            }
+
+            return new ReleaseInfo(
+                tag,
+                $"OptiScaler {tag}",
+                IsOptiScalerPrerelease(tag),
+                url,
+                sha256);
+        }
+
+        return null;
+    }
+
+    internal static bool TryParseOptiScalerTag(
+        string assetName,
+        out string tag)
+    {
+        tag = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(assetName) ||
+            !assetName.StartsWith(
+                OptiScalerAssetPrefix,
+                StringComparison.OrdinalIgnoreCase) ||
+            !assetName.EndsWith(
+                OptiScalerAssetSuffix,
+                StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var length =
+            assetName.Length -
+            OptiScalerAssetPrefix.Length -
+            OptiScalerAssetSuffix.Length;
+
+        if (length <= 0)
+            return false;
+
+        tag = assetName.Substring(
+            OptiScalerAssetPrefix.Length,
+            length);
+
+        return !string.IsNullOrWhiteSpace(tag);
+    }
+
+    internal static bool IsOptiScalerPrerelease(
+        string tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag))
+            return false;
+
+        return tag.Contains("-pre", StringComparison.OrdinalIgnoreCase) ||
+               tag.Contains("-rc", StringComparison.OrdinalIgnoreCase) ||
+               tag.Contains("-alpha", StringComparison.OrdinalIgnoreCase) ||
+               tag.Contains("-beta", StringComparison.OrdinalIgnoreCase) ||
+               tag.Contains("-dev", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task DownloadAsync(

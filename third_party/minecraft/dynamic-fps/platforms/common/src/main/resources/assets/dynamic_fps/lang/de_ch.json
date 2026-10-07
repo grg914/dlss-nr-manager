@@ -1,0 +1,100 @@
+{
+    "config.dynamic_fps.title": "Dynamic FPS Konfigurieren",
+
+    "config.dynamic_fps.warn_cloth_config.0": "Cloth Config wird benötigt, um Dynamic FPS in Minecraft zu konfigurieren.",
+    "config.dynamic_fps.warn_cloth_config.1": "Installiere Cloth Config, bearbeite die konfigurationsdatei, oder nutze die Standardeinstellungen.",
+
+    "config.dynamic_fps.category.general": "Allgemein",
+    "config.dynamic_fps.category.advanced": "Erweitert",
+
+    "config.dynamic_fps.category.hovered": "Schwebend",
+    "config.dynamic_fps.category.unfocused": "Unfokussiert",
+    "config.dynamic_fps.category.invisible": "Unsichtbar",
+    "config.dynamic_fps.category.unplugged": "Akkubetrieb",
+    "config.dynamic_fps.category.abandoned": "Untätig",
+
+    "config.dynamic_fps.enabled": "Aktiviert",
+
+    "config.dynamic_fps.disabled": "Deaktiviert",
+    "config.dynamic_fps.minutes": "%s Minute(n)",
+
+    "config.dynamic_fps.idle_time": "Untätigkeits-Timeout",
+    "config.dynamic_fps.idle_time_tooltip": "Zeit in Minuten ohne Aktivität, bis die Untätig Konfiguration aktiviert wird, während das Spiel fokussiert ist.",
+
+    "config.dynamic_fps.idle_condition": "Inaktivitäts-Bedingung",
+
+    "config.dynamic_fps.idle_condition_none": "Keine",
+    "config.dynamic_fps.idle_condition_vanilla": "Vanilla",
+    "config.dynamic_fps.idle_condition_on_battery": "Im Akkubetrieb",
+
+    "config.dynamic_fps.idle_condition_none_tooltip": "Den Inaktivitätszustand immer aktivieren, wenn zu lange inaktiv.",
+    "config.dynamic_fps.idle_condition_vanilla_tooltip": "Deaktiviert die Dynamic FPS-Inaktivität. Verwendet stattdessen die Vanilla-Einstellung.",
+    "config.dynamic_fps.idle_condition_on_battery_tooltip": "Den Inaktivitätszustand aktivieren, wenn zu lange inaktiv und im Akkubetrieb.",
+
+    "config.dynamic_fps.uncap_menu_frame_rate": "FPS-Limit im Menü aufheben",
+    "config.dynamic_fps.uncap_menu_frame_rate_tooltip": "Entfernt die 60 FPS-Beschränkung im Hauptmenü.",
+
+    "config.dynamic_fps.battery_tracker": "Akku-Tracker",
+    "config.dynamic_fps.battery_tracker_tooltip": "Schalte alle akkubezogenen Funktionen ein- oder aus.",
+
+    "config.dynamic_fps.battery_tracker_switch_states": "Akkubetriebsmodus aktivieren",
+    "config.dynamic_fps.battery_tracker_switch_states_tooltip": "Aktiviert automatisch den Akkubetriebsmodus, wenn im Akkubetrieb.",
+
+    "config.dynamic_fps.battery_tracker_notifications": "Akku-Benachrichtigungen",
+    "config.dynamic_fps.battery_tracker_notifications_tooltip": "Erhalte Benachrichtigungen im Spiel über den Akkustatus.",
+
+    "config.dynamic_fps.battery_indicator_condition": "Akkuanzeige-Bedingung",
+    "config.dynamic_fps.battery_indicator_condition_disabled": "Deaktiviert",
+    "config.dynamic_fps.battery_indicator_condition_draining": "Während des Entladens",
+    "config.dynamic_fps.battery_indicator_condition_critical": "Kritisch",
+    "config.dynamic_fps.battery_indicator_condition_constant": "Konstant",
+
+    "config.dynamic_fps.battery_indicator_placement": "Platzierung der Akkuanzeige",
+    "config.dynamic_fps.battery_indicator_placement_top_left": "Oben links",
+    "config.dynamic_fps.battery_indicator_placement_top_right": "Oben rechts",
+    "config.dynamic_fps.battery_indicator_placement_bottom_left": "Unten links",
+    "config.dynamic_fps.battery_indicator_placement_bottom_right": "Unten rechts",
+
+    "config.dynamic_fps.volume_transition_speed_up": "Lautstärke-Anstiegsgeschwindigkeit",
+    "config.dynamic_fps.volume_transition_speed_down": "Lautstärke-Abstiegsgeschwindigkeit",
+    "config.dynamic_fps.volume_transition_speed_instant": "Sofort",
+    "config.dynamic_fps.volume_transition_speed_tooltip": "Legt fest, wie schnell die Spiellautstärke pro Sekunde angepasst wird.",
+
+    "config.dynamic_fps.frame_rate_target": "Zielbildrate",
+    "config.dynamic_fps.volume_multiplier": "Lautstärke-Multiplikator",
+
+    "config.dynamic_fps.graphics_state": "Grafikoptionen",
+    "config.dynamic_fps.graphics_state_default": "Standard",
+    "config.dynamic_fps.graphics_state_reduced": "Reduziert",
+    "config.dynamic_fps.graphics_state_minimal": "Minimal",
+    "config.dynamic_fps.graphics_state_minimal_tooltip": "Minimale Grafikoptionen erzwingen ein Neuladen der Welt!",
+
+    "config.dynamic_fps.show_toasts": "Toast-Benachrichtigungen anzeigen",
+    "config.dynamic_fps.show_toasts_tooltip": "Ob Toast-Benachrichtigungen weiterhin angezeigt oder verzögert werden sollen.",
+
+    "config.dynamic_fps.run_garbage_collector": "Garbage Collector ausführen",
+    "config.dynamic_fps.run_garbage_collector_tooltip": "Gibt ungenutzten Speicher frei, wenn dieser Status aktiviert wird.",
+
+    "config.dynamic_fps.download_natives": "Bibliotheken Herunterladen",
+    "config.dynamic_fps.download_natives_description_0": "Die Nutzung der Akku-Funktionen erfordert eine zusätzliche Bibliothek.",
+    "config.dynamic_fps.download_natives_description_1": "Legt fest, ob die Mod diese Komponente automatisch herunterladen darf.",
+
+    "config.dynamic_fps.mock_battery_data": "Simulierte Akkudaten verwenden",
+
+    "key.dynamic_fps.toggle_forced": "Unfokussierten Modus forcieren (Toggle)",
+    "key.dynamic_fps.toggle_disabled": "Dynamic FPS deaktivieren (Toggle)",
+    "gui.dynamic_fps.hud.reducing": "Dynamic FPS: Reduzierte FPS erzwungen",
+    "gui.dynamic_fps.hud.disabled": "Dynamic FPS deaktiviert",
+
+    "toast.dynamic_fps.error": "Dynamic FPS Akku-Fehler",
+    "toast.dynamic_fps.no_support": "Computer wird nicht unterstützt",
+    "toast.dynamic_fps.no_library": "Bibliotheks-Download deaktiviert",
+
+    "toast.dynamic_fps.battery_charging": "Akku Lädt!",
+    "toast.dynamic_fps.battery_draining": "Akku Entlädt!",
+    "toast.dynamic_fps.battery_critical": "Akkustand Niedrig!",
+
+    "toast.dynamic_fps.battery_charge": "Akkustand %d%%",
+
+    "modmenu.descriptionTranslation.dynamic_fps": "Reduziert die Ressourcennutzung, wenn Minecraft im Hintergrund läuft oder nicht aktiv genutzt wird."
+}

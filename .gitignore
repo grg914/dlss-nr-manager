@@ -1,7 +1,11 @@
 bin/
 obj/
 publish/
+build-local/
 .vs/
 *.user
 *.suo
 *.zip
+
+# License-restricted/local SDK material
+third_party-local/

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "lithium-gametest",
+  "name": "Lithium Gametest",
+  "version": "1.0.0",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest" : [
+      "net.caffeinemc.mods.lithium.fabric.gametest.mixin.ai.poi.POI_Search",
+      "net.caffeinemc.mods.lithium.fabric.gametest.LithiumFabricGameTest"
+    ],
+    "main" : [
+      "net.caffeinemc.mods.lithium.fabric.gametest.LithiumFabricGameTest"
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+name: Native Vendor Builds
+
+on:
+  pull_request:
+    paths:
+      - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
+      - 'third_party/OptiScaler/**'
+      - 'third_party/ReShade/**'
+      - 'tools/build-realesrgan.ps1'
+      - 'tools/build-optiscaler.ps1'
+      - 'tools/build-reshade.ps1'
+      - '.github/workflows/native-vendor.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: native-vendor-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  realesrgan:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Build vendored Real-ESRGAN
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: Real-ESRGAN-vendored-win-x64
+          path: build-realesrgan/Release/realesrgan-ncnn-vulkan.exe
+          if-no-files-found: error
+
+  optiscaler:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Build vendored OptiScaler
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory build-optiscaler -Clean
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: OptiScaler-vendored-win-x64
+          path: build-optiscaler/OptiScaler-NR-*-vendored-win-x64.zip
+          if-no-files-found: error
+          compression-level: 0
+
+  reshade:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Build vendored ReShade
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-reshade.ps1 -OutputDirectory build-reshade -Clean
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: ReShade-vendored-setup
+          path: build-reshade/ReShade-Setup-*-vendored.zip
+          if-no-files-found: error
+          compression-level: 0

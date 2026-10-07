@@ -6,6 +6,13 @@ namespace DlssNrManager.Services;
 
 public sealed class ComponentUpdateService
 {
+    private const string ManagerLatestReleaseApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+    private const string ManagerProcessorAsset =
+        "video2dlssnr_release.zip";
+    private const string ManagerFfmpegAsset =
+        "ffmpeg-dlssnr-win-x64.zip";
+
     private readonly HttpClient _http = new();
 
     private static readonly string StatePath = Path.Combine(
@@ -63,35 +70,48 @@ public sealed class ComponentUpdateService
     public async Task<ComponentState> GetRemoteStateAsync(
         CancellationToken cancellationToken = default)
     {
-        var processor = await GetJsonAsync(
-            "https://api.github.com/repos/DaniilSokolyuk/video2dlssnr/releases/latest",
+        using var manager = await GetJsonAsync(
+            ManagerLatestReleaseApi,
             cancellationToken);
 
-        var processorTag = processor.RootElement.GetProperty("tag_name").GetString()
-            ?? "unknown";
-
-        var ffmpeg = await GetJsonAsync(
-            "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest",
-            cancellationToken);
-
+        long processorAssetId = 0;
         long ffmpegAssetId = 0;
-        if (ffmpeg.RootElement.TryGetProperty("assets", out var assets))
+
+        if (manager.RootElement.TryGetProperty("assets", out var assets))
         {
             foreach (var asset in assets.EnumerateArray())
             {
                 var name = asset.GetProperty("name").GetString() ?? "";
-                if (!name.Equals(
-                        "ffmpeg-master-latest-win64-gpl.zip",
+                if (name.Equals(
+                        ManagerProcessorAsset,
                         StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                ffmpegAssetId = asset.GetProperty("id").GetInt64();
-                break;
+                {
+                    processorAssetId = asset.GetProperty("id").GetInt64();
+                }
+                else if (name.Equals(
+                             ManagerFfmpegAsset,
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    ffmpegAssetId = asset.GetProperty("id").GetInt64();
+                }
             }
         }
 
+        if (processorAssetId == 0)
+        {
+            throw new InvalidOperationException(
+                $"Latest DLSS NR Manager release has no {ManagerProcessorAsset} asset. " +
+                "Bootstrap the validated video runtime before checking media updates.");
+        }
+
+        if (ffmpegAssetId == 0)
+        {
+            throw new InvalidOperationException(
+                $"Latest DLSS NR Manager release has no {ManagerFfmpegAsset} asset.");
+        }
+
         return new ComponentState(
-            processorTag,
+            $"manager:{processorAssetId}",
             ffmpegAssetId,
             DateTimeOffset.UtcNow);
     }

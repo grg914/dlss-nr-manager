@@ -1,0 +1,27 @@
+plugins {
+    id 'ferritecore.loader-conventions'
+    id 'net.neoforged.moddev' version "$mdg_version"
+}
+
+neoForge {
+    version = "$neo_version"
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArguments = ["-nogui"]
+        }
+    }
+
+    mods {
+        ferritecore {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+// Generate mods.toml on IDE import
+neoForge.ideSyncTask generateModMetadata

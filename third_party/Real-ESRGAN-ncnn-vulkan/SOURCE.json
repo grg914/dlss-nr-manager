@@ -1,0 +1,8 @@
+﻿{
+    "id":  "realesrgan",
+    "group":  "core",
+    "url":  "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan.git",
+    "ref":  "37026f49824c5cf84062e7c6a5dd71445dcf610f",
+    "imported_at_utc":  "2026-10-06T21:55:09.2709311Z",
+    "normalized_at_utc":  "2026-10-06T22:17:03.5724581Z"
+}

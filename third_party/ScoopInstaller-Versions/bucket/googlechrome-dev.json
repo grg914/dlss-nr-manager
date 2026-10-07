@@ -1,0 +1,83 @@
+{
+    "version": "157.0.8081.0",
+    "description": "Fast, secure, and free web browser, built for the modern web.",
+    "homepage": "https://www.google.com/chrome/dev",
+    "license": {
+        "identifier": "Freeware",
+        "url": "https://www.google.com/chrome/privacy/eula_text.html"
+    },
+    "architecture": {
+        "64bit": {
+            "url": "https://dl.google.com/release2/chrome/iiqteoqwgj4i7diae7pnwx5tca_157.0.8081.0/157.0.8081.0_chrome_installer_uncompressed.exe#/dl.7z",
+            "hash": "b0e57daa0c194d9617cf11480990eadbaef203c541c94741555e132180871b50"
+        },
+        "32bit": {
+            "url": "https://dl.google.com/release2/chrome/b6g4s6cjavvsmowuojmqta23ym_157.0.8081.0/157.0.8081.0_chrome_installer_uncompressed.exe#/dl.7z",
+            "hash": "f5fbe6512982fa6032f5ebab95354cfc95dbd90aa52105d24e2948d2cef6eeb2"
+        },
+        "arm64": {
+            "url": "https://dl.google.com/release2/chrome/b5bvxqfhb3dj66wdcsvhf5clxi_157.0.8081.0/157.0.8081.0_chrome_installer_uncompressed.exe#/dl.7z",
+            "hash": "6c51a4635a789dd1b9f216163ad16dc41c73b039f3a1bea530cc337f704cf986"
+        }
+    },
+    "extract_dir": "Chrome-bin",
+    "bin": [
+        [
+            "chrome.exe",
+            "chrome-dev"
+        ]
+    ],
+    "shortcuts": [
+        [
+            "chrome.exe",
+            "Google Chrome (Dev)"
+        ]
+    ],
+    "checkver": {
+        "script": [
+            "$AppID = '{8A69D345-D564-463C-AFF1-A69D9E530F96}'",
+            "$ArchParams  = @{",
+            "    'x64'   ='2.0-dev-arch_x64'",
+            "    'x86'   ='2.0-dev-arch_x86'",
+            "    'arm64' ='2.0-dev-arch_arm64'",
+            "}",
+            "$BodyTemplate = @(",
+            "    '<?xml version=\"1.0\" encoding=\"UTF-8\"?>',",
+            "    '<request protocol=\"3.0\">',",
+            "    '  <os platform=\"win\" version=\"10.0.22000.0\" arch=\"{0}\"/>',",
+            "    '  <app appid=\"{1}\" ap=\"{2}\" version=\"\">',",
+            "    '    <updatecheck/>',",
+            "    '  </app>',",
+            "    '</request>'",
+            ") -join \"`n\"",
+            "$ArchURLs = @{}",
+            "$Version = $null",
+            "forEach ($Arch in $ArchParams.Keys) {",
+            "    $Body = $BodyTemplate -f $Arch, $AppID, $ArchParams[$Arch]",
+            "    $Response = Invoke-RestMethod -Uri 'https://update.googleapis.com/service/update2' -Method Post -Body $Body",
+            "    if ($Arch -eq 'x64') {",
+            "        $Version = $Response.response.app.updatecheck.manifest.version",
+            "    }",
+            "    $BaseURL = $Response.SelectSingleNode(\"//url[starts-with(@codebase, 'https://dl.google.com/release2/chrome/')]\")",
+            "    $BaseURL.GetAttribute('codebase') -match '^https://dl\\.google\\.com/release2/chrome/(?<URL>[^/]+)/'",
+            "    $FileName = $Response.SelectSingleNode('//package').GetAttribute('name')",
+            "    $ArchURLs[$Arch] = \"$($Matches['URL'])/$FileName\"",
+            "}",
+            "Write-Output \"$Version,$($ArchURLs['x64']),$($ArchURLs['x86']),$($ArchURLs['arm64'])\""
+        ],
+        "regex": "(?<version>[\\d.]+),(?<archx64>[^,]+),(?<archx86>[^,]+),(?<archarm64>[^,]+)"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://dl.google.com/release2/chrome/$matchArchx64#/dl.7z"
+            },
+            "32bit": {
+                "url": "https://dl.google.com/release2/chrome/$matchArchx86#/dl.7z"
+            },
+            "arm64": {
+                "url": "https://dl.google.com/release2/chrome/$matchArcharm64#/dl.7z"
+            }
+        }
+    }
+}

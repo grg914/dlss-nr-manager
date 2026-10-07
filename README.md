@@ -10,9 +10,9 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v3.0.0**.
+Current application version: **v3.1.0**.
 
-> Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, official NVIDIA Streamline runtime provisioning, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
+> Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, manager-owned validated NVIDIA runtime bundles, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
 ## Screenshots
 
@@ -33,6 +33,16 @@ Design references are kept under:
 
 The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
 
+## Self-contained monorepo migration
+
+The project now uses a self-contained monorepo model for project-owned and redistributable dependencies. **Caustica RTX** lives directly under `Caustica-RTX/`, while pinned third-party source snapshots live under `third_party/`.
+
+Use `tools/vendor-third-party.ps1` to import pinned source snapshots without nested Git repositories. `third_party/DEPENDENCIES.lock.json` records immutable source refs, and `third_party/minecraft/RUNTIME.lock.json` freezes the exact Minecraft 26.2 runtime artifacts/hashes.
+
+The Minecraft installer now resolves Caustica only from **DLSS NR Manager releases**. Release automation prefers a local `Caustica-RTX/build/libs` production JAR and otherwise reuses a previously bundled Caustica JAR from this repository's own release history. It no longer queries the standalone `grg914/Caustica-RTX` release feed.
+
+A literal zero-external-toolchain build is not possible: Windows, GPU drivers, Minecraft, Java/MSVC/Vulkan tooling and license-restricted NVIDIA SDK inputs remain external prerequisites. NVIDIA/DLSS is therefore treated as a local-only build input rather than blindly vendored into the public repository.
+
 ## Download
 
 Use the latest GitHub Release for the Windows x64 single-file build. Current releases publish:
@@ -42,6 +52,18 @@ Use the latest GitHub Release for the Windows x64 single-file build. Current rel
 - `SHA256SUMS.txt` covering every bundled release asset
 - the latest compatible Minecraft 26.2 Caustica RTX production JAR
 - `SPBRScandi.zip`, the validated SPBR-based Scandi resource pack
+- manager-owned validated runtime assets for FFmpeg, Real-ESRGAN, OptiScaler, ReShade, AI-origin models, Streamline/video Neural Rendering and Minecraft 26.2
+
+## What's new in v3.1.0
+
+v3.1 completes the self-contained runtime/release migration while preserving the reliability-first behavior introduced in v3.0.
+
+- **Manager-owned runtime channel.** OptiScaler, Real-ESRGAN, ReShade, FFmpeg, `video2dlssnr`, Streamline/NVIDIA runtime resources, AI detector weights and Minecraft runtime assets are consumed from DLSS NR Manager releases instead of separate upstream release feeds.
+- **Strict dependency audit in CI.** Every build fails if runtime/release code reintroduces direct dependencies on the retired NVIDIA, OptiScaler, FFmpeg, Real-ESRGAN, ReShade, Hugging Face, Fabric or Modrinth runtime URLs.
+- **Deterministic Minecraft 26.2 bundle.** `third_party/minecraft/RUNTIME.lock.json` freezes Fabric Loader 0.19.3, Fabric Installer 1.1.2, the Fabric profile/libraries and the selected Fabric/Modrinth artifacts by exact version, filename and hash. The application installs Fabric from the manager-owned bundle without contacting Fabric Meta/Maven or Modrinth at normal runtime.
+- **Stable Minecraft performance set.** The validated bundle contains Fabric API, Lithium, FerriteCore, Krypton, BadOptimizations, Dynamic FPS and SPBR LabPBR. C2ME is intentionally excluded until a stable 26.2 release is available.
+- **Reproducible native/media builds.** OptiScaler, Real-ESRGAN, ReShade and FFmpeg build from vendored sources with dedicated CI workflows; FFmpeg no longer depends on BtbN release binaries.
+- **Validated NVIDIA bootstrap.** Streamline is pinned to the official v2.14.1 package and verified by digest/signature. Neural Rendering bootstrap accepts only a valid NVIDIA-signed `nvngx_dlssnr.dll`, which is never committed to the source tree.
 
 ## What's new in v3.0.0
 
@@ -243,26 +265,13 @@ The logger is best-effort and is never allowed to prevent the application from s
 
 ### Automatic NVIDIA runtime/resources
 
-- **Check NVIDIA files** performs a read-only availability probe against official `NVIDIA/DLSS` and `NVIDIA-RTX/Streamline` GitHub sources before any runtime staging
-- Optional automatic download of the latest official **NVIDIA-RTX/Streamline** GitHub release
-- Looks for `nvngx_dlssnr.dll` in the official package when no local runtime is selected; if the current public Streamline release does not contain it, the manager reports that an NVIDIA-authorized DLSS-NR runtime must be supplied instead of pretending provisioning succeeded
-- Validates x64 architecture and NVIDIA Authenticode publisher before use
-- Existing known SHA-256 runtime fingerprints remain accepted
-- Can add missing Streamline/DLSS runtime resources to the selected game:
-  - `sl.interposer.dll`
-  - `sl.common.dll`
-  - `sl.dlss.dll` / `nvngx_dlss.dll`
-  - `sl.dlss_d.dll` / `nvngx_dlssd.dll` for DLSS Ray Reconstruction when supported by the renderer
-  - `sl.dlss_g.dll` / `nvngx_dlssg.dll`
-  - `sl.reflex.dll` plus `NvLowLatencyVk.dll` when present for the Vulkan Reflex path
-  - `sl.dlss_nr.dll` / `nvngx_dlssnr.dll` when present in the selected Streamline package
+- **Check NVIDIA files** inspects the current DLSS NR Manager release for the validated manager-owned Streamline and Neural Rendering runtime bundles
+- Runtime downloads come from this repository's release assets, not directly from NVIDIA release feeds during normal application use
+- Streamline is pinned to the validated v2.14.1 x64 package; the bootstrap verifies its upstream SHA-256 before repackaging the required runtime files
+- `nvngx_dlssnr.dll` is accepted only when the bootstrap/runtime validation confirms x64 architecture and a valid NVIDIA Authenticode signer
 - Existing vendor DLLs in a game are not overwritten by the resource-completion step
-- NVIDIA binaries are **not committed to this repository**
-
-Validated compatibility hashes currently retained by the manager:
-
-- RTX 50 DLSSNR SHA-256: `E16BCF15E16E13F527491CDF7845B2FE6521A738D8F7C9C721866A8496E1FC8E`
-- Legacy RTX 20/30/40 compatibility-runtime SHA-256: `E67DEE209320CDAFE0E93E45675D7AA34323A53ACC57A72B2E40A181581C989A` (retained for older managed installs; general RTX 20/30/40 installs do **not** require a DLSS-NR runtime)
+- The manager can stage the supported Streamline/DLSS resources required by the selected feature set, including SR/RR, Frame Generation, Reflex and the validated Neural Rendering runtime when available
+- Proprietary NVIDIA SDK/runtime material is not committed as standalone source-tree content; restricted SDK inputs remain local build/bootstrap prerequisites
 
 ### PC Update Center
 
@@ -299,7 +308,7 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
 ### Media Neural Rendering, AI Upscale and AI-origin detection
 
 - Local image/video Neural Rendering
-- Media engine downloads `video2dlssnr` and FFmpeg from upstream releases
+- Media engine downloads the validated `video2dlssnr` and FFmpeg packages from DLSS NR Manager releases
 - Native, 2× and 4K media output presets
 - Default / Natural / Cinematic Neural Rendering styles
 - Real-ESRGAN NCNN Vulkan AI Upscale
@@ -335,14 +344,14 @@ The cleaner intentionally does **not** touch browser profiles, documents, downlo
   - sets `preferredGraphicsBackend:"vulkan"`
   - verifies Java 25 x64 before Fabric/Caustica setup
   - installs Eclipse Temurin 25 automatically with WinGet when Java 25 is missing
-  - resolves the latest stable Fabric Loader for Minecraft 26.2 from Fabric Meta (minimum supported: 0.19.3) and installs/updates it automatically on Mojang/Microsoft-style instances
+  - installs pinned Fabric Loader 0.19.3 from the validated manager-owned Minecraft runtime bundle on Mojang/Microsoft-style instances
   - requires launcher-managed Fabric to be installed from Prism/Modrinth/CurseForge/GDLauncher when those launchers own the instance metadata
-  - downloads the latest stable Fabric API build for Minecraft 26.2 from Modrinth and verifies its SHA-512 hash
-  - prefers the tested Caustica RTX Minecraft 26.2 production JAR bundled directly in the current DLSS NR Manager release; `grg914/Caustica-RTX` remains the fallback source when no compatible bundled JAR is available
-  - optionally installs a performance pack that avoids renderer replacement: **Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS**; unavailable optional components are skipped without invalidating the core RTX installation
+  - installs pinned Fabric API 0.161.0+26.2 from the manager-owned bundle and re-verifies its SHA-512 hash
+  - uses the tested Caustica RTX Minecraft 26.2 production JAR bundled in DLSS NR Manager releases; the standalone Caustica release feed is no longer a runtime fallback
+  - optionally installs the validated non-renderer performance set: **Lithium + FerriteCore + Krypton + BadOptimizations + Dynamic FPS**; C2ME is excluded from the stable 26.2 bundle while only Alpha builds are available
   - optionally installs the bundled **SPBRScandi** resource pack directly into Minecraft `resourcepacks`; it keeps the compatible SPBR LabPBR terrain/material base and adds the validated Scandi sky, End, GUI and visual assets
   - the optional legacy ScandiShader archive can still be staged when available; the RTX renderer itself uses Caustica's native ScandiShader RTX Look rather than Iris
-  - verifies Modrinth SHA-512 hashes before installing downloaded mods/resource packs
+  - verifies the locked SHA-512/SHA-1/SHA-256 fingerprints again before installing bundled mods, Fabric libraries and installer provenance artifacts
   - temporarily backs up known conflicting world-renderer mods such as Sodium, Iris, VulkanMod, Nvidium, Canvas and OptiFine/OptiFabric
   - requires the official Minecraft Launcher to be closed while Fabric/profile files are modified
   - patches the Mojang launcher Fabric profile with `-Xss16m` and `--enable-native-access=ALL-UNNAMED`, and surfaces a warning instead of silently hiding profile-patch failures
@@ -383,13 +392,13 @@ The manager updates supported keys in the upstream configuration and inserts mis
 2. Close the target game and its launcher.
 3. Run `DlssNrManager.exe`.
 4. Select a detected game or choose its executable folder manually.
-5. On RTX 50, leave **Automatically download the latest official NVIDIA Streamline DLSSNR runtime** enabled, or manually select your own `nvngx_dlssnr.dll`. On RTX 20/30/40, Neural Rendering is disabled automatically and no DLSSNR runtime is required.
+5. On RTX 50, use the validated manager-owned NVIDIA runtime package, or manually select your own trusted `nvngx_dlssnr.dll` where supported. On RTX 20/30/40, Neural Rendering is disabled automatically and no DLSSNR runtime is required.
 6. Review the runtime validation and recommended proxy.
 7. Run **Diagnose game** when compatibility is not upstream-validated.
-8. Optionally keep **Add missing official NVIDIA Streamline/DLSS resources** enabled. The manager stages only the resources supported by the detected RTX generation.
+8. Optionally keep **Add missing NVIDIA Streamline/DLSS resources** enabled. The manager stages only validated manager-owned resources supported by the detected RTX generation.
 9. Click **Install**.
 
-The manager downloads OptiScaler from its upstream release, creates a backup, validates runtime components and then installs into the selected executable directory.
+The manager downloads the validated OptiScaler package from DLSS NR Manager releases, creates a backup, validates runtime components and then installs into the selected executable directory.
 
 ## PC Update Center
 
@@ -419,22 +428,22 @@ For Cyberpunk 2077, `dbghelp.dll` remains the upstream-validated recommendation 
 
 DLSS NR Manager does not store NVIDIA proprietary binaries in this source repository.
 
-When automatic runtime provisioning is enabled, the application downloads the selected runtime resources directly from NVIDIA's official `NVIDIA-RTX/Streamline` GitHub release assets and validates the runtime before use. Users may instead supply a local runtime.
+When automatic runtime provisioning is enabled, the application downloads validated manager-owned runtime packages from DLSS NR Manager releases. Streamline bootstrap provenance remains tied to the pinned official NVIDIA package, while restricted NVIDIA SDK/runtime inputs are kept out of the source tree unless redistribution is explicitly permitted. Users may instead supply a trusted local runtime where supported.
 
 OptiScaler, NVIDIA Streamline/DLSS, Fabric, Caustica RTX, Real-ESRGAN, FFmpeg, video2dlssnr, ReShade and other third-party components retain their respective licenses and ownership.
 
 DLSS NR Manager itself is MIT licensed.
 
-## Upstream components
+## Vendored / integrated components
 
-The project integrates or automates workflows around:
+The monorepo contains pinned source snapshots or controlled bootstrap workflows for:
 
 - `wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass`
 - `NVIDIA-RTX/Streamline`
 - `FabricMC/fabric-installer`
 - `FabricMC/fabric-api`
-- `grg914/Caustica-RTX` (project fork; based on AriesAlex/Caustica-RTX)
-- Modrinth API projects: Lithium, FerriteCore, Krypton, C2ME, BadOptimizations, Dynamic FPS and SPBR
+- `Caustica-RTX/` (vendored project fork; based on AriesAlex/Caustica-RTX)
+- Minecraft components: Fabric Installer/API, Lithium, FerriteCore, Krypton, BadOptimizations, Dynamic FPS and SPBR; C2ME source is mirrored but excluded from the stable 26.2 runtime bundle
 - `xinntao/Real-ESRGAN-ncnn-vulkan`
 
 ## Limitations
@@ -444,7 +453,7 @@ The project integrates or automates workflows around:
 - Windows Update may lag behind NVIDIA's newest Game Ready/Studio driver, so the official NVIDIA page remains the authoritative vendor check.
 - Some temporary/cache files are locked while Windows, games or drivers are running and will be skipped.
 - Cleaning shader caches can make the next game launch spend time rebuilding shaders.
-- Automatic runtime provisioning depends on the layout/content of NVIDIA's upstream Streamline release assets.
+- Automatic runtime provisioning depends on validated manager-owned release assets being present; bootstrap/update failures fail closed instead of falling back to arbitrary upstream downloads.
 - The manager does not silently chain arbitrary third-party proxy loaders.
 - **Do not use the general game injection/install flow in multiplayer or anti-cheat-protected games unless the game developer explicitly allows it.** Proxy DLL injection can be treated as tampering and may lead to account sanctions or bans. The manager blocks installation when known anti-cheat files are detected, but absence of a local signal is not proof that online use is safe.
 

@@ -22,6 +22,70 @@ jobs:
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: '8.0.x'
+      - name: Validate self-contained tooling
+        shell: pwsh
+        run: |
+          $paths = @(
+            "tools/vendor-third-party.ps1",
+            "tools/verify-self-contained.ps1",
+            "tools/build-realesrgan.ps1",
+            "tools/build-optiscaler.ps1",
+            "tools/build-reshade.ps1",
+            "tools/build-video2dlssnr.ps1",
+            "tools/publish-video2dlssnr.ps1",
+            "tools/publish-streamline-runtime.ps1",
+            "tools/bootstrap-manager-runtime-assets.ps1",
+            "tools/bootstrap-minecraft-runtime.ps1"
+          )
+
+          foreach ($path in $paths) {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $path),
+              [ref]$tokens,
+              [ref]$parseErrors
+            ) | Out-Null
+
+            if ($parseErrors.Count -gt 0) {
+              $parseErrors | ForEach-Object { Write-Error "${path}: $($_.Message)" }
+              throw "PowerShell syntax validation failed for $path"
+            }
+          }
+
+          $lock = Get-Content "third_party/DEPENDENCIES.lock.json" -Raw | ConvertFrom-Json
+          $all = @($lock.sources) + @($lock.local_only)
+
+          $duplicateIds = $all |
+            Group-Object id |
+            Where-Object Count -gt 1
+          if ($duplicateIds) {
+            throw "Duplicate dependency ids: $($duplicateIds.Name -join ', ')"
+          }
+
+          $duplicatePaths = $all |
+            Group-Object path |
+            Where-Object Count -gt 1
+          if ($duplicatePaths) {
+            throw "Duplicate dependency paths: $($duplicatePaths.Name -join ', ')"
+          }
+
+          foreach ($source in $all) {
+            if ("$($source.ref)" -notmatch "^[0-9a-fA-F]{40}$") {
+              throw "Dependency '$($source.id)' is not pinned to an immutable commit SHA: $($source.ref)"
+            }
+          }
+
+          Write-Host "Vendor tooling syntax and dependency lock verified."
+
+      - name: Enforce self-contained runtime/release audit
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-self-contained.ps1 -Strict -AllowLfsPointers
+          if ($LASTEXITCODE -ne 0) {
+            throw "Strict self-contained dependency audit failed."
+          }
+
       - name: Restore
         shell: pwsh
         run: |
