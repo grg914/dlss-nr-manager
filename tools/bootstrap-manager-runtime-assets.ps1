@@ -56,6 +56,12 @@ if ($LASTEXITCODE -ne 0) {
     throw "video2dlssnr runtime bootstrap failed."
 }
 
+$minecraftScript = Join-Path $PSScriptRoot "bootstrap-minecraft-runtime.ps1"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $minecraftScript -Repository $Repository -ReleaseTag $ReleaseTag
+if ($LASTEXITCODE -ne 0) {
+    throw "Minecraft runtime bootstrap failed."
+}
+
 $releaseJson = & gh api "repos/$Repository/releases/tags/$ReleaseTag"
 if ($LASTEXITCODE -ne 0) {
     throw "Unable to verify manager release after runtime bootstrap."
@@ -66,9 +72,10 @@ $assetNames = @($release.assets | ForEach-Object { [string]$_.name })
 
 $hasVideo = $assetNames -contains "video2dlssnr_release.zip"
 $hasStreamline = @($assetNames | Where-Object { $_ -like "streamline-runtime-v*-win-x64.zip" }).Count -gt 0
+$hasMinecraft = $assetNames -contains "minecraft-runtime-26.2.zip"
 
-if (-not $hasVideo -or -not $hasStreamline) {
-    throw "Runtime bootstrap verification failed. video2dlssnr=$hasVideo Streamline=$hasStreamline"
+if (-not $hasVideo -or -not $hasStreamline -or -not $hasMinecraft) {
+    throw "Runtime bootstrap verification failed. video2dlssnr=$hasVideo Streamline=$hasStreamline Minecraft=$hasMinecraft"
 }
 
 Write-Host ""
@@ -76,3 +83,4 @@ Write-Host "Manager-owned runtime bootstrap complete."
 Write-Host "Release: $ReleaseTag"
 Write-Host "video2dlssnr_release.zip: present"
 Write-Host "Streamline runtime bundle: present"
+Write-Host "minecraft-runtime-26.2.zip: present"
