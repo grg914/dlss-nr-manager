@@ -12,8 +12,6 @@ public sealed class ComponentUpdateService
         "video2dlssnr_release.zip";
     private const string ManagerFfmpegAsset =
         "ffmpeg-dlssnr-win-x64.zip";
-    private const string ProcessorUpstreamApi =
-        "https://api.github.com/repos/DaniilSokolyuk/video2dlssnr/releases/latest";
 
     private readonly HttpClient _http = new();
 
@@ -99,21 +97,11 @@ public sealed class ComponentUpdateService
             }
         }
 
-        string processorTag;
-        if (processorAssetId != 0)
+        if (processorAssetId == 0)
         {
-            processorTag = $"manager:{processorAssetId}";
-        }
-        else
-        {
-            using var upstream = await GetJsonAsync(
-                ProcessorUpstreamApi,
-                cancellationToken);
-
-            processorTag = upstream.RootElement.GetProperty(
-                    "tag_name")
-                .GetString()
-                ?? "unknown";
+            throw new InvalidOperationException(
+                $"Latest DLSS NR Manager release has no {ManagerProcessorAsset} asset. " +
+                "Bootstrap the validated video runtime before checking media updates.");
         }
 
         if (ffmpegAssetId == 0)
@@ -123,7 +111,7 @@ public sealed class ComponentUpdateService
         }
 
         return new ComponentState(
-            processorTag,
+            $"manager:{processorAssetId}",
             ffmpegAssetId,
             DateTimeOffset.UtcNow);
     }
