@@ -1298,3 +1298,54 @@ Prochaine action exacte:
 3. verifier le Build main post-merge ainsi que le runtime seed final;
 4. publier v3.2.0 depuis main avec le workflow Release;
 5. verifier la release, ses assets manager-owned et le statut latest.
+
+
+CHECKPOINT 0G - RELEASE V3.2.0 PUBLIEE ET VALIDEE (2026-10-07)
+
+Statut:
+CLOSE / TERMINE / VALIDE.
+
+Etat final:
+- PR #68 fusionnee sur main.
+- Build main #708: SUCCESS.
+- Runtime Seed Refresh #14: SUCCESS en mode release-only.
+- Release #26: SUCCESS.
+- v3.2.0 publiee, non draft, non prerelease et marquee latest.
+- commit main valide au moment de la release: e5927e1d718dfff19540964ba46ee4edaa933c6b.
+
+Corrections CI effectuees pendant la cloture:
+- PR #70: le refresh runtime n'effectue plus un rebuild complet pour une simple livraison applicative/version; les anciens refreshs deviennent annulables.
+- PR #71: nouvelle generation de groupe de concurrence pour isoler le workflow courant d'un ancien run FFmpeg reste bloque.
+- PR #72: suppression du faux echec Release provoque par un $LASTEXITCODE natif obsolet apres verify-streamline-runtime-asset.ps1; les erreurs PowerShell sont deja propagees par throw.
+
+Validation release:
+- 37 tests automatises passes sur les builds de validation.
+- audit Minecraft Vulkan/NGX: SUCCESS.
+- audit Caustica/SPBR: SUCCESS.
+- audit Streamline manager-owned: SUCCESS.
+- audit zero-upstream production: SUCCESS.
+- runtime seed et release compares par taille + digest GitHub SHA-256 pour FFmpeg, Minecraft runtime, OptiScaler, Real-ESRGAN, ReShade, Streamline, Temurin et video2dlssnr: toutes les correspondances sont identiques.
+- streamline-runtime-v2.14.1-win-x64.zip release/seed SHA-256:
+  b2e05ca79902282fb4c71ad9f1b4bbeaa0e1cf6c40bd9373bcbd4c173c335bc1
+- DlssNrManager.exe v3.2.0 SHA-256:
+  2935c303e7babed41c5ff578f3086ad0f810301bbb32eaf58d6b5f726d540f24
+- DlssNrManager-win-x64.zip v3.2.0 SHA-256:
+  943f32a28d90f7e2989e749dcf1da7d9b4baf8a6dfcafd8dfd8ac26b53eb34d2
+- SHA256SUMS.txt publie dans la release.
+
+Fonctions incluses dans v3.2.0:
+- interface Francais / English persistante;
+- correction du selecteur OptiScaler build;
+- retrait du message de navigation en bas a gauche;
+- gestion NVIDIA DLSS / Streamline centralisee dans Jeux & DLSS;
+- Minecraft RTX maintenu sur le chemin protege Caustica Vulkan/NGX;
+- bundle Streamline complet avec sl.dlss_nr.dll + nvngx_dlssnr.dll.
+
+Problemes restants:
+- aucun blocker connu pour v3.2.0.
+- les futures phases AI Studio, profils materiels, Video Enhancement, audit DLSS5-Swapper/Autopilot et OSINT restent a traiter selon cahier de charges.txt avec proposition avant implementation.
+
+Prochaine action exacte:
+1. considerer la livraison v3.2.0 CLOSE / VALIDEE.
+2. ne pas rouvrir cette release sans regression reproductible.
+3. reprendre la prochaine phase du cahier des charges uniquement apres proposition des solutions et validation utilisateur.
