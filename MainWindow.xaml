@@ -729,7 +729,7 @@
                 <StackPanel>
                   <TextBlock Text="Open-source renderer stack"
                              FontWeight="SemiBold"/>
-                  <TextBlock Text="Downloads Fabric Installer from the official Fabric Maven and Fabric API/optional mods from Modrinth. The tested Minecraft 26.2 Caustica RTX JAR is bundled into DLSS NR Manager releases when available, with grg914/Caustica-RTX used as a fallback source."
+                  <TextBlock Text="Downloads Fabric Installer from the official Fabric Maven and Fabric API/optional mods from Modrinth. The tested Minecraft 26.2 Caustica RTX JAR is bundled into DLSS NR Manager releases when available, with the configured manager-owned Caustica fallback used when needed."
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
                              FontSize="11"
