@@ -16,12 +16,29 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: '8.0.x'
+      - name: Checkout this repository without external actions
+        shell: pwsh
+        run: |
+          git init .
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+          git fetch --no-tags --prune --depth=1 origin "$env:GITHUB_REF"
+          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch ${{ github.repository }} at $env:GITHUB_REF." }
+          git checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Unable to checkout workflow revision." }
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne "$env:GITHUB_SHA") {
+            throw "Checkout mismatch. Expected $env:GITHUB_SHA, got $actual."
+          }
+
+      - name: Require preinstalled .NET 8 toolchain
+        shell: pwsh
+        run: |
+          $sdks = @(dotnet --list-sdks)
+          if (-not ($sdks | Where-Object { $_ -match '^8\.' })) {
+            throw "The runner has no preinstalled .NET 8 SDK. Production CI must not download toolchains."
+          }
+          dotnet --info
+
       - name: Validate self-contained tooling
         shell: pwsh
         run: |
@@ -34,11 +51,14 @@ jobs:
             "tools/build-video2dlssnr.ps1",
             "tools/publish-video2dlssnr.ps1",
             "tools/publish-streamline-runtime.ps1",
+            "tools/publish-temurin25-runtime.ps1",
             "tools/bootstrap-manager-runtime-assets.ps1",
             "tools/bootstrap-minecraft-runtime.ps1",
             "tools/refresh-upstream.ps1",
             "tools/refresh-minecraft-runtime-lock.ps1",
-            "tools/generate-components-manifest.ps1"
+            "tools/generate-components-manifest.ps1",
+            "tools/download-runtime-seed.ps1",
+            "tools/prepare-offline-dotnet.ps1"
           )
 
           foreach ($path in $paths) {
@@ -49,7 +69,6 @@ jobs:
               [ref]$tokens,
               [ref]$parseErrors
             ) | Out-Null
-
             if ($parseErrors.Count -gt 0) {
               $parseErrors | ForEach-Object { Write-Error "${path}: $($_.Message)" }
               throw "PowerShell syntax validation failed for $path"
@@ -58,20 +77,10 @@ jobs:
 
           $lock = Get-Content "third_party/DEPENDENCIES.lock.json" -Raw | ConvertFrom-Json
           $all = @($lock.sources) + @($lock.local_only)
-
-          $duplicateIds = $all |
-            Group-Object id |
-            Where-Object Count -gt 1
-          if ($duplicateIds) {
-            throw "Duplicate dependency ids: $($duplicateIds.Name -join ', ')"
-          }
-
-          $duplicatePaths = $all |
-            Group-Object path |
-            Where-Object Count -gt 1
-          if ($duplicatePaths) {
-            throw "Duplicate dependency paths: $($duplicatePaths.Name -join ', ')"
-          }
+          $duplicateIds = $all | Group-Object id | Where-Object Count -gt 1
+          if ($duplicateIds) { throw "Duplicate dependency ids: $($duplicateIds.Name -join ', ')" }
+          $duplicatePaths = $all | Group-Object path | Where-Object Count -gt 1
+          if ($duplicatePaths) { throw "Duplicate dependency paths: $($duplicatePaths.Name -join ', ')" }
 
           foreach ($source in $all) {
             if ("$($source.ref)" -notmatch "^[0-9a-fA-F]{40}$") {
@@ -80,13 +89,8 @@ jobs:
           }
 
           $upstreams = Get-Content "third_party/UPSTREAMS.json" -Raw | ConvertFrom-Json
-          $policyDuplicates = @($upstreams.sources) |
-            Group-Object id |
-            Where-Object Count -gt 1
-          if ($policyDuplicates) {
-            throw "Duplicate upstream policy ids: $($policyDuplicates.Name -join ', ')"
-          }
-
+          $policyDuplicates = @($upstreams.sources) | Group-Object id | Where-Object Count -gt 1
+          if ($policyDuplicates) { throw "Duplicate upstream policy ids: $($policyDuplicates.Name -join ', ')" }
           $knownIds = @($all.id)
           foreach ($policy in @($upstreams.sources)) {
             if ($knownIds -notcontains [string]$policy.id) {
@@ -94,78 +98,62 @@ jobs:
             }
           }
 
-          Write-Host "Vendor tooling syntax, dependency lock and upstream policies verified."
-
-      - name: Enforce self-contained runtime/release audit
+      - name: Enforce zero-upstream production audit
         shell: pwsh
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-self-contained.ps1 -Strict -AllowLfsPointers
-          if ($LASTEXITCODE -ne 0) {
-            throw "Strict self-contained dependency audit failed."
-          }
+          if ($LASTEXITCODE -ne 0) { throw "Strict self-contained dependency audit failed." }
 
-      - name: Restore
+      - name: Prepare manager-owned offline NuGet feed
+        id: offline
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\prepare-offline-dotnet.ps1 -Repository "${{ github.repository }}"
+          if ($LASTEXITCODE -ne 0) { throw "Offline .NET dependency preparation failed." }
+
+      - name: Restore strictly from manager-owned feed
         shell: pwsh
         run: |
-          dotnet restore DlssNrManager.csproj
-          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj
+          $config = "${{ steps.offline.outputs.config }}"
+          $packages = "${{ steps.offline.outputs.packages }}"
+          dotnet restore DlssNrManager.csproj --configfile "$config" --packages "$packages"
+          if ($LASTEXITCODE -ne 0) { throw "Application offline restore failed." }
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --configfile "$config" --packages "$packages"
+          if ($LASTEXITCODE -ne 0) { throw "Tests offline restore failed." }
+
       - name: Run regression tests
         run: dotnet test tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj -c Release --no-restore -p:TreatWarningsAsErrors=true
 
       - name: Publish Windows x64 single-file
-        run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -warnaserror -o publish
-      - name: Verify executable
+        run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -warnaserror -o publish
+
+      - name: Verify executable and icon
         shell: pwsh
         run: |
           if (!(Test-Path "publish/DlssNrManager.exe")) { throw "DlssNrManager.exe was not generated" }
 
-      - name: Verify embedded Windows icon
-        shell: pwsh
-        run: |
           Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class IconProbe { [DllImport("shell32.dll", CharSet = CharSet.Unicode)] public static extern uint ExtractIconEx(string fileName, int iconIndex, IntPtr[] largeIcons, IntPtr[] smallIcons, uint iconCount); }'
           $exe = (Resolve-Path "publish/DlssNrManager.exe").Path
           $count = [IconProbe]::ExtractIconEx($exe, -1, $null, $null, 0)
           if ($count -lt 1) { throw "Published EXE contains no embedded icon resource" }
-          Write-Host "Embedded icon groups: $count"
 
-      - name: Verify exact Windows icon frames
-        shell: pwsh
-        run: |
           $path = "assets/branding/app.ico"
           if (!(Test-Path $path)) { throw "Generated app.ico is missing" }
-
           $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $path))
-          if ($bytes.Length -lt 6) { throw "Generated ICO is too small" }
-
-          $count = [BitConverter]::ToUInt16($bytes, 4)
+          $frameCount = [BitConverter]::ToUInt16($bytes, 4)
           $sizes = @()
-
-          for ($i = 0; $i -lt $count; $i++) {
+          for ($i = 0; $i -lt $frameCount; $i++) {
             $offset = 6 + ($i * 16)
-            if ($offset + 15 -ge $bytes.Length) { throw "Malformed ICO directory entry" }
-
             $width = [int]$bytes[$offset]
             $height = [int]$bytes[$offset + 1]
             if ($width -eq 0) { $width = 256 }
             if ($height -eq 0) { $height = 256 }
-
-            if ($width -ne $height) {
-              throw "Non-square icon frame detected: $width x $height"
-            }
-
+            if ($width -ne $height) { throw "Non-square icon frame detected: $width x $height" }
             $sizes += $width
           }
-
-          $required = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
-          foreach ($size in $required) {
-            if ($sizes -notcontains $size) {
-              throw "Missing exact icon frame: ${size}x${size}. Found: $($sizes -join ', ')"
-            }
+          foreach ($size in @(16, 20, 24, 32, 40, 48, 64, 128, 256)) {
+            if ($sizes -notcontains $size) { throw "Missing exact icon frame: ${size}x${size}." }
           }
-
-          Write-Host "ICO frames verified: $($sizes -join ', ')"
-
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
-          name: DlssNrManager-win-x64
-          path: publish/DlssNrManager.exe
+          Write-Host "Production build validated without external actions or package feeds."
