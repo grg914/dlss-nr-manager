@@ -5,6 +5,9 @@ param(
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $LockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
+$FabricProfileScript = Join-Path $PSScriptRoot "fabric-profile.ps1"
+if (!(Test-Path -LiteralPath $FabricProfileScript)) { throw "Missing Fabric profile helper: $FabricProfileScript" }
+. $FabricProfileScript
 $UserAgent = "DlssNrManager-MinecraftLockRefresh/1.0 (+https://github.com/grg914/dlss-nr-manager)"
 $headers = @{ "User-Agent" = $UserAgent; Accept = "application/json" }
 
@@ -68,20 +71,71 @@ $loader = $loaderRows |
 if (-not $loader) { throw "No stable Fabric Loader was found for Minecraft $MinecraftVersion." }
 
 $loaderVersion = [string]$loader.loader.version
-$profileUrl = "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion/$loaderVersion/profile/json"
-$tempProfile = Join-Path $env:TEMP ("fabric-profile-" + [Guid]::NewGuid().ToString("N") + ".json")
-
-try {
-    Invoke-WebRequest -Uri $profileUrl -Headers $headers -OutFile $tempProfile
-    $profileSha256 = (Get-FileHash -LiteralPath $tempProfile -Algorithm SHA256).Hash.ToLowerInvariant()
-    $profile = Get-Content -LiteralPath $tempProfile -Raw | ConvertFrom-Json
+# The game-scoped loader listing is already populated with launcherMeta and
+# intermediary metadata. Reuse that response instead of issuing another
+# compatibility-sensitive Fabric Meta request.
+$loaderInfo = $loader
+if (-not $loaderInfo.launcherMeta -or [string]$loaderInfo.loader.version -ne $loaderVersion) {
+    throw "Fabric loader metadata did not resolve launcher metadata for $MinecraftVersion / $loaderVersion."
 }
-finally {
-    if (Test-Path -LiteralPath $tempProfile) { Remove-Item -LiteralPath $tempProfile -Force }
+
+$launcherMeta = $loaderInfo.launcherMeta
+if (-not $launcherMeta) {
+    throw "Fabric loader detail metadata exposes no launcherMeta for $MinecraftVersion / $loaderVersion."
+}
+
+$librarySpecs = @()
+foreach ($library in @($launcherMeta.libraries.common)) {
+    $librarySpecs += [pscustomobject]@{
+        name = [string]$library.name
+        url = [string]$library.url
+    }
+}
+
+# Minecraft 26.x is unobfuscated and therefore does not require an
+# intermediary launcher library. Keep compatibility for older targets.
+if ($MinecraftVersion -notmatch "^26(?:\.|$)") {
+    $intermediaryMaven = [string]$loaderInfo.intermediary.maven
+    if ([string]::IsNullOrWhiteSpace($intermediaryMaven)) {
+        throw "Fabric loader detail metadata exposes no intermediary coordinate for $MinecraftVersion."
+    }
+    $librarySpecs += [pscustomobject]@{
+        name = $intermediaryMaven
+        url = "https://maven.fabricmc.net/"
+    }
+}
+
+$loaderMaven = [string]$loaderInfo.loader.maven
+if ([string]::IsNullOrWhiteSpace($loaderMaven)) {
+    throw "Fabric loader detail metadata exposes no loader Maven coordinate."
+}
+$librarySpecs += [pscustomobject]@{
+    name = $loaderMaven
+    url = "https://maven.fabricmc.net/"
+}
+
+foreach ($library in @($launcherMeta.libraries.client)) {
+    $librarySpecs += [pscustomobject]@{
+        name = [string]$library.name
+        url = [string]$library.url
+    }
+}
+
+$mainClass = if ($launcherMeta.mainClass -is [string]) {
+    [string]$launcherMeta.mainClass
+}
+elseif ($launcherMeta.mainClass.PSObject.Properties["client"]) {
+    [string]$launcherMeta.mainClass.client
+}
+else {
+    ""
+}
+if ([string]::IsNullOrWhiteSpace($mainClass)) {
+    throw "Fabric loader detail metadata exposes no client main class."
 }
 
 $libraries = @()
-foreach ($library in @($profile.libraries)) {
+foreach ($library in $librarySpecs) {
     $coordinate = [string]$library.name
     $baseUrl = [string]$library.url
     $parts = @($coordinate -split ":")
@@ -89,11 +143,17 @@ foreach ($library in @($profile.libraries)) {
         throw "Unsupported Fabric library coordinate: $coordinate"
     }
 
+    $baseUri = [Uri]($baseUrl.TrimEnd("/") + "/")
+    $allowedMavenHosts = @("maven.fabricmc.net", "repo.maven.apache.org", "repo1.maven.org")
+    if ($baseUri.Scheme -ne "https" -or $allowedMavenHosts -notcontains $baseUri.Host.ToLowerInvariant()) {
+        throw "Fabric library uses an unexpected Maven repository: $baseUrl"
+    }
+
     $groupPath = $parts[0].Replace(".", "/")
     $artifact = $parts[1]
     $version = $parts[2]
     $mavenPath = "$groupPath/$artifact/$version/$artifact-$version.jar"
-    $libraryUrl = $baseUrl.TrimEnd("/") + "/" + $mavenPath
+    $libraryUrl = ([Uri]::new($baseUri, $mavenPath)).AbsoluteUri
     $sha1 = ([string](Invoke-RestMethod -Uri ($libraryUrl + ".sha1") -Headers $headers -Method Get)).Trim().Split()[0].ToLowerInvariant()
 
     if ($sha1 -notmatch "^[0-9a-f]{40}$") {
@@ -102,14 +162,30 @@ foreach ($library in @($profile.libraries)) {
 
     $libraries += [ordered]@{
         name = $coordinate
+        url = $baseUri.AbsoluteUri
         sha1 = $sha1
     }
 }
 
 $lock.fabric_loader.version = $loaderVersion
-$lock.fabric_loader.profile_id = [string]$profile.id
-$lock.fabric_loader.profile_sha256 = $profileSha256
+$lock.fabric_loader.profile_id = "fabric-loader-$loaderVersion-$MinecraftVersion"
+if ($lock.fabric_loader.PSObject.Properties["main_class"]) {
+    $lock.fabric_loader.main_class = $mainClass
+}
+else {
+    $lock.fabric_loader | Add-Member -NotePropertyName "main_class" -NotePropertyValue $mainClass
+}
 $lock.fabric_loader.libraries = @($libraries)
+
+$tempProfile = Join-Path $env:TEMP ("fabric-profile-" + [Guid]::NewGuid().ToString("N") + ".json")
+try {
+    $profile = Write-DeterministicFabricProfile -FabricLoader $lock.fabric_loader -MinecraftVersion $MinecraftVersion -OutputPath $tempProfile
+    $profileSha256 = (Get-FileHash -LiteralPath $tempProfile -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+finally {
+    if (Test-Path -LiteralPath $tempProfile) { Remove-Item -LiteralPath $tempProfile -Force }
+}
+$lock.fabric_loader.profile_sha256 = $profileSha256
 
 Write-Host "Fabric Loader -> $loaderVersion ($($libraries.Count) libraries)"
 

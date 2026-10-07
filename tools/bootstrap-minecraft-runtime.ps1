@@ -8,6 +8,9 @@ param(
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $RuntimeLockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
+$FabricProfileScript = Join-Path $PSScriptRoot "fabric-profile.ps1"
+if (!(Test-Path -LiteralPath $FabricProfileScript)) { throw "Missing Fabric profile helper: $FabricProfileScript" }
+. $FabricProfileScript
 $UserAgent = "DlssNrManager-MinecraftBootstrap/1.0 (+https://github.com/grg914/dlss-nr-manager)"
 
 if (!(Test-Path -LiteralPath $RuntimeLockPath)) {
@@ -206,18 +209,15 @@ if ([string]::IsNullOrWhiteSpace($loaderVersion) -or
 
 Write-Host "Using pinned Fabric Loader $loaderVersion for Minecraft $MinecraftVersion..."
 
-Write-Host "Resolving Fabric Loader profile and Maven libraries..."
-$profileUrl = "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion/$loaderVersion/profile/json"
+Write-Host "Generating pinned deterministic Fabric launcher profile..."
 $profilePath = Join-Path $package "fabric-profile.json"
-Invoke-WebRequest -Uri $profileUrl -Headers $headers -OutFile $profilePath
+$profile = Write-DeterministicFabricProfile -FabricLoader $RuntimeLock.fabric_loader -MinecraftVersion $MinecraftVersion -OutputPath $profilePath
 
 $expectedProfileSha256 = ([string]$RuntimeLock.fabric_loader.profile_sha256).ToLowerInvariant()
 $actualProfileSha256 = (Get-FileHash -LiteralPath $profilePath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($expectedProfileSha256 -notmatch "^[0-9a-f]{64}$" -or $actualProfileSha256 -ne $expectedProfileSha256) {
-    throw "Fabric Loader profile SHA-256 mismatch. Lock=$expectedProfileSha256 Actual=$actualProfileSha256"
+    throw "Deterministic Fabric Loader profile SHA-256 mismatch. Lock=$expectedProfileSha256 Actual=$actualProfileSha256"
 }
-
-$profile = Get-Content -LiteralPath $profilePath -Raw | ConvertFrom-Json
 $profileId = [string]$profile.id
 $expectedProfileId = [string]$RuntimeLock.fabric_loader.profile_id
 if ([string]::IsNullOrWhiteSpace($profileId) -or $profileId -ne $expectedProfileId) {

@@ -70,7 +70,7 @@ Terminer et valider le pipeline upstream/runtime/release, puis reprendre l'ordre
 Problèmes bloquants actuels :
 - UPSTREAM-001 : Upstream Dependency Sync #5 a échoué pendant "Refresh Minecraft runtime lock" avec HTTP 400.
 - RELEASE-001 : la dernière release stable reste v3.0.0 alors que le code courant est 3.1.0.
-- VALIDATION-001 : Runtime Seed Refresh #6 est encore en cours au moment de cette mise à jour, même si le job Temurin 25 est déjà PASSED.
+- VALIDATION-001 : RÉSOLU — Runtime Seed Refresh #6 est entièrement PASSED, y compris dispatch-release.
 
 4. TRAVAIL DÉJÀ EFFECTUÉ ET VÉRIFIÉ
 
@@ -331,21 +331,20 @@ Services présents et compilation réussie.
 
 5.6 Runtime Seed Refresh complet
 Statut :
-EN COURS.
+TERMINÉ ET VÉRIFIÉ.
 
 Confirmé :
-java-runtime #6 PASSED.
-nuget-runtime #6 PASSED.
-preserve-restricted-runtime #6 PASSED.
-Real-ESRGAN build du job native-runtime #6 PASSED au moment de cette mise à jour.
+- seed-release #6 PASSED
+- preserve-restricted-runtime #6 PASSED
+- java-runtime #6 PASSED
+- native-runtime #6 PASSED : Real-ESRGAN, OptiScaler, ReShade
+- ffmpeg-runtime #6 PASSED
+- nuget-runtime #6 PASSED
+- windows-runtime #6 PASSED : Streamline + Minecraft
+- dispatch-release #6 PASSED
 
-Reste à vérifier :
-- OptiScaler #6
-- ReShade #6
-- FFmpeg #6
-- Streamline #6
-- Minecraft #6
-- dispatch-release #6
+Résultat :
+Runtime Seed Refresh #6 : PASSED complet.
 
 6. TRAVAIL EN COURS
 
@@ -375,9 +374,9 @@ Travail réalisé :
 Travail restant :
 - corriger HTTP 400 dans tools/refresh-minecraft-runtime-lock.ps1 / source externe concernée
 - relancer Upstream Sync
-- laisser finir Runtime Seed #6
-- vérifier Build #618
-- vérifier release générée
+- Runtime Seed #6 terminé : PASSED
+- Build #618 terminé : PASSED
+- corriger puis relancer la release production après l’échec #20 sur le passage du tableau -Assets
 - vérifier components-manifest.json dans la release stable
 - vérifier que latest stable devient 3.1.0 si le pipeline est conforme
 
@@ -404,7 +403,8 @@ Problèmes rencontrés et réellement observés :
 - collision PowerShell ReleaseTag/upstreamReleaseTag : corrigée.
 - NuGet offline seed incomplet en runtime packs : corrigé.
 - Manifest ArrayList vide : corrigé.
-- Minecraft runtime lock refresh HTTP 400 : NON CORRIGÉ au moment de cette mise à jour.
+- Minecraft runtime lock refresh HTTP 400 : cause identifiée (`profile/json` Fabric Meta) ; correction lock-driven déterministe implémentée dans PR #38 et en validation.
+- Release #20 : compilation/tests/version 3.1.0 PASSED, puis FAILED au téléchargement du runtime seed car `-Assets $assets` était transmis à un nouveau `powershell.exe -File`; correction in-process intégrée à PR #38.
 
 Prochaine action :
 Analyser précisément tools/refresh-minecraft-runtime-lock.ps1 et la requête HTTP qui renvoie 400, corriger sans changer le runtime 26.2 arbitrairement, tester via Upstream Dependency Sync.
@@ -621,17 +621,17 @@ Dépendances à vérifier :
 ID :
 UPSTREAM-001
 Description :
-Upstream Dependency Sync #5 échoue dans Refresh Minecraft runtime lock avec HTTP 400.
+Upstream Dependency Sync #5 échoue dans Refresh Minecraft runtime lock avec HTTP 400 sur Fabric Meta profile/json.
 Gravité :
 HIGH pour l'automatisation des mises à jour ; n'empêche pas le Build offline normal.
 Module :
 upstream-monitor / Minecraft runtime lock.
 Statut :
-OPEN.
-Solution :
-À diagnostiquer.
+CORRECTION IMPLÉMENTÉE, VALIDATION EN COURS.
+Solution appliquée :
+Profil Fabric déterministe généré depuis les données verrouillées ; main_class, URL Maven et SHA du profil sont pinés dans RUNTIME.lock.json ; bootstrap régénère le profil depuis le lock et verify-self-contained vérifie le hash.
 Test :
-FAILED sur run #5.
+Build #620 PASSED sur le correctif avant synchronisation avec le commit documentaire ; nouveau Build de la tête PR #38 requis.
 
 ID :
 RELEASE-001
@@ -642,11 +642,13 @@ MEDIUM/HIGH.
 Module :
 Release.
 Statut :
-OPEN.
-Solution :
-Terminer runtime seed + release et vérifier tous les assets.
+OPEN — CORRECTION DE L'ÉCHEC #20 IMPLÉMENTÉE, À RETESTER.
+Résultat release #20 :
+audit zero-upstream, restore offline, 22 tests et publish EXE 3.1.0 PASSED ; FAILED à "Download validated manager-owned runtime seed" car le tableau PowerShell -Assets était passé via un nouveau powershell.exe.
+Solution appliquée :
+Appeler download-runtime-seed.ps1 directement dans le shell pwsh courant afin de préserver [string[]] Assets.
 Test :
-NOT TESTED pour la release 3.1.0 finale.
+À retester par Release après fusion de PR #38.
 
 ID :
 LEGACY-PR-001
@@ -719,13 +721,13 @@ PASSED :
 - Runtime Seed #6 Real-ESRGAN step
 
 FAILED :
-- Upstream Dependency Sync #5 : Refresh Minecraft runtime lock HTTP 400
+- Upstream Dependency Sync #5 : Refresh Minecraft runtime lock HTTP 400 (historique ; correction PR #38 en validation)
 - anciennes tentatives Runtime Seed #2/#4/#5 : erreurs Temurin historiques maintenant corrigées dans le code
 - Build #608 : ancien seed NuGet incomplet
 - Release #19 : ancien échec manifest/runtime avant correctifs
 
 NOT TESTED :
-- release stable 3.1.0 finale
+- release stable 3.1.0 finale après correctif Release #20
 - installation end-to-end de tous les composants sur une machine utilisateur
 - profil matériel RTX 5060 Ti
 - NVCleanstall
@@ -880,16 +882,14 @@ Ces demandes NE SONT PAS considérées comme terminées sans preuve dépôt + te
 19. PROCHAINE ACTION
 
 Action immédiate :
-1. Lire tools/refresh-minecraft-runtime-lock.ps1.
-2. Identifier l'Invoke-WebRequest qui retourne HTTP 400.
-3. Vérifier la requête/API et le paramétrage Minecraft 26.2.
-4. Corriger uniquement la requête ou la sélection fautive.
-5. Relancer Upstream Dependency Sync.
-6. Vérifier Runtime Seed #6 complet.
-7. Vérifier Build main.
-8. Vérifier la release stable générée et ses assets/components-manifest.
-9. Mettre à jour ce fichier avec les résultats réels.
-10. Seulement après clôture de cette phase, passer à la prochaine phase du cahier des charges selon la feuille de route.
+1. Terminer le Build requis de PR #38.
+2. Fusionner PR #38 si le Build est PASSED.
+3. Vérifier le nouvel Upstream Dependency Sync jusqu'à promote.
+4. Vérifier le Runtime Seed déclenché après promotion si le lock/source change.
+5. Relancer/vérifier la Release production avec le passage de tableau -Assets corrigé.
+6. Vérifier la release stable finale : tag, EXE/ZIP, components-manifest.json, checksums et tous les runtimes manager-owned.
+7. Mettre à jour ce fichier avec les résultats réels.
+8. Seulement après clôture de cette phase, passer à la prochaine phase du cahier des charges selon la feuille de route.
 
 20. RÈGLES DE REPRISE
 
