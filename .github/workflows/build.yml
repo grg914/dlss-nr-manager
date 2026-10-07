@@ -59,7 +59,8 @@ jobs:
             "tools/refresh-minecraft-runtime-lock.ps1",
             "tools/generate-components-manifest.ps1",
             "tools/download-runtime-seed.ps1",
-            "tools/prepare-offline-dotnet.ps1"
+            "tools/prepare-offline-dotnet.ps1",
+            "tools/build-nuget-offline-seed.ps1"
           )
 
           foreach ($path in $paths) {
