@@ -285,6 +285,12 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-components-manifest.ps1 -AssetsDirectory release-assets -OutputPath release-assets/components-manifest.json
           if ($LASTEXITCODE -ne 0) { throw "Component manifest generation failed." }
 
+      - name: Generate source SBOM and release provenance
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-metadata.ps1 -Version "${{ steps.version.outputs.version }}" -CommitSha "${{ github.sha }}" -Repository "${{ github.repository }}" -ComponentsManifestPath "release-assets/components-manifest.json" -OutputDirectory "release-assets"
+          if ($LASTEXITCODE -ne 0) { throw "Release metadata generation failed." }
+
       - name: Generate final SHA-256 checksums
         shell: pwsh
         run: |
@@ -319,7 +325,9 @@ jobs:
             "release-assets/realesr-animevideov3-x4.param",
             "release-assets/realesr-animevideov3-x4.bin",
             "release-assets/SPBRScandi.zip",
-            "release-assets/components-manifest.json"
+            "release-assets/components-manifest.json",
+            "release-assets/SOURCE-SBOM.spdx.json",
+            "release-assets/release-provenance.json"
           )
 
           $lines = foreach ($file in $files) {
@@ -351,6 +359,8 @@ jobs:
             "THIRD_PARTY_NOTICES.md",
             "SHA256SUMS.txt",
             "release-assets/components-manifest.json",
+            "release-assets/SOURCE-SBOM.spdx.json",
+            "release-assets/release-provenance.json",
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
             (Join-Path "release-assets" "${{ steps.seed.outputs.ffmpeg_source }}"),
