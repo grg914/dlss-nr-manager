@@ -297,12 +297,12 @@ foreach ($policy in @($Policies.sources)) {
 
     if ([string]$policy.promotion -eq "notify-only") {
         $notifyOnly += $change
-        Write-Warning "UPDATE AVAILABLE (notify-only) $id: $current -> $($state.Ref) [$($state.Version)]"
+        Write-Warning "UPDATE AVAILABLE (notify-only) ${id}: $current -> $($state.Ref) [$($state.Version)]"
         continue
     }
 
     $changes += $change
-    Write-Host "UPDATE $id: $current -> $($state.Ref) [$($state.Version)]"
+    Write-Host "UPDATE ${id}: $current -> $($state.Ref) [$($state.Version)]"
 
     if ($Apply) {
         $entry.ref = $state.Ref
