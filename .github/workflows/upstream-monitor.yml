@@ -117,6 +117,7 @@ jobs:
 
             Write-Warning "Repository policy blocks PR creation by GITHUB_TOKEN. Continuing with the pushed automation branch; promotion will occur only after Windows/Linux validation and an unchanged-main check."
             "PR creation by GitHub Actions is disabled for this repository. Validation will continue on branch ``$branch`` and promotion will use the guarded branch fallback." >> $env:GITHUB_STEP_SUMMARY
+            $global:LASTEXITCODE = 0
           }
 
           "branch=$branch" >> $env:GITHUB_OUTPUT
