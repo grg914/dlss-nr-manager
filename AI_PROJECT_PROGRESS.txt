@@ -11,9 +11,10 @@ ETAT GITHUB VERIFIE EXTERNEMENT
 Repository:
 - grg914/dlss-nr-manager
 
-Main verifie avant la phase Caustica/SPBR:
-- dafc3dee4fa9a676c4aa4dade456a2a882ee8ad1
-- Add files via upload (#59)
+Main verifie apres cloture Caustica/SPBR:
+- 72ac933fc0075d0ccade1a4d52a19d3a740792a1
+- audit: verify Caustica and SPBR release assets (#61)
+- Build main #680: SUCCESS
 
 Version:
 - version declaree: 3.1.1
@@ -25,7 +26,7 @@ Pull requests:
 - PR #30: MERGED
 - PR #31: CLOSED / NOT MERGED / SUPERSEDED
 - PR #60: CLOSED / NOT MERGED / superseded par la correction du verificateur
-- PR #61: OPEN pendant la validation finale Caustica/SPBR
+- PR #61: MERGED dans main au commit 72ac933fc0075d0ccade1a4d52a19d3a740792a1
 
 Pourquoi PR #31 n'a PAS ete fusionnee:
 - main contient deja une implementation plus recente du meme objectif;
@@ -67,49 +68,21 @@ Issue #48:
 - ancien doublon fonctionnel de #52;
 - historique / cleanup possible.
 
-ETAT DU CLONE LOCAL / OPENCODE
+CONTEXTE LOCAL / ANCIEN WORKFLOW OPENCODE
 
-Contexte connu avant ce checkpoint:
-- clone local utilise par OpenCode: E:\AI\Projects\dlss-nr-manager
-- branche locale observee: opencode-dev
-- HEAD local observe: 88e8c6bf6bfa8b5e00493105690b0402147f452e
-- OpenCode n'a pas acces a GitHub en temps reel.
+- Les chemins et consignes OpenCode historiques ci-dessous ne sont plus une source de verite operationnelle.
+- Le travail courant est repris directement depuis GitHub.
+- Toujours verifier main, les PR, les workflows et les fichiers de pilotage avant toute nouvelle phase.
+- Ne pas reintroduire une dependance au clone E:\AI\Projects\dlss-nr-manager ni a un log OpenCode local.
 
-Important:
-- 88e8c6bf etait le HEAD main verifie avant ce checkpoint documentation;
-- ce fichier AI_PROJECT_PROGRESS.txt peut lui-meme creer un nouveau commit documentation sur main;
-- une difference d'un commit documentation-only ne signifie PAS que le code applicatif local est obsolete;
-- avant tout travail, verifier le code local, Git local et les fichiers de pilotage.
+PROCHAINE PHASE ACTIVE
 
-JOURNAL LOCAL OBLIGATOIRE
-
-OpenCode doit maintenir:
-E:\AI\Projects\dlss-nr-manager\log.txt
-
-Regles:
-- journal de progression et de handoff;
-- conserver analyse, decisions, fichiers modifies, commandes, tests, erreurs, fixes, commits et prochaine action;
-- contenu ecrit par OpenCode dans log.txt: ASCII-only pour eviter le mojibake;
-- ne jamais enregistrer secrets, tokens ou credentials.
-
-PROCHAINE PHASE
-
-Ne pas inventer son nom depuis ce checkpoint.
-
-Ordre obligatoire:
-1. lire integralement cahier de charges.txt;
-2. lire integralement feuille de route.txt;
-3. comparer avec le code local et AI_PROJECT_PROGRESS.txt;
-4. identifier la premiere phase reellement non terminee;
-5. executer la premiere tache faisable localement;
-6. si une tache depend d'un asset absent du clone, la marquer BLOCKED-LOCAL et passer a la suivante;
-7. ne pas arreter la session uniquement parce qu'un asset release distant manque localement.
-
-Candidat deja observe:
-- audit Caustica / SPBR;
-- Caustica-RTX-Minecraft-26.2-build-46.jar et SPBRScandi.zip n'etaient pas presents dans le clone local lors de la derniere observation;
-- ne pas inventer leur validation;
-- si toujours absents, documenter BLOCKED-LOCAL puis passer a la prochaine tache executable.
+Point 2 du cahier des charges:
+- audit OptiScaler pour Minecraft RTX / DLSS 5;
+- analyse en lecture seule d'abord;
+- verifier la version/revision OptiScaler réellement vendoree, le chemin de rendu Minecraft/Caustica, les hooks, synchronisations, ratios, sharpening, DRS, Output Scaling et Frame Generation;
+- presenter Solution A / B / C avec avantages, inconvenients, performances, compatibilite, risques et recommandation;
+- NE MODIFIER AUCUN fichier OptiScaler.ini, DLL, config ou code OptiScaler avant validation explicite de l'utilisateur.
 
 REGLES DE REPRISE
 
@@ -125,13 +98,12 @@ REGLES DE REPRISE
 
 PROCHAINE ACTION EXACTE
 
-1. Ouvrir le clone local E:\AI\Projects\dlss-nr-manager.
-2. Verifier branche, HEAD et git status.
-3. Lire cahier de charges.txt + feuille de route.txt + ce fichier.
-4. Reparer/maintenir log.txt en ASCII-only.
-5. Verifier si les assets Caustica/SPBR requis sont presents localement.
-6. Si absents, noter BLOCKED-LOCAL et avancer vers la prochaine phase faisable.
-7. Implementer, tester et committer localement les changements coherents.
+1. Considerer la sous-phase 7.1-A Caustica/SPBR CLOSE / VALIDEE.
+2. Effectuer l'audit 7.2 OptiScaler / DLSS 5 en lecture seule.
+3. Verifier d'abord si OptiScaler intervient réellement dans le chemin Minecraft 26.2 + Caustica Vulkan ou si Caustica utilise directement NGX.
+4. Produire les solutions A / B / C demandees par le cahier des charges, sans chiffres inventes.
+5. Recommander une solution.
+6. Attendre la validation explicite de l'utilisateur avant toute modification OptiScaler / DLL / config.
 
 CHECKPOINT 0B - AUDIT CAUSTICA / SPBRSCANDI VALIDE EN CI (2026-10-07)
 
@@ -262,15 +234,18 @@ Correction:
 - les push/workflow_dispatch continuent d'utiliser GITHUB_SHA.
 - le checkout verifie le SHA effectivement demande apres fetch.
 
-Validation:
-- PENDING sur le Build declenche par le dernier checkpoint.
-- ne pas fusionner PR #61 tant que le check build du head courant n'est pas PASSED.
+Validation finale:
+- Build PR #679: SUCCESS.
+- le checkout PR sur SHA immuable est valide.
+- PR #61: MERGED.
+- merge main: 72ac933fc0075d0ccade1a4d52a19d3a740792a1.
+- Build push main #680: SUCCESS.
+- sous-phase 7.1-A: CLOSE / TERMINEE / VALIDEE.
 
 Prochaine action exacte:
-1. attendre le Build du head courant;
-2. si PASSED, fusionner PR #61;
-3. verifier le Build push main;
-4. cloturer 7.1-A et passer a l'analyse 7.2 OptiScaler/DLSS5 sans modifier OptiScaler avant validation utilisateur.
+1. ne plus rouvrir 7.1-A sans regression reproductible;
+2. passer a l'analyse 7.2 OptiScaler/DLSS5;
+3. respecter la regle du cahier des charges: analyse + solutions A/B/C d'abord, aucune modification avant validation utilisateur.
 
 ---
 
