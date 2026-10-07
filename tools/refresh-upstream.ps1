@@ -42,7 +42,7 @@ function Invoke-GitHubJson {
     throw "GitHub API request failed after retries: $Uri :: $last"
 }
 
-function Resolve-CommitSha {
+function Resolve-CommitInfo {
     param(
         [Parameter(Mandatory=$true)][string]$Repository,
         [Parameter(Mandatory=$true)][string]$Ref
@@ -50,11 +50,21 @@ function Resolve-CommitSha {
 
     $encoded = [Uri]::EscapeDataString($Ref)
     $commit = Invoke-GitHubJson "https://api.github.com/repos/$Repository/commits/$encoded"
-    $sha = [string]$commit.sha
-    if ($sha -notmatch "^[0-9a-fA-F]{40}$") {
+    $sha = ([string]$commit.sha).ToLowerInvariant()
+    $tree = ([string]$commit.commit.tree.sha).ToLowerInvariant()
+
+    if ($sha -notmatch "^[0-9a-f]{40}$") {
         throw "GitHub did not return an immutable commit SHA for $Repository@$Ref"
     }
-    return $sha.ToLowerInvariant()
+
+    if ($tree -notmatch "^[0-9a-f]{40}$") {
+        throw "GitHub did not return an immutable tree SHA for $Repository@$Ref"
+    }
+
+    return [pscustomobject]@{
+        Sha = $sha
+        Tree = $tree
+    }
 }
 
 function Get-TagVersion {
@@ -85,9 +95,10 @@ function Resolve-UpstreamState {
         }
 
         $tag = [string]$release.tag_name
-        $sha = Resolve-CommitSha -Repository $repository -Ref $tag
+        $commit = Resolve-CommitInfo -Repository $repository -Ref $tag
         return [pscustomobject]@{
-            Ref = $sha
+            Ref = $commit.Sha
+            Tree = $commit.Tree
             Version = $tag
             Release = $release
             Branch = $null
@@ -113,9 +124,10 @@ function Resolve-UpstreamState {
             throw "No stable version tag matched '$pattern' for $repository."
         }
 
-        $sha = Resolve-CommitSha -Repository $repository -Ref $selected.Tag
+        $commit = Resolve-CommitInfo -Repository $repository -Ref $selected.Tag
         return [pscustomobject]@{
-            Ref = $sha
+            Ref = $commit.Sha
+            Tree = $commit.Tree
             Version = $selected.Tag
             Release = $null
             Branch = $null
@@ -135,9 +147,10 @@ function Resolve-UpstreamState {
             throw "No branch could be resolved for $repository."
         }
 
-        $sha = Resolve-CommitSha -Repository $repository -Ref $branch
+        $commit = Resolve-CommitInfo -Repository $repository -Ref $branch
         return [pscustomobject]@{
-            Ref = $sha
+            Ref = $commit.Sha
+            Tree = $commit.Tree
             Version = $branch
             Release = $null
             Branch = $branch
@@ -273,6 +286,9 @@ foreach ($policy in @($Policies.sources)) {
 
     if ($Apply) {
         $entry.ref = $state.Ref
+        if ($entry.PSObject.Properties["tree"]) {
+            $entry.tree = $state.Tree
+        }
         Update-ReleaseMetadata -Entry $entry -Policy $policy -State $state
     }
 }
