@@ -205,12 +205,26 @@ jobs:
             Accept = "application/vnd.github+json"
             "User-Agent" = "DlssNrManager-Release"
           }
-          $releases = @(Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50")
+          # Invoke-RestMethod can surface a top-level JSON array as one collection
+          # object instead of enumerating its rows. Enumerate explicitly so stable
+          # release history is inspected release-by-release.
+          $releaseRows = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50"
+          $releases = @(
+            foreach ($releaseRow in $releaseRows) {
+              $releaseRow
+            }
+          )
 
           function Copy-PreviousAsset([scriptblock]$Predicate, [string]$RequiredName) {
             foreach ($release in $releases) {
               if ($release.draft -or $release.prerelease) { continue }
-              $asset = @($release.assets) | Where-Object $Predicate | Select-Object -First 1
+
+              $assets = @(
+                foreach ($assetRow in $release.assets) {
+                  $assetRow
+                }
+              )
+              $asset = $assets | Where-Object $Predicate | Select-Object -First 1
               if (-not $asset) { continue }
               if (-not ([string]$asset.digest).StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
                 throw "Previous manager-owned asset '$($asset.name)' has no SHA-256 digest."

@@ -1,3 +1,20 @@
+# Live recovery checkpoint
+
+A persistent GitHub checkpoint is maintained in issue #51: `[continuity] DLSS NR Manager pipeline checkpoint`.
+
+After PR #50 is merged, `.github/workflows/continuity-checkpoint.yml` updates that issue whenever Build, Upstream Dependency Sync, Runtime Seed Refresh or Release completes. It records the current `main` SHA, recent workflow runs and open pull requests.
+
+If a ChatGPT/browser connection is interrupted:
+1. read issue #51;
+2. read `AI_PROJECT_PROGRESS.txt`;
+3. verify the latest GitHub workflow/job logs directly;
+4. resume from the latest observed failing step;
+5. do not reopen phases that already have successful CI evidence.
+
+Repository protection is intentional: `main` requires a pull request and the required `build` check. Upstream automation must never bypass that ruleset with a direct push.
+
+---
+
 # DLSS NR Manager project continuity
 
 This file is the durable handoff for dependency-independence work.

@@ -1,0 +1,128 @@
+name: Continuity Checkpoint
+
+on:
+  workflow_run:
+    workflows:
+      - Build
+      - Upstream Dependency Sync
+      - Runtime Seed Refresh
+      - Release
+    types: [completed]
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: continuity-checkpoint
+  cancel-in-progress: true
+
+env:
+  CONTINUITY_ISSUE: '51'
+  UPSTREAM_PENDING_ISSUE_TITLE: '[upstream] validated branch awaiting PR'
+  UPSTREAM_BRANCH: 'automation/upstream-sync'
+
+jobs:
+  cleanup-upstream-branch:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.ref == 'automation/upstream-sync' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove merged automation branch and close pending issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Best effort: GitHub may already have deleted the head branch.
+          gh api --method DELETE "repos/${{ github.repository }}/git/refs/heads/${UPSTREAM_BRANCH}" >/dev/null 2>&1 || true
+
+          issue="$(gh issue list --repo "${{ github.repository }}" --state open --search "${UPSTREAM_PENDING_ISSUE_TITLE} in:title" --json number,title --jq '.[] | select(.title == "[upstream] validated branch awaiting PR") | .number' | head -n 1)"
+          if [ -n "$issue" ]; then
+            gh issue close "$issue" --repo "${{ github.repository }}" --comment "Merged via PR #${{ github.event.pull_request.number }}. The pending automation checkpoint is resolved."
+          fi
+
+  checkpoint:
+    if: >-
+      github.event_name != 'pull_request' &&
+      (
+        github.event_name != 'workflow_run' ||
+        github.event.workflow_run.event != 'pull_request' ||
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh persistent recovery checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          repo="${{ github.repository }}"
+          main_sha="$(gh api "repos/$repo/commits/main" --jq '.sha')"
+          runs_json="$(gh run list --repo "$repo" --limit 12 --json databaseId,name,number,event,status,conclusion,headSha,createdAt,updatedAt,url)"
+          prs_json="$(gh pr list --repo "$repo" --state open --limit 10 --json number,title,headRefName,url)"
+
+          runs_table="$(printf '%s' "$runs_json" | jq -r '
+            .[] |
+            "| " + .name +
+            " | #" + (.number|tostring) +
+            " | " + .event +
+            " | " + .status +
+            " | " + (.conclusion // "-") +
+            " | `" + (.headSha[0:10]) + "`" +
+            " | " + .updatedAt +
+            " | [run](" + .url + ") |"
+          ')"
+
+          prs_table="$(printf '%s' "$prs_json" | jq -r '
+            if length == 0 then
+              "| _none_ |  |  |"
+            else
+              .[] |
+              "| #" + (.number|tostring) +
+              " | " + .title +
+              " | `" + .headRefName + "` | [PR](" + .url + ") |"
+            end
+          ')"
+
+          body="$RUNNER_TEMP/continuity-checkpoint.md"
+          cat > "$body" <<EOF
+          This issue is an automatically refreshed recovery checkpoint for interrupted long-running work.
+
+          **Current main:** `$main_sha`
+          **Generated:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          **Trigger:** `${{ github.event_name }}`
+
+          Before resuming work:
+          1. Read `AI_PROJECT_PROGRESS.txt`.
+          2. Read `docs/PROJECT-CONTINUITY.md`.
+          3. Verify the actual latest workflow/job logs below.
+          4. Resume from the latest observed failing step; do not reopen already validated phases.
+
+          ## Recent workflows
+
+          | Workflow | Run | Event | Status | Conclusion | SHA | Updated | Link |
+          | --- | ---: | --- | --- | --- | --- | --- | --- |
+          $runs_table
+
+          ## Open pull requests
+
+          | PR | Title | Head | Link |
+          | ---: | --- | --- | --- |
+          $prs_table
+
+          ## Recovery rule
+
+          This checkpoint is navigation state, not a substitute for CI evidence. A task is only considered validated when its referenced workflow/job actually completed successfully.
+          EOF
+
+          gh issue edit "${CONTINUITY_ISSUE}" --repo "$repo" --body-file "$body"
