@@ -14,8 +14,11 @@ Use this checklist before publishing or promoting a production release.
 
 - [ ] `SHA256SUMS.txt` covers every production release asset.
 - [ ] `components-manifest.json` matches release assets.
+- [ ] `SOURCE-SBOM.spdx.json` was generated from the current dependency lock.
+- [ ] `release-provenance.json` references the current version/commit and hashes the dependency lock, component manifest and SBOM.
 - [ ] Manager-owned runtime assets have GitHub SHA-256 digests.
 - [ ] NVIDIA native runtime files pass the required signer checks.
+- [ ] Application Authenticode signing state matches `docs/RELEASE_SIGNING_PROVENANCE_POLICY.md`; if unsigned, no release note or UI implies otherwise.
 - [ ] Archive extraction uses safe traversal/size protections.
 
 ## Licensing / notices
