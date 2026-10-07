@@ -210,8 +210,8 @@
                            "id":  "nvidia-dlss-sdk",
                            "path":  "third_party-local/NVIDIA-DLSS",
                            "url":  "https://github.com/NVIDIA/DLSS.git",
-                           "ref":  "a291cc7d2cc642a51566f3dfd5376f635cd1b284",
-                           "source_tag":  "v310.7.0",
+                           "ref":  "374959484e79a640feaba44c93ac8cfb0a03f5b5",
+                           "source_tag":  "v310.9.1",
                            "reason":  "RTX SDK license restricts standalone redistribution; keep local unless separately cleared"
                        }
                    ]
