@@ -211,10 +211,17 @@ $profileUrl = "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion/$l
 $profilePath = Join-Path $package "fabric-profile.json"
 Invoke-WebRequest -Uri $profileUrl -Headers $headers -OutFile $profilePath
 
+$expectedProfileSha256 = ([string]$RuntimeLock.fabric_loader.profile_sha256).ToLowerInvariant()
+$actualProfileSha256 = (Get-FileHash -LiteralPath $profilePath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($expectedProfileSha256 -notmatch "^[0-9a-f]{64}$" -or $actualProfileSha256 -ne $expectedProfileSha256) {
+    throw "Fabric Loader profile SHA-256 mismatch. Lock=$expectedProfileSha256 Actual=$actualProfileSha256"
+}
+
 $profile = Get-Content -LiteralPath $profilePath -Raw | ConvertFrom-Json
 $profileId = [string]$profile.id
-if ([string]::IsNullOrWhiteSpace($profileId)) {
-    throw "Fabric Meta profile has no id."
+$expectedProfileId = [string]$RuntimeLock.fabric_loader.profile_id
+if ([string]::IsNullOrWhiteSpace($profileId) -or $profileId -ne $expectedProfileId) {
+    throw "Fabric Loader profile id mismatch. Lock=$expectedProfileId Actual=$profileId"
 }
 
 $fabricLibraries = @()
@@ -249,10 +256,21 @@ foreach ($library in @($profile.libraries)) {
     }
 
     $libraryUrl = ([Uri]::new($baseUri, $mavenPath)).AbsoluteUri
-    $sha1Response = Invoke-RestMethod -Uri ($libraryUrl + ".sha1") -Headers $headers -Method Get
-    $sha1 = ([string]$sha1Response).Trim().Split()[0].ToLowerInvariant()
+
+    $lockedLibrary = @($RuntimeLock.fabric_loader.libraries) | Where-Object { [string]$_.name -eq $coordinate } | Select-Object -First 1
+    if (-not $lockedLibrary) {
+        throw "Fabric profile contains an unpinned library: $coordinate"
+    }
+
+    $sha1 = ([string]$lockedLibrary.sha1).ToLowerInvariant()
     if ($sha1 -notmatch "^[0-9a-f]{40}$") {
-        throw "Fabric library SHA-1 sidecar is invalid for $coordinate."
+        throw "Minecraft runtime lock has invalid SHA-1 for $coordinate."
+    }
+
+    $sha1Response = Invoke-RestMethod -Uri ($libraryUrl + ".sha1") -Headers $headers -Method Get
+    $upstreamSha1 = ([string]$sha1Response).Trim().Split()[0].ToLowerInvariant()
+    if ($upstreamSha1 -ne $sha1) {
+        throw "Fabric library SHA-1 changed for $coordinate. Lock=$sha1 Upstream=$upstreamSha1"
     }
 
     $relativeLocal = $mavenPath.Replace("/", [IO.Path]::DirectorySeparatorChar)
@@ -267,6 +285,11 @@ foreach ($library in @($profile.libraries)) {
     }
 }
 
+if ($fabricLibraries.Count -ne @($RuntimeLock.fabric_loader.libraries).Count) {
+    throw "Fabric profile library count does not match runtime lock. Profile=$($fabricLibraries.Count) Lock=$(@($RuntimeLock.fabric_loader.libraries).Count)"
+}
+
+$FabricInstallerVersion = [string]$RuntimeLock.fabric_installer.version
 Write-Host "Using pinned Fabric Installer $FabricInstallerVersion..."
 $installerName = "fabric-installer-$FabricInstallerVersion.jar"
 $installerUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/$FabricInstallerVersion/$installerName"
@@ -275,36 +298,31 @@ if ($installerUri.Scheme -ne "https" -or $installerUri.Host -ne "maven.fabricmc.
     throw "Unexpected Fabric Installer origin: $installerUrl"
 }
 $installerPath = Join-Path $filesDir $installerName
-$installerSha256 = (([string](Invoke-RestMethod -Uri ($installerUrl + ".sha256") -Headers $headers -Method Get)).Trim().Split()[0]).ToLowerInvariant()
-if ($installerSha256 -notmatch "^[0-9a-f]{64}$") { throw "Fabric Installer SHA-256 sidecar is invalid." }
+$installerSha256 = ([string]$RuntimeLock.fabric_installer.sha256).ToLowerInvariant()
+if ($installerSha256 -notmatch "^[0-9a-f]{64}$") {
+    throw "Minecraft runtime lock has invalid Fabric Installer SHA-256."
+}
+$installerSidecar = (([string](Invoke-RestMethod -Uri ($installerUrl + ".sha256") -Headers $headers -Method Get)).Trim().Split()[0]).ToLowerInvariant()
+if ($installerSidecar -ne $installerSha256) {
+    throw "Fabric Installer SHA-256 changed. Lock=$installerSha256 Upstream=$installerSidecar"
+}
 Invoke-WebRequest -Uri $installerUrl -Headers $headers -OutFile $installerPath
 $actualInstallerSha = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualInstallerSha -ne $installerSha256) {
     throw "Fabric Installer SHA-256 mismatch. Expected=$installerSha256 Actual=$actualInstallerSha"
 }
 
-$projects = @(
-    @{ Name = "Fabric API"; Slug = "fabric-api"; Kind = "mod"; Loader = "fabric"; Required = $true },
-    @{ Name = "Lithium"; Slug = "lithium"; Kind = "mod"; Loader = "fabric"; Required = $false },
-    @{ Name = "FerriteCore"; Slug = "ferrite-core"; Kind = "mod"; Loader = "fabric"; Required = $false },
-    @{ Name = "Krypton"; Slug = "krypton"; Kind = "mod"; Loader = "fabric"; Required = $false },
-    @{ Name = "C2ME"; Slug = "c2me-fabric"; Kind = "mod"; Loader = "fabric"; Required = $false },
-    @{ Name = "BadOptimizations"; Slug = "badoptimizations"; Kind = "mod"; Loader = "fabric"; Required = $false },
-    @{ Name = "Dynamic FPS"; Slug = "dynamic-fps"; Kind = "mod"; Loader = "fabric"; Required = $false },
-    @{ Name = "SPBR LabPBR"; Slug = "spbr"; Kind = "resourcepack"; Loader = ""; Required = $false }
-)
-
 $components = @()
-foreach ($project in $projects) {
+foreach ($project in @($RuntimeLock.components)) {
     try {
-        $components += Resolve-ModrinthComponent -Name $project.Name -Slug $project.Slug -Kind $project.Kind -Loader $project.Loader
+        $components += Resolve-ModrinthComponent -Component $project
     }
     catch {
-        if ($project.Required) {
+        if ([bool]$project.required) {
             throw
         }
 
-        Write-Warning "Optional Minecraft component $($project.Name) was not bundled: $($_.Exception.Message)"
+        Write-Warning "Optional Minecraft component $($project.name) was not bundled: $($_.Exception.Message)"
     }
 }
 
