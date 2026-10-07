@@ -132,6 +132,51 @@ PROCHAINE ACTION EXACTE
 6. Si absents, noter BLOCKED-LOCAL et avancer vers la prochaine phase faisable.
 7. Implementer, tester et committer localement les changements coherents.
 
+CHECKPOINT 0A - REPRISE GITHUB / AUDIT CAUSTICA + SPBRSCANDI (2026-10-07)
+
+Base main avant cette sous-phase:
+- dafc3dee4fa9a676c4aa4dade456a2a882ee8ad1
+- PR #59 fusionnee; cahier de charges.txt et feuille de route.txt sont maintenant presents sur main.
+
+Phase zero-upstream / runtime seed:
+- reste CLOSE / TERMINEE / VALIDEE.
+- ne pas la rouvrir sans regression reproductible.
+
+Phase active:
+- 7.1 Caustica / ScandiShader / SPBRScandi
+- sous-phase A: provenance et validation structurelle automatisee des assets manager-owned.
+
+Constats verifies dans le depot:
+- Caustica-RTX/SOURCE.json pointe vers grg914/Caustica-RTX au commit immuable 27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a.
+- la source vendored contient des elements specifiques au fork RTX: RtDlssNr, RtDlssFg, RtDlssRr, NgxLibrary, RtLookPackage, RTX Performance Mode et ScandiShader RTX Look.
+- la release stable v3.1.1 publie Caustica-RTX-Minecraft-26.2-build-46.jar et SPBRScandi.zip avec digest SHA-256 GitHub.
+- avant cette sous-phase, release.yml verifiait le digest de provenance de l'asset precedent et un SHA-256 fixe pour SPBRScandi, mais ne validait pas la structure interne du JAR ni la structure Minecraft/LabPBR du ZIP.
+
+Travail implemente sur la branche audit/caustica-scandi-assets:
+- ajout tools/verify-caustica-scandi-assets.ps1.
+- validation JAR: fabric.mod.json, identite Caustica RTX, cible Minecraft 26.2, classes RTX attendues et marqueurs DLSS-RR/DLSS-FG/DLSS-NR/Performance/ScandiShader.
+- validation SPBRScandi: chemins d'archive surs, pack.mcmeta racine, textures Minecraft, cartes LabPBR normales/speculaires et SHA-256 optionnel.
+- build.yml telecharge uniquement les assets manager-owned de la latest stable release, verifie leurs digests GitHub puis execute l'audit structurel.
+- release.yml execute le meme audit avant publication et conserve le SHA-256 SPBRScandi connu.
+
+Tests:
+- NOT TESTED tant que le Build GitHub de la PR de cette branche n'a pas termine.
+- ne pas conclure que build-46 est definitivement la build personnalisee avant le resultat reel de l'audit CI.
+- comparaison binaire avec un JAR Caustica upstream/base exact: NON EFFECTUEE; un binaire upstream de reference est necessaire pour une comparaison bit/class-level complete.
+
+Lien SPBRScandi constate dans le code:
+- MinecraftOneClickService installe SPBRScandi.zip dans <instance>/resourcepacks/SPBRScandi.zip.
+- Caustica n'a pas besoin de referencer le nom SPBRScandi.zip dans le JAR; Minecraft charge le pack via son mecanisme de resource packs.
+- le ScandiShader RTX Look du fork Caustica est natif dans le pipeline Caustica et distinct du ZIP shaderpack optionnel ScandiShaderV2.
+- l'activation effective du resource pack dans Minecraft reste a verifier end-to-end sur une machine utilisateur.
+
+Prochaine action exacte:
+1. ouvrir la PR de audit/caustica-scandi-assets vers main;
+2. attendre le Build reel;
+3. si l'audit des assets et le reste du Build sont PASSED, fusionner;
+4. mettre a jour ce checkpoint avec le resultat exact;
+5. ensuite poursuivre la comparaison Caustica build-46 vs base/upstream si un binaire upstream de reference exact est disponible.
+
 ---
 
 AI PROJECT PROGRESS
