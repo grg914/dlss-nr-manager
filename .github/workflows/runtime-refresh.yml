@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - '.github/workflows/runtime-refresh.yml'
+      - '.github/workflows/release.yml'
       - 'DlssNrManager.csproj'
       - 'tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj'
       - 'tools/build-ffmpeg-windows.sh'
@@ -72,7 +73,7 @@ jobs:
             value="release-only"
             for file in "${files[@]}"; do
               case "$file" in
-                .github/workflows/runtime-refresh.yml)
+                .github/workflows/runtime-refresh.yml|.github/workflows/release.yml)
                   ;;
                 DlssNrManager.csproj)
                   patch="$(gh api "$compare" --jq '.files[] | select(.filename == "DlssNrManager.csproj") | .patch // ""')"

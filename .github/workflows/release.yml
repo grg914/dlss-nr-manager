@@ -136,8 +136,9 @@ jobs:
           $reshade = Get-ChildItem release-assets -Filter "ReShade-Setup-*-vendored.zip" -File | Select-Object -First 1
           if (-not $streamline -or -not $optiscaler -or -not $reshade) { throw "One or more manager-owned native runtime assets are missing." }
 
+          # PowerShell scripts fail by throwing; $LASTEXITCODE belongs to the last native
+          # process and can be stale even after a successful script invocation.
           & .\tools\verify-streamline-runtime-asset.ps1 -ZipPath $streamline.FullName
-          if ($LASTEXITCODE -ne 0) { throw "Manager-owned Streamline runtime seed validation failed." }
 
           "streamline=$($streamline.Name)" >> $env:GITHUB_OUTPUT
           "optiscaler=$($optiscaler.Name)" >> $env:GITHUB_OUTPUT
