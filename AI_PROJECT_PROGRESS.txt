@@ -1,0 +1,915 @@
+AI PROJECT PROGRESS
+
+1. INFORMATIONS DU PROJET
+
+Nom du projet :
+DLSS NR Manager
+
+Version actuelle :
+- Version déclarée dans DlssNrManager.csproj : 3.1.0
+- Dernière release stable GitHub vérifiée : v3.0.0
+- IMPORTANT : 3.1.0 est la version du code courant, mais n'est pas encore confirmée comme release stable publiée.
+
+Version cible :
+4.0 (objectif du cahier des charges ; PRÉVU, pas encore atteint)
+
+Dépôt :
+https://github.com/grg914/dlss-nr-manager
+
+Date de création :
+2026-10-07
+
+Dernière mise à jour :
+2026-10-07
+
+Commit main vérifié lors de la création :
+0f8eb7c616c10d3c8538dcdb5713973e7e95c873
+
+2. DOCUMENTS DE RÉFÉRENCE
+
+Cahier des charges :
+cahier de charges.txt
+Statut :
+LU INTÉGRALEMENT depuis le fichier fourni dans la conversation.
+Présence à la racine du dépôt GitHub : NON VÉRIFIÉE / non visible dans le listing racine vérifié.
+
+Feuille de route :
+feuille de route.txt
+Statut :
+LUE INTÉGRALEMENT depuis le fichier fourni dans la conversation.
+Présence à la racine du dépôt GitHub : NON VÉRIFIÉE / non visible dans le listing racine vérifié.
+
+Documents internes du dépôt également vérifiés :
+- docs/UPSTREAM-SYNC.md
+- docs/PROJECT-CONTINUITY.md
+- third_party/DEPENDENCIES.lock.json
+- third_party/UPSTREAMS.json
+- third_party/minecraft/RUNTIME.lock.json
+
+3. ÉTAT GLOBAL
+
+État actuel :
+EN COURS.
+
+Phase actuelle :
+Durcissement dépendances / production zero-upstream / synchronisation upstream / runtime seed manager-owned.
+
+Sous-phase :
+Clôture et validation réelle des pipelines post-merge.
+
+Progression estimée :
+Pas de pourcentage arbitraire.
+État factuel : l'architecture principale est intégrée et plusieurs validations sont vertes, mais la phase n'est PAS terminée car Upstream Dependency Sync a encore un échec réel et la release stable 3.1.0 n'est pas encore publiée/validée.
+
+Dernière phase terminée :
+Migration de la production vers un Build offline manager-owned : TERMINÉ ET VÉRIFIÉ sur plusieurs runs CI, notamment Build #609, #610, #612, #614, #615 et Build PR #617.
+
+Prochaine phase :
+Terminer et valider le pipeline upstream/runtime/release, puis reprendre l'ordre du cahier des charges/feuille de route.
+
+Problèmes bloquants actuels :
+- UPSTREAM-001 : Upstream Dependency Sync #5 a échoué pendant "Refresh Minecraft runtime lock" avec HTTP 400.
+- RELEASE-001 : la dernière release stable reste v3.0.0 alors que le code courant est 3.1.0.
+- VALIDATION-001 : Runtime Seed Refresh #6 est encore en cours au moment de cette mise à jour, même si le job Temurin 25 est déjà PASSED.
+
+4. TRAVAIL DÉJÀ EFFECTUÉ ET VÉRIFIÉ
+
+4.1 Build production offline manager-owned
+Nom :
+Build normal sans bootstrap direct de dépendances tierces.
+
+Statut :
+TERMINÉ ET VÉRIFIÉ.
+
+Fichiers concernés :
+- .github/workflows/build.yml
+- tools/download-runtime-seed.ps1
+- tools/prepare-offline-dotnet.ps1
+- tools/build-nuget-offline-seed.ps1
+- tools/verify-self-contained.ps1
+- DlssNrManager.csproj
+- tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj
+
+Dépendances :
+- runtime-seed-v1
+- nuget-offline.zip
+- .NET 8 préinstallé sur le runner
+
+Tests effectués :
+- checkout sans actions externes
+- vérification .NET 8
+- validation syntaxe PowerShell
+- audit strict zero-upstream
+- téléchargement + SHA-256 du feed NuGet manager-owned
+- dotnet restore avec packageSources vidées
+- tests xUnit
+- dotnet publish win-x64 self-contained single-file
+- vérification de l'icône embarquée
+
+Résultat :
+PASSED sur plusieurs runs, notamment #609, #610, #612, #614, #615 et #617.
+
+Date connue :
+2026-10-07.
+
+4.2 Feed NuGet offline complet
+Statut :
+TERMINÉ ET VÉRIFIÉ.
+
+Ce qui a été corrigé :
+Le premier seed ne contenait pas les runtime packs implicites win-x64.
+Le générateur collecte désormais également les downloadDependencies.
+
+Asset vérifié :
+runtime-seed-v1 / nuget-offline.zip
+Taille observée :
+263046730 octets
+SHA-256 GitHub observé :
+801471d97759a2eafe63fd99251da80500c84a43d35373a9c2b54c21a2c2439b
+
+Résultat :
+PASSED : restore application + tests effectué sans NuGet.org dans le circuit production.
+
+4.3 Runtime seed manager-owned
+Statut :
+TERMINÉ ET VÉRIFIÉ pour la présence et les SHA-256 des assets listés ci-dessous ; le workflow complet #6 reste EN COURS lors de cette mise à jour.
+
+Assets réellement présents dans runtime-seed-v1 :
+- ffmpeg-dlssnr-win-x64.zip
+- minecraft-runtime-26.2.zip
+- nuget-offline.zip
+- OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip
+- realesrgan-ncnn-vulkan-windows-x64.zip
+- ReShade-Setup-v6.8.0-dev-7bf9de8b-vendored.zip
+- streamline-runtime-v2.14.1-win-x64.zip
+- temurin-25-jre-win-x64.zip
+- temurin-25-jre.json
+- video2dlssnr_release.zip
+
+Vérification :
+Chaque asset ci-dessus possède un digest SHA-256 GitHub dans la release runtime-seed-v1.
+
+4.4 Temurin 25 manager-owned
+Statut :
+TERMINÉ ET VÉRIFIÉ pour le job java-runtime du Runtime Seed Refresh #6.
+
+Fichiers concernés :
+- tools/publish-temurin25-runtime.ps1
+- .github/workflows/runtime-refresh.yml
+- Services/MinecraftIntegrationService.cs
+
+Corrections réellement appliquées :
+- détection du latest stable Adoptium Temurin 25
+- validation de java -version via Start-Process avec stdout/stderr redirigés
+- séparation entre le tag upstream Temurin et le paramètre ReleaseTag du runtime seed
+- remplacement du fallback Minecraft WinGet par un JRE 25 manager-owned côté application
+
+Test réel :
+Runtime Seed Refresh #6 / java-runtime / "Refresh verified Temurin 25 runtime"
+
+Résultat :
+PASSED.
+
+4.5 Dynamic FPS 26.2 - résolution upstream
+Statut :
+IMPLÉMENTÉ ET VALIDÉ PARTIELLEMENT.
+
+Fichiers concernés :
+- tools/refresh-upstream.ps1
+- third_party/UPSTREAMS.json
+- third_party/minecraft/RUNTIME.lock.json
+
+Ce qui est confirmé :
+- stratégie latest-compatible-release présente
+- enumeration des tags Git officiels
+- filtre release + asset Fabric Minecraft 26.2
+- runtime lock actuel contient Dynamic FPS 3.11.9 :
+  dynamic-fps-3.11.9+minecraft-26.2.0-fabric.jar
+
+Ce qui reste à vérifier :
+Le workflow Upstream Dependency Sync complet doit passer jusqu'au bout.
+
+4.6 Manifest / verrouillage des dépendances
+Statut :
+TERMINÉ ET VÉRIFIÉ pour la présence, l'immuabilité des refs et l'audit CI.
+
+Fichiers :
+- third_party/DEPENDENCIES.lock.json
+- third_party/UPSTREAMS.json
+- third_party/minecraft/RUNTIME.lock.json
+
+Résultat :
+Les refs de source importantes sont verrouillées sur des SHA immuables ; Build vérifie ces invariants.
+
+4.7 Tests de récupération / détection / intégrité
+Statut :
+TERMINÉ ET VÉRIFIÉ au niveau tests automatisés.
+
+Fichier :
+tests/DlssNrManager.Tests/RecoveryAndDetectionTests.cs
+
+Tests confirmés dans le code et exécutés par les builds verts :
+- historique borné et ordre newest-first
+- transaction journal limité au game root
+- détection renderer launcher-only ignorée
+- détection DX12 par executable nommé
+- détection DX9 par module engine
+- détection DXVK/Vulkan
+- executable préféré contraint au game root
+- BinaryMarkerScanner cross-chunk
+- intégrité des fichiers managés
+- mise à jour du hash après édition OptiScaler.ini
+- parsing des assets OptiScaler manager-owned
+- détection prerelease OptiScaler
+- retry réseau seulement sur erreurs transitoires
+
+Résultat :
+PASSED dans les builds CI verts.
+
+5. TRAVAIL IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ
+
+5.1 Application WPF et modules de service
+Statut :
+IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ.
+
+Fichiers réellement présents :
+- MainWindow.xaml / MainWindow.xaml.cs
+- Services/AiOriginDetectionService.cs
+- Services/AiUpscaleService.cs
+- Services/AppUpdateService.cs
+- Services/ComponentUpdateService.cs
+- Services/DiagnosticService.cs
+- Services/ExternalProcessTracker.cs
+- Services/GameDetectionService.cs
+- Services/GameSafetyService.cs
+- Services/GpuCapabilityService.cs
+- Services/GpuDetectionService.cs
+- Services/InstallerService.cs
+- Services/MediaService.cs
+- Services/MinecraftIntegrationService.cs
+- Services/MinecraftOneClickService.cs
+- Services/MinecraftPreflightService.cs
+- Services/NvidiaDlssNrDiscoveryService.cs
+- Services/PcCleanupService.cs
+- Services/PcUpdateService.cs
+- Services/ReShadeService.cs
+- Services/RendererDetectionService.cs
+- Services/RuntimeValidationService.cs
+- Services/StreamlineRuntimeService.cs
+- autres services présents dans Services/
+
+Ce qui est confirmé :
+Le code compile dans les builds CI verts.
+
+Ce qui reste à vérifier :
+Fonctionnement end-to-end de chaque option dans l'application réelle, y compris installation, lancement, résultat, arrêt et cleanup.
+
+5.2 Détection GPU/NVIDIA
+Statut :
+IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ.
+
+Fichiers confirmés :
+- Services/GpuDetectionService.cs
+- Services/GpuCapabilityService.cs
+- Services/NvidiaDlssNrDiscoveryService.cs
+
+Ce qui est confirmé :
+Services présents et compilation réussie.
+
+Ce qui reste à vérifier :
+- méthode réelle utilisée pour GPU / VRAM / driver
+- comportement sur RTX 20/30/40/50
+- détection fonctionnelle sur la machine de référence
+- NVAPI éventuel
+- NVCleanstall
+- matrice de capacités DLSS/FG/MFG/RR
+
+5.3 OptiScaler
+Statut :
+IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ.
+
+Éléments confirmés :
+- source vendored third_party/OptiScaler
+- asset manager-owned OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip
+- tests de parsing et prerelease
+- InstallerService contient une gestion de preset OptiScaler.ini
+
+Ce qui reste à vérifier :
+- performance réelle dans Minecraft RTX
+- coût FPS
+- synchronisation
+- ratio DLSS
+- absence de double sharpening/scaling
+- stabilité avec Caustica/ScandiShader/DLSS5
+
+5.4 Caustica / ScandiShader / SPBRScandi
+Statut :
+IMPLÉMENTÉ / PRÉSENT MAIS NON ENTIÈREMENT VÉRIFIÉ.
+
+Confirmé :
+- dossier Caustica-RTX présent à la racine
+- release stable v3.0.0 contient Caustica-RTX-Minecraft-26.2-build-46.jar
+- release stable v3.0.0 contient SPBRScandi.zip
+- SHA-256 GitHub présents pour les deux assets
+
+NON VÉRIFIÉ :
+- preuve binaire que build-46 est bien la build personnalisée corrigée et non un renommage
+- liaison interne exacte Caustica/ScandiShader -> SPBRScandi
+- comportement Minecraft réel de ces deux assets
+
+5.5 ComponentUpdateService / AppUpdateService
+Statut :
+IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ.
+
+Confirmé :
+Services présents et compilation réussie.
+
+À vérifier :
+- update application end-to-end
+- update de tous les composants manager-owned
+- rollback et comportement en cas de téléchargement corrompu/interrompu
+
+5.6 Runtime Seed Refresh complet
+Statut :
+EN COURS.
+
+Confirmé :
+java-runtime #6 PASSED.
+nuget-runtime #6 PASSED.
+preserve-restricted-runtime #6 PASSED.
+Real-ESRGAN build du job native-runtime #6 PASSED au moment de cette mise à jour.
+
+Reste à vérifier :
+- OptiScaler #6
+- ReShade #6
+- FFmpeg #6
+- Streamline #6
+- Minecraft #6
+- dispatch-release #6
+
+6. TRAVAIL EN COURS
+
+Phase :
+Dépendances / zero-upstream production.
+
+Sous-phase :
+Réparation du dernier échec Upstream Dependency Sync.
+
+Objectif :
+Obtenir :
+- Build main vert
+- Upstream Dependency Sync vert
+- Runtime Seed Refresh vert
+- Release stable produite uniquement depuis les entrées manager-owned
+
+Travail réalisé :
+- zero-upstream Build
+- feed NuGet offline complet
+- runtime seed manager-owned
+- Temurin manager-owned
+- stratégie Dynamic FPS compatible release
+- correctifs FFmpeg tag resolution
+- correctifs Temurin
+- documentation architecture/continuité
+
+Travail restant :
+- corriger HTTP 400 dans tools/refresh-minecraft-runtime-lock.ps1 / source externe concernée
+- relancer Upstream Sync
+- laisser finir Runtime Seed #6
+- vérifier Build #618
+- vérifier release générée
+- vérifier components-manifest.json dans la release stable
+- vérifier que latest stable devient 3.1.0 si le pipeline est conforme
+
+Fichiers concernés :
+- .github/workflows/upstream-monitor.yml
+- .github/workflows/runtime-refresh.yml
+- .github/workflows/build.yml
+- .github/workflows/release.yml
+- tools/refresh-upstream.ps1
+- tools/refresh-minecraft-runtime-lock.ps1
+- tools/publish-temurin25-runtime.ps1
+- tools/build-nuget-offline-seed.ps1
+- tools/verify-self-contained.ps1
+- third_party/UPSTREAMS.json
+- third_party/DEPENDENCIES.lock.json
+- third_party/minecraft/RUNTIME.lock.json
+- docs/UPSTREAM-SYNC.md
+- docs/PROJECT-CONTINUITY.md
+
+Problèmes rencontrés et réellement observés :
+- FFmpeg stable tags non trouvés via première page API : corrigé.
+- Dynamic FPS 26.2 sélection fragile : corrigé dans le resolver.
+- Temurin java -version stderr interprété comme erreur PowerShell : corrigé.
+- collision PowerShell ReleaseTag/upstreamReleaseTag : corrigée.
+- NuGet offline seed incomplet en runtime packs : corrigé.
+- Manifest ArrayList vide : corrigé.
+- Minecraft runtime lock refresh HTTP 400 : NON CORRIGÉ au moment de cette mise à jour.
+
+Prochaine action :
+Analyser précisément tools/refresh-minecraft-runtime-lock.ps1 et la requête HTTP qui renvoie 400, corriger sans changer le runtime 26.2 arbitrairement, tester via Upstream Dependency Sync.
+
+7. TRAVAIL PRÉVU
+
+IMPORTANT :
+Les éléments ci-dessous proviennent du cahier des charges / feuille de route et NE SONT PAS considérés comme terminés simplement parce qu'ils ont été demandés.
+
+7.1 Caustica / ScandiShader / SPBRScandi
+PRÉVU :
+- audit technique du JAR build-46
+- comparaison avec Caustica base
+- vérification structure/classes/ressources/métadonnées
+- vérification lien SPBRScandi
+- conclusion factuelle
+
+7.2 OptiScaler / DLSS5
+PRÉVU :
+- audit complet OptiScaler Minecraft RTX
+- solutions Performance / Balanced / Quality
+- benchmark FPS / 1% low / 0.1% low / frametime / GPU / CPU / VRAM / latence
+- vérification DLSS5 réelle
+- chaîne Caustica / ScandiShader / SPBR / OptiScaler / DLSS
+
+7.3 AI Studio local
+PRÉVU :
+- génération image locale
+- génération vidéo locale
+- ComfyUI / Diffusers / moteurs alternatifs
+- Model Manager
+- Job Manager
+- workflows
+- runtime Python isolé
+- sécurité plugins/custom nodes
+- licences modèles
+- distribution offline
+
+7.4 Profils matériels
+PRÉVU :
+- HardwareProfileManager
+- profil AUTO
+- profil RTX 5060 Ti 16GB + Ryzen 7 9700X
+- profil Normal / Compatible
+- détection GPU/VRAM/driver/CPU/RAM/Windows/DX/Vulkan
+- matrice RTX 20/30/40/50
+- règles GPU + driver + feature
+- NVCleanstall
+- adaptation VRAM
+
+7.5 Video Enhancement / VSR / HDR
+PRÉVU :
+- module local d'amélioration vidéo temps réel
+- VSR-like
+- SDR->HDR si supporté
+- architecture D3D11/D3D12/Vulkan/Media Foundation/FFmpeg/etc.
+- profils performance/qualité
+- DRM et licences
+
+7.6 Analyse DLSS5-Swapper / DLSS5-Autopilot
+PRÉVU / PARTIELLEMENT DISCUTÉ :
+- comparer fonctions et architectures
+- Route Selector
+- Hardware Profile Manager
+- Driver Compatibility Manager
+- DLSS DLL Manager
+- backup/restore
+- manifest
+- diagnostic / autopilot / safe mode / benchmark / optimizer
+- ne pas copier aveuglément
+
+7.7 OSINT / RESEARCH
+PRÉVU :
+- module OSINT/research
+- recherche texte/image/vidéo/document
+- OCR/vision
+- source manager
+- evidence database
+- graph
+- scoring
+- privacy/offline modes
+- sécurité / rate limit / cache
+- architecture plugins
+
+7.8 Audit/finalisation 4.0
+PRÉVU :
+Phases 0 à 31 du cahier des charges, notamment :
+- inventaire
+- cartographie dépendances
+- versions
+- détection NVIDIA
+- configuration matérielle
+- audit options/outils/UI
+- lifecycle / shutdown
+- crashes / logs / diagnostic
+- tests modules/intégration
+- profils RTX
+- optimisation/nettoyage
+- contrôle final/régression
+- build final
+- version 4.0
+- README / CHANGELOG / rapport final
+
+7.9 Far Cry 2
+PRÉVU / EXPÉRIMENTAL :
+- audit DX9/DX10
+- pipeline
+- injection
+- OptiScaler
+- prototype DLSS
+- DLAA
+- Frame Generation
+- DLSS5
+- benchmark A/B
+- sécurité et rollback
+
+8. TRAVAIL BLOQUÉ
+
+Tâche :
+Upstream Dependency Sync complet.
+
+Raison :
+HTTP 400 pendant Refresh Minecraft runtime lock.
+
+Dépendance :
+tools/refresh-minecraft-runtime-lock.ps1 et APIs utilisées pour reconstruire third_party/minecraft/RUNTIME.lock.json.
+
+Solution possible :
+Identifier précisément l'URL/paramètre rejeté, vérifier les APIs officielles réellement attendues, corriger la construction de requête et conserver le lock 26.2 tant que le nouveau lock n'a pas été entièrement validé.
+
+Décision nécessaire :
+Aucune décision produit requise pour une correction évidente de requête ; correction technique + test autorisés.
+
+Tâche :
+Publication stable 3.1.0.
+
+Raison :
+Dépend du Runtime Seed complet et du workflow Release.
+
+Solution possible :
+Terminer la validation des circuits puis vérifier la release produite.
+
+9. AUDIT DES FONCTIONNALITÉS
+
+NVIDIA / GPU : NON VÉRIFIÉ END-TO-END
+Pilotes NVIDIA : NON VÉRIFIÉ END-TO-END
+NVCleanstall : PRÉVU
+Profils matériels : PRÉVU
+DLSS : IMPLÉMENTÉ PARTIELLEMENT / NON VÉRIFIÉ END-TO-END
+DLSS5 : PRÉVU / NON VÉRIFIÉ
+OptiScaler : IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ
+Caustica : PRÉSENT / NON ENTIÈREMENT VÉRIFIÉ
+ScandiShader : PRÉVU / NON VÉRIFIÉ
+SPBRScandi : ASSET PRÉSENT / NON ENTIÈREMENT VÉRIFIÉ
+Vidéo : IMPLÉMENTÉ PARTIELLEMENT via MediaService / NON VÉRIFIÉ END-TO-END
+VSR : PRÉVU
+HDR : PRÉVU
+IA image détection : IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ
+IA image génération : PRÉVU
+IA vidéo génération : PRÉVU
+Modèles locaux : PARTIELLEMENT IMPLÉMENTÉ (modèles ONNX vendored) / NON VÉRIFIÉ END-TO-END
+OSINT : PRÉVU
+Recherche IA : PRÉVU
+OCR : PRÉVU
+Vision : PRÉVU
+Far Cry 2 : EXPÉRIMENTATION PRÉVUE ; squelette csproj présent, fonctionnement NON VÉRIFIÉ
+Diagnostics : IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ
+Logs : IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ
+Dépendances : EN COURS, architecture principale implémentée
+Backup / Restore : PARTIELLEMENT IMPLÉMENTÉ / tests spécifiques limités
+Interface : IMPLÉMENTÉE / NON VÉRIFIÉE fonctionnellement dans cette session
+Sécurité : PARTIELLEMENT IMPLÉMENTÉE / audit final prévu
+Performances : OPTIMISATIONS PARTIELLES / audit final prévu
+
+10. DÉPENDANCES
+
+Dépendances importantes réellement verrouillées :
+- NVIDIA Streamline : ref immuable, release_tag v2.14.1
+- OptiScaler fork : ref immuable, asset runtime v0.7.7-pre0 manager-owned
+- video2dlssnr : ref immuable ; runtime manager-owned
+- FFmpeg : ref immuable ; runtime manager-owned
+- nv-codec-headers : ref immuable
+- Real-ESRGAN-ncnn-vulkan : ref immuable ; runtime manager-owned
+- ReShade : ref immuable ; base_tag v6.8.0 ; runtime manager-owned
+- ONNX Runtime : source v1.30.0 ; PackageReference Microsoft.ML.OnnxRuntime 1.30.0
+- Fabric Installer/API, Lithium, FerriteCore, Krypton, C2ME, BadOptimizations, Dynamic FPS : sources vendored/verrouillées
+- AI primary model : snapshot Hugging Face immuable
+- AI secondary model : snapshot Hugging Face immuable
+- NVIDIA DLSS SDK : local_only, ref v310.7.0 / SHA immuable ; redistribution brute non autorisée selon politique du projet
+- Temurin JRE 25 : manager-owned runtime seed
+
+Minecraft runtime lock actuellement confirmé :
+- Minecraft 26.2
+- Fabric Loader 0.19.3
+- Fabric Installer 1.1.2
+- Fabric API 0.161.0+26.2
+- Lithium mc26.2-0.25.3-fabric
+- FerriteCore 9.0.0-fabric
+- Krypton 0.3.1
+- BadOptimizations 2.4.1
+- Dynamic FPS 3.11.9
+- SPBR LabPBR 22.1
+- C2ME exclu du runtime lock faute de release stable 26.2 au moment de la création du lock
+
+Dépendances à vérifier :
+- licences et redistribution lors de toute nouvelle promotion
+- SDK NVIDIA DLSS local_only
+- futurs modèles IA génératifs
+- futurs outils OSINT
+- futurs runtimes VSR/HDR
+
+11. PROBLÈMES CONNUS
+
+ID :
+UPSTREAM-001
+Description :
+Upstream Dependency Sync #5 échoue dans Refresh Minecraft runtime lock avec HTTP 400.
+Gravité :
+HIGH pour l'automatisation des mises à jour ; n'empêche pas le Build offline normal.
+Module :
+upstream-monitor / Minecraft runtime lock.
+Statut :
+OPEN.
+Solution :
+À diagnostiquer.
+Test :
+FAILED sur run #5.
+
+ID :
+RELEASE-001
+Description :
+Projet 3.1.0 mais latest stable release encore v3.0.0.
+Gravité :
+MEDIUM/HIGH.
+Module :
+Release.
+Statut :
+OPEN.
+Solution :
+Terminer runtime seed + release et vérifier tous les assets.
+Test :
+NOT TESTED pour la release 3.1.0 finale.
+
+ID :
+LEGACY-PR-001
+Description :
+PR draft #31 "runtime: consume manager-owned FFmpeg release" encore ouverte sur une ancienne branche.
+Gravité :
+LOW.
+Module :
+Maintenance GitHub.
+Statut :
+CLEANUP CANDIDATE uniquement.
+Solution :
+Ne pas fermer/supprimer avant vérification qu'elle est totalement superseded.
+Test :
+NOT TESTED.
+
+12. CORRECTIONS EFFECTUÉES
+
+Corrections réellement appliquées et vérifiées au moins par compilation/CI ou workflow :
+- migration vers monorepo/self-contained pour sources redistribuables
+- suppression des dépendances upstream du circuit Build normal
+- feed NuGet offline manager-owned
+- inclusion des runtime packs .NET win-x64
+- downloader runtime-seed avec vérification digest GitHub SHA-256
+- production Release conçue en promotion-only manager-owned
+- runtime seed central
+- correction manifest ArrayList vide
+- pagination/résolution complète des tags FFmpeg
+- gestion managed PackageReference ONNX
+- politiques notify-only pour composants restreints/poids modèles
+- Temurin 25 manager-owned
+- validation java -version robuste
+- correction collision ReleaseTag Temurin
+- résolution Dynamic FPS compatible Minecraft 26.2
+- remplacement du fallback Java WinGet côté Minecraft par JRE manager-owned
+- documentation docs/UPSTREAM-SYNC.md
+- documentation docs/PROJECT-CONTINUITY.md
+
+13. OPTIMISATIONS EFFECTUÉES
+
+Vérifiées :
+- Git LFS smudge désactivé pendant checkout production, puis pull ciblé des modèles lors de la release.
+- production Build ne reconstruit pas inutilement les runtimes natifs ; ceux-ci sont promus via runtime seed.
+- sources et runtimes séparés entre circuit refresh et circuit production.
+- runtime seed évite de recontacter les upstreams en production.
+
+Non classées comme vérifiées :
+- gains FPS OptiScaler/Minecraft
+- profil RTX 5060 Ti
+- performances AI Studio
+- VSR/HDR temps réel
+Ces points restent PRÉVUS / À MESURER.
+
+14. TESTS
+
+PASSED :
+- Build #609
+- Build #610
+- Build #612
+- Build #614
+- Build #615
+- Build PR #617
+- tests xUnit RecoveryAndDetectionTests inclus dans ces builds
+- restore offline manager-owned sur builds verts
+- publish win-x64 self-contained single-file sur builds verts
+- audit zero-upstream sur builds verts
+- Runtime Seed #6 java-runtime
+- Runtime Seed #6 nuget-runtime
+- Runtime Seed #6 preserve-restricted-runtime
+- Runtime Seed #6 Real-ESRGAN step
+
+FAILED :
+- Upstream Dependency Sync #5 : Refresh Minecraft runtime lock HTTP 400
+- anciennes tentatives Runtime Seed #2/#4/#5 : erreurs Temurin historiques maintenant corrigées dans le code
+- Build #608 : ancien seed NuGet incomplet
+- Release #19 : ancien échec manifest/runtime avant correctifs
+
+NOT TESTED :
+- release stable 3.1.0 finale
+- installation end-to-end de tous les composants sur une machine utilisateur
+- profil matériel RTX 5060 Ti
+- NVCleanstall
+- DLSS5 end-to-end
+- génération IA locale
+- OSINT
+- VSR/HDR
+- Far Cry 2 DLSS
+- audit binaire Caustica build-46 / SPBRScandi
+
+BLOCKED :
+- validation complète Upstream Sync tant que UPSTREAM-001 n'est pas corrigé.
+
+15. FICHIERS MODIFIÉS IMPORTANTS
+
+Historique confirmé de la phase dépendances :
+- .github/workflows/build.yml
+- .github/workflows/release.yml
+- .github/workflows/runtime-refresh.yml
+- .github/workflows/upstream-monitor.yml
+- .github/workflows/nuget-seed.yml
+- tools/download-runtime-seed.ps1
+- tools/prepare-offline-dotnet.ps1
+- tools/build-nuget-offline-seed.ps1
+- tools/refresh-upstream.ps1
+- tools/refresh-minecraft-runtime-lock.ps1
+- tools/publish-temurin25-runtime.ps1
+- tools/generate-components-manifest.ps1
+- tools/verify-self-contained.ps1
+- Services/MinecraftIntegrationService.cs
+- Services/ComponentUpdateService.cs
+- third_party/DEPENDENCIES.lock.json
+- third_party/UPSTREAMS.json
+- third_party/minecraft/RUNTIME.lock.json
+- docs/UPSTREAM-SYNC.md
+- docs/PROJECT-CONTINUITY.md
+- DlssNrManager.csproj
+
+16. FICHIERS SENSIBLES
+
+- .github/workflows/release.yml
+- .github/workflows/runtime-refresh.yml
+- .github/workflows/upstream-monitor.yml
+- third_party/DEPENDENCIES.lock.json
+- third_party/UPSTREAMS.json
+- third_party/minecraft/RUNTIME.lock.json
+- tools/refresh-upstream.ps1
+- tools/refresh-minecraft-runtime-lock.ps1
+- tools/verify-self-contained.ps1
+- tools/publish-temurin25-runtime.ps1
+- tools/bootstrap-minecraft-runtime.ps1
+- Services/MinecraftIntegrationService.cs
+- Services/InstallerService.cs
+- Services/ComponentUpdateService.cs
+- Caustica-RTX/
+- third_party-local/NVIDIA-DLSS (local_only / licence)
+- modèles LFS sous third_party/ai-models et Real-ESRGAN model sources
+
+Règle :
+Ne jamais supprimer/remplacer une dépendance de ces chemins sans références, provenance, licence et régression vérifiées.
+
+17. DÉCISIONS TECHNIQUES
+
+Décision :
+Séparer circuit production et circuit refresh.
+Raison :
+Rendre Build/Release normaux indépendants de la disponibilité des upstreams.
+Alternative :
+Télécharger les dernières dépendances pendant chaque build/release.
+Solution retenue :
+Sources vendored + locks immuables + runtime-seed-v1.
+Conséquence :
+Plus de contrôle et reproductibilité ; refresh circuit plus complexe.
+
+Décision :
+NuGet offline manager-owned.
+Raison :
+Éviter NuGet.org pendant Build/Release production.
+Alternative :
+dotnet restore public.
+Solution retenue :
+nuget-offline.zip + NuGet.Config avec sources vidées.
+Conséquence :
+Seed volumineux mais production déterministe.
+
+Décision :
+Java 25 manager-owned pour Minecraft.
+Raison :
+Éviter WinGet / installation globale.
+Alternative :
+installer Temurin via WinGet.
+Solution retenue :
+temurin-25-jre-win-x64.zip validé SHA-256 et java -version.
+Conséquence :
+Runtime privé à l'application.
+
+Décision :
+Composants NVIDIA restreints en notify-only/local-only lorsque nécessaire.
+Raison :
+Contraintes de licence et nécessité de SDK local.
+Alternative :
+publier le SDK brut.
+Solution retenue :
+ne pas redistribuer les matériaux restreints.
+Conséquence :
+Certaines promotions nécessitent une validation/build local autorisé.
+
+Décision :
+Dynamic FPS sélectionné par release compatible Minecraft 26.2.
+Raison :
+La dernière release globale cible 26.3.
+Alternative :
+suivre latest sans filtre.
+Solution retenue :
+latest-compatible-release + filtre asset Fabric 26.2.
+Conséquence :
+Le projet reste sur 3.11.9 pour Minecraft 26.2 tant qu'aucune release 26.2 plus récente n'existe.
+
+18. HISTORIQUE DES SESSIONS
+
+Date :
+2026-10-07
+Phase :
+Migration self-contained / zero-upstream production.
+Travail effectué :
+- audit dépendances externes
+- séparation refresh/production
+- runtime seed
+- NuGet offline
+- Temurin manager-owned
+- sync upstream
+- corrections FFmpeg/Dynamic FPS/Temurin
+- documentation de continuité
+Résultat :
+PARTIELLEMENT TERMINÉ.
+Build production : vérifié vert.
+Runtime Seed : en validation finale.
+Upstream Sync : encore FAILED sur refresh Minecraft runtime lock.
+Fichiers modifiés :
+voir section 15.
+Tests :
+voir section 14.
+Problèmes :
+UPSTREAM-001, RELEASE-001.
+Prochaine étape :
+corriger le HTTP 400 du refresh Minecraft runtime lock puis fermer la phase avec pipeline et release verts.
+
+Historique antérieur :
+Des demandes ont concerné DLSS5, OptiScaler, Caustica/ScandiShader, SPBRScandi, AI locale, profils matériels, VSR/HDR, OSINT et Far Cry 2.
+Ces demandes NE SONT PAS considérées comme terminées sans preuve dépôt + test ; elles sont classées dans les sections 5/7/9.
+
+19. PROCHAINE ACTION
+
+Action immédiate :
+1. Lire tools/refresh-minecraft-runtime-lock.ps1.
+2. Identifier l'Invoke-WebRequest qui retourne HTTP 400.
+3. Vérifier la requête/API et le paramétrage Minecraft 26.2.
+4. Corriger uniquement la requête ou la sélection fautive.
+5. Relancer Upstream Dependency Sync.
+6. Vérifier Runtime Seed #6 complet.
+7. Vérifier Build main.
+8. Vérifier la release stable générée et ses assets/components-manifest.
+9. Mettre à jour ce fichier avec les résultats réels.
+10. Seulement après clôture de cette phase, passer à la prochaine phase du cahier des charges selon la feuille de route.
+
+20. RÈGLES DE REPRISE
+
+Toujours lire cahier de charges.txt avant de travailler.
+Toujours lire feuille de route.txt avant de commencer ou reprendre une phase.
+Toujours lire AI_PROJECT_PROGRESS.txt.
+Vérifier l'état réel du dépôt.
+Ne jamais supposer qu'une fonctionnalité existe.
+Ne jamais considérer une fonctionnalité comme terminée sans vérification.
+Ne jamais inventer de résultats.
+Ne jamais refaire inutilement une phase terminée.
+Documenter chaque modification importante.
+Mettre à jour AI_PROJECT_PROGRESS.txt après chaque phase.
+Diviser les phases trop importantes en sous-phases.
+En cas d'interruption, reprendre à la dernière étape documentée.
+Ne jamais supprimer une dépendance sans vérifier ses références.
+Vérifier les régressions après les corrections.
+Respecter l'ordre de la feuille de route.txt.
+Utiliser cahier de charges.txt comme référence fonctionnelle.
+Utiliser feuille de route.txt comme référence méthodologique.
+Avant une modification importante avec plusieurs solutions : proposer les options et risques avant d'agir.
+Pour une petite correction évidente et prévue : correction ciblée + test réel.
+Ne jamais utiliser "sans bug" comme conclusion ; utiliser "NO KNOWN ISSUES FOUND" uniquement après audit suffisamment complet.
