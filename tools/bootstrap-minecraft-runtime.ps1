@@ -2,7 +2,8 @@ param(
     [string]$Repository = "grg914/dlss-nr-manager",
     [string]$ReleaseTag,
     [string]$MinecraftVersion = "26.2",
-    [string]$MinimumFabricLoader = "0.19.3",
+    [string]$FabricLoaderVersion = "0.19.3",
+    [string]$FabricInstallerVersion = "1.1.2",
     [switch]$NoUpload
 )
 
@@ -154,32 +155,14 @@ function Resolve-ModrinthComponent {
     }
 }
 
-Write-Host "Resolving Fabric Loader for Minecraft $MinecraftVersion..."
-$loaderEntries = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion")
-$loaderVersion = $null
-$minimumLoaderVersion = [Version]$MinimumFabricLoader
-
-foreach ($entry in $loaderEntries) {
-    if (-not $entry.loader -or $entry.loader.stable -ne $true) {
-        continue
-    }
-
-    $parsed = $null
-    if (-not [Version]::TryParse([string]$entry.loader.version, [ref]$parsed)) {
-        continue
-    }
-
-    if ($parsed -lt $minimumLoaderVersion) {
-        continue
-    }
-
-    $loaderVersion = [string]$entry.loader.version
-    break
+$loaderVersion = $FabricLoaderVersion
+$parsedLoaderVersion = $null
+if ([string]::IsNullOrWhiteSpace($loaderVersion) -or
+    -not [Version]::TryParse($loaderVersion, [ref]$parsedLoaderVersion)) {
+    throw "Pinned Fabric Loader version is invalid: $loaderVersion"
 }
 
-if ([string]::IsNullOrWhiteSpace($loaderVersion)) {
-    throw "No stable Fabric Loader $MinimumFabricLoader+ found for Minecraft $MinecraftVersion."
-}
+Write-Host "Using pinned Fabric Loader $loaderVersion for Minecraft $MinecraftVersion..."
 
 Write-Host "Resolving Fabric Loader profile and Maven libraries..."
 $profileUrl = "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion/$loaderVersion/profile/json"
@@ -242,22 +225,17 @@ foreach ($library in @($profile.libraries)) {
     }
 }
 
-Write-Host "Resolving Fabric Installer..."
-$installerEntries = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/installer")
-$installer = $installerEntries | Where-Object { $_.stable -eq $true } | Select-Object -First 1
-if (-not $installer -or [string]::IsNullOrWhiteSpace([string]$installer.url)) {
-    throw "No stable Fabric Installer found."
-}
-
-$installerUri = [Uri][string]$installer.url
+Write-Host "Using pinned Fabric Installer $FabricInstallerVersion..."
+$installerName = "fabric-installer-$FabricInstallerVersion.jar"
+$installerUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/$FabricInstallerVersion/$installerName"
+$installerUri = [Uri]$installerUrl
 if ($installerUri.Scheme -ne "https" -or $installerUri.Host -ne "maven.fabricmc.net") {
-    throw "Unexpected Fabric Installer origin: $($installer.url)"
+    throw "Unexpected Fabric Installer origin: $installerUrl"
 }
-$installerName = [IO.Path]::GetFileName($installerUri.LocalPath)
 $installerPath = Join-Path $filesDir $installerName
-$installerSha256 = ((Invoke-WebRequest -Uri (([string]$installer.url) + ".sha256") -Headers $headers).Content.Trim().Split()[0]).ToLowerInvariant()
+$installerSha256 = ((Invoke-WebRequest -Uri ($installerUrl + ".sha256") -Headers $headers).Content.Trim().Split()[0]).ToLowerInvariant()
 if ($installerSha256 -notmatch "^[0-9a-f]{64}$") { throw "Fabric Installer SHA-256 sidecar is invalid." }
-Invoke-WebRequest -Uri ([string]$installer.url) -Headers $headers -OutFile $installerPath
+Invoke-WebRequest -Uri $installerUrl -Headers $headers -OutFile $installerPath
 $actualInstallerSha = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualInstallerSha -ne $installerSha256) {
     throw "Fabric Installer SHA-256 mismatch. Expected=$installerSha256 Actual=$actualInstallerSha"
@@ -318,7 +296,7 @@ $manifest = [ordered]@{
     FabricProfileRelativePath = "fabric-profile.json"
     FabricLibraries = $fabricLibraries
     FabricInstaller = [ordered]@{
-        Version = [string]$installer.version
+        Version = $FabricInstallerVersion
         FileName = $installerName
         RelativePath = "files/$installerName"
         Sha256 = $actualInstallerSha
@@ -349,7 +327,7 @@ if ($NoUpload) {
     Write-Host "Minecraft runtime bundle validation completed without release upload."
     Write-Host "Bundle: $zip"
     Write-Host "Fabric Loader: $loaderVersion"
-    Write-Host "Fabric Installer: $($installer.version)"
+    Write-Host "Fabric Installer: $FabricInstallerVersion"
     Write-Host "Components: $($components.Count)"
     Write-Host "SHA-256: $bundleSha"
     exit 0
