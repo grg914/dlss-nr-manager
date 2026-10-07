@@ -6,20 +6,9 @@ on:
       - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
       - 'third_party/OptiScaler/**'
       - 'third_party/ReShade/**'
-      - 'third_party/FFmpeg/**'
-      - 'third_party/nv-codec-headers/**'
       - 'tools/build-realesrgan.ps1'
       - 'tools/build-optiscaler.ps1'
       - 'tools/build-reshade.ps1'
-      - 'tools/build-ffmpeg-windows.sh'
-      - '.github/workflows/native-vendor.yml'
-  push:
-    branches:
-      - 'refactor/ffmpeg-self-contained'
-    paths:
-      - 'third_party/FFmpeg/**'
-      - 'third_party/nv-codec-headers/**'
-      - 'tools/build-ffmpeg-windows.sh'
       - '.github/workflows/native-vendor.yml'
   workflow_dispatch:
 
@@ -84,35 +73,5 @@ jobs:
         with:
           name: ReShade-vendored-setup
           path: build-reshade/ReShade-Setup-*-vendored.zip
-          if-no-files-found: error
-          compression-level: 0
-
-  ffmpeg:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-
-      - name: Install MinGW cross-build tools
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            mingw-w64 \
-            nasm \
-            pkg-config \
-            zip
-
-      - name: Build vendored FFmpeg Windows x64
-        shell: bash
-        run: |
-          chmod +x ./tools/build-ffmpeg-windows.sh
-          ./tools/build-ffmpeg-windows.sh
-
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
-          name: FFmpeg-vendored-win-x64
-          path: build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip
           if-no-files-found: error
           compression-level: 0
