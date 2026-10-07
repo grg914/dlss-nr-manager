@@ -1,0 +1,45 @@
+name: Phase 4 NuGet Seed Bootstrap
+
+on:
+  push:
+    branches:
+      - refactor/phase4-zero-upstream-production
+    paths:
+      - '.github/workflows/phase4-nuget-seed-bootstrap.yml'
+      - 'tools/build-nuget-offline-seed.ps1'
+      - 'DlssNrManager.csproj'
+      - 'tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase4-nuget-seed-bootstrap
+  cancel-in-progress: true
+
+env:
+  RUNTIME_SEED_TAG: runtime-seed-v1
+
+jobs:
+  bootstrap:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Generate complete offline NuGet seed
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-nuget-offline-seed.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Complete NuGet seed generation failed." }
+
+      - name: Promote bootstrap seed
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload $env:RUNTIME_SEED_TAG "build-local/nuget-offline.zip" --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to promote Phase 4 NuGet seed." }
