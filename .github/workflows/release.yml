@@ -124,7 +124,7 @@ jobs:
             "temurin-25-jre-win-x64.zip",
             "temurin-25-jre.json"
           )
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\download-runtime-seed.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG" -Assets $assets -Destination "release-assets"
+          & .\tools\download-runtime-seed.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG" -Assets $assets -Destination "release-assets"
           if ($LASTEXITCODE -ne 0) { throw "Manager-owned runtime seed download failed." }
 
           $streamline = Get-ChildItem release-assets -Filter "streamline-runtime-v*-win-x64.zip" -File | Select-Object -First 1
