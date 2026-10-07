@@ -77,7 +77,21 @@ jobs:
             }
           }
 
-          Write-Host "Validated $(@($metadata.packages).Count) manager-owned NuGet packages."
+          foreach ($lock in @($metadata.locks)) {
+            $path = Join-Path $feed ([string]$lock.asset)
+            if (!(Test-Path -LiteralPath $path)) {
+              throw "Offline NuGet lockfile is missing: $($lock.asset)"
+            }
+            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne ([string]$lock.sha256).ToLowerInvariant()) {
+              throw "Offline NuGet lockfile digest mismatch: $($lock.asset)"
+            }
+          }
+
+          Copy-Item (Join-Path $feed "packages.lock.json") "packages.lock.json" -Force
+          Copy-Item (Join-Path $feed "tests-packages.lock.json") "tests/DlssNrManager.Tests/packages.lock.json" -Force
+
+          Write-Host "Validated $(@($metadata.packages).Count) manager-owned NuGet packages and locked dependency graphs."
 
       - name: Validate self-contained tooling
         shell: pwsh
@@ -151,9 +165,9 @@ jobs:
         shell: pwsh
         run: |
           $feed = (Resolve-Path "build-local/nuget-offline").Path
-          dotnet restore DlssNrManager.csproj --source $feed --no-cache
+          dotnet restore DlssNrManager.csproj --source $feed --no-cache --locked-mode
           if ($LASTEXITCODE -ne 0) { throw "Offline manager restore failed." }
-          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --source $feed --no-cache
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --source $feed --no-cache --locked-mode
           if ($LASTEXITCODE -ne 0) { throw "Offline test restore failed." }
 
       - name: Run regression tests
