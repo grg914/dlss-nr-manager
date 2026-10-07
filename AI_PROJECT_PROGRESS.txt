@@ -11,9 +11,9 @@ ETAT GITHUB VERIFIE EXTERNEMENT
 Repository:
 - grg914/dlss-nr-manager
 
-Main verifie avant ce checkpoint documentation:
-- 88e8c6bf6bfa8b5e00493105690b0402147f452e
-- docs: finalize v3.1.1 pipeline checkpoint (#56)
+Main verifie avant la phase Caustica/SPBR:
+- dafc3dee4fa9a676c4aa4dade456a2a882ee8ad1
+- Add files via upload (#59)
 
 Version:
 - version declaree: 3.1.1
@@ -24,7 +24,8 @@ Pull requests:
 - PR #29: MERGED
 - PR #30: MERGED
 - PR #31: CLOSED / NOT MERGED / SUPERSEDED
-- aucune PR ouverte apres le cleanup du 2026-10-07
+- PR #60: CLOSED / NOT MERGED / superseded par la correction du verificateur
+- PR #61: OPEN pendant la validation finale Caustica/SPBR
 
 Pourquoi PR #31 n'a PAS ete fusionnee:
 - main contient deja une implementation plus recente du meme objectif;
@@ -132,6 +133,145 @@ PROCHAINE ACTION EXACTE
 6. Si absents, noter BLOCKED-LOCAL et avancer vers la prochaine phase faisable.
 7. Implementer, tester et committer localement les changements coherents.
 
+CHECKPOINT 0B - AUDIT CAUSTICA / SPBRSCANDI VALIDE EN CI (2026-10-07)
+
+Phase:
+- 7.1 Caustica / ScandiShader / SPBRScandi
+- sous-phase A: provenance + validation structurelle automatisee des assets distribues.
+
+Resultats reels:
+- Build PR #673: PASSED.
+- etape "Audit manager-owned Caustica and Scandi assets": PASSED.
+- audit zero-upstream: PASSED.
+- restore offline, tests .NET, publish win-x64 et verification executable: PASSED dans le meme Build #673.
+- le faux echec Build #670 venait du verificateur qui cherchait des constantes Java dans CausticaConfig.class au lieu des classes imbriquees CausticaConfig$Rt$*.class.
+- le second echec Build #672 venait de l'expansion PowerShell de $Rt dans des chemins de classes Java entre guillemets doubles; corrige avec des chaines litterales.
+
+Preuves de provenance:
+- asset distribue par DLSS NR Manager v3.1.1: Caustica-RTX-Minecraft-26.2-build-46.jar.
+- SHA-256 GitHub: 40cfc86cda627102a4bee304996233b231b172e9f17a5a8dc3dcbd85121b47c7.
+- meme nom, taille et SHA-256 sur la prerelease grg914/Caustica-RTX scandicraft-26.2-build-46.
+- cette prerelease cible 27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a, identique au ref immuable de Caustica-RTX/SOURCE.json.
+- le fork grg914/Caustica-RTX est 6 commits en avance et 0 en retard sur AriesAlex/Caustica-RTX main au point de comparaison; ces commits ajoutent notamment DLSS Neural Rendering, RTX Performance Mode et le port ScandiShader natif.
+- le JAR distribue passe les controles d'identite Caustica RTX, Minecraft 26.2, classes DLSS-RR/DLSS-FG/DLSS-NR, ABI NGX DLSS-NR, Performance Mode et ScandiShader RTX.
+- SPBRScandi.zip passe le controle SHA-256 manager-owned et la validation de structure Minecraft/LabPBR.
+
+Conclusion de sous-phase:
+- Caustica-RTX-Minecraft-26.2-build-46.jar: CONFIRME comme build personnalisee/corrigee du fork, et non simple JAR base renomme, sur preuves de provenance + contenu structurel.
+- SPBRScandi.zip: CONFIRME present, integre au circuit de release et structurellement exploitable comme resource pack LabPBR.
+- validation Minecraft end-to-end en jeu: RESTE A FAIRE sur machine utilisateur.
+- comparaison byte-for-byte avec un binaire base original exact: non necessaire pour etablir la provenance, mais reste possible comme audit complementaire.
+
+Prochaine action exacte:
+1. fusionner la PR d'audit si le check vert reste attache au head valide;
+2. verifier le Build main post-merge;
+3. fermer la sous-phase 7.1-A;
+4. continuer 7.1-B sur le lien/runtime Minecraft reel (resource pack actif, Caustica charge, ScandiShader RTX effectif) avant de passer a 7.2 OptiScaler/DLSS5.
+
+CHECKPOINT 0A - REPRISE GITHUB / AUDIT CAUSTICA + SPBRSCANDI (2026-10-07)
+
+Base main avant cette sous-phase:
+- dafc3dee4fa9a676c4aa4dade456a2a882ee8ad1
+- PR #59 fusionnee; cahier de charges.txt et feuille de route.txt presents sur main.
+
+Phase zero-upstream / runtime seed:
+- reste CLOSE / TERMINEE / VALIDEE.
+- ne pas la rouvrir sans regression reproductible.
+
+Phase terminee:
+- cahier des charges, point 1: audit Caustica build-46 / SPBRScandi.
+- branche finale: audit/caustica-scandi-assets-v2.
+- PR active: #61.
+
+CAUSTICA - PROVENANCE ET COMPARAISON FACTUELLE
+- Caustica-RTX/SOURCE.json epingle grg914/Caustica-RTX au commit 27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a.
+- grg914/Caustica-RTX est un fork de AriesAlex/Caustica-RTX.
+- la release parent AriesAlex v0.1.0-rtx.2 resout exactement vers e3e3ec10d0a1dd383d51f98a0cf974a469fc67f1.
+- comparaison e3e3ec10 -> 27575c2e dans le fork: 6 commits ahead, 0 behind.
+- le delta ajoute/modifie notamment RtDlssNr, NgxLibrary, NgxRuntime, CausticaConfig, RtVideoOptions, RtComposite, RtDisplayPipeline, ngx_shim et les shaders d'affichage/monde.
+- JAR parent officiel v0.1.0-rtx.2: 24,747,827 octets, SHA-256 07d1157513f390d222b7c6082cb74343adabff0a1774b33723c6325cc859c6e4.
+- JAR build-46 actuellement distribue: 24,768,006 octets, SHA-256 40cfc86cda627102a4bee304996233b231b172e9f17a5a8dc3dcbd85121b47c7.
+- le JAR manager v3.1.1 a exactement le meme SHA-256 que l'asset courant de la prerelease grg914/Caustica-RTX scandicraft-26.2-build-46.
+- ce binaire est donc distinct du JAR parent officiel et ne peut pas etre un simple renommage de celui-ci.
+
+CAUSTICA - PREUVE DE BUILD
+- prerelease scandicraft-26.2-build-46 cible le commit 27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a.
+- Caustica CI run #46 a tourne sur ce commit et a termine SUCCESS.
+- jobs passes: Windows NGX shim, Linux NGX shim, bundled mod JAR, publication prerelease Minecraft 26.2.
+- le job de publication a cree la prerelease avec --target GITHUB_SHA.
+- detail historique important: le JAR actuellement attache a build-46 a ete re-uploade par le compte grg914 a 2026-10-06T18:22:56Z.
+- l'artefact JAR original du run #46, recupere et inspecte pendant cet audit, faisait 43,990,797 octets et SHA-256 a86a11e53f8c903501b4b5f66adf8124e78e7e80decb952ebcdb50d6ad6249e7.
+- le JAR de release courant n'est donc pas byte-identique a l'artefact initial du run #46; cette difference est conservee explicitement dans l'audit au lieu d'etre masquee.
+
+VALIDATION DU JAR COURANT
+- ajout tools/verify-caustica-scandi-assets.ps1.
+- build.yml telecharge uniquement les assets manager-owned de la latest stable release, verifie leur digest GitHub SHA-256 puis lance l'audit.
+- release.yml lance le meme audit avant publication.
+- le verifier controle fabric.mod.json, identite Caustica RTX, version RTX, Minecraft 26.2, classes custom et marqueurs compiles.
+- classes custom exigees: CausticaConfig, NgxLibrary, RtLookPackage, RtDlssRr, RtDlssFg, RtDlssNr.
+- marqueurs verifies: DLSS-NR config, DLSS-NR ABI natif, pipeline DLSS-NR, Frame Generation, RTX Performance Mode, ScandiShader RTX.
+- Build #670: FAILED sur un bug du verifier (marqueurs cherches dans la classe externe au lieu des classes Java imbriquees).
+- Build #672: FAILED sur une correction intermediaire PowerShell avec $Rt non echappe dans une chaine double-quotee.
+- correction finale: chemins CausticaConfig$Rt$*.class en chaines single-quotees.
+- Build #673 (run 37643002761): SUCCESS.
+- audit Caustica du Build #673: PASSED, version 0.1.0-rtx.2, Minecraft 26.2.
+
+SPBRSCANDI
+- le manager installe SPBRScandi.zip dans <instance>/resourcepacks/SPBRScandi.zip.
+- Minecraft le charge via son mecanisme normal de resource packs; le JAR Caustica n'a pas a chercher litteralement le nom SPBRScandi.zip.
+- le manager decrit le pack comme hybride SPBR LabPBR + visuels Scandi valides.
+- ScandiShaderV2.zip reste un shaderpack optionnel separe pour usage non-Caustica.
+- Caustica RTX utilise son ScandiShader RTX Look natif, pas Iris/OptiFine pour ce chemin.
+- Build #673: audit SPBRScandi PASSED.
+- 10,905 textures PNG.
+- 2,395 cartes LabPBR normales *_n.png.
+- 3,720 cartes LabPBR speculaires *_s.png.
+- pack.mcmeta racine valide et chemins d'archive controles.
+- SHA-256 SPBRScandi conserve/pinne: 1bb19e99208e8826eabf7775fa06353e78a6ea449d43f12cd9d26eacf5bd9177.
+
+CONCLUSION DU POINT 1 DU CAHIER DES CHARGES
+- Caustica-RTX-Minecraft-26.2-build-46.jar: VALIDE - version personnalisee/corrigee du fork, distincte du binaire parent officiel, avec les fonctions custom attendues confirmees dans le binaire distribue.
+- SPBRScandi.zip: VALIDE - transfert coherent, structure Minecraft/LabPBR exploitable et mecanisme d'installation/chargement identifie.
+- aucune preuve que Minecraft utiliserait un autre Caustica dans le flux manager-owned audite; la selection/install reste protegee par les controles existants du manager.
+- la validation end-to-end en jeu sur une instance utilisateur reelle reste un test runtime distinct; elle n'est pas necessaire pour conclure la provenance/structure des deux assets.
+
+Fichiers de cette sous-phase:
+- tools/verify-caustica-scandi-assets.ps1
+- .github/workflows/build.yml
+- .github/workflows/release.yml
+- docs/CAUSTICA_BUILD46_SPBR_AUDIT.md
+- AI_PROJECT_PROGRESS.txt
+
+Prochaine action exacte:
+1. attendre le Build final declenche par la documentation de ce checkpoint;
+2. si vert, fusionner PR #61 dans main;
+3. verifier le Build push de main;
+4. passer au point 2 du cahier des charges: audit OptiScaler pour Minecraft RTX / DLSS 5;
+5. pour ce point 2, respecter la consigne utilisateur: analyser et proposer les solutions A/B/C d'abord, NE MODIFIER AUCUN fichier OptiScaler/DLL/config avant validation explicite de l'utilisateur.
+
+CHECKPOINT 0C - ROBUSTESSE CHECKOUT CI PR (2026-10-07)
+
+Constat:
+- Build #676 sur le head a783e4cfc040da0371086058448a8b5c161dcc98 a echoue avant les tests.
+- cause factuelle: le workflow a recu GITHUB_SHA 90f533e5cf6db70b2a0729701bfcdecc0092dafb, puis refs/pull/61/merge a ete regenere vers 26194aaf50f9fa33382e5554e495ff8677bfbe1b avant le git fetch.
+- le controle de checkout comparait donc une merge-ref mutable a un SHA d'evenement devenu obsolete.
+- ce n'est pas une regression Caustica/SPBR ni une regression applicative.
+
+Correction:
+- build.yml utilise maintenant github.event.pull_request.head.sha comme revision immuable pour les pull requests.
+- les push/workflow_dispatch continuent d'utiliser GITHUB_SHA.
+- le checkout verifie le SHA effectivement demande apres fetch.
+
+Validation:
+- PENDING sur le Build declenche par le dernier checkpoint.
+- ne pas fusionner PR #61 tant que le check build du head courant n'est pas PASSED.
+
+Prochaine action exacte:
+1. attendre le Build du head courant;
+2. si PASSED, fusionner PR #61;
+3. verifier le Build push main;
+4. cloturer 7.1-A et passer a l'analyse 7.2 OptiScaler/DLSS5 sans modifier OptiScaler avant validation utilisateur.
+
 ---
 
 AI PROJECT PROGRESS
@@ -143,8 +283,8 @@ DLSS NR Manager
 
 Version actuelle :
 - Version déclarée dans DlssNrManager.csproj : 3.1.1
-- Dernière release stable GitHub vérifiée : v3.0.0
-- IMPORTANT : 3.1.1 est la version du code courant ; sa publication stable reste à confirmer par le workflow Release.
+- Dernière release stable GitHub vérifiée : v3.1.1
+- IMPORTANT : v3.1.1 est publiée comme dernière release stable GitHub vérifiée.
 
 Version cible :
 4.0 (objectif du cahier des charges ; PRÉVU, pas encore atteint)

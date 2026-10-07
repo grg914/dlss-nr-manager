@@ -22,13 +22,23 @@ jobs:
           $env:GIT_LFS_SKIP_SMUDGE = "1"
           git init .
           git remote add origin "https://github.com/${{ github.repository }}.git"
-          git fetch --no-tags --prune --depth=1 origin "$env:GITHUB_REF"
-          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch ${{ github.repository }} at $env:GITHUB_REF." }
+
+          # Pull-request merge refs can be regenerated while a queued job starts.
+          # Fetch the immutable PR head SHA for PR validation; use GITHUB_SHA for
+          # push/manual runs where the event revision itself is stable.
+          $expected = "$env:GITHUB_SHA"
+          $pullRequestHead = "${{ github.event.pull_request.head.sha }}"
+          if (-not [string]::IsNullOrWhiteSpace($pullRequestHead)) {
+            $expected = $pullRequestHead
+          }
+
+          git fetch --no-tags --prune --depth=1 origin "$expected"
+          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch ${{ github.repository }} at commit $expected." }
           git checkout --detach FETCH_HEAD
           if ($LASTEXITCODE -ne 0) { throw "Unable to checkout workflow revision." }
           $actual = (git rev-parse HEAD).Trim()
-          if ($actual -ne "$env:GITHUB_SHA") {
-            throw "Checkout mismatch. Expected $env:GITHUB_SHA, got $actual."
+          if ($actual -ne $expected) {
+            throw "Checkout mismatch. Expected $expected, got $actual."
           }
 
       - name: Require preinstalled .NET 8 toolchain
@@ -58,6 +68,7 @@ jobs:
             "tools/refresh-upstream.ps1",
             "tools/refresh-minecraft-runtime-lock.ps1",
             "tools/generate-components-manifest.ps1",
+            "tools/verify-caustica-scandi-assets.ps1",
             "tools/download-runtime-seed.ps1",
             "tools/prepare-offline-dotnet.ps1",
             "tools/build-nuget-offline-seed.ps1"
@@ -99,6 +110,51 @@ jobs:
               throw "Upstream policy '$($policy.id)' has no dependency lock entry."
             }
           }
+
+      - name: Audit manager-owned Caustica and Scandi assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "DlssNrManager-Build"
+          }
+
+          $release = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases/latest"
+          $assets = @($release.assets)
+          $caustica = $assets |
+            Where-Object {
+              $_.name -match "(?i)^Caustica-RTX-Minecraft-26\.2-build-.*\.jar$" -and
+              $_.name -notmatch "(?i)(sources|dev|javadoc)"
+            } |
+            Select-Object -First 1
+          $spbr = $assets | Where-Object { $_.name -eq "SPBRScandi.zip" } | Select-Object -First 1
+
+          if (-not $caustica) { throw "Latest stable manager release has no Caustica RTX Minecraft 26.2 JAR." }
+          if (-not $spbr) { throw "Latest stable manager release has no SPBRScandi.zip." }
+
+          New-Item -ItemType Directory -Path "asset-audit" -Force | Out-Null
+
+          foreach ($asset in @($caustica, $spbr)) {
+            if (-not ([string]$asset.digest).StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+              throw "Manager-owned asset '$($asset.name)' has no SHA-256 digest."
+            }
+
+            $destination = Join-Path "asset-audit" ([string]$asset.name)
+            Invoke-WebRequest -Headers $headers -Uri ([string]$asset.browser_download_url) -OutFile $destination
+
+            $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
+            $actual = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) {
+              throw "Manager-owned asset '$($asset.name)' failed SHA-256 verification."
+            }
+          }
+
+          $causticaPath = Join-Path "asset-audit" ([string]$caustica.name)
+          $spbrPath = Join-Path "asset-audit" "SPBRScandi.zip"
+          & .\tools\verify-caustica-scandi-assets.ps1 -CausticaJar $causticaPath -SpbrZip $spbrPath
 
       - name: Enforce zero-upstream production audit
         shell: pwsh
