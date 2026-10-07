@@ -1,5 +1,16 @@
 # Third-party source layout
 
+Repository-wide dependency/licensing rules are defined in:
+
+- `../SECURITY.md`
+- `../THIRD_PARTY_NOTICES.md`
+- `../docs/COMPONENT_LIFECYCLE_POLICY.md`
+- `../docs/NETWORK_OFFLINE_PRIVACY_POLICY.md`
+- `../docs/RELEASE_SIGNING_PROVENANCE_POLICY.md`
+
+The lock files in this directory are implementation data for those policies; they do not override upstream licenses.
+
+
 This directory is the source mirror used to make DLSS NR Manager independent from live upstream repositories during normal development and release preparation.
 
 Intended layout:
