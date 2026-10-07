@@ -68,7 +68,7 @@ Prochaine phase :
 Terminer et valider le pipeline upstream/runtime/release, puis reprendre l'ordre du cahier des charges/feuille de route.
 
 Problèmes bloquants actuels :
-- UPSTREAM-001 : Upstream Dependency Sync #7 échoue encore dans "Refresh Minecraft runtime lock" avec HTTP 400 sur l’endpoint Fabric game+loader ; le bootstrap production reste lock-driven et fonctionne.
+- UPSTREAM-001 : Upstream Dependency Sync #8 échoue encore dans "Refresh Minecraft runtime lock", mais le HTTP 400 est éliminé. La cause actuelle est l’énumération PowerShell de la réponse JSON Fabric Loader, qui agrège plusieurs coordinates Maven en une seule valeur.
 - RELEASE-001 : la dernière release stable reste v3.0.0 alors que le code courant est 3.1.0.
 - VALIDATION-001 : RÉSOLU — Runtime Seed Refresh #7 est entièrement PASSED et a déclenché Release #21.
 
@@ -627,17 +627,17 @@ HIGH pour l'automatisation des mises à jour ; n'empêche pas le Build offline n
 Module :
 upstream-monitor / Minecraft runtime lock.
 Statut :
-NOUVELLE CORRECTION IMPLÉMENTÉE, À VALIDER.
+CORRECTION POWERSELL CIBLÉE IMPLÉMENTÉE, À VALIDER.
 État réel :
-- Build #629 : PASSED sur main 7541e6b.
-- PR #41 / Build #630 : PASSED ; fusion commit 1913fd6.
-- Upstream Dependency Sync #7 : FAILED dans Refresh Minecraft runtime lock.
-- L’endpoint Fabric game+loader retourne lui aussi HTTP 400 dans ce contexte.
-- Le problème n’est plus le profil déterministe ni le bootstrap : `verify-self-contained.ps1` confirme "Deterministic Minecraft/Fabric runtime profile: OK".
+- Build #633 : PASSED complet sur main 31372738.
+- Upstream Dependency Sync #8 : FAILED dans Refresh Minecraft runtime lock.
+- Le HTTP 400 n’est plus la cause.
+- Erreur exacte : `Unsupported Fabric Loader Maven coordinate` avec toutes les versions Fabric Loader concaténées (`0.19.5`, `0.19.4`, `0.19.3`, etc.).
+- Cause : sous Windows PowerShell 5.1, la réponse JSON top-level peut être remontée comme une collection unique ; le member-access agrège alors les propriétés de tous les éléments.
 Correction en cours :
-Conserver `/v2/versions/loader/{game}` comme source de compatibilité, puis charger `libraries` et `mainClass` depuis le JSON officiel de l’artefact Fabric Loader sur `maven.fabricmc.net`, construit depuis le coordinate Maven renvoyé par Fabric.
+Énumérer explicitement chaque entrée de la réponse `/v2/versions/loader/26.2` avant le filtre stable et conserver le JSON Maven officiel pour `libraries`/`mainClass`.
 Test requis :
-Build PR puis nouvel Upstream Dependency Sync jusqu’à prepare + validate + promote.
+Build PR puis nouvel Upstream Dependency Sync jusqu’à prepare + validate-windows + validate-linux + promote.
 
 ID :
 RELEASE-001
@@ -897,10 +897,10 @@ Ces demandes NE SONT PAS considérées comme terminées sans preuve dépôt + te
 19. PROCHAINE ACTION
 
 Action immédiate :
-1. Faire passer le Build de la PR contenant les deux correctifs ciblés : Fabric Loader Maven JSON + suppression du faux contrôle $LASTEXITCODE.
+1. Faire passer le Build de la correction d’énumération Fabric Loader.
 2. Fusionner uniquement si le Build est PASSED.
 3. Vérifier le nouvel Upstream Dependency Sync jusqu’à prepare + validate-windows + validate-linux + promote.
-4. Vérifier la nouvelle Release production au-delà de "Download validated manager-owned runtime seed".
+4. Vérifier la nouvelle Release production au-delà de "Download validated manager-owned runtime seed" avec le correctif `$LASTEXITCODE` déjà fusionné.
 5. Vérifier la release stable finale : version/tag, EXE/ZIP, components-manifest.json, SHA256SUMS et runtimes manager-owned.
 6. Vérifier l’état final de main et des workflows.
 7. Mettre à jour ce fichier avec les résultats réels.
