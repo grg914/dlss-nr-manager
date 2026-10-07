@@ -177,7 +177,18 @@ $patterns = @(
     "api.modrinth.com",
     "cdn.modrinth.com",
     "meta.fabricmc.net",
-    "maven.fabricmc.net"
+    "maven.fabricmc.net",
+    "api.nuget.org",
+    "softprops/action-gh-release"
+)
+
+$refreshWorkflowAllowlist = @(
+    "upstream-monitor.yml",
+    "runtime-refresh.yml",
+    "nuget-seed.yml",
+    "minecraft-vendor.yml",
+    "media-vendor.yml",
+    "native-vendor.yml"
 )
 
 $scanFiles = @()
@@ -185,7 +196,13 @@ foreach ($scanRoot in @("Services", ".github/workflows")) {
     $base = Join-Path $Root $scanRoot
     if (Test-Path -LiteralPath $base) {
         $scanFiles += Get-ChildItem -LiteralPath $base -Recurse -File |
-            Where-Object { $_.Extension -in ".cs", ".yml", ".yaml", ".ps1" }
+            Where-Object {
+                $_.Extension -in ".cs", ".yml", ".yaml", ".ps1" -and
+                -not (
+                    $scanRoot -eq ".github/workflows" -and
+                    $refreshWorkflowAllowlist -contains $_.Name
+                )
+            }
     }
 }
 
