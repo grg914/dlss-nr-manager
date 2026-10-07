@@ -11,9 +11,9 @@ ETAT GITHUB VERIFIE EXTERNEMENT
 Repository:
 - grg914/dlss-nr-manager
 
-Main verifie avant ce checkpoint documentation:
-- 88e8c6bf6bfa8b5e00493105690b0402147f452e
-- docs: finalize v3.1.1 pipeline checkpoint (#56)
+Main verifie avant la phase Caustica/SPBR:
+- dafc3dee4fa9a676c4aa4dade456a2a882ee8ad1
+- Add files via upload (#59)
 
 Version:
 - version declaree: 3.1.1
@@ -24,7 +24,8 @@ Pull requests:
 - PR #29: MERGED
 - PR #30: MERGED
 - PR #31: CLOSED / NOT MERGED / SUPERSEDED
-- aucune PR ouverte apres le cleanup du 2026-10-07
+- PR #60: CLOSED / NOT MERGED / superseded par la correction du verificateur
+- PR #61: OPEN pendant la validation finale Caustica/SPBR
 
 Pourquoi PR #31 n'a PAS ete fusionnee:
 - main contient deja une implementation plus recente du meme objectif;
