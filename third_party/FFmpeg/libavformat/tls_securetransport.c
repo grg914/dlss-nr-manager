@@ -29,7 +29,6 @@
 #include "url.h"
 #include "tls.h"
 #include "libavcodec/internal.h"
-#include "libavutil/attributes.h"
 #include "libavutil/avstring.h"
 #include "libavutil/mem.h"
 #include "libavutil/opt.h"
@@ -356,7 +355,6 @@ static int map_ssl_error(OSStatus status, size_t processed)
     case errSSLWouldBlock:
         if (processed > 0)
             return processed;
-        av_fallthrough;
     default:
         return (int)status;
     }

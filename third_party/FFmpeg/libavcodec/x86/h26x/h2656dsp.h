@@ -24,8 +24,10 @@
 #ifndef AVCODEC_X86_H26X_H2656DSP_H
 #define AVCODEC_X86_H26X_H2656DSP_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include "config.h"
+#include "libavutil/x86/asm.h"
+#include "libavutil/x86/cpu.h"
+#include <stdlib.h>
 
 #define H2656_PEL_PROTOTYPE(name, D, opt) \
 void ff_h2656_put_ ## name ## _ ## D ## _##opt(int16_t *dst, ptrdiff_t dststride, const uint8_t *_src, ptrdiff_t _srcstride, int height, const int8_t *hf, const int8_t *vf, int width);          \

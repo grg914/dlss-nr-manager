@@ -176,21 +176,18 @@ PRED4x4_HD
 ; void ff_pred4x4_dc_10(pixel *src, const pixel *topright, ptrdiff_t stride)
 ;-----------------------------------------------------------------------------
 
-INIT_XMM sse2
-cglobal pred4x4_dc_10, 3, 4, 3
+INIT_MMX mmxext
+cglobal pred4x4_dc_10, 3, 3
     sub    r0, r2
     lea    r1, [r0+r2*2]
-    movzx r3d, word [r0+r2*1-2]
-    add   r3w, [r0+r2*2-2]
-    add   r3w, [r1+r2*1-2]
-    add   r3w, [r1+r2*2-2]
-    add   r3w, 4
-    movd   m2, r3d
+    movq   m2, [r0+r2*1-8]
+    paddw  m2, [r0+r2*2-8]
+    paddw  m2, [r1+r2*1-8]
+    paddw  m2, [r1+r2*2-8]
+    psrlq  m2, 48
     movq   m0, [r0]
-    pshuflw m1, m0, q1032
-    paddw  m0, m1
-    pshuflw m1, m0, q3201
-    paddw  m0, m1
+    HADDW  m0, m1
+    paddw  m0, [pw_4]
     paddw  m0, m2
     psrlw  m0, 3
     SPLATW m0, m0, 0
@@ -265,28 +262,27 @@ PRED4x4_VL
 ; void ff_pred4x4_horizontal_up_10(pixel *src, const pixel *topright,
 ;                                  ptrdiff_t stride)
 ;-----------------------------------------------------------------------------
-INIT_XMM sse2
-cglobal pred4x4_horizontal_up_10, 3, 3, 5
+INIT_MMX mmxext
+cglobal pred4x4_horizontal_up_10, 3, 3
     sub       r0, r2
     lea       r1, [r0+r2*2]
-    movd      m0, [r0+r2*1-4]
-    movd      m3, [r0+r2*2-4]
-    punpcklwd m0, m3
-    movd      m1, [r1+r2*1-4]
-    movd      m3, [r1+r2*2-4]
-    punpcklwd m1, m3
-    punpckldq m0, m1
-    punpckhqdq m0, m0
-    pshuflw   m1, m1, q3333
+    movq      m0, [r0+r2*1-8]
+    punpckhwd m0, [r0+r2*2-8]
+    movq      m1, [r1+r2*1-8]
+    punpckhwd m1, [r1+r2*2-8]
+    punpckhdq m0, m1
+    pshufw    m1, m1, 0xFF
     movq      [r1+r2*2], m1
     movd      [r1+r2*1+4], m1
-    pshuflw   m1, m0, q3321
-    pavgw     m2, m1, m0
+    pshufw    m2, m0, 11111001b
+    movq      m1, m2
+    pavgw     m2, m0
 
-    pshuflw   m4, m0, q3332
-    PRED4x4_LOWPASS m1, m0, m4, m1
-    punpcklwd m3, m2, m1
-    movq      [r0+r2*1], m3
+    pshufw    m5, m0, 11111110b
+    PRED4x4_LOWPASS m1, m0, m5, m1
+    movq      m6, m2
+    punpcklwd m6, m1
+    movq      [r0+r2*1], m6
     psrlq     m2, 16
     psrlq     m1, 16
     punpcklwd m2, m1

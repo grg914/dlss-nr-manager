@@ -83,16 +83,8 @@ static void ac3_bit_alloc_calc_bap_c(int16_t *mask, int16_t *psd,
         return;
     }
 
-    /* the first 28 bands have one coefficient each */
-    for (bin = start; bin < FFMIN(end, 28); bin++) {
-        int m = (FFMAX(mask[bin] - snr_offset - floor, 0) & 0x1FE0) + floor;
-        int address = av_clip_uintp2((psd[bin] - m) >> 5, 6);
-        bap[bin] = bap_tab[address];
-    }
-    if (bin >= end)
-        return;
-
-    band = ff_ac3_bin_to_band_tab[bin];
+    bin  = start;
+    band = ff_ac3_bin_to_band_tab[start];
     do {
         int m = (FFMAX(mask[band] - snr_offset - floor, 0) & 0x1FE0) + floor;
         band_end = ff_ac3_band_start_tab[++band];
@@ -105,7 +97,7 @@ static void ac3_bit_alloc_calc_bap_c(int16_t *mask, int16_t *psd,
     } while (end > band_end);
 }
 
-static void ac3_update_bap_counts_c(uint16_t mant_cnt[16], const uint8_t bap[],
+static void ac3_update_bap_counts_c(uint16_t mant_cnt[16], uint8_t *bap,
                                     int len)
 {
     while (len-- > 0)
@@ -116,7 +108,7 @@ DECLARE_ALIGNED(16, const uint16_t, ff_ac3_bap_bits)[16] = {
     0,  0,  0,  3,  0,  4,  5,  6,  7,  8,  9, 10, 11, 12, 14, 16
 };
 
-static int ac3_compute_mantissa_size_c(const uint16_t mant_cnt[6][16])
+static int ac3_compute_mantissa_size_c(uint16_t mant_cnt[6][16])
 {
     int blk, bap;
     int bits = 0;
@@ -136,7 +128,7 @@ static int ac3_compute_mantissa_size_c(const uint16_t mant_cnt[6][16])
     return bits;
 }
 
-static void ac3_extract_exponents_c(uint8_t *exp, const int32_t *coef, int nb_coefs)
+static void ac3_extract_exponents_c(uint8_t *exp, int32_t *coef, int nb_coefs)
 {
     int i;
 

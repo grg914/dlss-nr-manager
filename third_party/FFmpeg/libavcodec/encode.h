@@ -21,7 +21,6 @@
 #ifndef AVCODEC_ENCODE_H
 #define AVCODEC_ENCODE_H
 
-#include "libavutil/dict.h"
 #include "libavutil/frame.h"
 
 #include "avcodec.h"
@@ -79,8 +78,6 @@ int ff_encode_reordered_opaque(AVCodecContext *avctx,
 
 int ff_encode_encode_cb(AVCodecContext *avctx, AVPacket *avpkt,
                         AVFrame *frame, int *got_packet);
-
-int ff_encode_reconf_parse_dict(AVCodecContext *avctx, AVDictionary **dict);
 
 /**
  * Add a CPB properties side data to an encoding context.

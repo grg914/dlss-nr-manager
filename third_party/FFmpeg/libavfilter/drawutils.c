@@ -375,28 +375,11 @@ static void blend_line16(uint8_t *dst, unsigned src, unsigned alpha,
     }
 }
 
-/* the colour as blended: its transparency is already in the coverage, so it covers the alpha plane fully */
-static FFDrawColor blended_color(FFDrawContext *draw, const FFDrawColor *color)
-{
-    const AVPixFmtDescriptor *desc = draw->desc;
-    const AVComponentDescriptor *alpha = &desc->comp[desc->nb_components - 1];
-    FFDrawColor over = *color;
-
-    if (desc->flags & AV_PIX_FMT_FLAG_ALPHA && draw->flags & FF_DRAW_PROCESS_ALPHA) {
-        if (alpha->depth <= 8)
-            over.comp[alpha->plane].u8[alpha->offset] = 0xFF;
-        else
-            over.comp[alpha->plane].u16[alpha->offset / 2] = (1 << alpha->depth) - 1;
-    }
-    return over;
-}
-
 void ff_blend_rectangle(FFDrawContext *draw, FFDrawColor *color,
                         uint8_t *dst[], int dst_linesize[],
                         int dst_w, int dst_h,
                         int x0, int y0, int w, int h)
 {
-    FFDrawColor over = blended_color(draw, color);
     unsigned alpha, nb_planes, nb_comp;
     int w_sub, h_sub, x_sub, y_sub, left, right, top, bottom;
     uint8_t *p0, *p;
@@ -436,11 +419,11 @@ void ff_blend_rectangle(FFDrawContext *draw, FFDrawColor *color,
             p = p0 + offset;
             if (top) {
                 if (depth <= 8) {
-                    blend_line(p, over.comp[plane].u8[index], alpha >> 1,
+                    blend_line(p, color->comp[plane].u8[index], alpha >> 1,
                                draw->pixelstep[plane], w_sub,
                                draw->hsub[plane], left, right);
                 } else {
-                    blend_line16(p, over.comp[plane].u16[index], alpha >> 1,
+                    blend_line16(p, color->comp[plane].u16[index], alpha >> 1,
                                  draw->pixelstep[plane], w_sub,
                                  draw->hsub[plane], left, right);
                 }
@@ -448,14 +431,14 @@ void ff_blend_rectangle(FFDrawContext *draw, FFDrawColor *color,
             }
             if (depth <= 8) {
                 for (int y = 0; y < h_sub; y++) {
-                    blend_line(p, over.comp[plane].u8[index], alpha,
+                    blend_line(p, color->comp[plane].u8[index], alpha,
                                draw->pixelstep[plane], w_sub,
                                draw->hsub[plane], left, right);
                     p += dst_linesize[plane];
                 }
             } else {
                 for (int y = 0; y < h_sub; y++) {
-                    blend_line16(p, over.comp[plane].u16[index], alpha,
+                    blend_line16(p, color->comp[plane].u16[index], alpha,
                                  draw->pixelstep[plane], w_sub,
                                  draw->hsub[plane], left, right);
                     p += dst_linesize[plane];
@@ -463,11 +446,11 @@ void ff_blend_rectangle(FFDrawContext *draw, FFDrawColor *color,
             }
             if (bottom) {
                 if (depth <= 8) {
-                    blend_line(p, over.comp[plane].u8[index], alpha >> 1,
+                    blend_line(p, color->comp[plane].u8[index], alpha >> 1,
                                draw->pixelstep[plane], w_sub,
                                draw->hsub[plane], left, right);
                 } else {
-                    blend_line16(p, over.comp[plane].u16[index], alpha >> 1,
+                    blend_line16(p, color->comp[plane].u16[index], alpha >> 1,
                                  draw->pixelstep[plane], w_sub,
                                  draw->hsub[plane], left, right);
                 }
@@ -576,7 +559,6 @@ void ff_blend_mask(FFDrawContext *draw, FFDrawColor *color,
                    const uint8_t *mask,  int mask_linesize, int mask_w, int mask_h,
                    int l2depth, unsigned endianness, int x0, int y0)
 {
-    FFDrawColor over = blended_color(draw, color);
     unsigned alpha, nb_planes, nb_comp;
     int xm0, ym0, w_sub, h_sub, x_sub, y_sub, left, right, top, bottom;
     uint8_t *p;
@@ -619,13 +601,13 @@ void ff_blend_mask(FFDrawContext *draw, FFDrawColor *color,
             if (top) {
                 if (depth <= 8) {
                     blend_line_hv(p, draw->pixelstep[plane],
-                                  over.comp[plane].u8[index], alpha,
+                                  color->comp[plane].u8[index], alpha,
                                   m, mask_linesize, l2depth, w_sub,
                                   draw->hsub[plane], draw->vsub[plane],
                                   xm0, left, right, top);
                 } else {
                     blend_line_hv16(p, draw->pixelstep[plane],
-                                    over.comp[plane].u16[index], alpha,
+                                    color->comp[plane].u16[index], alpha,
                                     m, mask_linesize, l2depth, w_sub,
                                     draw->hsub[plane], draw->vsub[plane],
                                     xm0, left, right, top);
@@ -636,7 +618,7 @@ void ff_blend_mask(FFDrawContext *draw, FFDrawColor *color,
             if (depth <= 8) {
                 for (int y = 0; y < h_sub; y++) {
                     blend_line_hv(p, draw->pixelstep[plane],
-                                  over.comp[plane].u8[index], alpha,
+                                  color->comp[plane].u8[index], alpha,
                                   m, mask_linesize, l2depth, w_sub,
                                   draw->hsub[plane], draw->vsub[plane],
                                   xm0, left, right, 1 << draw->vsub[plane]);
@@ -646,7 +628,7 @@ void ff_blend_mask(FFDrawContext *draw, FFDrawColor *color,
             } else {
                 for (int y = 0; y < h_sub; y++) {
                     blend_line_hv16(p, draw->pixelstep[plane],
-                                    over.comp[plane].u16[index], alpha,
+                                    color->comp[plane].u16[index], alpha,
                                     m, mask_linesize, l2depth, w_sub,
                                     draw->hsub[plane], draw->vsub[plane],
                                     xm0, left, right, 1 << draw->vsub[plane]);
@@ -657,13 +639,13 @@ void ff_blend_mask(FFDrawContext *draw, FFDrawColor *color,
             if (bottom) {
                 if (depth <= 8) {
                     blend_line_hv(p, draw->pixelstep[plane],
-                                  over.comp[plane].u8[index], alpha,
+                                  color->comp[plane].u8[index], alpha,
                                   m, mask_linesize, l2depth, w_sub,
                                   draw->hsub[plane], draw->vsub[plane],
                                   xm0, left, right, bottom);
                 } else {
                     blend_line_hv16(p, draw->pixelstep[plane],
-                                    over.comp[plane].u16[index], alpha,
+                                    color->comp[plane].u16[index], alpha,
                                     m, mask_linesize, l2depth, w_sub,
                                     draw->hsub[plane], draw->vsub[plane],
                                     xm0, left, right, bottom);

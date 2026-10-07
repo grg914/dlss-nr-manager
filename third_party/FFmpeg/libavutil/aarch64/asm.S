@@ -65,14 +65,10 @@
 #endif
 
 #if HAVE_AS_ARCHEXT_AES_DIRECTIVE
-#define ENABLE_ARM_AES  .arch_extension aes
-#define ENABLE_PMULL    .arch_extension aes
-#define DISABLE_ARM_AES .arch_extension noaes
-#define DISABLE_PMULL   .arch_extension noaes
+#define ENABLE_PMULL  .arch_extension aes
+#define DISABLE_PMULL .arch_extension noaes
 #else
-#define ENABLE_ARM_AES
 #define ENABLE_PMULL
-#define DISABLE_ARM_AES
 #define DISABLE_PMULL
 #endif
 
@@ -125,7 +121,6 @@
 #endif
 
 DISABLE_ARM_CRC
-DISABLE_ARM_AES
 DISABLE_PMULL
 DISABLE_EOR3
 DISABLE_DOTPROD

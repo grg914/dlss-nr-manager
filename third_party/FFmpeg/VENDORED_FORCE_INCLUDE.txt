@@ -1,0 +1,4 @@
+﻿# Files tracked in the monorepo with git add -f because vendored .gitignore rules would otherwise hide them.
+# Their presence is verified by tools/verify-self-contained.ps1.
+tests/ref/fate/h264-conformance-canl1_toshiba_g
+tests/ref/fate/h264-conformance-cvmaqp2_sony_g

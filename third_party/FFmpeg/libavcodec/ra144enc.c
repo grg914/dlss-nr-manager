@@ -527,9 +527,8 @@ static int ra144_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
            (NBLOCKS * BLOCKSIZE - i) * sizeof(*ractx->curr_block));
 
     /* Get the next frame pts/duration */
-    ret = ff_af_queue_remove(&ractx->afq, avctx->frame_size, avpkt);
-    if (ret < 0)
-        return ret;
+    ff_af_queue_remove(&ractx->afq, avctx->frame_size, &avpkt->pts,
+                       &avpkt->duration);
 
     *got_packet_ptr = 1;
     return 0;

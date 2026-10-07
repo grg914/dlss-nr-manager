@@ -29,7 +29,6 @@
 #include "libavutil/avstring.h"
 #include "libavutil/parseutils.h"
 #include "avformat.h"
-#include "avio_internal.h"
 #include "demux.h"
 #include "internal.h"
 
@@ -147,8 +146,7 @@ static int vivo_read_header(AVFormatContext *s)
             break;
 
         if (vivo->length <= 1024) {
-            if ((ret = ffio_read_size(s->pb, vivo->text, vivo->length)) < 0)
-                return ret;
+            avio_read(s->pb, vivo->text, vivo->length);
             vivo->text[vivo->length] = 0;
         } else {
             av_log(s, AV_LOG_WARNING, "too big header, skipping\n");

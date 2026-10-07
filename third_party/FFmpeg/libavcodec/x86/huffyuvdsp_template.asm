@@ -26,9 +26,7 @@
     add     wd, wd
     test    wq, 2*mmsize - 1
     jz %%.tomainloop
-%if ARCH_X86_32
     push  tmpq
-%endif
 %%.wordloop:
     sub     wq, 2
 %ifidn %2, add
@@ -42,9 +40,7 @@
     mov     [dstq+wq], tmpw
     test    wq, 2*mmsize - 1
     jnz %%.wordloop
-%if ARCH_X86_32
     pop   tmpq
-%endif
 %%.tomainloop:
 %ifidn %2, add
     add     srcq, wq

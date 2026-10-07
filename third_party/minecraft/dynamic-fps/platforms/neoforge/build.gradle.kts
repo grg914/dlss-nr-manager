@@ -65,8 +65,8 @@ publishMods {
 			end = project.property("minecraft_version_max").toString()
 		}
 
-		client = true
-		server = false
+		clientRequired = true
+		serverRequired = false
 
 		optional("cloth-config")
 	}

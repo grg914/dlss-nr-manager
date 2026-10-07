@@ -128,11 +128,6 @@ typedef struct AVBufferSrcParameters {
      * Video only, the alpha mode.
      */
     enum AVAlphaMode alpha_mode;
-
-    /**
-     * Video only, the chroma sample location.
-     */
-    enum AVChromaLocation chroma_location;
 } AVBufferSrcParameters;
 
 /**

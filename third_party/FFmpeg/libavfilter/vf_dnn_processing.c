@@ -23,13 +23,11 @@
  * implementing a generic image processing filter using deep learning networks.
  */
 
-#include "config.h"
 #include "libavutil/opt.h"
 #include "libavutil/pixdesc.h"
 #include "libavutil/avassert.h"
 #include "libavutil/imgutils.h"
 #include "filters.h"
-#include "formats.h"
 #include "dnn_filter_common.h"
 #include "video.h"
 #include "libswscale/swscale.h"
@@ -75,9 +73,6 @@ static const enum AVPixelFormat pix_fmts[] = {
     AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P,
     AV_PIX_FMT_YUV444P, AV_PIX_FMT_YUV410P, AV_PIX_FMT_YUV411P,
     AV_PIX_FMT_NV12,
-#if CONFIG_CUDA
-    AV_PIX_FMT_CUDA,
-#endif
     AV_PIX_FMT_NONE
 };
 
@@ -137,13 +132,6 @@ static int check_modelinput_inlink(const DNNData *model_input, const AVFilterLin
             return AVERROR(EIO);
         }
         return 0;
-#if CONFIG_CUDA
-    case AV_PIX_FMT_CUDA:
-    {
-        DnnProcessingContext *dnn_ctx = ctx->priv;
-        return ff_dnn_zero_copy_supported_cuda(&dnn_ctx->dnnctx, inlink);
-    }
-#endif
     default:
         avpriv_report_missing_feature(ctx, "%s", av_get_pix_fmt_name(fmt));
         return AVERROR(EIO);
@@ -157,7 +145,7 @@ static int config_input(AVFilterLink *inlink)
     AVFilterContext *context     = inlink->dst;
     DnnProcessingContext *ctx = context->priv;
     int result;
-    DNNData model_input = { 0 };
+    DNNData model_input;
     int check;
 
     result = ff_dnn_get_input(&ctx->dnnctx, &model_input);

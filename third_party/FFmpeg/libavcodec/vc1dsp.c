@@ -166,11 +166,17 @@ static av_always_inline int vc1_filter_line(uint8_t *src, ptrdiff_t stride, int 
             clip = ((clip ^ clip_sign) - clip_sign) >> 1;
             if (clip) {
                 int a3     = FFMIN(a1, a2);
-                int d      = (5 * (a0 - a3)) >> 3;
+                int d      = 5 * (a3 - a0);
+                int d_sign = (d >> 31);
 
-                if (a0_sign ^ clip_sign) {
+                d       = ((d ^ d_sign) - d_sign) >> 3;
+                d_sign ^= a0_sign;
+
+                if (d_sign ^ clip_sign)
+                    d = 0;
+                else {
                     d = FFMIN(d, clip);
-                    d = (d ^ clip_sign) - clip_sign; /* Restore sign */
+                    d = (d ^ d_sign) - d_sign; /* Restore sign */
                     src[-1 * stride] = av_clip_uint8(src[-1 * stride] - d);
                     src[ 0 * stride] = av_clip_uint8(src[ 0 * stride] + d);
                 }

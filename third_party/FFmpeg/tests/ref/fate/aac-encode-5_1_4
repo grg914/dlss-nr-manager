@@ -1,4 +1,0 @@
-[STREAM]
-codec_name=aac
-channel_layout=10 channels (FL+FR+FC+LFE+BL+BR+TFL+TFR+TBL+TBR)
-[/STREAM]

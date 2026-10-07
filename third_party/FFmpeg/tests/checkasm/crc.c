@@ -31,32 +31,10 @@
 #include "libavutil/crc.h"
 #include "libavutil/intreadwrite.h"
 #include "libavutil/macros.h"
-#include "libavutil/mem.h"
 #include "libavutil/mem_internal.h"
 
-enum {
-    BUF_SIZE = 16384,
-};
 
-typedef struct CustomTest {
-    struct CustomTest *prev;
-    AVCRC ctx[1024];
-} CustomTest;
-
-static CustomTest *ctx_list = NULL;
-
-void checkasm_uninit_crc(void)
-{
-    for (CustomTest *cur = ctx_list; cur;) {
-        CustomTest *prev = cur->prev;
-        av_free(cur);
-        cur = prev;
-    }
-    ctx_list = NULL;
-}
-
-static void check_crc(const AVCRC *table_new, const char *name,
-                      size_t size, size_t offset)
+static void check_crc(const AVCRC *table_new, const char *name, unsigned idx)
 {
     declare_func(uint32_t, const AVCRC *ctx, uint32_t crc,
                  const uint8_t *buffer, size_t length);
@@ -65,8 +43,20 @@ static void check_crc(const AVCRC *table_new, const char *name,
     if (!table_ref)
         return;
 
-    DECLARE_ALIGNED(4, uint8_t, buf)[BUF_SIZE];
+    DECLARE_ALIGNED(4, uint8_t, buf)[8192];
+    static size_t offsets[AV_CRC_MAX + 1];
+    static size_t sizes[AV_CRC_MAX + 1];
+    static unsigned sizes_initialized = 0;
     uint32_t prev_crc = rnd();
+
+    if (!(sizes_initialized & (1 << idx))) {
+        sizes_initialized |= 1 << idx;
+        offsets[idx] = rnd() & 31;
+        sizes[idx] = rnd() % (sizeof(buf) - 1 - offsets[idx]);
+    }
+
+    size_t size = sizes[idx];
+    size_t offset = offsets[idx];
 
     for (size_t j = 0; j < sizeof(buf); j += 4)
         AV_WN32A(buf + j, rnd());
@@ -90,38 +80,33 @@ void checkasm_check_crc(void)
     };
     static_assert(FF_ARRAY_ELEMS(tests) == AV_CRC_MAX, "test needs to be added");
 
-    size_t offsets[AV_CRC_MAX + 1];
-    size_t sizes[AV_CRC_MAX + 1];
-    uint32_t poly;
-    int le, bits;
-
-    // Initialize parameters before any test so that different instruction sets
-    // use the same values.
-    for (size_t i = 0; i < FF_ARRAY_ELEMS(offsets); ++i) {
-        offsets[i] = rnd() & 31;
-        sizes[i]   = rnd() % (BUF_SIZE - 1 - offsets[i]);
-    }
-    le   = rnd() & 1;
-    bits = 8 + rnd() % 25; // av_crc_init() accepts between 8 and 32 bits
-    poly = rnd() >> (32 - bits);
-
     for (unsigned i = 0; i < AV_CRC_MAX; ++i)
-        check_crc(av_crc_get_table(i), tests[i], sizes[i], offsets[i]);
+        check_crc(av_crc_get_table(i), tests[i], i);
 
+    static struct CustomTest {
+        struct CustomTest *prev;
+        AVCRC ctx[1024];
+    } *ctx = NULL;
     struct CustomTest *new = av_mallocz(sizeof(*new));
+    static int le, bits;
+    static uint32_t poly;
 
     if (!new)
         fail();
 
+    if (!ctx) {
+        le   = rnd() & 1;
+        bits = 8 + rnd() % 25; // av_crc_init() accepts between 8 and 32 bits
+        poly = rnd() >> (32 - bits);
+    }
     av_assert0(av_crc_init(new->ctx, le, bits, poly, sizeof(new->ctx)) >= 0);
-    if (ctx_list && !memcmp(ctx_list->ctx, new->ctx, sizeof(new->ctx))) {
+    if (ctx && !memcmp(ctx->ctx, new->ctx, sizeof(new->ctx))) {
         av_free(new);
     } else {
-        new->prev = ctx_list;
-        ctx_list = new;
+        new->prev = ctx;
+        ctx = new;
     }
 
-    check_crc(ctx_list->ctx, "custom_polynomial",
-              sizes[AV_CRC_MAX], offsets[AV_CRC_MAX]);
+    check_crc(ctx->ctx, "custom_polynomial", AV_CRC_MAX);
     report("crc");
 }

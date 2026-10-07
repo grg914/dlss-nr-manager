@@ -28,8 +28,7 @@ Options:
   -O{0,1,2,3}               Optimization level (only applies to DXBC code generation).
   -Zi                       Enable debug information.
 
-  -Fo <path>                Output file for generated code.
-  -Fc <path>                Output file for disassembled code.
+  -Fo <path>                Output generated code to a specific file.
   -Fe <path>                Output warnings and errors to a specific file.
 
   --dxbc                    Generate DXBC code.
@@ -52,7 +51,6 @@ int main(int argc, char *argv[])
 	const char *preprocess_file = nullptr;
 	const char *error_file = nullptr;
 	const char *output_file = nullptr;
-	const char *assembly_file = nullptr;
 	const char *entry_point_name = nullptr;
 	const char *buffer_width = "800";
 	const char *buffer_height = "600";
@@ -137,8 +135,6 @@ int main(int argc, char *argv[])
 				error_file = argv[++i];
 			else if (0 == std::strcmp(arg, "-Fo"))
 				output_file = argv[++i];
-			else if (0 == std::strcmp(arg, "-Fc"))
-				assembly_file = argv[++i];
 			else if (0 == std::strcmp(arg, "--shader-model"))
 				shader_model = static_cast<unsigned int>(std::strtoul(argv[++i], nullptr, 10));
 			else if (0 == std::strcmp(arg, "--width"))
@@ -150,7 +146,7 @@ int main(int argc, char *argv[])
 		{
 			if (source_file != nullptr)
 			{
-				std::cerr << "error: more than one input file specified" << std::endl;
+				std::cout << "error: More than one input file specified" << std::endl;
 				return 1;
 			}
 
@@ -195,10 +191,10 @@ int main(int argc, char *argv[])
 	if (!pp.append_file(source_file))
 	{
 		if (error_file == nullptr)
-			std::cerr << pp.errors() << std::endl;
+			std::cout << pp.errors() << std::endl;
 		else
 			std::ofstream(error_file) << pp.errors();
-		return 2;
+		return 1;
 	}
 
 	if (preprocess_file != nullptr)
@@ -216,9 +212,9 @@ int main(int argc, char *argv[])
 	else if (generate_hlsl)
 		backend.reset(reshadefx::create_codegen_hlsl(shader_model, debug_info, spec_constants));
 	else if (generate_glsl)
-		backend.reset(reshadefx::create_codegen_glsl(vulkan_semantics, debug_info, spec_constants, false, invert_y_axis));
+		backend.reset(reshadefx::create_codegen_glsl(vulkan_semantics, debug_info, spec_constants, invert_y_axis));
 	else if (generate_spirv)
-		backend.reset(reshadefx::create_codegen_spirv(vulkan_semantics, debug_info, spec_constants, false, invert_y_axis));
+		backend.reset(reshadefx::create_codegen_spirv(vulkan_semantics, debug_info, spec_constants, invert_y_axis));
 	else
 		return 1;
 
@@ -226,33 +222,27 @@ int main(int argc, char *argv[])
 	if (!parser.parse(pp.output(), backend.get()))
 	{
 		if (error_file == nullptr)
-			std::cerr << pp.errors() << parser.errors() << std::endl;
+			std::cout << pp.errors() << parser.errors() << std::endl;
 		else
 			std::ofstream(error_file) << pp.errors() << parser.errors();
-		return 2;
+		return 1;
 	}
 
-	std::basic_string<char> code, assembly;
+	std::basic_string<char> code;
 	if (entry_point_name != nullptr)
 	{
-		std::basic_string<char> errors;
+		std::basic_string<char> assembly, errors;
 		if (!backend->assemble_code_for_entry_point(entry_point_name, code, assembly, errors))
 		{
 			if (error_file == nullptr)
-				std::cerr << pp.errors() << parser.errors() << errors << std::endl;
+				std::cout << pp.errors() << parser.errors() << errors << std::endl;
 			else
 				std::ofstream(error_file) << pp.errors() << parser.errors() << errors;
-			return 2;
+			return 1;
 		}
 	}
 	else
 	{
-		if (generate_spirv)
-		{
-			std::cerr << "error: no entry point name specified" << std::endl;
-			return 1;
-		}
-
 		code = backend->finalize_code();
 	}
 
@@ -263,11 +253,6 @@ int main(int argc, char *argv[])
 	else
 	{
 		std::cout.write(code.data(), code.size()).flush();
-	}
-
-	if (assembly_file != nullptr)
-	{
-		std::ofstream(assembly_file, std::ios::binary).write(assembly.data(), assembly.size());
 	}
 
 	return 0;

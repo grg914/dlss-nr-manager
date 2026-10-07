@@ -168,8 +168,6 @@ typedef struct VP9Context {
     // frame specific buffer pools
     struct AVRefStructPool *frame_extradata_pool;
     int frame_extradata_pool_size;
-
-    int webm_alpha_warned; ///< warn once about unsupported WebM alpha
 } VP9Context;
 
 struct VP9TileData {

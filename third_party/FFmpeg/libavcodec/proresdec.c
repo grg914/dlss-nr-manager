@@ -35,7 +35,6 @@
 #include "avcodec.h"
 #include "codec_internal.h"
 #include "decode.h"
-#define CACHED_BITSTREAM_READER 1
 #include "get_bits.h"
 #include "hwaccel_internal.h"
 #include "hwconfig.h"
@@ -421,12 +420,13 @@ static int decode_picture_header(AVCodecContext *avctx, const uint8_t *buf, cons
     return pic_data_size;
 }
 
-#define DECODE_CODEWORD(val, codebook, gb)                              \
+#define DECODE_CODEWORD(val, codebook, SKIP)                            \
     do {                                                                \
         unsigned int rice_order, exp_order, switch_bits;                \
         unsigned int q, buf, bits;                                      \
                                                                         \
-        buf = show_bits(gb, 32); /* We really need 32 bits */           \
+        UPDATE_CACHE_32(re, gb); /* We really need 32 bits */           \
+        buf = GET_CACHE(re, gb);                                        \
                                                                         \
         /* number of bits to switch between rice and exp golomb */      \
         switch_bits =  codebook & 3;                                    \
@@ -439,17 +439,16 @@ static int decode_picture_header(AVCodecContext *avctx, const uint8_t *buf, cons
             bits = exp_order - switch_bits + (q<<1);                    \
             if (bits > 31)                                              \
                 return AVERROR_INVALIDDATA;                             \
-            val = (buf >> (32 - bits)) - (1 << exp_order) +             \
+            val = SHOW_UBITS(re, gb, bits) - (1 << exp_order) +         \
                 ((switch_bits + 1) << rice_order);                      \
-            skip_bits(gb, bits);                                        \
+            SKIP(re, gb, bits);                                         \
         } else if (rice_order) {                                        \
-            bits = q + 1 + rice_order;                                  \
-            val = (q << rice_order) +                                   \
-                ((buf >> (32 - bits)) & ((1u << rice_order) - 1));      \
-            skip_bits(gb, bits);                                        \
+            SKIP_BITS(re, gb, q+1);                                     \
+            val = (q << rice_order) + SHOW_UBITS(re, gb, rice_order);   \
+            SKIP(re, gb, rice_order);                                   \
         } else {                                                        \
             val = q;                                                    \
-            skip_bits(gb, q + 1);                                       \
+            SKIP(re, gb, q+1);                                          \
         }                                                               \
     } while (0)
 
@@ -465,7 +464,9 @@ static av_always_inline int decode_dc_coeffs(GetBitContext *gb, int16_t *out,
     int16_t prev_dc;
     int code, i, sign;
 
-    DECODE_CODEWORD(code, FIRST_DC_CB, gb);
+    OPEN_READER(re, gb);
+
+    DECODE_CODEWORD(code, FIRST_DC_CB, LAST_SKIP_BITS);
     prev_dc = TOSIGNED(code);
     out[0] = prev_dc;
 
@@ -474,12 +475,13 @@ static av_always_inline int decode_dc_coeffs(GetBitContext *gb, int16_t *out,
     code = 5;
     sign = 0;
     for (i = 1; i < blocks_per_slice; i++, out += 64) {
-        DECODE_CODEWORD(code, dc_codebook[FFMIN(code, 6U)], gb);
+        DECODE_CODEWORD(code, dc_codebook[FFMIN(code, 6U)], LAST_SKIP_BITS);
         if(code) sign ^= -(code & 1);
         else     sign  = 0;
         prev_dc += (((code + 1) >> 1) ^ sign) - sign;
         out[0] = prev_dc;
     }
+    CLOSE_READER(re, gb);
     return 0;
 }
 
@@ -493,9 +495,11 @@ static av_always_inline int decode_ac_coeffs(AVCodecContext *avctx, GetBitContex
     const ProresContext *ctx = avctx->priv_data;
     int block_mask, sign;
     unsigned pos, run, level;
-    int max_coeffs, i, left_bits;
+    int max_coeffs, i, bits_left;
     int log2_block_count = av_log2(blocks_per_slice);
 
+    OPEN_READER(re, gb);
+    UPDATE_CACHE_32(re, gb);
     run   = 4;
     level = 2;
 
@@ -503,26 +507,28 @@ static av_always_inline int decode_ac_coeffs(AVCodecContext *avctx, GetBitContex
     block_mask = blocks_per_slice - 1;
 
     for (pos = block_mask;;) {
-        left_bits = get_bits_left(gb);
-        if (left_bits <= 0 || (left_bits < 32 && !show_bits(gb, left_bits)))
+        bits_left = gb->size_in_bits - re_index;
+        if (bits_left <= 0 || (bits_left < 32 && !SHOW_UBITS(re, gb, bits_left)))
             break;
 
-        DECODE_CODEWORD(run, run_to_cb[FFMIN(run,  15)], gb);
+        DECODE_CODEWORD(run, run_to_cb[FFMIN(run,  15)], LAST_SKIP_BITS);
         pos += run + 1;
         if (pos >= max_coeffs) {
             av_log(avctx, AV_LOG_ERROR, "ac tex damaged %d, %d\n", pos, max_coeffs);
             return AVERROR_INVALIDDATA;
         }
 
-        DECODE_CODEWORD(level, lev_to_cb[FFMIN(level, 9)], gb);
+        DECODE_CODEWORD(level, lev_to_cb[FFMIN(level, 9)], SKIP_BITS);
         level += 1;
 
         i = pos >> log2_block_count;
 
-        sign = -(int)get_bits1(gb);
+        sign = SHOW_SBITS(re, gb, 1);
+        SKIP_BITS(re, gb, 1);
         out[((pos & block_mask) << 6) + ctx->scan[i]] = ((level ^ sign) - sign);
     }
 
+    CLOSE_READER(re, gb);
     return 0;
 }
 

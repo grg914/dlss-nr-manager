@@ -104,7 +104,10 @@ int ff_sws_op_chain_append(SwsOpChain *chain, SwsFuncPtr func,
 
 typedef struct SwsImplParams {
     const SwsUOpTable *table;
-    const SwsUOp *uop;
+    union {
+        const SwsUOp *uop;
+        const SwsOp *op;
+    };
     SwsContext *ctx;
 } SwsImplParams;
 
@@ -128,6 +131,11 @@ typedef struct SwsUOpEntry {
     int (*setup)(const SwsImplParams *params, SwsImplResult *out); /* optional */
     bool (*check)(const SwsImplParams *params); /* optional, return true if supported */
 } SwsUOpEntry;
+
+/* Setup helpers for common/trivial operation types */
+int ff_sws_setup_scale(const SwsImplParams *params, SwsImplResult *out);
+int ff_sws_setup_clamp(const SwsImplParams *params, SwsImplResult *out);
+int ff_sws_setup_clear(const SwsImplParams *params, SwsImplResult *out);
 
 /* Setup helpers for SwsUOp data */
 int ff_sws_setup_scalar(const SwsImplParams *params, SwsImplResult *out);

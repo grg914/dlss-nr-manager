@@ -663,9 +663,7 @@ static av_cold int init(AVFilterContext *ctx)
     AVFilterPad pad;
     int ret;
 
-    /* ir is bounded by nbirs, not by its static AVOption range. */
-    s->selir      = FFMIN(s->nb_irs - 1, s->selir);
-    s->prev_selir = s->selir;
+    s->prev_selir = FFMIN(s->nb_irs - 1, s->selir);
 
     pad = (AVFilterPad) {
         .name = "main",

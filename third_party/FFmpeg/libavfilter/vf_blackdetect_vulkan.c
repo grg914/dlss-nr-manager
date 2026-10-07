@@ -35,7 +35,7 @@ typedef struct BlackDetectVulkanContext {
     FFVkExecPool e;
     AVVulkanDeviceQueueFamily *qf;
     FFVulkanShader shd;
-    AVRefStructPool *sum_buf_pool;
+    AVBufferPool *sum_buf_pool;
 
     double picture_black_ratio_th;
     double pixel_black_th;
@@ -78,7 +78,7 @@ static av_cold int init_filter(AVFilterContext *ctx)
         goto fail;
     }
 
-    RET(ff_vk_exec_pool_init(vkctx, s->qf, &s->e, FF_VK_DEFAULT_EXEC_CONTEXTS, 0, 0, 0, NULL));
+    RET(ff_vk_exec_pool_init(vkctx, s->qf, &s->e, s->qf->num*4, 0, 0, 0, NULL));
 
     SPEC_LIST_CREATE(sl, 2, 2*sizeof(uint32_t))
     SPEC_LIST_ADD(sl, 0, 32, plane);
@@ -182,7 +182,8 @@ static int blackdetect_vulkan_filter_frame(AVFilterLink *link, AVFrame *in)
     FFVulkanContext *vkctx = &s->vkctx;
     FFVulkanFunctions *vk = &vkctx->vkfn;
     FFVkExecContext *exec = NULL;
-    FFVkBuffer *sum_vk = NULL;
+    AVBufferRef *sum_buf = NULL;
+    FFVkBuffer *sum_vk;
 
     BlackDetectBuf *sum;
     BlackDetectPushData push_data;
@@ -201,7 +202,7 @@ static int blackdetect_vulkan_filter_frame(AVFilterLink *link, AVFrame *in)
     if (!s->initialized)
         RET(init_filter(ctx));
 
-    err = ff_vk_get_pooled_buffer(vkctx, &s->sum_buf_pool, &sum_vk,
+    err = ff_vk_get_pooled_buffer(vkctx, &s->sum_buf_pool, &sum_buf,
                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                                   NULL,
@@ -211,15 +212,11 @@ static int blackdetect_vulkan_filter_frame(AVFilterLink *link, AVFrame *in)
                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (err < 0)
         return err;
+    sum_vk = (FFVkBuffer *)sum_buf->data;
     sum = (BlackDetectBuf *) sum_vk->mapped_mem;
 
     exec = ff_vk_exec_get(vkctx, &s->e);
-    err = ff_vk_exec_start(vkctx, exec);
-    if (err < 0) {
-        av_frame_free(&in);
-        av_refstruct_unref(&sum_vk);
-        return err;
-    }
+    ff_vk_exec_start(vkctx, exec);
 
     RET(ff_vk_exec_add_dep_frame(vkctx, exec, in,
                                  VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
@@ -306,24 +303,19 @@ static int blackdetect_vulkan_filter_frame(AVFilterLink *link, AVFrame *in)
             .bufferMemoryBarrierCount = 1,
         });
 
-    err = ff_vk_exec_submit(vkctx, exec);
-    if (err < 0) {
-        av_frame_free(&in);
-        av_refstruct_unref(&sum_vk);
-        return err;
-    }
+    RET(ff_vk_exec_submit(vkctx, exec));
     ff_vk_exec_wait(vkctx, exec);
     evaluate(link, in, sum);
     s->last_pts = in->pts;
 
-    av_refstruct_unref(&sum_vk);
+    av_buffer_unref(&sum_buf);
     return ff_filter_frame(outlink, in);
 
 fail:
     if (exec)
-        ff_vk_exec_discard(&s->vkctx, exec);
+        ff_vk_exec_discard_deps(&s->vkctx, exec);
     av_frame_free(&in);
-    av_refstruct_unref(&sum_vk);
+    av_buffer_unref(&sum_buf);
     return err;
 }
 
@@ -340,7 +332,7 @@ static void blackdetect_vulkan_uninit(AVFilterContext *avctx)
     ff_vk_exec_pool_free(vkctx, &s->e);
     ff_vk_shader_free(vkctx, &s->shd);
 
-    av_refstruct_pool_uninit(&s->sum_buf_pool);
+    av_buffer_pool_uninit(&s->sum_buf_pool);
 
     ff_vk_uninit(&s->vkctx);
 

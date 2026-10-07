@@ -93,10 +93,12 @@ cglobal pullup_filter_comb, 3, 5, 7, first, second, size
 
 INIT_XMM sse2
 cglobal pullup_filter_var, 3, 3, 3, first, second, size
-    movq       m2, [firstq]
+    movq       m0, [firstq]
     add        firstq, sizeq
     movq       m1, [firstq]
-    psadbw     m2, m1
+    pxor       m2, m2
+    psadbw     m0, m1
+    paddw      m2, m0
     movq       m0, [firstq+sizeq]
     psadbw     m1, m0
     paddw      m2, m1

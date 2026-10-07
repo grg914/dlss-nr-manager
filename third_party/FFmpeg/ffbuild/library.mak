@@ -64,13 +64,13 @@ install-libs-$(CONFIG_SHARED): install-lib$(NAME)-shared
 
 define RULES
 $(TOOLS):     THISLIB = $(FULLNAME:%=$(LD_LIB))
-$(TESTPROGS) $(DEVPROGS): THISLIB = $(SUBDIR)$(LIBNAME)
+$(TESTPROGS): THISLIB = $(SUBDIR)$(LIBNAME)
 
 $(NAME)LINK_EXE_ARGS = $(LDFLAGS) $(LDEXEFLAGS)
 $(NAME)LINK_SO_ARGS = $(SHFLAGS) $(LDFLAGS) $(LDSOFLAGS)
 $(NAME)LINK_EXTRA = $(FFEXTRALIBS)
 
-$(DEVPROGS) $(TESTPROGS) $(TOOLS): %$(EXESUF): %.o
+$(TESTPROGS) $(TOOLS): %$(EXESUF): %.o
 	$$(call LINK,$$(call $(NAME)LINK_EXE_ARGS) $$(LD_O) $$(filter %.o,$$^) $$(THISLIB) $$(call $(NAME)LINK_EXTRA) $$(EXTRALIBS-$$(*F)) $$(ELIBS))
 
 $(SUBDIR)lib$(NAME).version: $(SUBDIR)version.h $(SUBDIR)version_major.h | $(SUBDIR)
@@ -93,13 +93,13 @@ else
 	$(Q)echo $$(filter %.o,$$^) > $$@.objs
 endif
 endif
-	$(Q)$(SLIB_CREATE_DEF_CMD)
+	$(SLIB_CREATE_DEF_CMD)
 ifeq ($(RESPONSE_FILES),yes)
 	$$(call LINK,$$(call $(NAME)LINK_SO_ARGS) $$(LD_O) @$$@.objs $$(call $(NAME)LINK_EXTRA))
 else
 	$$(call LINK,$$(call $(NAME)LINK_SO_ARGS) $$(LD_O) $$(filter %.o,$$^) $$(call $(NAME)LINK_EXTRA))
 endif
-	$(Q)$(SLIB_EXTRA_CMD)
+	$(SLIB_EXTRA_CMD)
 	-$(RM) $$@.objs
 
 ifdef SUBDIR
@@ -112,27 +112,25 @@ clean::
 
 install-lib$(NAME)-shared: $(SUBDIR)$(SLIBNAME)
 	$(Q)mkdir -p "$(SHLIBDIR)"
-	$$(call INSTALL_FILES,-m 755,$$<,$(SHLIBDIR)/$(SLIB_INSTALL_NAME))
-ifneq ($(STRIPTYPE),nostrip)
+	$$(INSTALL) -m 755 $$< "$(SHLIBDIR)/$(SLIB_INSTALL_NAME)"
 	$$(STRIP) "$(SHLIBDIR)/$(SLIB_INSTALL_NAME)"
-endif
 	$(Q)$(foreach F,$(SLIB_INSTALL_LINKS),(cd "$(SHLIBDIR)" && $(LN_S) $(SLIB_INSTALL_NAME) $(F));)
-	$(if $(SLIB_INSTALL_EXTRA_SHLIB),$$(call INSTALL_FILES,-m 644,$(SLIB_INSTALL_EXTRA_SHLIB:%=$(SUBDIR)%),$(SHLIBDIR)))
+	$(if $(SLIB_INSTALL_EXTRA_SHLIB),$$(INSTALL) -m 644 $(SLIB_INSTALL_EXTRA_SHLIB:%=$(SUBDIR)%) "$(SHLIBDIR)")
 	$(if $(SLIB_INSTALL_EXTRA_LIB),$(Q)mkdir -p "$(LIBDIR)")
-	$(if $(SLIB_INSTALL_EXTRA_LIB),$$(call INSTALL_FILES,-m 644,$(SLIB_INSTALL_EXTRA_LIB:%=$(SUBDIR)%),$(LIBDIR)))
+	$(if $(SLIB_INSTALL_EXTRA_LIB),$$(INSTALL) -m 644 $(SLIB_INSTALL_EXTRA_LIB:%=$(SUBDIR)%) "$(LIBDIR)")
 
 install-lib$(NAME)-static: $(SUBDIR)$(LIBNAME)
 	$(Q)mkdir -p "$(LIBDIR)"
-	$$(call INSTALL_FILES,-m 644,$$<,$(LIBDIR))
+	$$(INSTALL) -m 644 $$< "$(LIBDIR)"
 	$(LIB_INSTALL_EXTRA_CMD)
 
 install-lib$(NAME)-headers: $(addprefix $(SUBDIR),$(HEADERS) $(BUILT_HEADERS))
 	$(Q)mkdir -p "$(INCINSTDIR)"
-	$$(call INSTALL_FILES,-m 644,$$^,$(INCINSTDIR))
+	$$(INSTALL) -m 644 $$^ "$(INCINSTDIR)"
 
 install-lib$(NAME)-pkgconfig: $(SUBDIR)lib$(FULLNAME).pc
 	$(Q)mkdir -p "$(PKGCONFIGDIR)"
-	$$(call INSTALL_FILES,-m 644,$$^,$(PKGCONFIGDIR))
+	$$(INSTALL) -m 644 $$^ "$(PKGCONFIGDIR)"
 
 uninstall-libs::
 	-$(RM) "$(SHLIBDIR)/$(SLIBNAME_WITH_MAJOR)" \
@@ -153,6 +151,6 @@ endef
 $(eval $(RULES))
 
 $(TOOLS):     $(DEP_LIBS) $(SUBDIR)$($(CONFIG_SHARED:yes=S)LIBNAME)
-$(TESTPROGS) $(DEVPROGS): $(DEP_LIBS) $(SUBDIR)$(LIBNAME)
+$(TESTPROGS): $(DEP_LIBS) $(SUBDIR)$(LIBNAME)
 
 testprogs: $(TESTPROGS)

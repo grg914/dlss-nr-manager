@@ -58,7 +58,7 @@ cglobal atadenoise_filter_row8, 6,10,13, src, dst, srcf, w, mid, size, i, j, src
         mov         jq, midq
         pxor        m3, m3
         pxor       m11, m11
-        movq        m0, [srcq + xq]
+        movu        m0, [srcq + xq]
         mova       m12, m10
         punpcklbw   m0, m2
         mova        m7, m0
@@ -71,7 +71,7 @@ cglobal atadenoise_filter_row8, 6,10,13, src, dst, srcf, w, mid, size, i, j, src
             mov          srcfxq, [srcfq + jq * 8]
             add          srcfxq, wq
 
-            movq             m1, [srcfxq + xq]
+            movu             m1, [srcfxq + xq]
             punpcklbw        m1, m2
             mova             m9, m1
             psubw            m1, m0
@@ -81,16 +81,18 @@ cglobal atadenoise_filter_row8, 6,10,13, src, dst, srcf, w, mid, size, i, j, src
             mova             m6, m11
             pcmpgtw          m6, m5
             por              m6, m1
-            pandn            m6, m12
-            mova            m12, m6
-            pand             m9, m6
+            pxor             m6, m10
+            pand            m12, m6
+            pand             m9, m12
             paddw            m7, m9
-            psubw            m8, m6
+            mova             m6, m12
+            psrlw            m6, 15
+            paddw            m8, m6
 
             mov          srcfxq, [srcfq + iq * 8]
             add          srcfxq, wq
 
-            movq             m1, [srcfxq + xq]
+            movu             m1, [srcfxq + xq]
             punpcklbw        m1, m2
             mova             m9, m1
             psubw            m1, m0
@@ -100,13 +102,15 @@ cglobal atadenoise_filter_row8, 6,10,13, src, dst, srcf, w, mid, size, i, j, src
             mova             m6, m3
             pcmpgtw          m6, m5
             por              m6, m1
-            pandn            m6, m12
-            ptest            m6, m6
-            mova            m12, m6
-            pand             m9, m6
+            pxor             m6, m10
+            pand            m12, m6
+            pand             m9, m12
             paddw            m7, m9
-            psubw            m8, m6
+            mova             m6, m12
+            psrlw            m6, 15
+            paddw            m8, m6
 
+            ptest           m12, m12
             jz .finish
 
             cmp              iq, sizeq
@@ -122,27 +126,32 @@ cglobal atadenoise_filter_row8, 6,10,13, src, dst, srcf, w, mid, size, i, j, src
 
         punpcklwd            m7, m2
         punpcklwd            m8, m2
-        punpckhwd            m1, m2
-        punpckhwd            m6, m2
         cvtdq2ps             m7, m7
         cvtdq2ps             m8, m8
-        cvtdq2ps             m1, m1
-        cvtdq2ps             m6, m6
         divps                m7, m8
-        divps                m1, m6
         cvttps2dq            m7, m7
-        cvttps2dq            m1, m1
-        packssdw             m7, m1
+        packssdw             m7, m7
         packuswb             m7, m7
 
-        movq        [dstq + xq], m7
+        movd        [dstq + xq], m7
+
+        punpckhwd            m1, m2
+        punpckhwd            m6, m2
+        cvtdq2ps             m1, m1
+        cvtdq2ps             m6, m6
+        divps                m1, m6
+        cvttps2dq            m1, m1
+        packssdw             m1, m1
+        packuswb             m1, m1
+
+        movd    [dstq + xq + 4], m1
 
         add                  xq, mmsize/2
     jl .loop
     RET
 
 INIT_XMM sse4
-cglobal atadenoise_filter_row8_serial, 6,10,12, src, dst, srcf, w, mid, size, i, j, srcfx, x
+cglobal atadenoise_filter_row8_serial, 6,10,13, src, dst, srcf, w, mid, size, i, j, srcfx, x
     movsxdifnidn    wq, wd
     movsxdifnidn  midq, midd
     movsxdifnidn sizeq, sized
@@ -163,11 +172,11 @@ cglobal atadenoise_filter_row8_serial, 6,10,12, src, dst, srcf, w, mid, size, i,
         mov         jq, midq
         pxor        m3, m3
         pxor       m11, m11
-        movq        m0, [srcq + xq]
+        movu        m0, [srcq + xq]
         punpcklbw   m0, m2
         mova        m7, m0
         mova        m8, [pw_one]
-        mova       m11, m10
+        mova       m12, m10
 
         .loop0:
             dec              jq
@@ -175,30 +184,32 @@ cglobal atadenoise_filter_row8_serial, 6,10,12, src, dst, srcf, w, mid, size, i,
             mov          srcfxq, [srcfq + jq * 8]
             add          srcfxq, wq
 
-            movq             m1, [srcfxq + xq]
+            movu             m1, [srcfxq + xq]
             punpcklbw        m1, m2
             mova             m9, m1
             psubw            m1, m0
             pabsw            m1, m1
-            paddw            m3, m1
+            paddw           m11, m1
             pcmpgtw          m1, m4
-            pcmpgtw          m6, m3, m5
+            mova             m6, m11
+            pcmpgtw          m6, m5
             por              m6, m1
-            pandn            m6, m11
-            ptest            m6, m6
-            mova            m11, m6
-            pand             m9, m6
+            pxor             m6, m10
+            pand            m12, m6
+            pand             m9, m12
             paddw            m7, m9
-            psubw            m8, m6
+            mova             m6, m12
+            psrlw            m6, 15
+            paddw            m8, m6
 
+            ptest           m12, m12
             jz .end_loop0
 
             cmp              jq, 0
             jg .loop0
 
         .end_loop0:
-            pxor        m3, m3
-            mova       m11, m10
+            mova       m12, m10
 
         .loop1:
             inc              iq
@@ -206,7 +217,7 @@ cglobal atadenoise_filter_row8_serial, 6,10,12, src, dst, srcf, w, mid, size, i,
             mov          srcfxq, [srcfq + iq * 8]
             add          srcfxq, wq
 
-            movq             m1, [srcfxq + xq]
+            movu             m1, [srcfxq + xq]
             punpcklbw        m1, m2
             mova             m9, m1
             psubw            m1, m0
@@ -216,13 +227,15 @@ cglobal atadenoise_filter_row8_serial, 6,10,12, src, dst, srcf, w, mid, size, i,
             mova             m6, m3
             pcmpgtw          m6, m5
             por              m6, m1
-            pandn            m6, m11
-            ptest            m6, m6
-            mova            m11, m6
-            pand             m9, m6
+            pxor             m6, m10
+            pand            m12, m6
+            pand             m9, m12
             paddw            m7, m9
-            psubw            m8, m6
+            mova             m6, m12
+            psrlw            m6, 15
+            paddw            m8, m6
 
+            ptest           m12, m12
             jz .finish
 
             cmp              iq, sizeq
@@ -238,20 +251,25 @@ cglobal atadenoise_filter_row8_serial, 6,10,12, src, dst, srcf, w, mid, size, i,
 
         punpcklwd            m7, m2
         punpcklwd            m8, m2
-        punpckhwd            m1, m2
-        punpckhwd            m6, m2
         cvtdq2ps             m7, m7
         cvtdq2ps             m8, m8
-        cvtdq2ps             m1, m1
-        cvtdq2ps             m6, m6
         divps                m7, m8
-        divps                m1, m6
         cvttps2dq            m7, m7
-        cvttps2dq            m1, m1
-        packssdw             m7, m1
+        packssdw             m7, m7
         packuswb             m7, m7
 
-        movq        [dstq + xq], m7
+        movd        [dstq + xq], m7
+
+        punpckhwd            m1, m2
+        punpckhwd            m6, m2
+        cvtdq2ps             m1, m1
+        cvtdq2ps             m6, m6
+        divps                m1, m6
+        cvttps2dq            m1, m1
+        packssdw             m1, m1
+        packuswb             m1, m1
+
+        movd    [dstq + xq + 4], m1
 
         add                  xq, mmsize/2
     jl .loop
