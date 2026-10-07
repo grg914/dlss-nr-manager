@@ -27,59 +27,75 @@ jobs:
         shell: pwsh
         run: |
           $packages = "build-local/nuget-global"
-          dotnet restore DlssNrManager.csproj --packages $packages
-          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --packages $packages
+          dotnet restore DlssNrManager.csproj -r win-x64 --packages $packages
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj -r win-x64 --packages $packages
           if ($LASTEXITCODE -ne 0) { throw "NuGet bootstrap restore failed." }
 
       - name: Build exact offline package feed
         shell: pwsh
         run: |
           $feed = "build-local/nuget-feed"
+          Remove-Item -LiteralPath $feed -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path $feed | Out-Null
-
-          $assets = @(
-            "obj/project.assets.json",
-            "tests/DlssNrManager.Tests/obj/project.assets.json"
-          )
-
           $seen = @{}
-          foreach ($assetPath in $assets) {
+
+          # NuGet keeps the exact downloaded .nupkg beside each extracted package in the
+          # isolated global package directory. Copy all of them so framework/runtime packs
+          # required by self-contained win-x64 publish are included as well.
+          $materializedPackages = @(Get-ChildItem -LiteralPath $packages -Filter "*.nupkg" -File -Recurse -ErrorAction SilentlyContinue)
+          foreach ($packageFile in $materializedPackages) {
+            $key = $packageFile.Name.ToLowerInvariant()
+            if ($seen.ContainsKey($key)) { continue }
+            $seen[$key] = $true
+            Copy-Item -LiteralPath $packageFile.FullName -Destination (Join-Path $feed $packageFile.Name) -Force
+          }
+
+          # Some NuGet clients may prune the archive after extraction. Recover any missing
+          # package from the exact project.assets.json graph while still in the refresh circuit.
+          foreach ($assetPath in @("obj/project.assets.json", "tests/DlssNrManager.Tests/obj/project.assets.json")) {
             $json = Get-Content $assetPath -Raw | ConvertFrom-Json
             foreach ($property in $json.libraries.PSObject.Properties) {
               if ([string]$property.Value.type -ne "package") { continue }
-
               $parts = $property.Name -split "/", 2
               if ($parts.Count -ne 2) { continue }
-
               $id = $parts[0]
               $version = $parts[1]
-              $key = "$id/$version".ToLowerInvariant()
-              if ($seen.ContainsKey($key)) { continue }
-              $seen[$key] = $true
-
               $idLower = $id.ToLowerInvariant()
               $versionLower = $version.ToLowerInvariant()
               $name = "$idLower.$versionLower.nupkg"
+              $destination = Join-Path $feed $name
+              if (Test-Path -LiteralPath $destination) { continue }
               $url = "https://api.nuget.org/v3-flatcontainer/$idLower/$versionLower/$name"
-              Invoke-WebRequest -Uri $url -OutFile (Join-Path $feed $name)
+              Invoke-WebRequest -Uri $url -OutFile $destination
+            }
+          }
+
+          $requiredRuntimePacks = @(
+            "Microsoft.NETCore.App.Runtime.win-x64",
+            "Microsoft.WindowsDesktop.App.Runtime.win-x64",
+            "Microsoft.AspNetCore.App.Runtime.win-x64"
+          )
+          foreach ($runtimePack in $requiredRuntimePacks) {
+            $idLower = $runtimePack.ToLowerInvariant()
+            $present = Get-ChildItem -LiteralPath $feed -Filter "$idLower.*.nupkg" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $present) {
+              throw "Offline NuGet seed is missing required self-contained runtime pack: $runtimePack"
             }
           }
 
           $manifest = [ordered]@{
-            schema = 1
+            schema = 2
+            rid = "win-x64"
             generated_at_utc = [DateTime]::UtcNow.ToString("o")
             packages = @(
-              Get-ChildItem $feed -Filter "*.nupkg" -File |
-                Sort-Object Name |
-                ForEach-Object {
-                  [ordered]@{
-                    name = $_.Name
-                    sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-                  }
+              Get-ChildItem $feed -Filter "*.nupkg" -File | Sort-Object Name | ForEach-Object {
+                [ordered]@{
+                  name = $_.Name
+                  sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
                 }
+              }
             )
           }
-
           $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $feed "manifest.json") -Encoding UTF8
           Compress-Archive -Path (Join-Path $feed "*") -DestinationPath "build-local/nuget-offline.zip" -Force
 
