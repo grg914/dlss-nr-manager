@@ -8,9 +8,13 @@ Checkpoint persistant :
 - En cas de coupure ChatGPT : lire #51, puis ce fichier, puis vérifier les runs GitHub réels avant toute modification.
 
 État GitHub vérifié :
-- main : bb523d2ba27ca577067a3668410d9a24c04e6b2b
+- main : a8fcf36c1cfe41f6b11df7aaeb41421b916e63ef
 - Version déclarée : 3.1.1
 - PR #49 : MERGED après Build #644 PASSED.
+- PR #50 : MERGED sur main ; correctifs protected-main, seed snapshot-consistent, Release #22/Caustica et continuité intégrés.
+- Build #657 (head final PR #50) : PASSED.
+- Build #658 sur main : PASSED COMPLET ; feed NuGet snapshot-consistent, restore, tests, publish single-file et vérification EXE/icône validés.
+- Upstream Dependency Sync #14 sur main : PASSED ; aucun changement promotable, aucune boucle ni tentative de push direct vers main.
 - Upstream Dependency Sync #13 :
   - prepare : PASSED
   - validate-windows : PASSED
@@ -33,7 +37,7 @@ Checkpoint persistant :
 - Build #645 sur main : FAILED dans Prepare manager-owned offline NuGet feed.
   Cause exacte observée : runtime-seed-v1/nuget-offline.zip a été remplacé pendant Runtime Seed Refresh #8 entre la lecture du digest GitHub et le téléchargement ; l'ancien digest attendu ne correspondait donc plus aux nouveaux octets téléchargés.
   Ce n'est pas une régression de compilation/application.
-- PR #50 : OPEN, branche fix/upstream-protected-main-fallback.
+- PR #50 : MERGED, branche fix/upstream-protected-main-fallback.
   Correctifs consolidés :
   1. téléchargement runtime seed par snapshot cohérent avec retries bornés et revalidation GitHub SHA-256 ;
   2. aucun push direct vers main lorsque GitHub Actions ne peut pas créer la PR ;
@@ -41,7 +45,7 @@ Checkpoint persistant :
   4. attente explicite du check build requis avant merge automatique quand la création de PR par Actions est autorisée ;
   5. dispatch Runtime Seed explicite uniquement après merge automatique par GITHUB_TOKEN ; un merge manuel déclenche le push main normalement ;
   6. checkpoint GitHub automatique issue #51 pour reprendre après interruption.
-- Build final de PR #50 : À REVALIDER après consolidation des sécurités de continuité et du dispatch Runtime Seed.
+- Build final de PR #50 : PASSED (#657). Build post-merge main : PASSED (#658).
 
 Règle de protection :
 - Le ruleset Protect main reste actif.
