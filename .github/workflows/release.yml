@@ -110,7 +110,14 @@ jobs:
 
       - name: Create application ZIP
         shell: pwsh
-        run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
+        run: |
+          $bundle = "distribution"
+          Remove-Item -LiteralPath $bundle -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $bundle -Force | Out-Null
+          Copy-Item -LiteralPath "publish/DlssNrManager.exe" -Destination (Join-Path $bundle "DlssNrManager.exe") -Force
+          Copy-Item -LiteralPath "LICENSE" -Destination (Join-Path $bundle "LICENSE") -Force
+          Copy-Item -LiteralPath "THIRD_PARTY_NOTICES.md" -Destination (Join-Path $bundle "THIRD_PARTY_NOTICES.md") -Force
+          Compress-Archive -Path (Join-Path $bundle "*") -DestinationPath DlssNrManager-win-x64.zip -Force
 
       - name: Download validated manager-owned runtime seed
         id: seed
@@ -281,6 +288,8 @@ jobs:
           $files = @(
             "publish/DlssNrManager.exe",
             "DlssNrManager-win-x64.zip",
+            "LICENSE",
+            "THIRD_PARTY_NOTICES.md",
             (Join-Path "release-assets" "${{ steps.optional.outputs.caustica }}"),
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
@@ -334,6 +343,8 @@ jobs:
           $files = @(
             "publish/DlssNrManager.exe",
             "DlssNrManager-win-x64.zip",
+            "LICENSE",
+            "THIRD_PARTY_NOTICES.md",
             "SHA256SUMS.txt",
             "release-assets/components-manifest.json",
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
