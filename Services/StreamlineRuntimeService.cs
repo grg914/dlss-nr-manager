@@ -14,7 +14,11 @@ public sealed record StreamlineRuntimeResult(
 
 public sealed class StreamlineRuntimeService
 {
-    private const string Repository = "NVIDIA-RTX/Streamline";
+    private const string ManagerLatestReleaseApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+    private const string ManagerVideoAsset = "video2dlssnr_release.zip";
+    private const string ManagerStreamlinePrefix = "streamline-runtime-v";
+    private const string ManagerStreamlineSuffix = "-win-x64.zip";
     private const long MaxStreamlineDownloadBytes = 2L * 1024 * 1024 * 1024;
     private const long MaxExtractedArchiveBytes = 8L * 1024 * 1024 * 1024;
     private const int MaxArchiveEntries = 150_000;
@@ -39,84 +43,103 @@ public sealed class StreamlineRuntimeService
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        progress?.Report("Checking NVIDIA Streamline release…");
+        progress?.Report("Checking manager-owned DLSS Neural Rendering runtime…");
 
         using var release = await GetJsonAsync(
-            $"https://api.github.com/repos/{Repository}/releases/latest",
+            ManagerLatestReleaseApi,
             cancellationToken);
 
-        var tag = release.RootElement.GetProperty("tag_name").GetString()
-            ?? throw new InvalidDataException("Streamline release has no tag.");
+        var tag = release.RootElement.TryGetProperty("tag_name", out var tagElement)
+            ? tagElement.GetString() ?? "latest"
+            : "latest";
 
-        var asset = SelectReleaseZip(release)
-            ?? throw new InvalidDataException(
-                "No Streamline SDK ZIP was found in the latest NVIDIA release.");
+        var asset = SelectNamedAsset(release, ManagerVideoAsset)
+            ?? throw new InvalidOperationException(
+                $"Latest DLSS NR Manager release has no {ManagerVideoAsset} asset. " +
+                "Bootstrap the validated Neural Rendering runtime first.");
 
-        var versionRoot = Path.Combine(RootDirectory, Sanitize(tag));
+        if (string.IsNullOrWhiteSpace(asset.Sha256))
+        {
+            throw new InvalidDataException(
+                $"Manager-owned {ManagerVideoAsset} has no SHA-256 digest.");
+        }
+
+        var versionRoot = Path.Combine(
+            RootDirectory,
+            "manager-video-" + Sanitize(tag));
         var runtime = Path.Combine(versionRoot, "nvngx_dlssnr.dll");
         var sourceMarker = Path.Combine(versionRoot, "source-url.txt");
 
         if (File.Exists(runtime))
         {
-            var validation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration, cancellationToken);
+            var validation = await RuntimeValidationService.ValidateAsync(
+                runtime,
+                gpuGeneration,
+                cancellationToken);
+
             if (IsTrustedNvidiaRuntime(validation))
             {
                 return new StreamlineRuntimeResult(
                     tag,
                     runtime,
                     versionRoot,
-                    File.Exists(sourceMarker) ? File.ReadAllText(sourceMarker).Trim() : asset.Url);
+                    File.Exists(sourceMarker)
+                        ? File.ReadAllText(sourceMarker).Trim()
+                        : asset.Url);
             }
 
             TryDeleteDirectory(versionRoot);
         }
 
         Directory.CreateDirectory(versionRoot);
-        var tempZip = Path.Combine(versionRoot, "streamline.zip");
+        var tempZip = Path.Combine(versionRoot, ManagerVideoAsset);
         var extract = Path.Combine(versionRoot, "_extract");
 
-        progress?.Report($"Downloading NVIDIA Streamline {tag}…");
+        progress?.Report("Downloading manager-owned NVIDIA Neural Rendering runtime…");
         await DownloadAsync(
             asset.Url,
             tempZip,
             asset.Sha256,
             cancellationToken);
 
-        progress?.Report("Extracting NVIDIA Streamline production runtime…");
+        progress?.Report("Extracting validated NVIDIA Neural Rendering runtime…");
         ExtractSafe(tempZip, extract);
 
-        var found = FindProductionFile(extract, "nvngx_dlssnr.dll")
-            ?? FindFile(extract, "nvngx_dlssnr.dll");
-
+        var found = FindFile(extract, "nvngx_dlssnr.dll");
         if (found == null)
         {
             TryDeleteFile(tempZip);
             TryDeleteDirectory(extract);
             throw new InvalidOperationException(
-                "The current public NVIDIA Streamline release does not include nvngx_dlssnr.dll. " +
-                "DLSS Neural Rendering requires an NVIDIA-authorized DLSS-NR/NGX SDK runtime. " +
-                "DLSS NR Manager will not substitute an unofficial or patched vendor binary. " +
-                "Use Select DLSSNR DLL with an official compatible runtime supplied by NVIDIA.");
+                $"Manager-owned {ManagerVideoAsset} does not contain nvngx_dlssnr.dll.");
         }
 
         File.Copy(found, runtime, true);
         AtomicFile.WriteAllText(sourceMarker, asset.Url);
 
-        var finalValidation = await RuntimeValidationService.ValidateAsync(runtime, gpuGeneration);
+        var finalValidation = await RuntimeValidationService.ValidateAsync(
+            runtime,
+            gpuGeneration,
+            cancellationToken);
+
         if (!IsTrustedNvidiaRuntime(finalValidation))
         {
             TryDeleteDirectory(versionRoot);
             throw new InvalidDataException(
-                "Downloaded nvngx_dlssnr.dll is not a trusted x64 NVIDIA-signed runtime.");
+                "Manager-owned nvngx_dlssnr.dll is not a trusted x64 NVIDIA-signed runtime.");
         }
 
         TryDeleteFile(tempZip);
         TryDeleteDirectory(extract);
 
         progress?.Report(
-            $"NVIDIA Streamline {tag} ready • DLSS Neural Rendering runtime validated.");
+            $"Manager-owned DLSS Neural Rendering runtime ready • NVIDIA signature validated.");
 
-        return new StreamlineRuntimeResult(tag, runtime, versionRoot, asset.Url);
+        return new StreamlineRuntimeResult(
+            tag,
+            runtime,
+            versionRoot,
+            asset.Url);
     }
 
     public async Task<IReadOnlyList<string>> StageSelectedResourcesAsync(
