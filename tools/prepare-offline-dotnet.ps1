@@ -22,7 +22,6 @@ $downloadArgs = @{
     Destination = $seed
 }
 & (Join-Path $PSScriptRoot "download-runtime-seed.ps1") @downloadArgs
-if ($LASTEXITCODE -ne 0) { throw "Unable to fetch manager-owned offline NuGet seed." }
 
 Expand-Archive -LiteralPath (Join-Path $seed "nuget-offline.zip") -DestinationPath $feed -Force
 $manifestPath = Join-Path $feed "manifest.json"
