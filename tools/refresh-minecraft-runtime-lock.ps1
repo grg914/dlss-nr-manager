@@ -71,21 +71,30 @@ $loader = $loaderRows |
 if (-not $loader) { throw "No stable Fabric Loader was found for Minecraft $MinecraftVersion." }
 
 $loaderVersion = [string]$loader.loader.version
-$escapedMinecraftVersion = [Uri]::EscapeDataString($MinecraftVersion)
-$escapedLoaderVersion = [Uri]::EscapeDataString($loaderVersion)
-
-# Fabric documents the game+loader detail endpoint as the source that includes
-# launcherMeta (libraries and main class) for a specific compatible loader.
-# Do not rely on the shape of the game-scoped listing for these details.
-$loaderInfo = Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$escapedMinecraftVersion/$escapedLoaderVersion"
-if (-not $loaderInfo -or [string]$loaderInfo.loader.version -ne $loaderVersion) {
-    throw "Fabric loader detail metadata did not resolve $MinecraftVersion / $loaderVersion."
+$loaderMaven = [string]$loader.loader.maven
+if ([string]::IsNullOrWhiteSpace($loaderVersion) -or [string]::IsNullOrWhiteSpace($loaderMaven)) {
+    throw "Fabric loader metadata exposes no version or Maven coordinate for Minecraft $MinecraftVersion."
 }
 
-$launcherMeta = $loaderInfo.launcherMeta
+# The game-scoped Fabric Meta list is the compatibility source of truth.
+# Read launcher metadata from the loader artifact's official Maven JSON,
+# which is the same metadata shipped by Fabric Loader and avoids the
+# compatibility-sensitive profile/detail HTTP endpoints.
+$loaderCoordinateParts = @($loaderMaven -split ":")
+if ($loaderCoordinateParts.Count -ne 3) {
+    throw "Unsupported Fabric Loader Maven coordinate: $loaderMaven"
+}
+
+$loaderGroupPath = $loaderCoordinateParts[0].Replace(".", "/")
+$loaderArtifact = $loaderCoordinateParts[1]
+$loaderArtifactVersion = $loaderCoordinateParts[2]
+$launcherMetaUrl = "https://maven.fabricmc.net/$loaderGroupPath/$loaderArtifact/$loaderArtifactVersion/$loaderArtifact-$loaderArtifactVersion.json"
+$launcherMeta = Invoke-Json $launcherMetaUrl
 if (-not $launcherMeta) {
-    throw "Fabric loader detail metadata exposes no launcherMeta for $MinecraftVersion / $loaderVersion."
+    throw "Fabric Loader Maven metadata is unavailable for $loaderMaven."
 }
+
+$loaderInfo = $loader
 
 $librarySpecs = @()
 foreach ($library in @($launcherMeta.libraries.common)) {
@@ -108,10 +117,6 @@ if ($MinecraftVersion -notmatch "^26(?:\.|$)") {
     }
 }
 
-$loaderMaven = [string]$loaderInfo.loader.maven
-if ([string]::IsNullOrWhiteSpace($loaderMaven)) {
-    throw "Fabric loader detail metadata exposes no loader Maven coordinate."
-}
 $librarySpecs += [pscustomobject]@{
     name = $loaderMaven
     url = "https://maven.fabricmc.net/"
@@ -138,10 +143,10 @@ elseif ($null -ne $mainClassNode) {
 }
 
 if ([string]::IsNullOrWhiteSpace($mainClass)) {
-    throw "Fabric loader detail metadata exposes no client main class for $MinecraftVersion / $loaderVersion."
+    throw "Fabric Loader Maven metadata exposes no client main class for $MinecraftVersion / $loaderVersion."
 }
 
-Write-Host "Fabric Loader detail -> $loaderVersion / $mainClass"
+Write-Host "Fabric Loader metadata -> $loaderVersion / $mainClass"
 
 $libraries = @()
 foreach ($library in $librarySpecs) {
