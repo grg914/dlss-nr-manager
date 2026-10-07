@@ -108,69 +108,96 @@ function Copy-WithSha1 {
 
 function Resolve-ModrinthComponent {
     param(
-        [string]$Name,
-        [string]$Slug,
-        [string]$Kind,
-        [string]$Loader
+        [Parameter(Mandatory=$true)]$Component
     )
 
-    $gameVersions = [Uri]::EscapeDataString(("[`"$MinecraftVersion`"]"))
-    $uri = "https://api.modrinth.com/v2/project/$Slug/version?game_versions=$gameVersions"
-    if (-not [string]::IsNullOrWhiteSpace($Loader)) {
-        $loaders = [Uri]::EscapeDataString(("[`"$Loader`"]"))
+    $name = [string]$Component.name
+    $slug = [string]$Component.slug
+    $kind = [string]$Component.kind
+    $loader = [string]$Component.loader
+    $pinnedVersion = [string]$Component.version
+    $pinnedFileName = [string]$Component.file_name
+    $pinnedSha512 = ([string]$Component.sha512).ToLowerInvariant()
+
+    if ([string]::IsNullOrWhiteSpace($name) -or
+        [string]::IsNullOrWhiteSpace($slug) -or
+        [string]::IsNullOrWhiteSpace($pinnedVersion) -or
+        [string]::IsNullOrWhiteSpace($pinnedFileName) -or
+        $pinnedSha512 -notmatch "^[0-9a-f]{128}$") {
+        throw "Minecraft runtime lock contains invalid component metadata for $name."
+    }
+
+    $gameVersions = [Uri]::EscapeDataString(('["' + $MinecraftVersion + '"]'))
+    $uri = "https://api.modrinth.com/v2/project/$slug/version?game_versions=$gameVersions&include_changelog=false"
+    if (-not [string]::IsNullOrWhiteSpace($loader)) {
+        $loaders = [Uri]::EscapeDataString(('["' + $loader + '"]'))
         $uri += "&loaders=$loaders"
     }
 
-    $versions = @(Invoke-Json $uri)
-    $version = $versions | Where-Object {
-        -not $_.version_type -or $_.version_type -eq "release"
-    } | Select-Object -First 1
-
-    if (-not $version) {
-        throw "No stable Modrinth release found for $Name / Minecraft $MinecraftVersion."
+    $rawVersions = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+    $version = $null
+    foreach ($candidate in $rawVersions) {
+        if ([string]$candidate.version_number -eq $pinnedVersion) {
+            $version = $candidate
+            break
+        }
     }
 
-    $extension = if ($Kind -eq "resourcepack") { ".zip" } else { ".jar" }
-    $candidates = @($version.files | Where-Object {
-        $_.filename -and
-        $_.filename.EndsWith($extension, [StringComparison]::OrdinalIgnoreCase) -and
-        $_.filename -notmatch "(?i)(sources|source|dev|javadoc)"
-    })
+    if (-not $version) {
+        throw "Pinned Modrinth version $pinnedVersion was not found for $name / Minecraft $MinecraftVersion."
+    }
 
-    $file = $candidates | Where-Object { $_.primary -eq $true } | Select-Object -First 1
-    if (-not $file) { $file = $candidates | Select-Object -First 1 }
-    if (-not $file) { throw "No downloadable $extension file found for $Name." }
+    if ($version.version_type -and $version.version_type -ne "release") {
+        throw "Pinned Modrinth version $pinnedVersion for $name is no longer marked as a stable release."
+    }
 
-    $sha512 = [string]$file.hashes.sha512
+    $file = @($version.files) |
+        Where-Object { [string]$_.filename -eq $pinnedFileName } |
+        Select-Object -First 1
+
+    if (-not $file) {
+        throw "Pinned file $pinnedFileName was not found in $name $pinnedVersion."
+    }
+
+    $apiSha512 = ([string]$file.hashes.sha512).ToLowerInvariant()
+    if ($apiSha512 -ne $pinnedSha512) {
+        throw "Pinned Modrinth SHA-512 changed for $name $pinnedVersion. Lock=$pinnedSha512 API=$apiSha512"
+    }
+
     $safeName = [IO.Path]::GetFileName([string]$file.filename)
-    if ([string]::IsNullOrWhiteSpace($safeName) -or $safeName -ne [string]$file.filename) {
-        throw "Unsafe Modrinth filename returned for $Name."
+    if ([string]::IsNullOrWhiteSpace($safeName) -or $safeName -ne $pinnedFileName) {
+        throw "Unsafe or unexpected Modrinth filename returned for $name."
+    }
+
+    $extension = if ($kind -eq "resourcepack") { ".zip" } else { ".jar" }
+    if (-not $safeName.EndsWith($extension, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Pinned file for $name has unexpected extension: $safeName"
     }
 
     $downloadUri = [Uri][string]$file.url
     $allowedModrinthHosts = @("cdn.modrinth.com", "api.modrinth.com")
     if ($downloadUri.Scheme -ne "https" -or
         $allowedModrinthHosts -notcontains $downloadUri.Host.ToLowerInvariant()) {
-        throw "Unexpected Modrinth download origin for ${Name}: $($file.url)"
+        throw "Unexpected Modrinth download origin for ${name}: $($file.url)"
     }
 
     $destination = Join-Path $filesDir $safeName
-    Write-Host "Downloading $Name $($version.version_number)..."
-    $actual = Copy-WithSha512 -Url $downloadUri.AbsoluteUri -Destination $destination -ExpectedSha512 $sha512 -Label $Name
+    Write-Host "Downloading pinned $name $pinnedVersion..."
+    $actual = Copy-WithSha512 -Url $downloadUri.AbsoluteUri -Destination $destination -ExpectedSha512 $pinnedSha512 -Label $name
 
     return [ordered]@{
-        Name = $Name
-        Slug = $Slug
-        Kind = $Kind
-        Loader = $Loader
-        Version = [string]$version.version_number
+        Name = $name
+        Slug = $slug
+        Kind = $kind
+        Loader = $loader
+        Version = $pinnedVersion
         FileName = $safeName
         RelativePath = "files/$safeName"
         Sha512 = $actual
     }
 }
 
-$loaderVersion = $FabricLoaderVersion
+$loaderVersion = [string]$RuntimeLock.fabric_loader.version
 $parsedLoaderVersion = $null
 if ([string]::IsNullOrWhiteSpace($loaderVersion) -or
     -not [Version]::TryParse($loaderVersion, [ref]$parsedLoaderVersion)) {
