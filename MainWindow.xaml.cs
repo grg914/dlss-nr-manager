@@ -737,12 +737,12 @@ public partial class MainWindow : Window
 
                     _runtimePath = runtime.RuntimePath;
                     RuntimePathText.Text =
-                        $"{Path.GetFileName(runtime.RuntimePath)} • NVIDIA Streamline {runtime.Version} • official GitHub release";
+                        $"{Path.GetFileName(runtime.RuntimePath)} • DLSS NR Manager {runtime.Version} • NVIDIA-signed runtime";
                 }
                 catch (Exception ex)
                 {
                     var continueWithoutNr = MessageBox.Show(
-                        $"No usable official DLSS Neural Rendering runtime could be prepared.\n\n{ex.Message}\n\n" +
+                        $"No usable manager-owned NVIDIA-signed DLSS Neural Rendering runtime could be prepared.\n\n{ex.Message}\n\n" +
                         "Continue with the other RTX 50 features (DLSS SR/RR, Frame Generation/MFG and Reflex) without Neural Rendering?",
                         "Neural Rendering unavailable",
                         MessageBoxButton.YesNo,
@@ -2394,20 +2394,20 @@ public partial class MainWindow : Window
                     progress);
 
                 AppLogger.Info(
-                    $"NVIDIA Streamline official resource staging completed: {staged.Count} file(s) added to '{runtimeDirectory}'.");
+                    $"Manager-owned NVIDIA runtime staging completed: {staged.Count} file(s) added to '{runtimeDirectory}'.");
             }
 
             var result = await _nvidiaNrDiscovery.CheckAsync(progress);
 
             var stagingSummary = instance == null
-                ? "Select a Minecraft instance to download and stage NVIDIA runtime files."
+                ? "Select a Minecraft instance to stage manager-owned NVIDIA runtime files."
                 : staged.Count == 0
                     ? "NVIDIA runtime files are already up to date."
-                    : $"Downloaded {staged.Count} missing official NVIDIA runtime file(s).";
+                    : $"Staged {staged.Count} missing manager-owned NVIDIA runtime file(s).";
 
             var neuralRenderingSummary = result.PublicSdkReady
-                ? $"DLSS Neural Rendering: official public runtime detected ({result.StreamlineVersion})."
-                : $"DLSS Neural Rendering: not publicly available from NVIDIA yet ({result.StreamlineVersion}).";
+                ? $"DLSS Neural Rendering: validated manager-owned runtime ready ({result.StreamlineVersion})."
+                : $"DLSS Neural Rendering: manager-owned runtime bootstrap incomplete ({result.StreamlineVersion}).";
 
             MinecraftNvidiaNrStatusText.Text =
                 $"{stagingSummary} {neuralRenderingSummary}";
