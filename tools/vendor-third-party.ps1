@@ -95,7 +95,7 @@ function Write-ForceIncludeManifest {
             ForEach-Object {
                 $full = [IO.Path]::GetFullPath($_.FullName)
                 if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-                    $full.Substring($rootPrefix.Length).Replace('\\', '/')
+                    $full.Substring($rootPrefix.Length).Replace([IO.Path]::DirectorySeparatorChar, [char]'/')
                 }
             } |
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
@@ -113,10 +113,10 @@ function Write-ForceIncludeManifest {
         }
     }
 
-    $destinationPrefix = $Destination.TrimEnd('/', '\\').Replace('\\', '/') + "/"
+    $destinationPrefix = $Destination.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar).Replace([IO.Path]::DirectorySeparatorChar, [char]'/') + "/"
     $relativeIgnored = @(
         $ignored |
-            ForEach-Object { ([string]$_).Replace('\\', '/') } |
+            ForEach-Object { ([string]$_).Replace([IO.Path]::DirectorySeparatorChar, [char]'/') } |
             Where-Object { $_.StartsWith($destinationPrefix, [StringComparison]::OrdinalIgnoreCase) } |
             ForEach-Object { $_.Substring($destinationPrefix.Length) } |
             Sort-Object -Unique
