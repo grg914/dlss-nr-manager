@@ -111,6 +111,11 @@ jobs:
             }
           }
 
+      - name: Enforce Minecraft native Vulkan/NGX policy
+        shell: pwsh
+        run: |
+          & .\tools\verify-minecraft-native-ngx-path.ps1
+
       - name: Audit manager-owned Caustica and Scandi assets
         shell: pwsh
         env:

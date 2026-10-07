@@ -368,3 +368,19 @@ Choix propose:
 - C: prototyper une chaine OptiScaler active complete.
 
 Recommandation: A.
+
+
+## Decision and implementation: Solution A selected
+
+Decision date: 2026-10-07.
+
+Solution A is now the selected Minecraft production policy:
+
+- Minecraft stays on the Caustica Vulkan renderer.
+- Caustica keeps the direct NGX path for DLSS RR/SR, Frame Generation, Reflex and Neural Rendering when capability-gated.
+- OptiScaler remains available to DLSS NR Manager for other supported workflows, but is intentionally excluded from the Minecraft operational path.
+- The manager-owned Minecraft staging directory rejects OptiScaler/proxy artifacts such as `OptiScaler.ini`, `OptiScaler.dll`, `dxgi.dll` and `d3d12.dll`.
+- Build and Release CI enforce this separation and fail if the operational Minecraft services start referencing OptiScaler or DXGI/D3D12 proxy files.
+- The guard also verifies that Vulkan selection, the production Caustica selector, SPBRScandi path and direct NVIDIA NGX runtime markers remain present.
+
+This hardening does not modify Caustica source/binaries, SPBRScandi content, ScandiShader assets, OptiScaler.ini or the OptiScaler vendored runtime.

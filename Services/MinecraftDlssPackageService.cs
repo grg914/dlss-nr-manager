@@ -130,6 +130,8 @@ public sealed class MinecraftDlssPackageService
         }
 
         var root = Path.GetFullPath(instanceRoot);
+        MinecraftRenderPipelinePolicy.EnsureManagerRuntimeIsNativeNgxOnly(root);
+
         var destinationRoot = Path.Combine(root, ".dlss-nr-manager-runtime");
         Directory.CreateDirectory(destinationRoot);
 
@@ -182,8 +184,11 @@ public sealed class MinecraftDlssPackageService
             }
         }
 
+        var root = Path.GetFullPath(instanceRoot);
+        MinecraftRenderPipelinePolicy.EnsureManagerRuntimeIsNativeNgxOnly(root);
+
         var destinationRoot = Path.Combine(
-            Path.GetFullPath(instanceRoot),
+            root,
             ".dlss-nr-manager-runtime");
 
         Directory.CreateDirectory(destinationRoot);
