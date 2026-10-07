@@ -2,7 +2,8 @@ param(
     [switch]$Replace,
     [switch]$NormalizeExisting,
     [switch]$IncludeMinecraftSources,
-    [switch]$IncludeRestrictedNvidiaSdk
+    [switch]$IncludeRestrictedNvidiaSdk,
+    [switch]$StageImported
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,6 +64,86 @@ function Get-LfsPointers {
     return $pointers
 }
 
+function Write-ForceIncludeManifest {
+    param(
+        [Parameter(Mandatory=$true)][string]$Target,
+        [Parameter(Mandatory=$true)][string]$Destination
+    )
+
+    $manifestPath = Join-Path $Target "VENDORED_FORCE_INCLUDE.txt"
+    $rootPrefix = [IO.Path]::GetFullPath($Root).TrimEnd(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+
+    $repoRelativeFiles = @(
+        Get-ChildItem -LiteralPath $Target -Recurse -File -Force -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.Name -ne "SOURCE.json" -and
+                $_.Name -ne "VENDORED_FORCE_INCLUDE.txt"
+            } |
+            ForEach-Object {
+                $full = [IO.Path]::GetFullPath($_.FullName)
+                if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                    $full.Substring($rootPrefix.Length).Replace('', '/')
+                }
+            } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+
+    $ignored = @()
+    if ($repoRelativeFiles.Count -gt 0) {
+        $ignored = @(
+            $repoRelativeFiles |
+                git -C $Root check-ignore --no-index --stdin 2>$null
+        )
+
+        if ($LASTEXITCODE -notin 0, 1) {
+            throw "git check-ignore failed while auditing '$Destination'."
+        }
+    }
+
+    $destinationPrefix = $Destination.TrimEnd('/', '').Replace('', '/') + "/"
+    $relativeIgnored = @(
+        $ignored |
+            ForEach-Object { ([string]$_).Replace('', '/') } |
+            Where-Object { $_.StartsWith($destinationPrefix, [StringComparison]::OrdinalIgnoreCase) } |
+            ForEach-Object { $_.Substring($destinationPrefix.Length) } |
+            Sort-Object -Unique
+    )
+
+    $lines = @(
+        "# Files tracked by the upstream source but ignored by vendored .gitignore rules."
+        "# These paths must be staged with git add -f so the monorepo snapshot stays complete."
+    ) + $relativeIgnored
+
+    Set-Content -LiteralPath $manifestPath -Value $lines -Encoding UTF8
+
+    if ($relativeIgnored.Count -gt 0) {
+        Write-Host "FORCE-INCLUDE manifest: $($relativeIgnored.Count) ignored tracked/materialized file(s) in $Destination"
+    }
+    else {
+        Write-Host "FORCE-INCLUDE manifest: none for $Destination"
+    }
+}
+
+function Stage-PublicImport {
+    param(
+        [Parameter(Mandatory=$true)][string]$Destination,
+        [Parameter(Mandatory=$true)][string]$Group
+    )
+
+    if (-not $StageImported -or $Group -eq "local-only") {
+        return
+    }
+
+    git -C $Root add -f -- $Destination
+    if ($LASTEXITCODE -ne 0) {
+        throw "git add -f failed for '$Destination'."
+    }
+
+    Write-Host "STAGED $Destination (forced so tracked upstream binaries ignored by nested .gitignore files are preserved)"
+}
+
 
 function Apply-RetentionPolicy {
     param(
@@ -120,7 +201,8 @@ function Test-ExistingImport {
     param(
         [Parameter(Mandatory=$true)][string]$Target,
         [Parameter(Mandatory=$true)][string]$Url,
-        [Parameter(Mandatory=$true)][string]$Ref
+        [Parameter(Mandatory=$true)][string]$Ref,
+        [string]$ExpectedTree
     )
 
     $sourcePath = Join-Path $Target "SOURCE.json"
@@ -130,7 +212,15 @@ function Test-ExistingImport {
 
     try {
         $source = Get-Content -LiteralPath $sourcePath -Raw | ConvertFrom-Json
-        return $source.url -eq $Url -and $source.ref -eq $Ref
+        if ($source.url -ne $Url -or $source.ref -ne $Ref) {
+            return $false
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedTree)) {
+            return $source.tree -eq $ExpectedTree
+        }
+
+        return $true
     }
     catch {
         return $false
@@ -147,6 +237,7 @@ function Normalize-ExistingImport {
     $id = [string]$Source.id
     $url = [string]$Source.url
     $ref = [string]$Source.ref
+    $expectedTree = if ($Source.tree) { [string]$Source.tree } else { $null }
     $destination = [string]$Source.path
     $target = Join-Path $Root $destination
 
@@ -174,45 +265,41 @@ function Normalize-ExistingImport {
     }
 
     $sourcePath = Join-Path $target "SOURCE.json"
-    $importedAt = $null
-    if (Test-Path -LiteralPath $sourcePath) {
-        try {
-            $existing = Get-Content -LiteralPath $sourcePath -Raw | ConvertFrom-Json
-            if ($existing.imported_at_utc) {
-                $importedAt = [string]$existing.imported_at_utc
-            }
-        }
-        catch {
-            # Replace invalid provenance metadata below.
-        }
+    if (!(Test-Path -LiteralPath $sourcePath)) {
+        throw "Cannot normalize '$destination' without existing SOURCE.json provenance. Re-import with -Replace."
     }
 
-    $needsMetadataUpdate = $true
-    if (Test-Path -LiteralPath $sourcePath) {
-        try {
-            $existing = Get-Content -LiteralPath $sourcePath -Raw | ConvertFrom-Json
-            $needsMetadataUpdate =
-                $existing.id -ne $id -or
-                $existing.group -ne $Group -or
-                $existing.url -ne $url -or
-                $existing.ref -ne $ref
-        }
-        catch {
-            $needsMetadataUpdate = $true
-        }
+    try {
+        $existing = Get-Content -LiteralPath $sourcePath -Raw | ConvertFrom-Json
+    }
+    catch {
+        throw "Cannot normalize '$destination' because SOURCE.json is invalid. Re-import with -Replace."
     }
 
-    if ($needsMetadataUpdate) {
-        $metadata = [ordered]@{
-            id = $id
-            group = $Group
-            url = $url
-            ref = $ref
-            imported_at_utc = if ($importedAt) { $importedAt } else { [DateTime]::UtcNow.ToString("o") }
-        } | ConvertTo-Json
-
-        Set-Content -LiteralPath $sourcePath -Value $metadata -Encoding UTF8
+    if ($existing.url -ne $url -or $existing.ref -ne $ref) {
+        throw "Cannot normalize '$destination': existing provenance does not match the lock file. Re-import with -Replace."
     }
+
+    if (-not [string]::IsNullOrWhiteSpace($expectedTree) -and
+        $existing.tree -ne $expectedTree) {
+        throw "Cannot normalize '$destination': exact source tree provenance is missing or mismatched. Re-import with -Replace."
+    }
+
+    $metadata = [ordered]@{
+        id = $id
+        group = $Group
+        url = $url
+        ref = $ref
+        imported_at_utc = if ($existing.imported_at_utc) { [string]$existing.imported_at_utc } else { [DateTime]::UtcNow.ToString("o") }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($expectedTree)) {
+        $metadata.tree = $expectedTree
+    }
+
+    Set-Content -LiteralPath $sourcePath -Value ($metadata | ConvertTo-Json) -Encoding UTF8
+    Write-ForceIncludeManifest -Target $target -Destination $destination
+    Stage-PublicImport -Destination $destination -Group $Group
 
     Write-Host "NORMALIZED $destination -> $ref"
 }
@@ -232,7 +319,7 @@ function Import-Repo {
     $target = Join-Path $Root $Destination
     if (Test-Path -LiteralPath $target) {
         if (-not $Replace) {
-            if (Test-ExistingImport -Target $target -Url $Url -Ref $Ref) {
+            if (Test-ExistingImport -Target $target -Url $Url -Ref $Ref -ExpectedTree $ExpectedTree) {
                 Write-Host "SKIP $Destination (already matches lock file; use -Replace to refresh)"
                 return
             }
@@ -259,6 +346,16 @@ function Import-Repo {
         $actualRef = (git -C $temp rev-parse HEAD).Trim()
         if ($LASTEXITCODE -ne 0 -or $actualRef -ne $Ref) {
             throw "Pinned ref verification failed for '$Id'. Expected $Ref, got $actualRef."
+        }
+
+        $actualTree = (git -C $temp rev-parse "HEAD^{tree}").Trim()
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to resolve Git tree for '$Id' at $Ref."
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedTree) -and
+            $actualTree -ne $ExpectedTree) {
+            throw "Pinned tree verification failed for '$Id'. Expected $ExpectedTree, got $actualTree."
         }
 
         git -C $temp submodule update --init --recursive
@@ -305,10 +402,13 @@ function Import-Repo {
             group = $Group
             url = $Url
             ref = $Ref
+            tree = $actualTree
             imported_at_utc = [DateTime]::UtcNow.ToString("o")
         } | ConvertTo-Json
 
         Set-Content -LiteralPath (Join-Path $target "SOURCE.json") -Value $source -Encoding UTF8
+        Write-ForceIncludeManifest -Target $target -Destination $Destination
+        Stage-PublicImport -Destination $Destination -Group $Group
     }
     finally {
         if (Test-Path -LiteralPath $temp) {
@@ -350,6 +450,7 @@ foreach ($source in @($Lock.sources)) {
         Ref = [string]$source.ref
         Destination = [string]$source.path
         Group = $group
+        ExpectedTree = if ($source.tree) { [string]$source.tree } else { $null }
         Retention = $source.retention
     }
     Import-Repo @importArgs
@@ -365,6 +466,7 @@ if ($IncludeRestrictedNvidiaSdk) {
             Ref = [string]$source.ref
             Destination = [string]$source.path
             Group = "local-only"
+            ExpectedTree = if ($source.tree) { [string]$source.tree } else { $null }
             Retention = $source.retention
         }
         Import-Repo @importArgs
