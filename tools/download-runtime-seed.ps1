@@ -74,10 +74,6 @@ function Resolve-PatternMatches {
 $downloaded = @()
 foreach ($pattern in $Assets) {
     $matches = @(Resolve-PatternMatches -Pattern $pattern)
-    if (-not $AllMatches -and $matches.Count -gt 1) {
-        $matches = @($matches | Select-Object -First 1)
-    }
-
     foreach ($initialAsset in $matches) {
         $name = [string]$initialAsset.name
         $destinationPath = Join-Path $destinationRoot $name
