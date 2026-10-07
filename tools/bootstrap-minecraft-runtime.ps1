@@ -207,8 +207,8 @@ foreach ($library in @($profile.libraries)) {
     }
 
     $libraryUrl = ([Uri]::new($baseUri, $mavenPath)).AbsoluteUri
-    $sha1Response = Invoke-WebRequest -Uri ($libraryUrl + ".sha1") -Headers $headers
-    $sha1 = ([string]$sha1Response.Content).Trim().Split()[0].ToLowerInvariant()
+    $sha1Response = Invoke-RestMethod -Uri ($libraryUrl + ".sha1") -Headers $headers -Method Get
+    $sha1 = ([string]$sha1Response).Trim().Split()[0].ToLowerInvariant()
     if ($sha1 -notmatch "^[0-9a-f]{40}$") {
         throw "Fabric library SHA-1 sidecar is invalid for $coordinate."
     }
@@ -233,7 +233,7 @@ if ($installerUri.Scheme -ne "https" -or $installerUri.Host -ne "maven.fabricmc.
     throw "Unexpected Fabric Installer origin: $installerUrl"
 }
 $installerPath = Join-Path $filesDir $installerName
-$installerSha256 = ((Invoke-WebRequest -Uri ($installerUrl + ".sha256") -Headers $headers).Content.Trim().Split()[0]).ToLowerInvariant()
+$installerSha256 = (([string](Invoke-RestMethod -Uri ($installerUrl + ".sha256") -Headers $headers -Method Get)).Trim().Split()[0]).ToLowerInvariant()
 if ($installerSha256 -notmatch "^[0-9a-f]{64}$") { throw "Fabric Installer SHA-256 sidecar is invalid." }
 Invoke-WebRequest -Uri $installerUrl -Headers $headers -OutFile $installerPath
 $actualInstallerSha = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
