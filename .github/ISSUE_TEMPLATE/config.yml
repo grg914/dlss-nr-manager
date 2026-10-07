@@ -1,0 +1,6 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security policy
+    url: https://github.com/grg914/dlss-nr-manager/security/policy
+    about: Read the private vulnerability reporting guidance before posting security-sensitive details.
+
