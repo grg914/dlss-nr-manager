@@ -98,13 +98,13 @@ jobs:
           cat > "$body" <<EOF
           This issue is an automatically refreshed recovery checkpoint for interrupted long-running work.
 
-          **Current main:** `$main_sha`
+          **Current main:** $main_sha
           **Generated:** $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          **Trigger:** `${{ github.event_name }}`
+          **Trigger:** ${{ github.event_name }}
 
           Before resuming work:
-          1. Read `AI_PROJECT_PROGRESS.txt`.
-          2. Read `docs/PROJECT-CONTINUITY.md`.
+          1. Read AI_PROJECT_PROGRESS.txt.
+          2. Read docs/PROJECT-CONTINUITY.md.
           3. Verify the actual latest workflow/job logs below.
           4. Resume from the latest observed failing step; do not reopen already validated phases.
 
