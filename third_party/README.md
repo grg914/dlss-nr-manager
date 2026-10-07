@@ -8,7 +8,7 @@ Intended layout:
 - `NVIDIA-Streamline/` — NVIDIA Streamline source snapshot.
 - `OptiScaler/` — OptiScaler DLSS-NR source snapshot.
 - `video2dlssnr/` — video neural-rendering processor source.
-- `FFmpeg-Builds/` and `FFmpeg/` — build recipes and upstream FFmpeg source.
+- `FFmpeg/` — pinned upstream FFmpeg source. `FFmpeg-Builds/` is retained only as a historical/reference build recipe snapshot and is not used by the manager runtime.
 - `Real-ESRGAN-ncnn-vulkan/` — Real-ESRGAN NCNN Vulkan source.
 - `Real-ESRGAN-model-sources/` — exact source snapshots currently used for model files.
 - `ReShade/` — ReShade source.
@@ -49,7 +49,7 @@ FFmpeg media tooling is built from the pinned `third_party/FFmpeg` source snapsh
 
 Caustica RTX and the OptiScaler fork contain GPLv3-covered code. Keep their license files and treat them as separately distributed components.
 
-FFmpeg licensing depends on the build configuration. The current BtbN package selected by the manager is a GPL build; mirrored binaries need the corresponding license/source obligations.
+FFmpeg licensing depends on the build configuration. DLSS NR Manager's vendored Windows x64 build intentionally avoids `--enable-gpl` and `--enable-nonfree`, so the distributed FFmpeg runtime remains under FFmpeg's LGPL-compatible configuration. BtbN release binaries are no longer a runtime dependency.
 
 The AI detector repositories currently used by v3 are Apache-2.0 (`ai-image-detection-ONNX`) and MIT (`ai-image-detect-distilled-ONNX`). Keep model cards and license metadata beside the weights.
 
