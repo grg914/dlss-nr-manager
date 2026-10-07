@@ -1,0 +1,122 @@
+name: Runtime Seed Refresh
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/runtime-refresh.yml'
+      - 'tools/generate-components-manifest.ps1'
+      - 'tools/publish-streamline-runtime.ps1'
+      - 'tools/bootstrap-minecraft-runtime.ps1'
+  workflow_dispatch:
+    inputs:
+      changed_ids:
+        description: 'Comma-separated dependency ids, or all'
+        required: false
+        default: 'all'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: runtime-seed-refresh
+  cancel-in-progress: false
+
+env:
+  RUNTIME_SEED_TAG: runtime-seed-v1
+
+jobs:
+  seed-release:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_ids: ${{ steps.ids.outputs.value }}
+    steps:
+      - name: Resolve refresh scope
+        id: ids
+        run: |
+          value="${{ github.event.inputs.changed_ids }}"
+          if [ -z "$value" ]; then value="all"; fi
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure manager-owned seed release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$RUNTIME_SEED_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$RUNTIME_SEED_TAG" --repo "${{ github.repository }}" --title "DLSS NR Manager Runtime Seed v1" --notes "Manager-owned bootstrap assets. This prerelease is not an application release." --prerelease
+          fi
+
+  windows-runtime:
+    needs: seed-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          lfs: true
+
+      - name: Refresh Streamline bundle
+        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'streamline')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\publish-streamline-runtime.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG"
+
+      - name: Refresh Minecraft bundle
+        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'minecraft-')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\bootstrap-minecraft-runtime.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG"
+
+      - name: Preserve restricted video runtime in seed
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = gh release view $env:RUNTIME_SEED_TAG --repo "${{ github.repository }}" --json assets --jq '.assets[].name'
+          if ($assets -contains "video2dlssnr_release.zip") {
+            Write-Host "video2dlssnr_release.zip already exists in runtime seed."
+            exit 0
+          }
+
+          $dir = "build-local/video-seed"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          gh release download --repo "${{ github.repository }}" --pattern "video2dlssnr_release.zip" --dir $dir
+          if ($LASTEXITCODE -ne 0) { throw "Unable to copy manager-owned video runtime from latest stable release." }
+          gh release upload $env:RUNTIME_SEED_TAG (Join-Path $dir "video2dlssnr_release.zip") --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish video runtime into runtime seed." }
+
+  ffmpeg-runtime:
+    needs: seed-release
+    if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'ffmpeg') || contains(needs.seed-release.outputs.changed_ids, 'nv-codec-headers')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          lfs: true
+
+      - name: Install refresh-only FFmpeg toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 nasm pkg-config make zip binutils-mingw-w64-x86-64
+
+      - name: Build manager-owned FFmpeg
+        run: bash ./tools/build-ffmpeg-windows.sh
+
+      - name: Publish FFmpeg into runtime seed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$RUNTIME_SEED_TAG" build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip --repo "${{ github.repository }}" --clobber
+
+  dispatch-release:
+    needs: [seed-release, windows-runtime, ffmpeg-runtime]
+    if: always() && needs.seed-release.result == 'success' && needs.windows-runtime.result == 'success' && (needs.ffmpeg-runtime.result == 'success' || needs.ffmpeg-runtime.result == 'skipped') && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch production release after seed promotion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --repo "${{ github.repository }}" --ref main
