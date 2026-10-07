@@ -269,6 +269,67 @@ public sealed class RecoveryAndDetectionTests : IDisposable
             GitHubReleaseService.IsOptiScalerPrerelease(tag));
 
     [Fact]
+    public void Stable_manager_release_keeps_pre0_optiscaler_build_visible()
+    {
+        using var json = System.Text.Json.JsonDocument.Parse(
+            """
+            {
+              "prerelease": false,
+              "assets": [
+                {
+                  "name": "OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip",
+                  "browser_download_url": "https://github.com/grg914/dlss-nr-manager/releases/download/v3.1.1/OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip",
+                  "digest": "sha256:9a8e1eb945cf9438b6f78350db1f0c8e3e4383e72db7415212dbfd6234ae6"
+                }
+              ]
+            }
+            """);
+
+        var release =
+            GitHubReleaseService.TryGetManagerOwnedOptiScaler(
+                json.RootElement);
+
+        Assert.NotNull(release);
+        Assert.Equal("v0.7.7-pre0", release!.Tag);
+        Assert.False(release.Prerelease);
+    }
+
+    [Theory]
+    [InlineData("fr", "fr")]
+    [InlineData("fr-CH", "fr")]
+    [InlineData("en", "en")]
+    [InlineData("de-CH", "en")]
+    [InlineData("", "en")]
+    public void Ui_language_normalization_supports_french_and_english(
+        string input,
+        string expected)
+        => Assert.Equal(
+            expected,
+            UiLocalizationService.NormalizeLanguage(input));
+
+    [Fact]
+    public void Ui_translation_switches_both_directions()
+    {
+        Assert.Equal(
+            "Bibliothèque de jeux",
+            UiLocalizationService.Translate(
+                "Game library",
+                "fr"));
+
+        Assert.Equal(
+            "Game library",
+            UiLocalizationService.Translate(
+                "Bibliothèque de jeux",
+                "en"));
+
+        Assert.Equal(
+            "Games & DLSS",
+            UiLocalizationService.Translate(
+                "Jeux & DLSS",
+                "en"));
+    }
+
+    [Fact]
     public async Task Network_retry_retries_only_transient_failures()
     {
         var attempts = 0;
