@@ -250,13 +250,15 @@ jobs:
           "caustica=$caustica" >> $env:GITHUB_OUTPUT
           "spbr=$spbr" >> $env:GITHUB_OUTPUT
 
-      - name: Validate Scandi texture asset
+      - name: Validate Caustica and Scandi assets
         shell: pwsh
         run: |
-          $path = "release-assets/SPBRScandi.zip"
-          $expected = "1BB19E99208E8826EABF7775FA06353E78A6EA449D43F12CD9D26EACF5BD9177"
-          $actual = (Get-FileHash $path -Algorithm SHA256).Hash.ToUpperInvariant()
-          if ($actual -ne $expected) { throw "SHA-256 mismatch for SPBRScandi.zip. Expected $expected, got $actual." }
+          $causticaPath = Join-Path "release-assets" "${{ steps.optional.outputs.caustica }}"
+          $spbrPath = "release-assets/SPBRScandi.zip"
+          & .\tools\verify-caustica-scandi-assets.ps1 `
+            -CausticaJar $causticaPath `
+            -SpbrZip $spbrPath `
+            -ExpectedSpbrSha256 "1BB19E99208E8826EABF7775FA06353E78A6EA449D43F12CD9D26EACF5BD9177"
 
       - name: Generate trusted component manifest
         shell: pwsh
