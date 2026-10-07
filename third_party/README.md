@@ -41,7 +41,7 @@ Run `tools/verify-self-contained.ps1` to audit the checkout. With `-Strict`, the
 
 Do not commit `NVIDIA/DLSS` as a normal vendored public dependency without a dedicated license review. NVIDIA RTX SDK licensing restricts standalone SDK redistribution. The bootstrap therefore places it under `third_party-local/`, which is Git-ignored and can be referenced locally through `DLSS_SDK`.
 
-Streamline root source is MIT-licensed, but its tree contains third-party SDK material with separate license files; preserve all upstream notices.
+Streamline root source is MIT-licensed, but its tree contains third-party SDK material with separate license files; preserve all upstream notices. The locked source commit is NVIDIA Streamline v2.14.1, and the lock file also pins the matching official x64 SDK archive and SHA-256. `tools/publish-streamline-runtime.ps1` verifies that official package, extracts only the runtime DLLs used by DLSS NR Manager, validates NVIDIA signatures on proprietary `nvngx_*`/low-latency runtimes, preserves licenses/provenance, and uploads a reduced manager-owned runtime bundle. `release.yml` carries that bundle forward from DLSS NR Manager release history so normal production releases do not need to query NVIDIA's release feed.
 
 FFmpeg media tooling is built from the pinned `third_party/FFmpeg` source snapshot plus the pinned `third_party/nv-codec-headers` headers. Use `tools/build-ffmpeg-windows.sh` on a Linux/MinGW build host. The resulting Windows x64 package keeps FFmpeg's native codec/demuxer coverage, ffprobe, AAC encoding, and NVIDIA NVENC/NVDEC/CUVID support without depending on BtbN release binaries. The configured build intentionally avoids `--enable-gpl` and `--enable-nonfree`.
 
