@@ -19,6 +19,7 @@ jobs:
       - name: Checkout this repository without external actions
         shell: pwsh
         run: |
+          $env:GIT_LFS_SKIP_SMUDGE = "1"
           git init .
           git remote add origin "https://github.com/${{ github.repository }}.git"
           git fetch --no-tags --prune --depth=1 origin "$env:GITHUB_REF"
