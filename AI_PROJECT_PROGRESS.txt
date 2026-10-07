@@ -35,9 +35,9 @@ Checkpoint persistant :
   2. aucun push direct vers main lorsque GitHub Actions ne peut pas créer la PR ;
   3. branche upstream stable/persistante pour éviter les branches/revalidations en boucle ;
   4. attente explicite du check build requis avant merge automatique quand la création de PR par Actions est autorisée ;
-  5. pas de dispatch Runtime Seed redondant après merge : le push main déclenche le workflow existant ;
+  5. dispatch Runtime Seed explicite uniquement après merge automatique par GITHUB_TOKEN ; un merge manuel déclenche le push main normalement ;
   6. checkpoint GitHub automatique issue #51 pour reprendre après interruption.
-- Build PR #651 : PENDING au dernier contrôle sur le head consolidé de PR #50.
+- Build final de PR #50 : À REVALIDER après consolidation des sécurités de continuité et du dispatch Runtime Seed.
 
 Règle de protection :
 - Le ruleset Protect main reste actif.
