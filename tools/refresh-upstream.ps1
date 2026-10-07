@@ -244,6 +244,44 @@ function Update-ReleaseMetadata {
     }
 }
 
+function Update-ProjectPackageVersion {
+    param(
+        [Parameter(Mandatory=$true)][string]$PackageId,
+        [Parameter(Mandatory=$true)][string]$UpstreamVersion
+    )
+
+    $version = $UpstreamVersion.Trim()
+    if ($version.StartsWith("v", [StringComparison]::OrdinalIgnoreCase)) {
+        $version = $version.Substring(1)
+    }
+
+    if ($version -notmatch "^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$") {
+        throw "Cannot map upstream version '$UpstreamVersion' to NuGet package '$PackageId'."
+    }
+
+    $xmlText = Get-Content -LiteralPath $ProjectPath -Raw
+    $escaped = [regex]::Escape($PackageId)
+    $pattern = "(<PackageReference\s+Include=`"$escaped`"\s+Version=`")[^`"]+(`"\s*/>)"
+
+    if (-not [regex]::IsMatch($xmlText, $pattern)) {
+        throw "PackageReference '$PackageId' was not found in DlssNrManager.csproj."
+    }
+
+    $xmlText = [regex]::Replace(
+        $xmlText,
+        $pattern,
+        ('1' + $version + '2'),
+        1)
+
+    Set-Content -LiteralPath $ProjectPath -Value $xmlText -Encoding UTF8 -NoNewline
+    git -C $Root add -- "DlssNrManager.csproj"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to stage package version update for '$PackageId'."
+    }
+
+    Write-Host "APPLICATION PACKAGE $PackageId -> $version"
+}
+
 function Bump-ApplicationPatchVersion {
     $xmlText = Get-Content -LiteralPath $ProjectPath -Raw
     $match = [regex]::Match($xmlText, "<Version>(?<version>\d+\.\d+\.\d+)</Version>")
@@ -322,6 +360,10 @@ foreach ($policy in @($Policies.sources)) {
             $entry.tree = $state.Tree
         }
         Update-ReleaseMetadata -Entry $entry -Policy $policy -State $state
+
+        if ($policy.project_package) {
+            Update-ProjectPackageVersion -PackageId ([string]$policy.project_package) -UpstreamVersion ([string]$state.Version)
+        }
     }
 }
 
