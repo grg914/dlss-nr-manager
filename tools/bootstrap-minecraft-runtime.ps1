@@ -135,7 +135,7 @@ function Resolve-ModrinthComponent {
     $allowedModrinthHosts = @("cdn.modrinth.com", "api.modrinth.com")
     if ($downloadUri.Scheme -ne "https" -or
         $allowedModrinthHosts -notcontains $downloadUri.Host.ToLowerInvariant()) {
-        throw "Unexpected Modrinth download origin for $Name: $($file.url)"
+        throw "Unexpected Modrinth download origin for ${Name}: $($file.url)"
     }
 
     $destination = Join-Path $filesDir $safeName
