@@ -1,395 +1,136 @@
-0. CHECKPOINT DE REPRISE — AUTORITATIF (FINALISATION PIPELINE v3.1.1 — 2026-10-07)
+0. CHECKPOINT DE REPRISE - AUTORITATIF (POST-CLEANUP GITHUB - 2026-10-07)
 
-CE BLOC EST LA SOURCE DE VÉRITÉ POUR LA REPRISE.
-Il prime sur toutes les sections historiques plus bas lorsqu'elles sont devenues obsolètes.
-Ne jamais reprendre une ancienne erreur, un ancien blocker ou une ancienne "prochaine action" si elle contredit ce bloc.
+CE BLOC EST LA SOURCE DE VERITE POUR LA REPRISE.
+Il prime sur toutes les sections historiques plus bas lorsqu'elles sont devenues obsoletes.
+Les sections 1-20 sont conservees pour tracabilite et peuvent contenir des etats anciens.
+Ne jamais reprendre une ancienne erreur, un ancien blocker ou une ancienne "prochaine action"
+si elle contredit ce bloc 0.
 
-PROTOCOLE APRÈS COUPURE CHATGPT
-1. Lire ce bloc 0.
-2. Lire l'issue GitHub #51 : "[continuity] DLSS NR Manager pipeline checkpoint".
-3. Vérifier les runs GitHub réels les plus récents avant toute modification.
-4. Ne jamais repartir d'un ancien run FAILED si un run plus récent l'a déjà résolu.
-5. Mettre à jour ce fichier après tout nouveau jalon ou échec réel.
+ETAT GITHUB VERIFIE EXTERNEMENT
 
-CHECKPOINT PERSISTANT / ANTI-COUPURE
-- Issue GitHub #51 : checkpoint persistant de continuité.
-- Workflow : .github/workflows/continuity-checkpoint.yml.
-- Le workflow de continuité est prévu pour conserver un état récupérable après Build / Upstream Dependency Sync / Runtime Seed Refresh / Release.
-- PR #54 a ajouté ce checkpoint détaillé après plusieurs interruptions.
-- PR #54 : MERGED après Build #661 PASSED.
-- Merge commit de PR #54 : 861b30bfb8a2be46dec10efce9ce135570dbae51.
-- Les merges de documentation peuvent naturellement déclencher un nouveau Build main ; ils ne rouvrent pas à eux seuls une phase produit déjà validée sauf si ce Build révèle une régression réelle.
-
-ÉTAT COURANT VÉRIFIÉ
-
-Repository :
+Repository:
 - grg914/dlss-nr-manager
-- Baseline code fonctionnelle vérifiée avant les commits documentation-only de checkpoint : 6f2257e3d2ef72587613eda070a8645e06c4a8af
-- Version déclarée : 3.1.1
-- Latest stable GitHub vérifiée : v3.1.1
-- v3.1.1 publiée le 2026-10-07.
-- Release GitHub : DLSS NR Manager v3.1.1.
-- Release #23 : SUCCESS complet.
 
-PHASE ACTUELLE
+Main verifie avant ce checkpoint documentation:
+- 88e8c6bf6bfa8b5e00493105690b0402147f452e
+- docs: finalize v3.1.1 pipeline checkpoint (#56)
 
-Phase :
-Durcissement dépendances / production zero-upstream / synchronisation upstream / runtime seed manager-owned.
+Version:
+- version declaree: 3.1.1
+- latest stable verifiee: v3.1.1
+- Release #23: SUCCESS
 
-Statut :
-CLOSE / TERMINÉE ET VALIDÉE sur les pipelines réels actuellement observés.
+Pull requests:
+- PR #29: MERGED
+- PR #30: MERGED
+- PR #31: CLOSED / NOT MERGED / SUPERSEDED
+- aucune PR ouverte apres le cleanup du 2026-10-07
 
-Preuves de clôture :
-- Build production offline manager-owned : VERT.
-- Upstream Dependency Sync : VERT.
-- Runtime Seed Refresh : VERT.
-- Release production : VERT.
-- Stable release v3.1.1 : PUBLIÉE ET VÉRIFIÉE.
-- Les erreurs #11/#12/#13 sont historiques et résolues.
-- Ne pas rouvrir cette phase sans nouvelle régression observée.
+Pourquoi PR #31 n'a PAS ete fusionnee:
+- main contient deja une implementation plus recente du meme objectif;
+- ComponentUpdateService utilise le FFmpeg manager-owned;
+- MediaService utilise ffmpeg-dlssnr-win-x64.zip;
+- le workflow Release consomme le package FFmpeg valide depuis le runtime seed manager-owned;
+- PR #31 aurait reintroduit une ancienne strategie de build FFmpeg par release;
+- ne pas recreer ni reappliquer PR #31 sauf nouvelle regression locale reproductible.
+
+PHASE ZERO-UPSTREAM / RUNTIME-SEED
+
+Statut:
+CLOSE / TERMINEE / VALIDEE.
+
+Preuves:
+- Build production offline manager-owned: GREEN
+- Upstream Dependency Sync: GREEN
+- Runtime Seed Refresh: GREEN
+- Release production: GREEN
+- stable v3.1.1: PUBLIEE ET VERIFIEE
+
+Regle:
+Ne pas rouvrir cette phase sans nouvelle regression reproductible.
+
+ISSUES GITHUB A CONNAITRE
+
+Issue #51:
+- checkpoint automatique de continuite;
+- peut contenir un snapshot devenu obsolete;
+- elle mentionnait encore PR #31 ouverte avant le cleanup;
+- ne pas utiliser son ancien snapshot pour contredire ce bloc 0.
+
+Issue #52:
+- restricted update: nvidia-dlss-sdk;
+- statut fonctionnel: a traiter uniquement avec input NVIDIA local/licencie;
+- aucun materiel NVIDIA restreint ne doit etre publie brut.
+
+Issue #48:
+- ancien doublon fonctionnel de #52;
+- historique / cleanup possible.
+
+ETAT DU CLONE LOCAL / OPENCODE
+
+Contexte connu avant ce checkpoint:
+- clone local utilise par OpenCode: E:\AI\Projects\dlss-nr-manager
+- branche locale observee: opencode-dev
+- HEAD local observe: 88e8c6bf6bfa8b5e00493105690b0402147f452e
+- OpenCode n'a pas acces a GitHub en temps reel.
+
+Important:
+- 88e8c6bf etait le HEAD main verifie avant ce checkpoint documentation;
+- ce fichier AI_PROJECT_PROGRESS.txt peut lui-meme creer un nouveau commit documentation sur main;
+- une difference d'un commit documentation-only ne signifie PAS que le code applicatif local est obsolete;
+- avant tout travail, verifier le code local, Git local et les fichiers de pilotage.
+
+JOURNAL LOCAL OBLIGATOIRE
+
+OpenCode doit maintenir:
+E:\AI\Projects\dlss-nr-manager\log.txt
+
+Regles:
+- journal de progression et de handoff;
+- conserver analyse, decisions, fichiers modifies, commandes, tests, erreurs, fixes, commits et prochaine action;
+- contenu ecrit par OpenCode dans log.txt: ASCII-only pour eviter le mojibake;
+- ne jamais enregistrer secrets, tokens ou credentials.
 
 PROCHAINE PHASE
 
-Ne pas inventer son nom depuis ce fichier.
-Avant de continuer le projet :
-1. relire cahier de charges.txt ;
-2. relire feuille de route.txt ;
-3. identifier la prochaine phase non terminée dans l'ordre prévu ;
-4. reprendre uniquement cette phase ;
-5. conserver les phases validées ci-dessus comme terminées.
+Ne pas inventer son nom depuis ce checkpoint.
 
-ÉTAT DES PR / CORRECTIFS IMPORTANTS
+Ordre obligatoire:
+1. lire integralement cahier de charges.txt;
+2. lire integralement feuille de route.txt;
+3. comparer avec le code local et AI_PROJECT_PROGRESS.txt;
+4. identifier la premiere phase reellement non terminee;
+5. executer la premiere tache faisable localement;
+6. si une tache depend d'un asset absent du clone, la marquer BLOCKED-LOCAL et passer a la suivante;
+7. ne pas arreter la session uniquement parce qu'un asset release distant manque localement.
 
-PR #44 :
-- MERGED.
-- Fix Fabric Installer metadata Windows PowerShell avec -UseBasicParsing.
-- Build #636 : PASSED.
+Candidat deja observe:
+- audit Caustica / SPBR;
+- Caustica-RTX-Minecraft-26.2-build-46.jar et SPBRScandi.zip n'etaient pas presents dans le clone local lors de la derniere observation;
+- ne pas inventer leur validation;
+- si toujours absents, documenter BLOCKED-LOCAL puis passer a la prochaine tache executable.
 
-PR #45 :
-- MERGED.
-- Correction d'énumération explicite des réponses Modrinth sous Windows PowerShell 5.1.
-- A permis de résoudre le faux "No stable compatible Modrinth release found" malgré les releases 26.2 existantes.
+REGLES DE REPRISE
 
-PR #46 :
-- MERGED.
-- Première tentative de fallback lorsque GITHUB_TOKEN ne peut pas créer de PR.
-- Build #640 : PASSED.
-- A révélé ensuite le problème secondaire LASTEXITCODE et l'incompatibilité d'un push direct avec Protect main.
-
-PR #47 :
-- MERGED.
-- Commit : 01eba729a8cd58607aac4c00ec3158e5a20f4337.
-- Fix : $global:LASTEXITCODE = 0 après l'erreur de création PR explicitement reconnue/gérée.
-
-PR #49 :
-- MERGED.
-- Recovery de la branche upstream validée après Upstream Sync #13.
-- Build #644 : PASSED.
-- Merge commit : bb523d2ba27ca577067a3668410d9a24c04e6b2b.
-- Mise à jour des dépendances upstream validées et bump version 3.1.1.
-
-PR #50 :
-- MERGED.
-- Titre : "fix: respect protected main during upstream promotion".
-- Merge commit : a8fcf36c1cfe41f6b11df7aaeb41421b916e63ef.
-- Build final PR #50 : PASSED (#657).
-- Correctifs consolidés :
-  1. aucun push direct vers main lorsqu'une PR est requise ;
-  2. conservation du ruleset Protect main ;
-  3. branche upstream persistante pour éviter la multiplication des branches/revalidations ;
-  4. attente du required check "build" avant merge automatique si une PR est créée ;
-  5. fallback non destructif si GitHub Actions ne peut pas créer la PR ;
-  6. runtime-seed download snapshot-consistent avec retries bornés + revalidation SHA-256 ;
-  7. correction Release #22 pour l'énumération des releases/assets Caustica/SPBR ;
-  8. continuité persistante via issue #51 / workflow checkpoint.
-
-PR #53 :
-- MERGED.
-- Merge commit : 6f2257e3d2ef72587613eda070a8645e06c4a8af.
-- Documente le scope release-only du refresh et le checkpoint d'un pipeline vert.
-
-PR #54 :
-- MERGED.
-- Build #661 : PASSED complet.
-- Merge commit : 861b30bfb8a2be46dec10efce9ce135570dbae51.
-- Met à jour AI_PROJECT_PROGRESS.txt avec le checkpoint de reprise détaillé après les interruptions.
-
-HISTORIQUE EXACT DE LA BOUCLE UPSTREAM SYNC
-
-Upstream Dependency Sync #11 :
-- FAILED à "Publish dependency PR".
-- Cause :
-  "GitHub Actions is not permitted to create or approve pull requests".
-- La détection upstream, le refresh Minecraft et l'audit self-contained avaient déjà PASSED.
-- Métadonnées confirmées pendant cette série de runs :
-  - Fabric Loader 0.19.5 / KnotClient
-  - Fabric Installer 1.1.2
-  - Fabric API 0.161.0+26.2
-  - Lithium mc26.2-0.25.3-fabric
-  - FerriteCore 9.0.0-fabric
-  - Krypton 0.3.1
-  - BadOptimizations 2.4.1
-  - Dynamic FPS 3.11.9
-  - SPBR LabPBR 22.1
-
-Upstream Dependency Sync #12 :
-- FAILED à la même étape de publication.
-- L'erreur de permission PR était reconnue et gérée.
-- Cause réelle restante :
-  $LASTEXITCODE gardait la valeur 1 de "gh pr create".
-- Correction : PR #47.
-
-Upstream Dependency Sync #13 :
-- prepare : PASSED.
-- validate-windows : PASSED.
-- strict self-contained audit : PASSED.
-- restore/test manager : PASSED.
-- ReShade build : PASSED.
-- Minecraft runtime bootstrap : PASSED.
-- validate-linux / FFmpeg : PASSED.
-- promote : FAILED.
-- Cause :
-  tentative fallback de push direct vers main.
-- Protect main a correctement refusé :
-  - "Changes must be made through a pull request"
-  - required check "build" attendu.
-- Recovery via PR #49 + Build #644 vert.
-
-Upstream Dependency Sync #14 :
-- Run ID : 37598707359.
-- PASSED.
-- prepare : PASSED.
-- check pending validated upstream update : PASSED.
-- aucune modification promotable à ce moment.
-- validate-windows / validate-linux / promote : SKIPPED normalement.
-- aucune boucle.
-- aucun push direct vers main.
-- UPSTREAM-001 : RÉSOLU.
-
-PROTECT MAIN — RÈGLE PERMANENTE
-
-Ruleset Protect main :
-- PR obligatoire.
-- required status check : build.
-- historique linéaire.
-- merge squash/rebase.
-- aucun bypass prévu.
-
-Ne jamais corriger un workflow en désactivant ce ruleset.
-Ne jamais réintroduire un push direct vers main.
-
-BUILD — PREUVES
-
-Build #636 : PASSED.
-Build #640 : PASSED.
-Build #644 : PASSED.
-Build #657 : PASSED.
-Build #658 : PASSED.
-Build #660 : PASSED.
-Build #661 : PASSED.
-
-Build #660 a confirmé sur la baseline applicative :
-- checkout production ;
-- .NET 8 ;
-- tooling self-contained ;
-- audit zero-upstream ;
-- NuGet offline manager-owned ;
-- restore strict ;
-- tests de régression ;
-- publish win-x64 self-contained single-file ;
-- EXE/icône.
-
-Incident historique Build #645 :
-- FAILED à Prepare manager-owned offline NuGet feed.
-- Cause :
-  remplacement de nuget-offline.zip dans runtime-seed-v1 entre lecture du digest et téléchargement.
-- Correction PR #50 :
-  téléchargement snapshot-consistent + retries bornés + digest revalidé.
-- Correctif confirmé par Builds #657/#658/#660/#661.
-
-RUNTIME SEED — PREUVES
-
-Runtime Seed Refresh #8 :
-- PASSED complet.
-
-Runtime Seed Refresh #9 :
-- Run ID : 37600780497.
-- PASSED complet.
-- seed-release : PASSED.
-- java-runtime / Temurin 25 : PASSED.
-- preserve-restricted-runtime / video2dlssnr : PASSED.
-- windows-runtime / Streamline : PASSED.
-- windows-runtime / Minecraft : PASSED.
-- nuget-runtime : PASSED.
-- native-runtime / Real-ESRGAN : PASSED.
-- native-runtime / OptiScaler : PASSED.
-- native-runtime / ReShade : PASSED.
-- ffmpeg-runtime : PASSED.
-- dispatch-release : PASSED.
-
-runtime-seed-v1 contient notamment :
-- ffmpeg-dlssnr-win-x64.zip
-- minecraft-runtime-26.2.zip
-- nuget-offline.zip
-- OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip
-- realesrgan-ncnn-vulkan-windows-x64.zip
-- ReShade-Setup-v6.8.0-dev-18deaa52-vendored.zip
-- streamline-runtime-v2.14.1-win-x64.zip
-- temurin-25-jre-win-x64.zip
-- temurin-25-jre.json
-- video2dlssnr_release.zip
-
-RELEASE — HISTORIQUE
-
-Release #21 :
-- historique.
-- Avait validé audit, restore offline, tests, publish EXE et runtime seed.
-- Faux échec causé par un test $LASTEXITCODE inadapté après un appel PowerShell pur.
-- Fix fusionné depuis.
-
-Release #22 :
-- FAILED après de nombreuses étapes déjà vertes.
-- PASSED :
-  - checkout
-  - zero-upstream
-  - version 3.1.1
-  - NuGet offline
-  - restore
-  - tests
-  - publish EXE
-  - identité
-  - ZIP
-  - runtime seed
-  - modèles LFS/IA
-  - Real-ESRGAN
-- FAILED :
-  "Reuse manager-owned Caustica and Scandi assets".
-- Message :
-  "No manager-owned Caustica RTX Minecraft 26.2 asset was found in stable release history."
-- Cause :
-  réponse JSON top-level /releases mal énumérée sous PowerShell.
-- Fix :
-  PR #50, énumération explicite des releases et assets.
-
-Release #23 :
-- Run ID : 37602837808.
-- Head applicatif : 6f2257e3d2ef72587613eda070a8645e06c4a8af.
-- Conclusion : SUCCESS.
-- Toutes les étapes ont PASSED :
-  - checkout
-  - .NET 8
-  - zero-upstream audit
-  - resolve version
-  - NuGet offline
-  - restore
-  - regression tests
-  - publish manager executable
-  - verify app identity
-  - create application ZIP
-  - download manager-owned runtime seed
-  - materialize LFS models
-  - bundle AI detector models
-  - bundle Real-ESRGAN models
-  - reuse manager-owned Caustica + Scandi
-  - validate Scandi texture
-  - generate components-manifest.json
-  - generate SHA256SUMS.txt
-  - create/update GitHub release
-
-RELEASE STABLE v3.1.1 — VÉRIFIÉE
-
-Latest stable GitHub :
-- tag : v3.1.1
-- name : DLSS NR Manager v3.1.1
-- prerelease : false
-- draft : false
-
-Assets importants vérifiés dans v3.1.1 :
-- DlssNrManager.exe
-  SHA-256 GitHub : 77dc32b422b1e1e8cca769a0626f6e36c0f692e5c1e0ba4c2dde48958725b81f
-- DlssNrManager-win-x64.zip
-  SHA-256 : c094eafd41823bc21653ff0bccf6665461f1de90023390564c40c7f8bd982291
-- components-manifest.json
-  SHA-256 : a2bccfe4ad0b117ff827dc2dad7098bf126aed3d60c13b8c1001871a04f9c5d0
-- SHA256SUMS.txt
-  SHA-256 : ee2f1496767760d19f11e90b71c1b36d865cb9299e32aa2f4b3a477792eb0d20
-- Caustica-RTX-Minecraft-26.2-build-46.jar
-  SHA-256 : 40cfc86cda627102a4bee304996233b231b172e9f17a5a8dc3dcbd85121b47c7
-- SPBRScandi.zip
-  SHA-256 : 1bb19e99208e8826eabf7775fa06353e78a6ea449d43f12cd9d26eacf5bd9177
-- ffmpeg-dlssnr-win-x64.zip
-  SHA-256 : cbc8e63c9472d9135b061428d386dcaf0f5b0d88f266de9d32ff4b2bba149811
-- minecraft-runtime-26.2.zip
-  SHA-256 : 22fae621113894cda76e0d057064085d24fa7fbb8f901653bd3a56895d00d835
-- OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip
-  SHA-256 : 9a8e1eb945cf9438b6f78350db1f0c8e3e4383bf3e72db7415212dbfd6234ae6
-- ReShade-Setup-v6.8.0-dev-18deaa52-vendored.zip
-  SHA-256 : 673130cec0923b643c4cea96472fbf637a1038fc9bffb81846cef1e5ba4b9282
-- streamline-runtime-v2.14.1-win-x64.zip
-  SHA-256 : e925aac428368f0ebac47f42ab0a2fcf2477dfe20572649dab003dc1840dbe7e
-- temurin-25-jre-win-x64.zip
-  SHA-256 : 4c95451cea98556def2c54f7782933f52a26d4a36bd85e1d59f0364464828b07
-- video2dlssnr_release.zip
-  SHA-256 : 55ba6180ea37f2ba502040625a134b3a7f7d906be8a0d5c824e1c8bf16109a86
-- ai-origin-primary-int8.onnx
-  SHA-256 : 08b349f1b535f2f0cc2a8610bbf57c27593a0364e78b6c91205c0ff2bf29d714
-- ai-origin-secondary-int8.onnx
-  SHA-256 : 7273cb9cd81e17eae04771010d2199ba6ae34ea2a75a275518c0bc4a2c26ffd2
-- Real-ESRGAN model assets également publiés et digestés dans la release.
-
-ÉTAT DES BLOQUANTS
-
-UPSTREAM-001 :
-- RÉSOLU.
-- Preuve : Upstream Sync #14 SUCCESS.
-
-PROTECTED-MAIN-001 :
-- RÉSOLU.
-- Preuve : PR #50 + workflow #14 sans push direct.
-
-NUGET-SNAPSHOT-001 :
-- RÉSOLU.
-- Preuve : Builds #657/#658/#660/#661.
-
-RELEASE-CAUSTICA-001 :
-- RÉSOLU.
-- Preuve : Release #23 a PASSED l'étape "Reuse manager-owned Caustica and Scandi assets" et v3.1.1 contient les deux assets.
-
-RELEASE-001 :
-- RÉSOLU.
-- Preuve : Release #23 SUCCESS + v3.1.1 latest stable vérifiée.
-
-ÉTAT GLOBAL DE LA PHASE
-
-Build : GREEN.
-Upstream Sync : GREEN.
-Runtime Seed : GREEN.
-Release : GREEN.
-Latest stable : v3.1.1.
-Phase zero-upstream / runtime-seed : CLOSE.
+- code + tests + Git local = preuve technique prioritaire;
+- ne jamais inventer un resultat de test;
+- ne jamais revenir sur une phase validee sans regression reelle;
+- ne jamais attendre une confirmation pour une decision technique normale et reversible;
+- utiliser PowerShell natif sous Windows;
+- ne pas utiliser head, tail, grep, sed, awk, ls -la ou && dans PowerShell;
+- mettre a jour log.txt pendant la session;
+- mettre a jour AI_PROJECT_PROGRESS.txt a chaque checkpoint significatif;
+- avant de terminer une session, ecrire une prochaine action exacte et operationnelle.
 
 PROCHAINE ACTION EXACTE
 
-1. Ne plus travailler sur la phase zero-upstream sauf régression réelle.
-2. Lire intégralement cahier de charges.txt.
-3. Lire intégralement feuille de route.txt.
-4. Comparer la prochaine phase planifiée avec les éléments déjà marqués TERMINÉ / IMPLÉMENTÉ MAIS NON ENTIÈREMENT VÉRIFIÉ / PRÉVU dans ce fichier.
-5. Commencer uniquement la prochaine phase non terminée.
-6. Si la prochaine phase est volumineuse, la diviser en sous-phases et mettre à jour ce fichier à chaque checkpoint.
-7. Garder issue #51 + ce fichier comme mécanisme de reprise après coupure.
-
-RÈGLES ANTI-RÉGRESSION
-
-- Toujours vérifier l'état GitHub réel avant modification.
-- Ne jamais considérer une ancienne panne comme actuelle sans run récent.
-- Ne jamais fusionner une PR sans required check build vert.
-- Ne jamais contourner Protect main.
-- Ne jamais supprimer une dépendance sans provenance/licence/régression vérifiées.
-- Ne jamais inventer un résultat de test.
-- Ne jamais écrire "sans bug".
-- Utiliser "NO KNOWN ISSUES FOUND" uniquement après audit suffisamment complet.
-- Documenter pour chaque nouvel incident : run, étape, message exact, cause, correction, preuve de validation.
-- En cas de coupure : reprendre à partir de ce bloc, pas à partir du chat précédent.
+1. Ouvrir le clone local E:\AI\Projects\dlss-nr-manager.
+2. Verifier branche, HEAD et git status.
+3. Lire cahier de charges.txt + feuille de route.txt + ce fichier.
+4. Reparer/maintenir log.txt en ASCII-only.
+5. Verifier si les assets Caustica/SPBR requis sont presents localement.
+6. Si absents, noter BLOCKED-LOCAL et avancer vers la prochaine phase faisable.
+7. Implementer, tester et committer localement les changements coherents.
 
 ---
 
