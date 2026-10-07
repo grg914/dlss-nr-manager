@@ -26,6 +26,42 @@ if ([string]::IsNullOrWhiteSpace($ReleaseTag)) {
     }
 }
 
+if ([string]::IsNullOrWhiteSpace($NeuralRuntimePath)) {
+    $candidates = @()
+
+    if (-not [string]::IsNullOrWhiteSpace($env:DLSS_NR_RUNTIME)) {
+        $candidates += $env:DLSS_NR_RUNTIME
+    }
+
+    $candidates += Join-Path $Root "third_party-local\NVIDIA-DLSS\nvngx_dlssnr.dll"
+
+    $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+    $installedVideoRoot = Join-Path $localAppData "DlssNrManager\media-engine\video2dlssnr"
+
+    if (Test-Path -LiteralPath $installedVideoRoot) {
+        $candidates += @(Get-ChildItem -LiteralPath $installedVideoRoot -Filter "nvngx_dlssnr.dll" -File -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTimeUtc -Descending | ForEach-Object { $_.FullName })
+    }
+
+    foreach ($candidate in @($candidates)) {
+        if ([string]::IsNullOrWhiteSpace($candidate) -or !(Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            continue
+        }
+
+        $signature = Get-AuthenticodeSignature -LiteralPath $candidate
+        $signer = if ($signature.SignerCertificate) { [string]$signature.SignerCertificate.Subject } else { "" }
+
+        if ($signature.Status -eq "Valid" -and $signer -match "(?i)NVIDIA") {
+            $NeuralRuntimePath = (Resolve-Path -LiteralPath $candidate).Path
+            Write-Host "Auto-detected signed NVIDIA Neural Rendering runtime: $NeuralRuntimePath"
+            break
+        }
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($NeuralRuntimePath)) {
+    throw "No valid NVIDIA nvngx_dlssnr.dll was found automatically. Supply -NeuralRuntimePath or DLSS_NR_RUNTIME."
+}
+
 $buildArgs = @(
     "-NoProfile",
     "-ExecutionPolicy", "Bypass",
