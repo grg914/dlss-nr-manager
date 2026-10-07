@@ -94,6 +94,12 @@ public sealed class ComponentUpdateService
             }
         }
 
+        if (ffmpegAssetId <= 0)
+        {
+            throw new InvalidDataException(
+                $"Latest DLSS NR Manager release has no {FfmpegAsset} asset.");
+        }
+
         return new ComponentState(
             processorTag,
             ffmpegAssetId,
