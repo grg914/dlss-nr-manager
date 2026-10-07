@@ -1271,3 +1271,30 @@ Utiliser feuille de route.txt comme référence méthodologique.
 Avant une modification importante avec plusieurs solutions : proposer les options et risques avant d'agir.
 Pour une petite correction évidente et prévue : correction ciblée + test réel.
 Ne jamais utiliser "sans bug" comme conclusion ; utiliser "NO KNOWN ISSUES FOUND" uniquement après audit suffisamment complet.
+
+
+CHECKPOINT 0F - UI FR/EN + SELECTEUR OPTISCALER + PREPARATION V3.2.0 (2026-10-07)
+
+Contexte:
+- PR #67 fusionnee sur main: gestion NVIDIA DLSS / Streamline centralisee dans Jeux & DLSS; Minecraft RTX reste protege sur Caustica Vulkan/NGX.
+- runtime-seed-v1 contient le bundle Streamline complete avec sl.dlss_nr.dll + nvngx_dlssnr.dll et l'audit CI du couple Neural Rendering a passe.
+
+Travail ajoute avant release:
+- selecteur de langue persistant Francais / English dans l'onglet Application;
+- service UiLocalizationService + UiLocalizationController pour traduire l'interface WPF statique et les principaux statuts dynamiques dans les deux sens;
+- migration compatible des anciennes preferences locales: SoftwareRendering est conserve et Language est ajoute sans casser les fichiers existants;
+- correction du selecteur OptiScaler build vide sous Install & configure;
+- cause du bug OptiScaler: le canal Stable etait derive du suffixe source v0.7.7-pre0 au lieu du champ prerelease de la release DLSS NR Manager qui transporte l'asset; une release manager stable est maintenant classee stable meme si le snapshot OptiScaler vendore porte pre0;
+- suppression du message de navigation en bas a gauche indiquant que les options sont separees par fonction;
+- version cible de cette livraison: 3.2.0.
+
+Validation ajoutee:
+- test de regression: un asset OptiScaler v0.7.7-pre0 dans une release manager stable reste visible dans le canal Stable;
+- tests de normalisation fr/fr-CH/en et de traduction reversible Francais <-> English.
+
+Prochaine action exacte:
+1. attendre le Build CI du head final de la PR #68;
+2. si vert, fusionner #68 sur main;
+3. verifier le Build main post-merge ainsi que le runtime seed final;
+4. publier v3.2.0 depuis main avec le workflow Release;
+5. verifier la release, ses assets manager-owned et le statut latest.
