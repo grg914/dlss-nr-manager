@@ -68,6 +68,7 @@ jobs:
             "tools/refresh-upstream.ps1",
             "tools/refresh-minecraft-runtime-lock.ps1",
             "tools/generate-components-manifest.ps1",
+            "tools/generate-release-metadata.ps1",
             "tools/verify-caustica-scandi-assets.ps1",
             "tools/verify-streamline-runtime-asset.ps1",
             "tools/download-runtime-seed.ps1",
@@ -125,6 +126,7 @@ jobs:
             "docs/COMPONENT_LIFECYCLE_POLICY.md",
             "docs/FEATURE_POLICY_MATRIX.md",
             "docs/THREAT_MODEL.md",
+            "docs/RELEASE_SIGNING_PROVENANCE_POLICY.md",
             "docs/TEST_COVERAGE_RISK_MATRIX.md",
             "docs/RELEASE_CHECKLIST.md"
           )
