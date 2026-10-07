@@ -40,8 +40,14 @@ $extract = Join-Path $BuildRoot "verify"
 Expand-Archive -LiteralPath $managerZip -DestinationPath $extract -Force
 $java = Get-ChildItem -LiteralPath $extract -Filter "java.exe" -File -Recurse | Where-Object { $_.FullName -match "[\\/]bin[\\/]java\.exe$" } | Select-Object -First 1
 if (-not $java) { throw "Temurin archive contains no bin\java.exe." }
-$versionOutput = (& $java.FullName -version 2>&1 | Out-String)
-if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch '(?i)version\s+"25(?:\.|")') {
+$javaStdout = Join-Path $BuildRoot "java-version.stdout.txt"
+$javaStderr = Join-Path $BuildRoot "java-version.stderr.txt"
+$javaProcess = Start-Process -FilePath $java.FullName -ArgumentList "-version" -NoNewWindow -Wait -PassThru -RedirectStandardOutput $javaStdout -RedirectStandardError $javaStderr
+$versionOutput = @(
+    if (Test-Path -LiteralPath $javaStdout) { Get-Content -LiteralPath $javaStdout -Raw }
+    if (Test-Path -LiteralPath $javaStderr) { Get-Content -LiteralPath $javaStderr -Raw }
+) -join [Environment]::NewLine
+if ($javaProcess.ExitCode -ne 0 -or $versionOutput -notmatch '(?i)version\s+"25(?:\.|")') {
     throw "Downloaded Temurin runtime did not verify as Java 25: $versionOutput"
 }
 
