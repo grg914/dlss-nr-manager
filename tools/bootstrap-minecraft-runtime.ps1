@@ -118,12 +118,26 @@ function Resolve-ModrinthComponent {
 
 Write-Host "Resolving Fabric Loader for Minecraft $MinecraftVersion..."
 $loaderEntries = @(Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion")
-$loaderVersion = $loaderEntries | ForEach-Object { $_.loader } | Where-Object {
-    $_.stable -eq $true -and
-    [Version]::TryParse([string]$_.version, [ref]([Version]$null))
-} | ForEach-Object { [string]$_.version } | Where-Object {
-    [Version]$_ -ge [Version]$MinimumFabricLoader
-} | Select-Object -First 1
+$loaderVersion = $null
+$minimumLoaderVersion = [Version]$MinimumFabricLoader
+
+foreach ($entry in $loaderEntries) {
+    if (-not $entry.loader -or $entry.loader.stable -ne $true) {
+        continue
+    }
+
+    $parsed = $null
+    if (-not [Version]::TryParse([string]$entry.loader.version, [ref]$parsed)) {
+        continue
+    }
+
+    if ($parsed -lt $minimumLoaderVersion) {
+        continue
+    }
+
+    $loaderVersion = [string]$entry.loader.version
+    break
+}
 
 if ([string]::IsNullOrWhiteSpace($loaderVersion)) {
     throw "No stable Fabric Loader $MinimumFabricLoader+ found for Minecraft $MinecraftVersion."
