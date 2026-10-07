@@ -84,7 +84,8 @@
       "repository": "Tohrusky/realesrgan-ncnn-py",
       "strategy": "default-branch-head",
       "enabled": true,
-      "promotion": "auto-after-validation"
+      "promotion": "notify-only",
+      "reason": "Runtime model weights are fingerprint-pinned and require quality/regression validation before promotion."
     },
     {
       "id": "realesrgan-model-source-b",
@@ -92,7 +93,8 @@
       "repository": "itsspin/spintexture",
       "strategy": "default-branch-head",
       "enabled": true,
-      "promotion": "auto-after-validation"
+      "promotion": "notify-only",
+      "reason": "Runtime model weights are fingerprint-pinned and require quality/regression validation before promotion."
     },
     {
       "id": "reshade",
