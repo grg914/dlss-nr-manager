@@ -627,11 +627,18 @@ HIGH pour l'automatisation des mises à jour ; n'empêche pas le Build offline n
 Module :
 upstream-monitor / Minecraft runtime lock.
 Statut :
-CORRECTION IMPLÉMENTÉE, VALIDATION EN COURS.
-Solution appliquée :
+CORRECTION PARTIELLE VALIDÉE ; NOUVEAU SOUS-BLOCAGE IDENTIFIÉ SUR RUN #6.
+Solution déjà appliquée :
 Profil Fabric déterministe généré depuis les données verrouillées ; main_class, URL Maven et SHA du profil sont pinés dans RUNTIME.lock.json ; bootstrap régénère le profil depuis le lock et verify-self-contained vérifie le hash.
-Test :
-Build #620 PASSED sur le correctif avant synchronisation avec le commit documentaire ; nouveau Build de la tête PR #38 requis.
+État réel après fusion PR #38 :
+- Build #629 : PASSED sur main 7541e6b.
+- Upstream Dependency Sync #6 : FAILED dans Refresh Minecraft runtime lock.
+- L’ancien HTTP 400 profile/json n’est plus la cause.
+- Nouvelle erreur exacte : "Fabric loader detail metadata exposes no client main class."
+Correction en cours :
+Résoudre launcherMeta depuis l’endpoint Fabric officiel spécifique game+loader `/v2/versions/loader/{game}/{loader}` et lire directement `mainClass.client` sous Windows PowerShell 5.1.
+Test requis :
+Relancer Upstream Dependency Sync après fusion de la correction et vérifier prepare + validate + promote.
 
 ID :
 RELEASE-001
@@ -739,7 +746,7 @@ NOT TESTED :
 - audit binaire Caustica build-46 / SPBRScandi
 
 BLOCKED :
-- validation complète Upstream Sync tant que UPSTREAM-001 n'est pas corrigé.
+- validation complète Upstream Sync tant que la nouvelle résolution Fabric mainClass n'est pas validée sur un run réel.
 
 15. FICHIERS MODIFIÉS IMPORTANTS
 
@@ -882,14 +889,15 @@ Ces demandes NE SONT PAS considérées comme terminées sans preuve dépôt + te
 19. PROCHAINE ACTION
 
 Action immédiate :
-1. Terminer le Build requis de PR #38.
-2. Fusionner PR #38 si le Build est PASSED.
-3. Vérifier le nouvel Upstream Dependency Sync jusqu'à promote.
-4. Vérifier le Runtime Seed déclenché après promotion si le lock/source change.
-5. Relancer/vérifier la Release production avec le passage de tableau -Assets corrigé.
-6. Vérifier la release stable finale : tag, EXE/ZIP, components-manifest.json, checksums et tous les runtimes manager-owned.
-7. Mettre à jour ce fichier avec les résultats réels.
-8. Seulement après clôture de cette phase, passer à la prochaine phase du cahier des charges selon la feuille de route.
+1. Corriger la résolution de Fabric launcherMeta/mainClass dans tools/refresh-minecraft-runtime-lock.ps1 en utilisant l’endpoint game+loader officiel.
+2. Faire passer le Build requis de la PR corrective.
+3. Fusionner uniquement si le Build est PASSED.
+4. Vérifier Upstream Dependency Sync jusqu’à prepare + validate + promote.
+5. Vérifier Runtime Seed Refresh #7 jusqu’à son état final.
+6. Vérifier la Release production relancée avec le passage de tableau -Assets corrigé.
+7. Vérifier la release stable finale : tag, EXE/ZIP, components-manifest.json, checksums et runtimes manager-owned.
+8. Mettre à jour ce fichier avec les résultats réels.
+9. Seulement après clôture de cette phase, passer à la prochaine phase du cahier des charges selon la feuille de route.
 
 20. RÈGLES DE REPRISE
 
