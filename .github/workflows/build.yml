@@ -120,6 +120,7 @@ jobs:
             "CONTRIBUTING.md",
             "THIRD_PARTY_NOTICES.md",
             "docs/NETWORK_OFFLINE_PRIVACY_POLICY.md",
+            "docs/DATA_STORAGE_REMOVAL_POLICY.md",
             "docs/COMPONENT_LIFECYCLE_POLICY.md",
             "docs/FEATURE_POLICY_MATRIX.md",
             "docs/THREAT_MODEL.md",
