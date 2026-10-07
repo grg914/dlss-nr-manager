@@ -9,6 +9,7 @@ on:
       - 'DlssNrManager.csproj'
       - 'tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj'
       - 'tools/build-ffmpeg-windows.sh'
+      - 'tools/package-ffmpeg-source.sh'
       - 'tools/build-realesrgan.ps1'
       - 'tools/build-optiscaler.ps1'
       - 'tools/build-reshade.ps1'
@@ -230,16 +231,7 @@ jobs:
         run: bash ./tools/build-ffmpeg-windows.sh
 
       - name: Package corresponding FFmpeg sources
-        shell: bash
-        run: |
-          set -euo pipefail
-          FFMPEG_TAG="$(python3 -c "import json; d=json.load(open('third_party/DEPENDENCIES.lock.json', encoding='utf-8-sig')); x=next(v for v in d['sources'] if v['id']=='ffmpeg'); print(x.get('source_tag', x['ref'][:12]))")"
-          NVCODEC_TAG="$(python3 -c "import json; d=json.load(open('third_party/DEPENDENCIES.lock.json', encoding='utf-8-sig')); x=next(v for v in d['sources'] if v['id']=='nv-codec-headers'); print(x.get('source_tag', x['ref'][:12]))")"
-          SOURCE_ARCHIVE="build-ffmpeg-windows/ffmpeg-source-${FFMPEG_TAG}-nvcodec-${NVCODEC_TAG}.tar.xz"
-          tar -cJf "$SOURCE_ARCHIVE" third_party/FFmpeg third_party/nv-codec-headers
-          test -s "$SOURCE_ARCHIVE"
-          echo "FFmpeg corresponding source archive: $SOURCE_ARCHIVE"
-          sha256sum "$SOURCE_ARCHIVE"
+        run: bash ./tools/package-ffmpeg-source.sh
 
       - name: Publish FFmpeg into runtime seed
         env:
