@@ -51,6 +51,7 @@ Cross-feature security, licensing and distribution rules are documented in:
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Contribution/dependency policy](CONTRIBUTING.md)
 - [Network, offline and privacy policy](docs/NETWORK_OFFLINE_PRIVACY_POLICY.md)
+- [Data storage/removal policy](docs/DATA_STORAGE_REMOVAL_POLICY.md)
 - [Component lifecycle/distribution policy](docs/COMPONENT_LIFECYCLE_POLICY.md)
 - [Feature policy matrix](docs/FEATURE_POLICY_MATRIX.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
