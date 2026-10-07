@@ -194,9 +194,104 @@ jobs:
           gh release upload $env:RUNTIME_SEED_TAG $zip.FullName --repo "${{ github.repository }}" --clobber
           if ($LASTEXITCODE -ne 0) { throw "Unable to publish ReShade seed asset." }
 
+  nuget-runtime:
+    needs: seed-release
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve exact NuGet closure and lockfiles
+        shell: pwsh
+        run: |
+          $packages = "build-local/nuget-global"
+          dotnet restore DlssNrManager.csproj --packages $packages --use-lock-file --force-evaluate
+          if ($LASTEXITCODE -ne 0) { throw "Manager NuGet refresh failed." }
+
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --packages $packages --use-lock-file --force-evaluate
+          if ($LASTEXITCODE -ne 0) { throw "Test NuGet refresh failed." }
+
+          if (!(Test-Path "packages.lock.json")) { throw "Manager packages.lock.json was not generated." }
+          if (!(Test-Path "tests/DlssNrManager.Tests/packages.lock.json")) { throw "Test packages.lock.json was not generated." }
+
+      - name: Build exact offline NuGet feed
+        shell: pwsh
+        run: |
+          $feed = "build-local/nuget-feed"
+          New-Item -ItemType Directory -Force -Path $feed | Out-Null
+
+          $assets = @(
+            "obj/project.assets.json",
+            "tests/DlssNrManager.Tests/obj/project.assets.json"
+          )
+
+          $seen = @{}
+          foreach ($assetPath in $assets) {
+            $json = Get-Content $assetPath -Raw | ConvertFrom-Json
+            foreach ($property in $json.libraries.PSObject.Properties) {
+              if ([string]$property.Value.type -ne "package") { continue }
+
+              $parts = $property.Name -split "/", 2
+              if ($parts.Count -ne 2) { continue }
+
+              $id = $parts[0]
+              $version = $parts[1]
+              $key = "$id/$version".ToLowerInvariant()
+              if ($seen.ContainsKey($key)) { continue }
+              $seen[$key] = $true
+
+              $idLower = $id.ToLowerInvariant()
+              $versionLower = $version.ToLowerInvariant()
+              $name = "$idLower.$versionLower.nupkg"
+              $url = "https://api.nuget.org/v3-flatcontainer/$idLower/$versionLower/$name"
+              Invoke-WebRequest -Uri $url -OutFile (Join-Path $feed $name)
+            }
+          }
+
+          $manifest = [ordered]@{
+            schema = 2
+            generated_at_utc = [DateTime]::UtcNow.ToString("o")
+            packages = @(
+              Get-ChildItem $feed -Filter "*.nupkg" -File |
+                Sort-Object Name |
+                ForEach-Object {
+                  [ordered]@{
+                    name = $_.Name
+                    sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                  }
+                }
+            )
+            locks = @(
+              [ordered]@{
+                asset = "packages.lock.json"
+                sha256 = (Get-FileHash "packages.lock.json" -Algorithm SHA256).Hash.ToLowerInvariant()
+              },
+              [ordered]@{
+                asset = "tests-packages.lock.json"
+                sha256 = (Get-FileHash "tests/DlssNrManager.Tests/packages.lock.json" -Algorithm SHA256).Hash.ToLowerInvariant()
+              }
+            )
+          }
+
+          Copy-Item "packages.lock.json" (Join-Path $feed "packages.lock.json") -Force
+          Copy-Item "tests/DlssNrManager.Tests/packages.lock.json" (Join-Path $feed "tests-packages.lock.json") -Force
+          $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $feed "manifest.json") -Encoding UTF8
+          Compress-Archive -Path (Join-Path $feed "*") -DestinationPath "build-local/nuget-offline.zip" -Force
+
+      - name: Publish manager-owned NuGet seed
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload $env:RUNTIME_SEED_TAG "build-local/nuget-offline.zip" --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Failed to publish manager-owned offline NuGet feed." }
+
   dispatch-release:
-    needs: [seed-release, windows-runtime, ffmpeg-runtime, native-runtime]
-    if: always() && needs.seed-release.result == 'success' && needs.windows-runtime.result == 'success' && (needs.ffmpeg-runtime.result == 'success' || needs.ffmpeg-runtime.result == 'skipped') && (needs.native-runtime.result == 'success' || needs.native-runtime.result == 'skipped') && github.event_name == 'workflow_dispatch'
+    needs: [seed-release, windows-runtime, ffmpeg-runtime, native-runtime, nuget-runtime]
+    if: always() && needs.seed-release.result == 'success' && needs.windows-runtime.result == 'success' && (needs.ffmpeg-runtime.result == 'success' || needs.ffmpeg-runtime.result == 'skipped') && (needs.native-runtime.result == 'success' || needs.native-runtime.result == 'skipped') && needs.nuget-runtime.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch production release after seed promotion
