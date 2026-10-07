@@ -246,19 +246,28 @@ if ($actualInstallerSha -ne $installerSha256) {
 }
 
 $projects = @(
-    @{ Name = "Fabric API"; Slug = "fabric-api"; Kind = "mod"; Loader = "fabric" },
-    @{ Name = "Lithium"; Slug = "lithium"; Kind = "mod"; Loader = "fabric" },
-    @{ Name = "FerriteCore"; Slug = "ferrite-core"; Kind = "mod"; Loader = "fabric" },
-    @{ Name = "Krypton"; Slug = "krypton"; Kind = "mod"; Loader = "fabric" },
-    @{ Name = "C2ME"; Slug = "c2me-fabric"; Kind = "mod"; Loader = "fabric" },
-    @{ Name = "BadOptimizations"; Slug = "badoptimizations"; Kind = "mod"; Loader = "fabric" },
-    @{ Name = "Dynamic FPS"; Slug = "dynamic-fps"; Kind = "mod"; Loader = "fabric" },
-    @{ Name = "SPBR LabPBR"; Slug = "spbr"; Kind = "resourcepack"; Loader = "" }
+    @{ Name = "Fabric API"; Slug = "fabric-api"; Kind = "mod"; Loader = "fabric"; Required = $true },
+    @{ Name = "Lithium"; Slug = "lithium"; Kind = "mod"; Loader = "fabric"; Required = $false },
+    @{ Name = "FerriteCore"; Slug = "ferrite-core"; Kind = "mod"; Loader = "fabric"; Required = $false },
+    @{ Name = "Krypton"; Slug = "krypton"; Kind = "mod"; Loader = "fabric"; Required = $false },
+    @{ Name = "C2ME"; Slug = "c2me-fabric"; Kind = "mod"; Loader = "fabric"; Required = $false },
+    @{ Name = "BadOptimizations"; Slug = "badoptimizations"; Kind = "mod"; Loader = "fabric"; Required = $false },
+    @{ Name = "Dynamic FPS"; Slug = "dynamic-fps"; Kind = "mod"; Loader = "fabric"; Required = $false },
+    @{ Name = "SPBR LabPBR"; Slug = "spbr"; Kind = "resourcepack"; Loader = ""; Required = $false }
 )
 
 $components = @()
 foreach ($project in $projects) {
-    $components += Resolve-ModrinthComponent -Name $project.Name -Slug $project.Slug -Kind $project.Kind -Loader $project.Loader
+    try {
+        $components += Resolve-ModrinthComponent -Name $project.Name -Slug $project.Slug -Kind $project.Kind -Loader $project.Loader
+    }
+    catch {
+        if ($project.Required) {
+            throw
+        }
+
+        Write-Warning "Optional Minecraft component $($project.Name) was not bundled: $($_.Exception.Message)"
+    }
 }
 
 $licenseSources = @(
