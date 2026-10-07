@@ -1,15 +1,6 @@
 name: Native Vendor Builds
 
 on:
-  pull_request:
-    paths:
-      - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
-      - 'third_party/OptiScaler/**'
-      - 'third_party/ReShade/**'
-      - 'tools/build-realesrgan.ps1'
-      - 'tools/build-optiscaler.ps1'
-      - 'tools/build-reshade.ps1'
-      - '.github/workflows/native-vendor.yml'
   workflow_dispatch:
 
 concurrency:

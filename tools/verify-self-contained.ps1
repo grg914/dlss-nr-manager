@@ -229,6 +229,32 @@ foreach ($file in $scanFiles | Sort-Object FullName -Unique) {
     }
 }
 
+$productionWorkflowIssues = @()
+foreach ($workflowName in @("build.yml", "release.yml")) {
+    $workflowPath = Join-Path $Root ".github\workflows\$workflowName"
+    if (!(Test-Path -LiteralPath $workflowPath)) {
+        $productionWorkflowIssues += "$workflowName -> missing"
+        continue
+    }
+
+    $lineNumber = 0
+    Get-Content -LiteralPath $workflowPath | ForEach-Object {
+        $lineNumber++
+        $line = [string]$_
+        $trimmed = $line.Trim()
+
+        if ($trimmed -match "^-\s+uses:") {
+            $productionWorkflowIssues += "${workflowName}:$lineNumber -> external/reusable GitHub Action is forbidden in production: $trimmed"
+        }
+        if ($line -match "(?i)\bapt-get\b|\bwinget\s+install\b|api\.nuget\.org|www\.nuget\.org|setup-dotnet|upload-artifact|download-artifact|softprops/") {
+            $productionWorkflowIssues += "${workflowName}:$lineNumber -> external production bootstrap reference: $trimmed"
+        }
+        if ($line -match "(?i)\bdotnet\s+restore\b" -and $line -notmatch "(?i)--configfile") {
+            $productionWorkflowIssues += "${workflowName}:$lineNumber -> dotnet restore must use the manager-owned offline NuGet config: $trimmed"
+        }
+    }
+}
+
 Write-Host "Self-contained dependency audit"
 Write-Host "==============================="
 Write-Host ""
@@ -305,6 +331,14 @@ else {
 }
 
 Write-Host ""
+if ($productionWorkflowIssues.Count -eq 0) {
+    Write-Host "Zero-upstream production workflow policy: OK"
+}
+else {
+    Write-Host "Production workflow policy violations:"
+    $productionWorkflowIssues | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" }
+}
+
 $localSdkPath = Join-Path $Root "third_party-local/NVIDIA-DLSS"
 if (Test-Path -LiteralPath $localSdkPath) {
     Write-Host "Local NVIDIA DLSS SDK: present (local-only / Git-ignored)"
@@ -321,7 +355,8 @@ $failed =
     ((-not $AllowLfsPointers) -and $lfsPointers.Count -gt 0) -or
     $retentionIssues.Count -gt 0 -or
     $forceIncludeIssues.Count -gt 0 -or
-    $references.Count -gt 0
+    $references.Count -gt 0 -or
+    $productionWorkflowIssues.Count -gt 0
 
 if ($Strict -and $failed) {
     exit 1

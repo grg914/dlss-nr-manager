@@ -44,6 +44,8 @@ public sealed class MinecraftIntegrationService
     private const string ManagerRepository = "grg914/dlss-nr-manager";
     private const string MinecraftRuntimeAsset =
         "minecraft-runtime-26.2.zip";
+    private const string JavaRuntimeAsset =
+        "temurin-25-jre-win-x64.zip";
     private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
 
     private readonly HttpClient _http = new();
@@ -1945,7 +1947,7 @@ public sealed class MinecraftIntegrationService
         catch { }
     }
 
-    private static async Task<string> EnsureJava25Async(
+    private async Task<string> EnsureJava25Async(
         string minecraftRoot,
         IProgress<string>? progress,
         CancellationToken cancellationToken)
@@ -1957,43 +1959,169 @@ public sealed class MinecraftIntegrationService
         if (java != null)
             return java;
 
-        var winget = FindOnPath("winget.exe");
-        if (winget == null)
+        return await EnsureManagerJava25Async(
+            progress,
+            cancellationToken);
+    }
+
+    private async Task<string> EnsureManagerJava25Async(
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var release = await FindReleaseAsync(
+            ManagerRepository,
+            candidate => candidate.Assets.Any(asset =>
+                asset.Name.Equals(
+                    JavaRuntimeAsset,
+                    StringComparison.OrdinalIgnoreCase)),
+            includePrerelease: false,
+            cancellationToken);
+
+        var asset = SelectAsset(
+            release,
+            name => name.Equals(
+                JavaRuntimeAsset,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(asset.Sha256) ||
+            asset.Sha256.Length != 64)
         {
-            throw new InvalidOperationException(
-                "Java 25 was not found and WinGet is unavailable. " +
-                "Install an x64 Java 25 runtime (for example Eclipse Temurin 25), then retry.");
+            throw new InvalidDataException(
+                "Manager-owned Java 25 runtime has no trusted SHA-256 digest.");
         }
 
-        progress?.Report(
-            "Java 25 is missing. Installing Eclipse Temurin 25 automatically with WinGet…");
+        var cacheRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DlssNrManager",
+            "java25");
+        var contentRoot = Path.Combine(cacheRoot, "current");
+        var statePath = Path.Combine(cacheRoot, "manager-java.json");
 
-        foreach (var packageId in new[]
+        try
         {
-            "EclipseAdoptium.Temurin.25.JRE",
-            "EclipseAdoptium.Temurin.25.JDK"
-        })
-        {
-            if (await TryInstallWingetPackageAsync(
-                    winget,
-                    packageId,
-                    cancellationToken))
+            if (File.Exists(statePath) && Directory.Exists(contentRoot))
             {
-                java = await FindJava25ExecutableAsync(
-                    minecraftRoot,
-                    cancellationToken);
+                using var state = JsonDocument.Parse(
+                    await File.ReadAllTextAsync(statePath, cancellationToken));
+                var cachedSha = state.RootElement.TryGetProperty(
+                    "sha256",
+                    out var shaElement)
+                    ? shaElement.GetString()
+                    : null;
 
-                if (java != null)
+                if (string.Equals(
+                        cachedSha,
+                        asset.Sha256,
+                        StringComparison.OrdinalIgnoreCase))
                 {
-                    progress?.Report("Java 25 installed and verified.");
-                    return java;
+                    var cachedJava = EnumerateFilesBounded(
+                            contentRoot,
+                            "java.exe",
+                            maxDepth: 5,
+                            maxResults: 16)
+                        .FirstOrDefault(path =>
+                            path.Contains(
+                                $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                                StringComparison.OrdinalIgnoreCase));
+
+                    if (cachedJava != null &&
+                        await IsJavaMajorVersionAsync(
+                            cachedJava,
+                            25,
+                            cancellationToken))
+                    {
+                        return cachedJava;
+                    }
                 }
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn(
+                $"Cached manager-owned Java runtime is invalid; refreshing it: {ex.Message}");
+        }
 
-        throw new InvalidOperationException(
-            "Java 25 could not be installed or verified automatically. " +
-            "Install Eclipse Temurin 25 x64 manually, then retry.");
+        progress?.Report(
+            "Java 25 is missing. Downloading the verified manager-owned Temurin 25 runtime…");
+
+        Directory.CreateDirectory(cacheRoot);
+        var archive = Path.Combine(cacheRoot, JavaRuntimeAsset);
+        var extract = Path.Combine(cacheRoot, "_extract");
+        TryDeleteDirectory(extract);
+        Directory.CreateDirectory(extract);
+
+        await DownloadAssetAsync(
+            asset,
+            archive,
+            progress,
+            cancellationToken);
+
+        SafeZip.Extract(
+            archive,
+            extract,
+            maxExpandedBytes: MaxComponentDownloadBytes * 2);
+
+        var java = EnumerateFilesBounded(
+                extract,
+                "java.exe",
+                maxDepth: 5,
+                maxResults: 16)
+            .FirstOrDefault(path =>
+                path.Contains(
+                    $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                    StringComparison.OrdinalIgnoreCase));
+
+        if (java == null ||
+            !await IsJavaMajorVersionAsync(
+                java,
+                25,
+                cancellationToken))
+        {
+            TryDeleteDirectory(extract);
+            throw new InvalidDataException(
+                "Manager-owned Temurin archive did not contain a valid Java 25 runtime.");
+        }
+
+        TryDeleteDirectory(contentRoot);
+        Directory.Move(extract, contentRoot);
+
+        var installedJava = EnumerateFilesBounded(
+                contentRoot,
+                "java.exe",
+                maxDepth: 5,
+                maxResults: 16)
+            .FirstOrDefault(path =>
+                path.Contains(
+                    $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
+                    StringComparison.OrdinalIgnoreCase));
+
+        if (installedJava == null ||
+            !await IsJavaMajorVersionAsync(
+                installedJava,
+                25,
+                cancellationToken))
+        {
+            throw new InvalidDataException(
+                "Installed manager-owned Java 25 runtime failed verification.");
+        }
+
+        var stateJson = JsonSerializer.Serialize(
+            new
+            {
+                release = release.Tag,
+                asset = JavaRuntimeAsset,
+                sha256 = asset.Sha256.ToLowerInvariant(),
+                installed_at_utc = DateTimeOffset.UtcNow
+            },
+            new JsonSerializerOptions { WriteIndented = true });
+        AtomicFile.WriteAllText(statePath, stateJson);
+
+        progress?.Report("Manager-owned Java 25 runtime installed and verified.");
+        return installedJava;
     }
 
     private static async Task<string?> FindJava25ExecutableAsync(
@@ -2163,95 +2291,6 @@ public sealed class MinecraftIntegrationService
                 }
                 catch { }
             }
-        }
-    }
-
-    private static string? FindOnPath(string executable)
-    {
-        foreach (var directory in (Environment.GetEnvironmentVariable("PATH") ?? "")
-                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            try
-            {
-                var candidate = Path.Combine(directory, executable);
-                if (File.Exists(candidate))
-                    return candidate;
-            }
-            catch { }
-        }
-
-        var windowsApps = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Microsoft",
-            "WindowsApps",
-            executable);
-
-        return File.Exists(windowsApps) ? windowsApps : null;
-    }
-
-    private static async Task<bool> TryInstallWingetPackageAsync(
-        string winget,
-        string packageId,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var psi = new ProcessStartInfo(winget)
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-
-            foreach (var arg in new[]
-            {
-                "install",
-                "--id", packageId,
-                "--exact",
-                "--source", "winget",
-                "--accept-package-agreements",
-                "--accept-source-agreements",
-                "--silent",
-                "--disable-interactivity"
-            })
-            {
-                psi.ArgumentList.Add(arg);
-            }
-
-            using var process = ExternalProcessTracker.Start(psi);
-
-            try
-            {
-                var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-                var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-
-                await process.WaitForExitAsync(cancellationToken);
-                await stdoutTask;
-                await stderrTask;
-
-                return process.ExitCode == 0;
-            }
-            catch (OperationCanceledException)
-            {
-                ExternalProcessTracker.Kill(process);
-                throw;
-            }
-            finally
-            {
-                if (!process.HasExited)
-                    ExternalProcessTracker.Kill(process);
-                else
-                    ExternalProcessTracker.Untrack(process);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch
-        {
-            return false;
         }
     }
 
