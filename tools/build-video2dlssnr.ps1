@@ -183,9 +183,22 @@ try {
         if (Test-Path -LiteralPath $runtime) {
             $runtimeHash = (Get-FileHash -LiteralPath $runtime -Algorithm SHA256).Hash.ToLowerInvariant()
             $signature = Get-AuthenticodeSignature -LiteralPath $runtime
+            $signer = if ($signature.SignerCertificate) {
+                [string]$signature.SignerCertificate.Subject
+            }
+            else {
+                ""
+            }
+
             Write-Host "$runtimeName • SHA-256 $runtimeHash • signature $($signature.Status)"
-            if ($signature.SignerCertificate) {
-                Write-Host "$runtimeName signer: $($signature.SignerCertificate.Subject)"
+            Write-Host "$runtimeName signer: $signer"
+
+            if ($signature.Status -ne "Valid") {
+                throw "$runtimeName must have a valid Authenticode signature before packaging. Status: $($signature.Status)"
+            }
+
+            if ($signer -notmatch "(?i)NVIDIA") {
+                throw "$runtimeName is not signed by NVIDIA. Signer: $signer"
             }
         }
     }
