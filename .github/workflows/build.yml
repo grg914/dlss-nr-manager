@@ -112,6 +112,35 @@ jobs:
             }
           }
 
+      - name: Validate repository governance files
+        shell: pwsh
+        run: |
+          $required = @(
+            "SECURITY.md",
+            "CONTRIBUTING.md",
+            "THIRD_PARTY_NOTICES.md",
+            "docs/NETWORK_OFFLINE_PRIVACY_POLICY.md",
+            "docs/COMPONENT_LIFECYCLE_POLICY.md",
+            "docs/RELEASE_CHECKLIST.md"
+          )
+
+          foreach ($path in $required) {
+            if (!(Test-Path -LiteralPath $path)) {
+              throw "Required repository policy file is missing: $path"
+            }
+          }
+
+          if (Test-Path -LiteralPath "manifests/ai-studio-models.json") {
+            $catalog = Get-Content "manifests/ai-studio-models.json" -Raw | ConvertFrom-Json
+            if ([int]$catalog.schema -ne 1) {
+              throw "Unsupported AI Studio model catalog schema."
+            }
+            $duplicateModels = @($catalog.models) | Group-Object id | Where-Object Count -gt 1
+            if ($duplicateModels) {
+              throw "Duplicate AI Studio model ids: $($duplicateModels.Name -join ', ')"
+            }
+          }
+
       - name: Enforce Minecraft native Vulkan/NGX policy
         shell: pwsh
         run: |
