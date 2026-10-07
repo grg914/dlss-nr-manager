@@ -231,7 +231,9 @@ jobs:
         run: bash ./tools/build-ffmpeg-windows.sh
 
       - name: Package corresponding FFmpeg sources
-        run: bash ./tools/package-ffmpeg-source.sh
+        run: |
+          bash -n ./tools/package-ffmpeg-source.sh
+          bash ./tools/package-ffmpeg-source.sh
 
       - name: Publish FFmpeg into runtime seed
         env:
