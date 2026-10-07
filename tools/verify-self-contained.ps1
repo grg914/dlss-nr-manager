@@ -164,6 +164,7 @@ foreach ($source in @($Lock.local_only)) {
 $patterns = @(
     "grg914/Caustica-RTX",
     "NVIDIA-RTX/Streamline",
+    "NVIDIA/DLSS",
     "wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass",
     "DaniilSokolyuk/video2dlssnr",
     "BtbN/FFmpeg-Builds",
