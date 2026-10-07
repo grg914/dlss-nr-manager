@@ -13,6 +13,7 @@ on:
       - 'tools/build-video2dlssnr.ps1'
       - 'tools/publish-video2dlssnr.ps1'
       - 'tools/publish-streamline-runtime.ps1'
+      - 'tools/bootstrap-minecraft-runtime.ps1'
       - 'third_party/FFmpeg/**'
       - 'third_party/nv-codec-headers/**'
       - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
@@ -196,6 +197,50 @@ jobs:
 
           "asset=$($asset.name)" >> $env:GITHUB_OUTPUT
           Write-Host "Reused manager-owned Streamline runtime: $($asset.name)"
+          Write-Host "SHA-256: $actual"
+      - name: Reuse manager-owned Minecraft runtime
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "DlssNrManager-Release"
+          }
+
+          $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50"
+
+          $asset = $releases |
+            Where-Object { -not $_.draft } |
+            ForEach-Object { $_.assets } |
+            Where-Object { $_.name -eq "minecraft-runtime-26.2.zip" } |
+            Select-Object -First 1
+
+          if (-not $asset) {
+            throw "No manager-owned minecraft-runtime-26.2.zip exists yet. Bootstrap it once with tools/bootstrap-minecraft-runtime.ps1."
+          }
+
+          if (-not $asset.digest -or -not ([string]$asset.digest).StartsWith("sha256:")) {
+            throw "Manager-owned Minecraft runtime asset has no GitHub SHA-256 digest."
+          }
+
+          $destination = "release-assets/minecraft-runtime-26.2.zip"
+          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $destination
+
+          $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
+          $actual = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Minecraft runtime SHA-256 mismatch. Expected $expected, got $actual."
+          }
+
+          if ((Get-Item -LiteralPath $destination).Length -lt 1MB) {
+            throw "Manager-owned Minecraft runtime package is unexpectedly small."
+          }
+
+          Write-Host "Reused manager-owned Minecraft runtime bundle."
           Write-Host "SHA-256: $actual"
       - name: Restore
         shell: pwsh
@@ -502,6 +547,7 @@ jobs:
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
             "release-assets/video2dlssnr_release.zip",
+            "release-assets/minecraft-runtime-26.2.zip",
             (Join-Path "release-assets" "${{ steps.streamline.outputs.asset }}"),
             (Join-Path "release-assets" "${{ steps.optiscaler.outputs.asset }}"),
             (Join-Path "release-assets" "${{ steps.reshade.outputs.asset }}"),
@@ -566,6 +612,7 @@ jobs:
             release-assets/realesrgan-ncnn-vulkan-windows-x64.zip
             release-assets/ffmpeg-dlssnr-win-x64.zip
             release-assets/video2dlssnr_release.zip
+            release-assets/minecraft-runtime-26.2.zip
             release-assets/streamline-runtime-v*-win-x64.zip
             release-assets/OptiScaler-NR-*-vendored-win-x64.zip
             release-assets/ReShade-Setup-*-vendored.zip
