@@ -148,6 +148,24 @@ jobs:
             }
           }
 
+          $metadataTest = "build-local/governance-metadata-test"
+          New-Item -ItemType Directory -Path $metadataTest -Force | Out-Null
+          $dummyManifest = Join-Path $metadataTest "components-manifest.json"
+          '{"schema":1,"components":[]}' | Set-Content -LiteralPath $dummyManifest -Encoding UTF8
+
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-metadata.ps1 -Version "0.0.0-ci" -CommitSha "$env:GITHUB_SHA" -Repository "${{ github.repository }}" -ComponentsManifestPath $dummyManifest -OutputDirectory $metadataTest
+          if ($LASTEXITCODE -ne 0) { throw "Release metadata smoke test failed." }
+
+          $sbom = Get-Content (Join-Path $metadataTest "SOURCE-SBOM.spdx.json") -Raw | ConvertFrom-Json
+          if ([string]$sbom.spdxVersion -ne "SPDX-2.3") {
+            throw "Generated SBOM is not SPDX 2.3."
+          }
+
+          $provenance = Get-Content (Join-Path $metadataTest "release-provenance.json") -Raw | ConvertFrom-Json
+          if ([int]$provenance.schema -ne 1 -or [string]$provenance.commit -ne "$env:GITHUB_SHA") {
+            throw "Generated release provenance failed identity validation."
+          }
+
       - name: Enforce Minecraft native Vulkan/NGX policy
         shell: pwsh
         run: |
