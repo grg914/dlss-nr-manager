@@ -68,9 +68,9 @@ Prochaine phase :
 Terminer et valider le pipeline upstream/runtime/release, puis reprendre l'ordre du cahier des charges/feuille de route.
 
 Problèmes bloquants actuels :
-- UPSTREAM-001 : Upstream Dependency Sync #5 a échoué pendant "Refresh Minecraft runtime lock" avec HTTP 400.
+- UPSTREAM-001 : Upstream Dependency Sync #7 échoue encore dans "Refresh Minecraft runtime lock" avec HTTP 400 sur l’endpoint Fabric game+loader ; le bootstrap production reste lock-driven et fonctionne.
 - RELEASE-001 : la dernière release stable reste v3.0.0 alors que le code courant est 3.1.0.
-- VALIDATION-001 : RÉSOLU — Runtime Seed Refresh #6 est entièrement PASSED, y compris dispatch-release.
+- VALIDATION-001 : RÉSOLU — Runtime Seed Refresh #7 est entièrement PASSED et a déclenché Release #21.
 
 4. TRAVAIL DÉJÀ EFFECTUÉ ET VÉRIFIÉ
 
@@ -621,24 +621,23 @@ Dépendances à vérifier :
 ID :
 UPSTREAM-001
 Description :
-Upstream Dependency Sync #5 échoue dans Refresh Minecraft runtime lock avec HTTP 400 sur Fabric Meta profile/json.
+Upstream Dependency Sync n’atteint pas encore validate/promote à cause de la récupération des métadonnées Fabric Loader pendant Refresh Minecraft runtime lock.
 Gravité :
-HIGH pour l'automatisation des mises à jour ; n'empêche pas le Build offline normal.
+HIGH pour l'automatisation des mises à jour ; n'empêche pas le Build offline normal ni le bootstrap Minecraft depuis le lock existant.
 Module :
 upstream-monitor / Minecraft runtime lock.
 Statut :
-CORRECTION PARTIELLE VALIDÉE ; NOUVEAU SOUS-BLOCAGE IDENTIFIÉ SUR RUN #6.
-Solution déjà appliquée :
-Profil Fabric déterministe généré depuis les données verrouillées ; main_class, URL Maven et SHA du profil sont pinés dans RUNTIME.lock.json ; bootstrap régénère le profil depuis le lock et verify-self-contained vérifie le hash.
-État réel après fusion PR #38 :
+NOUVELLE CORRECTION IMPLÉMENTÉE, À VALIDER.
+État réel :
 - Build #629 : PASSED sur main 7541e6b.
-- Upstream Dependency Sync #6 : FAILED dans Refresh Minecraft runtime lock.
-- L’ancien HTTP 400 profile/json n’est plus la cause.
-- Nouvelle erreur exacte : "Fabric loader detail metadata exposes no client main class."
+- PR #41 / Build #630 : PASSED ; fusion commit 1913fd6.
+- Upstream Dependency Sync #7 : FAILED dans Refresh Minecraft runtime lock.
+- L’endpoint Fabric game+loader retourne lui aussi HTTP 400 dans ce contexte.
+- Le problème n’est plus le profil déterministe ni le bootstrap : `verify-self-contained.ps1` confirme "Deterministic Minecraft/Fabric runtime profile: OK".
 Correction en cours :
-Résoudre launcherMeta depuis l’endpoint Fabric officiel spécifique game+loader `/v2/versions/loader/{game}/{loader}` et lire directement `mainClass.client` sous Windows PowerShell 5.1.
+Conserver `/v2/versions/loader/{game}` comme source de compatibilité, puis charger `libraries` et `mainClass` depuis le JSON officiel de l’artefact Fabric Loader sur `maven.fabricmc.net`, construit depuis le coordinate Maven renvoyé par Fabric.
 Test requis :
-Relancer Upstream Dependency Sync après fusion de la correction et vérifier prepare + validate + promote.
+Build PR puis nouvel Upstream Dependency Sync jusqu’à prepare + validate + promote.
 
 ID :
 RELEASE-001
@@ -649,13 +648,21 @@ MEDIUM/HIGH.
 Module :
 Release.
 Statut :
-OPEN — CORRECTION DE L'ÉCHEC #20 IMPLÉMENTÉE, À RETESTER.
+OPEN — SECOND CORRECTIF CIBLÉ IMPLÉMENTÉ, À RETESTER.
 Résultat release #20 :
-audit zero-upstream, restore offline, 22 tests et publish EXE 3.1.0 PASSED ; FAILED à "Download validated manager-owned runtime seed" car le tableau PowerShell -Assets était passé via un nouveau powershell.exe.
-Solution appliquée :
-Appeler download-runtime-seed.ps1 directement dans le shell pwsh courant afin de préserver [string[]] Assets.
+audit zero-upstream, restore offline, 22 tests et publish EXE 3.1.0 PASSED ; FAILED car le tableau PowerShell -Assets était passé via un nouveau powershell.exe.
+Résultat release #21 :
+- Runtime Seed #7 : PASSED complet et dispatch release effectué.
+- audit zero-upstream : PASSED.
+- restore offline : PASSED.
+- 22 tests : PASSED.
+- publish EXE 3.1.0 : PASSED.
+- les 9 assets manager-owned demandés ont tous été téléchargés et validés par SHA-256.
+- FAILED juste après car `$LASTEXITCODE` est nul après l’appel direct d’un script PowerShell pur, donc le test `$LASTEXITCODE -ne 0` se déclenche à tort.
+Solution en cours :
+Conserver l’appel direct `& .\tools\download-runtime-seed.ps1 ... -Assets $assets` et supprimer le contrôle `$LASTEXITCODE`; les erreurs du script sont déjà terminantes via `$ErrorActionPreference = "Stop"`.
 Test :
-À retester par Release après fusion de PR #38.
+Nouvelle Release réelle après fusion du correctif.
 
 ID :
 LEGACY-PR-001
@@ -746,7 +753,8 @@ NOT TESTED :
 - audit binaire Caustica build-46 / SPBRScandi
 
 BLOCKED :
-- validation complète Upstream Sync tant que la nouvelle résolution Fabric mainClass n'est pas validée sur un run réel.
+- validation complète Upstream Sync tant que la récupération du JSON Fabric Loader Maven n’est pas validée sur un run réel.
+- publication stable 3.1.x tant que la Release avec contrôle `$LASTEXITCODE` supprimé n’est pas passée.
 
 15. FICHIERS MODIFIÉS IMPORTANTS
 
@@ -889,15 +897,14 @@ Ces demandes NE SONT PAS considérées comme terminées sans preuve dépôt + te
 19. PROCHAINE ACTION
 
 Action immédiate :
-1. Corriger la résolution de Fabric launcherMeta/mainClass dans tools/refresh-minecraft-runtime-lock.ps1 en utilisant l’endpoint game+loader officiel.
-2. Faire passer le Build requis de la PR corrective.
-3. Fusionner uniquement si le Build est PASSED.
-4. Vérifier Upstream Dependency Sync jusqu’à prepare + validate + promote.
-5. Vérifier Runtime Seed Refresh #7 jusqu’à son état final.
-6. Vérifier la Release production relancée avec le passage de tableau -Assets corrigé.
-7. Vérifier la release stable finale : tag, EXE/ZIP, components-manifest.json, checksums et runtimes manager-owned.
-8. Mettre à jour ce fichier avec les résultats réels.
-9. Seulement après clôture de cette phase, passer à la prochaine phase du cahier des charges selon la feuille de route.
+1. Faire passer le Build de la PR contenant les deux correctifs ciblés : Fabric Loader Maven JSON + suppression du faux contrôle $LASTEXITCODE.
+2. Fusionner uniquement si le Build est PASSED.
+3. Vérifier le nouvel Upstream Dependency Sync jusqu’à prepare + validate-windows + validate-linux + promote.
+4. Vérifier la nouvelle Release production au-delà de "Download validated manager-owned runtime seed".
+5. Vérifier la release stable finale : version/tag, EXE/ZIP, components-manifest.json, SHA256SUMS et runtimes manager-owned.
+6. Vérifier l’état final de main et des workflows.
+7. Mettre à jour ce fichier avec les résultats réels.
+8. Seulement après clôture de cette phase, passer à la prochaine phase du cahier des charges selon la feuille de route.
 
 20. RÈGLES DE REPRISE
 

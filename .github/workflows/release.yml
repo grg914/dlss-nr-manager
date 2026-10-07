@@ -125,7 +125,6 @@ jobs:
             "temurin-25-jre.json"
           )
           & .\tools\download-runtime-seed.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG" -Assets $assets -Destination "release-assets"
-          if ($LASTEXITCODE -ne 0) { throw "Manager-owned runtime seed download failed." }
 
           $streamline = Get-ChildItem release-assets -Filter "streamline-runtime-v*-win-x64.zip" -File | Select-Object -First 1
           $optiscaler = Get-ChildItem release-assets -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File | Select-Object -First 1
