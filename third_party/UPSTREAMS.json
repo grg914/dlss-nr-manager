@@ -118,7 +118,8 @@
       "strategy": "latest-release",
       "enabled": true,
       "promotion": "auto-after-validation",
-      "lock_tag_field": "source_tag"
+      "lock_tag_field": "source_tag",
+      "project_package": "Microsoft.ML.OnnxRuntime"
     },
     {
       "id": "ai-primary",
