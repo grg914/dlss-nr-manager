@@ -60,11 +60,19 @@ foreach ($package in $wanted.Values) {
     $idLower = ([string]$package.Id).ToLowerInvariant()
     $versionLower = ([string]$package.Version).ToLowerInvariant()
     $name = "$idLower.$versionLower.nupkg"
-    $url = "https://api.nuget.org/v3-flatcontainer/$idLower/$versionLower/$name"
     $destination = Join-Path $feed $name
-    Invoke-WebRequest -Uri $url -OutFile $destination
+    $cached = Join-Path (Join-Path (Join-Path $packages $idLower) $versionLower) $name
+
+    if (Test-Path -LiteralPath $cached) {
+        Copy-Item -LiteralPath $cached -Destination $destination -Force
+    }
+    else {
+        $url = "https://api.nuget.org/v3-flatcontainer/$idLower/$versionLower/$name"
+        Invoke-WebRequest -Uri $url -OutFile $destination
+    }
+
     if (!(Test-Path -LiteralPath $destination) -or (Get-Item -LiteralPath $destination).Length -lt 512) {
-        throw "Downloaded NuGet package is unexpectedly small: $name"
+        throw "NuGet package is unexpectedly small or missing: $name"
     }
 }
 
