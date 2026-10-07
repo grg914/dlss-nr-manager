@@ -35,7 +35,10 @@ jobs:
             "tools/publish-video2dlssnr.ps1",
             "tools/publish-streamline-runtime.ps1",
             "tools/bootstrap-manager-runtime-assets.ps1",
-            "tools/bootstrap-minecraft-runtime.ps1"
+            "tools/bootstrap-minecraft-runtime.ps1",
+            "tools/refresh-upstream.ps1",
+            "tools/refresh-minecraft-runtime-lock.ps1",
+            "tools/generate-components-manifest.ps1"
           )
 
           foreach ($path in $paths) {
@@ -76,7 +79,22 @@ jobs:
             }
           }
 
-          Write-Host "Vendor tooling syntax and dependency lock verified."
+          $upstreams = Get-Content "third_party/UPSTREAMS.json" -Raw | ConvertFrom-Json
+          $policyDuplicates = @($upstreams.sources) |
+            Group-Object id |
+            Where-Object Count -gt 1
+          if ($policyDuplicates) {
+            throw "Duplicate upstream policy ids: $($policyDuplicates.Name -join ', ')"
+          }
+
+          $knownIds = @($all.id)
+          foreach ($policy in @($upstreams.sources)) {
+            if ($knownIds -notcontains [string]$policy.id) {
+              throw "Upstream policy '$($policy.id)' has no dependency lock entry."
+            }
+          }
+
+          Write-Host "Vendor tooling syntax, dependency lock and upstream policies verified."
 
       - name: Enforce self-contained runtime/release audit
         shell: pwsh
