@@ -244,13 +244,13 @@ foreach ($workflowName in @("build.yml", "release.yml")) {
         $trimmed = $line.Trim()
 
         if ($trimmed -match "^-\s+uses:") {
-            $productionWorkflowIssues += "$workflowName:$lineNumber -> external/reusable GitHub Action is forbidden in production: $trimmed"
+            $productionWorkflowIssues += "${workflowName}:$lineNumber -> external/reusable GitHub Action is forbidden in production: $trimmed"
         }
         if ($line -match "(?i)\bapt-get\b|\bwinget\s+install\b|api\.nuget\.org|www\.nuget\.org|setup-dotnet|upload-artifact|download-artifact|softprops/") {
-            $productionWorkflowIssues += "$workflowName:$lineNumber -> external production bootstrap reference: $trimmed"
+            $productionWorkflowIssues += "${workflowName}:$lineNumber -> external production bootstrap reference: $trimmed"
         }
         if ($line -match "(?i)\bdotnet\s+restore\b" -and $line -notmatch "(?i)--configfile") {
-            $productionWorkflowIssues += "$workflowName:$lineNumber -> dotnet restore must use the manager-owned offline NuGet config: $trimmed"
+            $productionWorkflowIssues += "${workflowName}:$lineNumber -> dotnet restore must use the manager-owned offline NuGet config: $trimmed"
         }
     }
 }
