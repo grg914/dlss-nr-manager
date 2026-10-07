@@ -60,7 +60,9 @@ jobs:
             "tools/generate-components-manifest.ps1",
             "tools/download-runtime-seed.ps1",
             "tools/prepare-offline-dotnet.ps1",
-            "tools/build-nuget-offline-seed.ps1"
+            "tools/build-nuget-offline-seed.ps1",
+            "tools/minecraft-fabric-profile.ps1",
+            "tools/test-minecraft-fabric-profile.ps1"
           )
 
           foreach ($path in $paths) {
@@ -99,6 +101,12 @@ jobs:
               throw "Upstream policy '$($policy.id)' has no dependency lock entry."
             }
           }
+
+      - name: Validate deterministic Fabric profile generator
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\test-minecraft-fabric-profile.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Deterministic Fabric profile test failed." }
 
       - name: Enforce zero-upstream production audit
         shell: pwsh
