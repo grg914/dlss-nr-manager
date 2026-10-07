@@ -8,7 +8,9 @@ This file is a high-level notice. The exact upstream license text and notices in
 
 | Component | Role | License / redistribution note |
 | --- | --- | --- |
+| Microsoft .NET 8 / WPF runtime | Self-contained Windows application runtime | MIT and bundled Microsoft/.NET third-party notices as applicable |
 | Microsoft.ML.OnnxRuntime | AI-origin inference | MIT |
+| Eclipse Temurin / OpenJDK 25 JRE | Minecraft/Java runtime when distributed | GPLv2 with Classpath Exception / bundled legal notices; preserve upstream legal files |
 | FFmpeg | Media decode/encode | LGPL/GPL depending on build configuration; preserve corresponding notices/source obligations |
 | nv-codec-headers | NVIDIA codec headers | NVIDIA permissive notices embedded upstream |
 | Real-ESRGAN ncnn Vulkan | AI upscaling | MIT/BSD-style components as recorded in dependency lock; model notices preserved |
