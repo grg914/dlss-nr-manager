@@ -69,6 +69,16 @@ Production runtime assets are expected to originate from DLSS NR Manager's own r
 
 A source being publicly downloadable does not imply that it may be redistributed. License-restricted material must remain local/manual when required.
 
+## GitHub Actions
+
+Workflow supply-chain rules:
+
+- keep workflow permissions at the least privilege needed by each job;
+- pin third-party/GitHub Actions to full immutable commit SHAs rather than mutable tags;
+- review Dependabot action updates before merging;
+- do not expose write tokens to untrusted pull-request code;
+- release/runtime publication jobs must use protected manager-owned workflows and repository tokens only for the intended repository.
+
 ## Secrets and credentials
 
 Never commit:
