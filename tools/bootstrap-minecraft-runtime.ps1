@@ -2,14 +2,29 @@ param(
     [string]$Repository = "grg914/dlss-nr-manager",
     [string]$ReleaseTag,
     [string]$MinecraftVersion = "26.2",
-    [string]$FabricLoaderVersion = "0.19.3",
-    [string]$FabricInstallerVersion = "1.1.2",
     [switch]$NoUpload
 )
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$RuntimeLockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
 $UserAgent = "DlssNrManager-MinecraftBootstrap/1.0 (+https://github.com/grg914/dlss-nr-manager)"
+
+if (!(Test-Path -LiteralPath $RuntimeLockPath)) {
+    throw "Minecraft runtime lock file not found: $RuntimeLockPath"
+}
+
+$RuntimeLock = Get-Content -LiteralPath $RuntimeLockPath -Raw | ConvertFrom-Json
+
+if ($RuntimeLock.schema_version -ne 1) {
+    throw "Unsupported Minecraft runtime lock schema: $($RuntimeLock.schema_version)"
+}
+
+if ([string]$RuntimeLock.minecraft_version -ne $MinecraftVersion) {
+    throw "Minecraft runtime lock targets $($RuntimeLock.minecraft_version), requested $MinecraftVersion."
+}
+
+$RuntimeLockSha256 = (Get-FileHash -LiteralPath $RuntimeLockPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
 if (-not $NoUpload) {
     if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
