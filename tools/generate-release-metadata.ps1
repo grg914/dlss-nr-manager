@@ -87,7 +87,7 @@ foreach ($dep in $allDependencies) {
         externalRefs = @(
             [ordered]@{
                 referenceCategory = "OTHER"
-                referenceType = "dlss-nr-manager:source-commit"
+                referenceType = "source-commit"
                 referenceLocator = [string]$dep.ref
             }
         )
