@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$LockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
+$LockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"\n$FabricProfileScript = Join-Path $PSScriptRoot "fabric-profile.ps1"\nif (!(Test-Path -LiteralPath $FabricProfileScript)) { throw "Missing Fabric profile helper: $FabricProfileScript" }\n. $FabricProfileScript
 $UserAgent = "DlssNrManager-MinecraftLockRefresh/1.0 (+https://github.com/grg914/dlss-nr-manager)"
 $headers = @{ "User-Agent" = $UserAgent; Accept = "application/json" }
 
@@ -68,13 +68,17 @@ $loader = $loaderRows |
 if (-not $loader) { throw "No stable Fabric Loader was found for Minecraft $MinecraftVersion." }
 
 $loaderVersion = [string]$loader.loader.version
-$profileUrl = "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion/$loaderVersion/profile/json"
-$tempProfile = Join-Path $env:TEMP ("fabric-profile-" + [Guid]::NewGuid().ToString("N") + ".json")
+$encodedMinecraft = [Uri]::EscapeDataString($MinecraftVersion)
+$encodedLoader = [Uri]::EscapeDataString($loaderVersion)
+$loaderInfo = Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$encodedMinecraft/$encodedLoader"
+if (-not $loaderInfo -or [string]$loaderInfo.loader.version -ne $loaderVersion) {
+    throw "Fabric loader detail metadata did not resolve $MinecraftVersion / $loaderVersion."
+}
 
+$tempProfile = Join-Path $env:TEMP ("fabric-profile-" + [Guid]::NewGuid().ToString("N") + ".json")
 try {
-    Invoke-WebRequest -Uri $profileUrl -Headers $headers -OutFile $tempProfile
+    $profile = Write-DeterministicFabricProfile -LoaderInfo $loaderInfo -MinecraftVersion $MinecraftVersion -LoaderVersion $loaderVersion -OutputPath $tempProfile
     $profileSha256 = (Get-FileHash -LiteralPath $tempProfile -Algorithm SHA256).Hash.ToLowerInvariant()
-    $profile = Get-Content -LiteralPath $tempProfile -Raw | ConvertFrom-Json
 }
 finally {
     if (Test-Path -LiteralPath $tempProfile) { Remove-Item -LiteralPath $tempProfile -Force }
