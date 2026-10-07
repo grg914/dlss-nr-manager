@@ -43,6 +43,7 @@ jobs:
           Write-Host "Using preinstalled .NET SDK $dotnet"
 
       - name: Materialize manager-owned offline NuGet feed
+        id: nuget
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -77,21 +78,27 @@ jobs:
             }
           }
 
-          foreach ($lock in @($metadata.locks)) {
-            $path = Join-Path $feed ([string]$lock.asset)
-            if (!(Test-Path -LiteralPath $path)) {
-              throw "Offline NuGet lockfile is missing: $($lock.asset)"
+          if ([int]$metadata.schema -ge 2) {
+            foreach ($lock in @($metadata.locks)) {
+              $path = Join-Path $feed ([string]$lock.asset)
+              if (!(Test-Path -LiteralPath $path)) {
+                throw "Offline NuGet lockfile is missing: $($lock.asset)"
+              }
+              $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actual -ne ([string]$lock.sha256).ToLowerInvariant()) {
+                throw "Offline NuGet lockfile digest mismatch: $($lock.asset)"
+              }
             }
-            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($actual -ne ([string]$lock.sha256).ToLowerInvariant()) {
-              throw "Offline NuGet lockfile digest mismatch: $($lock.asset)"
-            }
+
+            Copy-Item (Join-Path $feed "packages.lock.json") "packages.lock.json" -Force
+            Copy-Item (Join-Path $feed "tests-packages.lock.json") "tests/DlssNrManager.Tests/packages.lock.json" -Force
+            "locked=true" >> $env:GITHUB_OUTPUT
+            Write-Host "Validated $(@($metadata.packages).Count) manager-owned NuGet packages and locked dependency graphs."
           }
-
-          Copy-Item (Join-Path $feed "packages.lock.json") "packages.lock.json" -Force
-          Copy-Item (Join-Path $feed "tests-packages.lock.json") "tests/DlssNrManager.Tests/packages.lock.json" -Force
-
-          Write-Host "Validated $(@($metadata.packages).Count) manager-owned NuGet packages and locked dependency graphs."
+          else {
+            "locked=false" >> $env:GITHUB_OUTPUT
+            Write-Warning "Bootstrap compatibility: runtime seed NuGet schema $($metadata.schema) predates lockfiles. This path is accepted only until runtime-refresh publishes schema 2."
+          }
 
       - name: Validate self-contained tooling
         shell: pwsh
@@ -165,9 +172,22 @@ jobs:
         shell: pwsh
         run: |
           $feed = (Resolve-Path "build-local/nuget-offline").Path
-          dotnet restore DlssNrManager.csproj --source $feed --no-cache --locked-mode
+          $locked = "${{ steps.nuget.outputs.locked }}" -eq "true"
+
+          if ($locked) {
+            dotnet restore DlssNrManager.csproj --source $feed --no-cache --locked-mode
+          }
+          else {
+            dotnet restore DlssNrManager.csproj --source $feed --no-cache
+          }
           if ($LASTEXITCODE -ne 0) { throw "Offline manager restore failed." }
-          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --source $feed --no-cache --locked-mode
+
+          if ($locked) {
+            dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --source $feed --no-cache --locked-mode
+          }
+          else {
+            dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --source $feed --no-cache
+          }
           if ($LASTEXITCODE -ne 0) { throw "Offline test restore failed." }
 
       - name: Run regression tests
