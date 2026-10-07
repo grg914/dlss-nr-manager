@@ -9,7 +9,8 @@ $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $work = if ([IO.Path]::IsPathRooted($WorkingDirectory)) { $WorkingDirectory } else { Join-Path $Root $WorkingDirectory }
 $seed = Join-Path $work "seed"
 $feed = Join-Path $work "feed"
-$packages = Join-Path $work "packages"
+$tempBase = if (-not [string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
+$packages = Join-Path $tempBase ("DlssNrManager-offline-packages-" + [Guid]::NewGuid().ToString("N"))
 $config = Join-Path $work "NuGet.Config"
 
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
