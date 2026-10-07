@@ -22,13 +22,23 @@ jobs:
           $env:GIT_LFS_SKIP_SMUDGE = "1"
           git init .
           git remote add origin "https://github.com/${{ github.repository }}.git"
-          git fetch --no-tags --prune --depth=1 origin "$env:GITHUB_REF"
-          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch ${{ github.repository }} at $env:GITHUB_REF." }
+
+          # Pull-request merge refs can be regenerated while a queued job starts.
+          # Fetch the immutable PR head SHA for PR validation; use GITHUB_SHA for
+          # push/manual runs where the event revision itself is stable.
+          $expected = "$env:GITHUB_SHA"
+          $pullRequestHead = "${{ github.event.pull_request.head.sha }}"
+          if (-not [string]::IsNullOrWhiteSpace($pullRequestHead)) {
+            $expected = $pullRequestHead
+          }
+
+          git fetch --no-tags --prune --depth=1 origin "$expected"
+          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch ${{ github.repository }} at commit $expected." }
           git checkout --detach FETCH_HEAD
           if ($LASTEXITCODE -ne 0) { throw "Unable to checkout workflow revision." }
           $actual = (git rev-parse HEAD).Trim()
-          if ($actual -ne "$env:GITHUB_SHA") {
-            throw "Checkout mismatch. Expected $env:GITHUB_SHA, got $actual."
+          if ($actual -ne $expected) {
+            throw "Checkout mismatch. Expected $expected, got $actual."
           }
 
       - name: Require preinstalled .NET 8 toolchain
