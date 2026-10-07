@@ -31,7 +31,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: runtime-seed-refresh
+  group: runtime-seed-refresh-v2
   # Only the newest main state should promote the shared runtime seed.
   # This prevents an obsolete refresh from blocking a newer release.
   cancel-in-progress: true
