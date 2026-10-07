@@ -66,7 +66,7 @@ function Get-TagVersion {
     $m = [regex]::Match($Tag, $Pattern)
     if (-not $m.Success) { return $null }
 
-    $value = if ($m.Groups["version"].Success) { $m.Groups["version"].Value } else { $Tag.TrimStart("v", "V", "n", "N") }
+    $value = if ($m.Groups["version"].Success) { $m.Groups["version"].Value } else { $Tag.TrimStart([char[]]"vVnN") }
     $parsed = $null
     if ([Version]::TryParse($value, [ref]$parsed)) { return $parsed }
     return $null
