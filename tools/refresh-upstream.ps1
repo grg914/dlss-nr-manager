@@ -125,22 +125,36 @@ function Resolve-UpstreamState {
     $strategy = [string]$Policy.strategy
 
     if ($strategy -eq "latest-release") {
-        if ($Policy.release_name_regex) {
-            $releasePattern = [string]$Policy.release_name_regex
+        if ($Policy.release_name_regex -or $Policy.release_asset_regex) {
+            $releasePattern = if ($Policy.release_name_regex) { [string]$Policy.release_name_regex } else { "" }
+            $assetPattern = if ($Policy.release_asset_regex) { [string]$Policy.release_asset_regex } else { "" }
+
             $release = @(Get-GitHubPagedCollection -Uri "https://api.github.com/repos/$repository/releases") |
                 Where-Object {
-                    -not $_.draft -and
-                    -not $_.prerelease -and
-                    (
+                    if ($_.draft -or $_.prerelease) { return $false }
+
+                    $nameMatches = -not [string]::IsNullOrWhiteSpace($releasePattern) -and (
                         ([string]$_.name -match $releasePattern) -or
                         ([string]$_.tag_name -match $releasePattern)
                     )
+                    $assetMatches = -not [string]::IsNullOrWhiteSpace($assetPattern) -and (
+                        @($_.assets | Where-Object { [string]$_.name -match $assetPattern }).Count -gt 0
+                    )
+
+                    if (-not [string]::IsNullOrWhiteSpace($releasePattern) -and -not [string]::IsNullOrWhiteSpace($assetPattern)) {
+                        return $nameMatches -and $assetMatches
+                    }
+
+                    return $nameMatches -or $assetMatches
                 } |
                 Sort-Object { [DateTimeOffset]$_.published_at } -Descending |
                 Select-Object -First 1
 
             if (-not $release) {
-                throw "No stable release matching '$releasePattern' was found for $repository."
+                $criteria = @()
+                if (-not [string]::IsNullOrWhiteSpace($releasePattern)) { $criteria += "release '$releasePattern'" }
+                if (-not [string]::IsNullOrWhiteSpace($assetPattern)) { $criteria += "asset '$assetPattern'" }
+                throw "No stable release matching $($criteria -join ' and ') was found for $repository."
             }
         }
         else {
