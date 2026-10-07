@@ -126,14 +126,26 @@ function Resolve-UpstreamState {
     }
 
     if ($strategy -eq "latest-tag") {
-        $tags = @(Invoke-GitHubJson "https://api.github.com/repos/$repository/tags?per_page=100")
         $pattern = if ($Policy.tag_regex) { [string]$Policy.tag_regex } else { "^[vV]?(?<version>\d+(?:\.\d+){1,3})$" }
+        $remoteUrl = "https://github.com/$repository.git"
+        $remoteTags = @(git ls-remote --refs --tags $remoteUrl 2>$null)
 
-        $candidates = foreach ($tag in $tags) {
-            $version = Get-TagVersion -Tag ([string]$tag.name) -Pattern $pattern
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to enumerate official tags for $repository."
+        }
+
+        $candidates = foreach ($line in $remoteTags) {
+            $parts = @(([string]$line) -split "\s+", 2)
+            if ($parts.Count -ne 2) { continue }
+
+            $refName = [string]$parts[1]
+            if (-not $refName.StartsWith("refs/tags/")) { continue }
+
+            $tagName = $refName.Substring("refs/tags/".Length)
+            $version = Get-TagVersion -Tag $tagName -Pattern $pattern
             if ($version) {
                 [pscustomobject]@{
-                    Tag = [string]$tag.name
+                    Tag = $tagName
                     Version = $version
                 }
             }
