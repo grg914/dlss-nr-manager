@@ -16,8 +16,6 @@ public sealed record MediaProcessOptions(
 public sealed class MediaService
 {
     private const string ProcessorAsset = "video2dlssnr_release.zip";
-    private const string ProcessorUpstreamApi =
-        "https://api.github.com/repos/DaniilSokolyuk/video2dlssnr/releases/latest";
     private const string ManagerLatestReleaseApi =
         "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
     private const string FfmpegAsset = "ffmpeg-dlssnr-win-x64.zip";
@@ -132,35 +130,21 @@ public sealed class MediaService
 
         if (!IsUsableFile(ProcessorExe, 64 * 1024))
         {
-            progress?.Report("Checking manager-owned video2dlssnr…");
+            progress?.Report("Downloading manager-owned video2dlssnr…");
             using var managerRelease = await GetJsonAsync(
                 ManagerLatestReleaseApi,
                 cancellationToken);
 
-            var asset = FindAsset(managerRelease, ProcessorAsset);
-            if (asset == null)
-            {
-                progress?.Report(
-                    "Manager-owned video2dlssnr is not bootstrapped yet; using the pinned upstream fallback.");
+            var asset = FindAsset(managerRelease, ProcessorAsset)
+                ?? throw new InvalidOperationException(
+                    $"Latest DLSS NR Manager release has no {ProcessorAsset} asset. " +
+                    "Bootstrap the validated video runtime before using media processing.");
 
-                using var upstreamRelease = await GetJsonAsync(
-                    ProcessorUpstreamApi,
-                    cancellationToken);
-
-                asset = FindAsset(upstreamRelease, ProcessorAsset)
-                    ?? throw new InvalidOperationException(
-                        $"Neither DLSS NR Manager nor the upstream fallback provides {ProcessorAsset}.");
-            }
-            else if (string.IsNullOrWhiteSpace(asset.Sha256))
+            if (string.IsNullOrWhiteSpace(asset.Sha256))
             {
                 throw new InvalidDataException(
                     $"Manager-owned video2dlssnr asset {ProcessorAsset} has no SHA-256 digest.");
             }
-
-            progress?.Report(
-                asset.Sha256 is null
-                    ? "Downloading upstream video2dlssnr fallback…"
-                    : "Downloading manager-owned video2dlssnr…");
 
             var zip = Path.Combine(RootDirectory, ProcessorAsset);
             var extract = Path.Combine(
