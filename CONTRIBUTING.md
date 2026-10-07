@@ -59,6 +59,17 @@ New manager-owned packages should provide:
 - explicit >1 GiB approval based on the complete package size;
 - English and French UI strings.
 
+## GitHub Actions
+
+When adding an action:
+
+- pin it to a full commit SHA;
+- grant only the permissions it needs;
+- avoid write permissions in ordinary build/test jobs;
+- do not pass repository secrets to untrusted pull-request code.
+
+Dependabot may propose action SHA updates, but they still require review.
+
 ## User-visible language
 
 New user-visible text must support both:
