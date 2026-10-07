@@ -131,9 +131,16 @@ function Resolve-ModrinthComponent {
         throw "Unsafe Modrinth filename returned for $Name."
     }
 
+    $downloadUri = [Uri][string]$file.url
+    $allowedModrinthHosts = @("cdn.modrinth.com", "api.modrinth.com")
+    if ($downloadUri.Scheme -ne "https" -or
+        $allowedModrinthHosts -notcontains $downloadUri.Host.ToLowerInvariant()) {
+        throw "Unexpected Modrinth download origin for $Name: $($file.url)"
+    }
+
     $destination = Join-Path $filesDir $safeName
     Write-Host "Downloading $Name $($version.version_number)..."
-    $actual = Copy-WithSha512 -Url ([string]$file.url) -Destination $destination -ExpectedSha512 $sha512 -Label $Name
+    $actual = Copy-WithSha512 -Url $downloadUri.AbsoluteUri -Destination $destination -ExpectedSha512 $sha512 -Label $Name
 
     return [ordered]@{
         Name = $Name
@@ -206,8 +213,14 @@ foreach ($library in @($profile.libraries)) {
     $mavenPath = "$groupPath/$artifact/$version/$artifact-$version.jar"
 
     $baseUri = [Uri]($baseUrl.TrimEnd("/") + "/")
-    if ($baseUri.Scheme -ne "https") {
-        throw "Fabric library uses a non-HTTPS repository: $baseUrl"
+    $allowedMavenHosts = @(
+        "maven.fabricmc.net",
+        "repo.maven.apache.org",
+        "repo1.maven.org"
+    )
+    if ($baseUri.Scheme -ne "https" -or
+        $allowedMavenHosts -notcontains $baseUri.Host.ToLowerInvariant()) {
+        throw "Fabric library uses an unexpected Maven repository: $baseUrl"
     }
 
     $libraryUrl = ([Uri]::new($baseUri, $mavenPath)).AbsoluteUri
