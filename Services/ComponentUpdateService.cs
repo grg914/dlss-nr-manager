@@ -6,6 +6,10 @@ namespace DlssNrManager.Services;
 
 public sealed class ComponentUpdateService
 {
+    private const string FfmpegAsset = "ffmpeg-dlssnr-win-x64.zip";
+    private const string ManagerLatestReleaseApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+
     private readonly HttpClient _http = new();
 
     private static readonly string StatePath = Path.Combine(
@@ -71,7 +75,7 @@ public sealed class ComponentUpdateService
             ?? "unknown";
 
         var ffmpeg = await GetJsonAsync(
-            "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest",
+            ManagerLatestReleaseApi,
             cancellationToken);
 
         long ffmpegAssetId = 0;
@@ -81,7 +85,7 @@ public sealed class ComponentUpdateService
             {
                 var name = asset.GetProperty("name").GetString() ?? "";
                 if (!name.Equals(
-                        "ffmpeg-master-latest-win64-gpl.zip",
+                        FfmpegAsset,
                         StringComparison.OrdinalIgnoreCase))
                     continue;
 
