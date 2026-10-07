@@ -132,6 +132,41 @@ PROCHAINE ACTION EXACTE
 6. Si absents, noter BLOCKED-LOCAL et avancer vers la prochaine phase faisable.
 7. Implementer, tester et committer localement les changements coherents.
 
+CHECKPOINT 0B - AUDIT CAUSTICA / SPBRSCANDI VALIDE EN CI (2026-10-07)
+
+Phase:
+- 7.1 Caustica / ScandiShader / SPBRScandi
+- sous-phase A: provenance + validation structurelle automatisee des assets distribues.
+
+Resultats reels:
+- Build PR #673: PASSED.
+- etape "Audit manager-owned Caustica and Scandi assets": PASSED.
+- audit zero-upstream: PASSED.
+- restore offline, tests .NET, publish win-x64 et verification executable: PASSED dans le meme Build #673.
+- le faux echec Build #670 venait du verificateur qui cherchait des constantes Java dans CausticaConfig.class au lieu des classes imbriquees CausticaConfig$Rt$*.class.
+- le second echec Build #672 venait de l'expansion PowerShell de $Rt dans des chemins de classes Java entre guillemets doubles; corrige avec des chaines litterales.
+
+Preuves de provenance:
+- asset distribue par DLSS NR Manager v3.1.1: Caustica-RTX-Minecraft-26.2-build-46.jar.
+- SHA-256 GitHub: 40cfc86cda627102a4bee304996233b231b172e9f17a5a8dc3dcbd85121b47c7.
+- meme nom, taille et SHA-256 sur la prerelease grg914/Caustica-RTX scandicraft-26.2-build-46.
+- cette prerelease cible 27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a, identique au ref immuable de Caustica-RTX/SOURCE.json.
+- le fork grg914/Caustica-RTX est 6 commits en avance et 0 en retard sur AriesAlex/Caustica-RTX main au point de comparaison; ces commits ajoutent notamment DLSS Neural Rendering, RTX Performance Mode et le port ScandiShader natif.
+- le JAR distribue passe les controles d'identite Caustica RTX, Minecraft 26.2, classes DLSS-RR/DLSS-FG/DLSS-NR, ABI NGX DLSS-NR, Performance Mode et ScandiShader RTX.
+- SPBRScandi.zip passe le controle SHA-256 manager-owned et la validation de structure Minecraft/LabPBR.
+
+Conclusion de sous-phase:
+- Caustica-RTX-Minecraft-26.2-build-46.jar: CONFIRME comme build personnalisee/corrigee du fork, et non simple JAR base renomme, sur preuves de provenance + contenu structurel.
+- SPBRScandi.zip: CONFIRME present, integre au circuit de release et structurellement exploitable comme resource pack LabPBR.
+- validation Minecraft end-to-end en jeu: RESTE A FAIRE sur machine utilisateur.
+- comparaison byte-for-byte avec un binaire base original exact: non necessaire pour etablir la provenance, mais reste possible comme audit complementaire.
+
+Prochaine action exacte:
+1. fusionner la PR d'audit si le check vert reste attache au head valide;
+2. verifier le Build main post-merge;
+3. fermer la sous-phase 7.1-A;
+4. continuer 7.1-B sur le lien/runtime Minecraft reel (resource pack actif, Caustica charge, ScandiShader RTX effectif) avant de passer a 7.2 OptiScaler/DLSS5.
+
 CHECKPOINT 0A - REPRISE GITHUB / AUDIT CAUSTICA + SPBRSCANDI (2026-10-07)
 
 Base main avant cette sous-phase:
