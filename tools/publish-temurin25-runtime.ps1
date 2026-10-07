@@ -12,9 +12,14 @@ New-Item -ItemType Directory -Force -Path $BuildRoot | Out-Null
 $headers = @{ Accept = "application/vnd.github+json"; "User-Agent" = "DlssNrManager-TemurinRefresh/1.0" }
 if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) { $headers.Authorization = "Bearer $env:GITHUB_TOKEN" }
 
-$releases = @(Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/adoptium/temurin25-binaries/releases?per_page=30")
-$release = $releases | Where-Object { -not $_.draft -and -not $_.prerelease -and ([string]$_.tag_name -match "^jdk-25(?:\.|\+|$)") } | Sort-Object { [DateTimeOffset]$_.published_at } -Descending | Select-Object -First 1
-if (-not $release) { throw "No stable Temurin 25 release was found." }
+$release = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/adoptium/temurin25-binaries/releases/latest"
+if (-not $release -or $release.draft -or $release.prerelease) {
+    throw "Adoptium latest release is missing, a draft, or a prerelease."
+}
+$releaseTag = [string]$release.tag_name
+if ($releaseTag -notmatch "^jdk-25(?:\.|\+|$)") {
+    throw "Adoptium latest stable release '$releaseTag' is not a Temurin 25 release."
+}
 
 $asset = @($release.assets) | Where-Object { [string]$_.name -match "^OpenJDK25U-jre_x64_windows_hotspot_.*\.zip$" } | Select-Object -First 1
 if (-not $asset) { throw "Stable Temurin 25 release has no Windows x64 HotSpot JRE ZIP." }
