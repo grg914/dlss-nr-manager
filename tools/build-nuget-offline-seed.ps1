@@ -51,8 +51,7 @@ foreach ($assetPath in @("obj/project.assets.json", "tests/DlssNrManager.Tests/o
 
     foreach ($frameworkProperty in $json.project.frameworks.PSObject.Properties) {
         foreach ($dependency in @($frameworkProperty.Value.downloadDependencies)) {
-            Add-Package -Id ([string]$dependency.name) -Version ([string]$dependency.version
-            )
+            Add-Package -Id ([string]$dependency.name) -Version ([string]$dependency.version)
         }
     }
 }
