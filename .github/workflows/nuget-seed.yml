@@ -1,12 +1,6 @@
 name: NuGet Offline Seed
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - '.github/workflows/nuget-seed.yml'
-      - 'DlssNrManager.csproj'
-      - 'tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj'
   workflow_dispatch:
 
 permissions:
