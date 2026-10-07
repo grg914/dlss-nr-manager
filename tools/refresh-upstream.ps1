@@ -89,9 +89,29 @@ function Resolve-UpstreamState {
     $strategy = [string]$Policy.strategy
 
     if ($strategy -eq "latest-release") {
-        $release = Invoke-GitHubJson "https://api.github.com/repos/$repository/releases/latest"
-        if ($release.draft -or $release.prerelease) {
-            throw "Latest release for $repository is not a stable release."
+        if ($Policy.release_name_regex) {
+            $releasePattern = [string]$Policy.release_name_regex
+            $release = @(Invoke-GitHubJson "https://api.github.com/repos/$repository/releases?per_page=100") |
+                Where-Object {
+                    -not $_.draft -and
+                    -not $_.prerelease -and
+                    (
+                        ([string]$_.name -match $releasePattern) -or
+                        ([string]$_.tag_name -match $releasePattern)
+                    )
+                } |
+                Sort-Object { [DateTimeOffset]$_.published_at } -Descending |
+                Select-Object -First 1
+
+            if (-not $release) {
+                throw "No stable release matching '$releasePattern' was found for $repository."
+            }
+        }
+        else {
+            $release = Invoke-GitHubJson "https://api.github.com/repos/$repository/releases/latest"
+            if ($release.draft -or $release.prerelease) {
+                throw "Latest release for $repository is not a stable release."
+            }
         }
 
         $tag = [string]$release.tag_name
