@@ -33,7 +33,8 @@ jobs:
             "tools/build-reshade.ps1",
             "tools/build-video2dlssnr.ps1",
             "tools/publish-video2dlssnr.ps1",
-            "tools/publish-streamline-runtime.ps1"
+            "tools/publish-streamline-runtime.ps1",
+            "tools/bootstrap-manager-runtime-assets.ps1"
           )
 
           foreach ($path in $paths) {
