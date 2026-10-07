@@ -249,6 +249,29 @@ Prochaine action exacte:
 4. passer au point 2 du cahier des charges: audit OptiScaler pour Minecraft RTX / DLSS 5;
 5. pour ce point 2, respecter la consigne utilisateur: analyser et proposer les solutions A/B/C d'abord, NE MODIFIER AUCUN fichier OptiScaler/DLL/config avant validation explicite de l'utilisateur.
 
+CHECKPOINT 0C - ROBUSTESSE CHECKOUT CI PR (2026-10-07)
+
+Constat:
+- Build #676 sur le head a783e4cfc040da0371086058448a8b5c161dcc98 a echoue avant les tests.
+- cause factuelle: le workflow a recu GITHUB_SHA 90f533e5cf6db70b2a0729701bfcdecc0092dafb, puis refs/pull/61/merge a ete regenere vers 26194aaf50f9fa33382e5554e495ff8677bfbe1b avant le git fetch.
+- le controle de checkout comparait donc une merge-ref mutable a un SHA d'evenement devenu obsolete.
+- ce n'est pas une regression Caustica/SPBR ni une regression applicative.
+
+Correction:
+- build.yml utilise maintenant github.event.pull_request.head.sha comme revision immuable pour les pull requests.
+- les push/workflow_dispatch continuent d'utiliser GITHUB_SHA.
+- le checkout verifie le SHA effectivement demande apres fetch.
+
+Validation:
+- PENDING sur le Build declenche par le dernier checkpoint.
+- ne pas fusionner PR #61 tant que le check build du head courant n'est pas PASSED.
+
+Prochaine action exacte:
+1. attendre le Build du head courant;
+2. si PASSED, fusionner PR #61;
+3. verifier le Build push main;
+4. cloturer 7.1-A et passer a l'analyse 7.2 OptiScaler/DLSS5 sans modifier OptiScaler avant validation utilisateur.
+
 ---
 
 AI PROJECT PROGRESS
