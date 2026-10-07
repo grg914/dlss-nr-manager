@@ -3,6 +3,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "minecraft-fabric-profile.ps1")
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $LockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
 $UserAgent = "DlssNrManager-MinecraftLockRefresh/1.0 (+https://github.com/grg914/dlss-nr-manager)"
@@ -68,13 +69,12 @@ $loader = $loaderRows |
 if (-not $loader) { throw "No stable Fabric Loader was found for Minecraft $MinecraftVersion." }
 
 $loaderVersion = [string]$loader.loader.version
-$profileUrl = "https://meta.fabricmc.net/v2/versions/loader/$MinecraftVersion/$loaderVersion/profile/json"
+$profile = New-DlssNrFabric262ClientProfile -LoaderInfo $loader -MinecraftVersion $MinecraftVersion
 $tempProfile = Join-Path $env:TEMP ("fabric-profile-" + [Guid]::NewGuid().ToString("N") + ".json")
 
 try {
-    Invoke-WebRequest -Uri $profileUrl -Headers $headers -OutFile $tempProfile
+    Write-DlssNrFabricProfile -Profile $profile -Path $tempProfile
     $profileSha256 = (Get-FileHash -LiteralPath $tempProfile -Algorithm SHA256).Hash.ToLowerInvariant()
-    $profile = Get-Content -LiteralPath $tempProfile -Raw | ConvertFrom-Json
 }
 finally {
     if (Test-Path -LiteralPath $tempProfile) { Remove-Item -LiteralPath $tempProfile -Force }
