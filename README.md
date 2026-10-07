@@ -48,6 +48,7 @@ A literal zero-external-toolchain build is not possible: Windows, GPU drivers, M
 Cross-feature security, licensing and distribution rules are documented in:
 
 - [Security policy](SECURITY.md)
+- [Support policy](SUPPORT.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Contribution/dependency policy](CONTRIBUTING.md)
 - [Network, offline and privacy policy](docs/NETWORK_OFFLINE_PRIVACY_POLICY.md)
