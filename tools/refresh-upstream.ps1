@@ -58,6 +58,31 @@ function Get-GitHubPagedCollection {
     return @($items)
 }
 
+function Get-GitHubTagNames {
+    param([Parameter(Mandatory=$true)][string]$Repository)
+
+    $remote = "https://github.com/$Repository.git"
+    $output = @(& git ls-remote --tags --refs $remote 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to enumerate Git tags for $Repository via $remote :: $($output -join ' ')"
+    }
+
+    $names = @(
+        foreach ($line in $output) {
+            $text = [string]$line
+            if ($text -match "^[0-9a-fA-F]{40}\s+refs/tags/(.+)$") {
+                $Matches[1]
+            }
+        }
+    )
+
+    if ($names.Count -eq 0) {
+        throw "Git returned no tags for $Repository."
+    }
+
+    return $names
+}
+
 function Resolve-CommitInfo {
     param(
         [Parameter(Mandatory=$true)][string]$Repository,
@@ -142,14 +167,14 @@ function Resolve-UpstreamState {
     }
 
     if ($strategy -eq "latest-tag") {
-        $tags = @(Get-GitHubPagedCollection -Uri "https://api.github.com/repos/$repository/tags")
+        $tagNames = @(Get-GitHubTagNames -Repository $repository)
         $pattern = if ($Policy.tag_regex) { [string]$Policy.tag_regex } else { "^[vV]?(?<version>\d+(?:\.\d+){1,3})$" }
 
-        $candidates = foreach ($tag in $tags) {
-            $version = Get-TagVersion -Tag ([string]$tag.name) -Pattern $pattern
+        $candidates = foreach ($tagName in $tagNames) {
+            $version = Get-TagVersion -Tag ([string]$tagName) -Pattern $pattern
             if ($version) {
                 [pscustomobject]@{
-                    Tag = [string]$tag.name
+                    Tag = [string]$tagName
                     Version = $version
                 }
             }
