@@ -18,7 +18,6 @@
 
 #include <float.h>
 #include <stdint.h>
-#include <string.h>
 
 #include "libavutil/float_dsp.h"
 #include "libavutil/internal.h"

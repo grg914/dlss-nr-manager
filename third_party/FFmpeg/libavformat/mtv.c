@@ -156,10 +156,7 @@ static int mtv_read_header(AVFormatContext *s)
         mtv->img_segment_size;
     mtv->video_fps         = (mtv->audio_br / 4) / audio_subsegments;
 
-    if (!mtv->video_fps) {
-        av_log(s, AV_LOG_ERROR, "Invalid video frame rate\n");
-        return AVERROR_INVALIDDATA;
-    }
+    // FIXME Add sanity check here
 
     // all systems go! init decoders
 

@@ -55,6 +55,7 @@ typedef struct AACContext {
     int prog_ref;
     int metadata_mode;
     AACENC_MetaData metaDataSetup;
+    int delay_sent;
     int frame_length;
 
     AudioFrameQueue afq;
@@ -140,6 +141,7 @@ static void aac_encode_flush(AVCodecContext *avctx)
     AACENC_BufDesc in_buf   = { 0 }, out_buf = { 0 };
     AACENC_InArgs  in_args  = { 0 };
     AACENC_OutArgs out_args;
+    int64_t pts, duration;
     uint8_t dummy_in[1], dummy_out[1];
     int in_buffer_identifiers[] = { IN_AUDIO_DATA, IN_METADATA_SETUP };
     int in_buffer_element_sizes[] = { 2, sizeof(AACENC_MetaData) };
@@ -150,7 +152,7 @@ static void aac_encode_flush(AVCodecContext *avctx)
     void *out_ptr = dummy_out;
     AACENC_ERROR err;
 
-    ff_af_queue_remove(&s->afq, s->afq.frame_count, NULL);
+    ff_af_queue_remove(&s->afq, s->afq.frame_count, &pts, &duration);
 
     in_buf.bufs              = (void **)inBuffer;
     in_buf.numBufs           = s->metadata_mode == 0 ? 1 : 2;
@@ -262,7 +264,7 @@ static av_cold int aac_encode_init(AVCodecContext *avctx)
         if (!av_channel_layout_compare(&avctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_7POINT1)) {
             mode = MODE_7_1_REAR_SURROUND;
 #if FDKENC_VER_AT_LEAST(4, 0) // 4.0.0
-        } else if (!av_channel_layout_compare(&avctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_5POINT1POINT2_BACK)) {
+        } else if (!av_channel_layout_compare(&avctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_7POINT1_TOP_BACK)) {
             mode = MODE_7_1_TOP_FRONT;
 #endif
         } else {
@@ -439,10 +441,8 @@ static av_cold int aac_encode_init(AVCodecContext *avctx)
     }
 
     cpb_props = ff_encode_add_cpb_side_data(avctx);
-    if (!cpb_props) {
-        ret = AVERROR(ENOMEM);
-        goto error;
-    }
+    if (!cpb_props)
+        return AVERROR(ENOMEM);
     cpb_props->max_bitrate =
     cpb_props->min_bitrate =
     cpb_props->avg_bitrate = avctx->bit_rate;
@@ -467,7 +467,7 @@ static int aac_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
     int out_buffer_identifier = OUT_BITSTREAM_DATA;
     int out_buffer_size, out_buffer_element_size;
     void *out_ptr;
-    int ret;
+    int ret, discard_padding;
     uint8_t dummy_buf[1];
     AACENC_ERROR err;
 
@@ -527,9 +527,26 @@ static int aac_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
         return 0;
 
     /* Get the next frame pts & duration */
-    ret = ff_af_queue_remove(&s->afq, avctx->frame_size, avpkt);
-    if (ret < 0)
-        return ret;
+    ff_af_queue_remove(&s->afq, avctx->frame_size, &avpkt->pts,
+                       &avpkt->duration);
+
+    discard_padding = avctx->frame_size - ff_samples_from_time_base(avctx, avpkt->duration);
+    // Check if subtraction resulted in an overflow
+    if ((discard_padding < avctx->frame_size) != (avpkt->duration > 0)) {
+        av_log(avctx, AV_LOG_ERROR, "discard padding overflow\n");
+        return AVERROR(EINVAL);
+    }
+    if ((!s->delay_sent && avctx->initial_padding > 0) || discard_padding > 0) {
+        uint8_t *side_data =
+            av_packet_new_side_data(avpkt, AV_PKT_DATA_SKIP_SAMPLES, 10);
+        if (!side_data)
+            return AVERROR(ENOMEM);
+        if (!s->delay_sent) {
+            AV_WL32(side_data, avctx->initial_padding);
+            s->delay_sent = 1;
+        }
+        AV_WL32(side_data + 4, discard_padding);
+    }
 
     avpkt->size     = out_args.numOutBytes;
     avpkt->flags   |= AV_PKT_FLAG_KEY;
@@ -566,7 +583,7 @@ static const AVChannelLayout aac_ch_layouts[16] = {
     AV_CHANNEL_LAYOUT_7POINT1,
 #endif
 #if FDKENC_VER_AT_LEAST(4, 0) // 4.0.0
-    AV_CHANNEL_LAYOUT_5POINT1POINT2_BACK,
+    AV_CHANNEL_LAYOUT_7POINT1_TOP_BACK,
 #endif
     { 0 },
 };

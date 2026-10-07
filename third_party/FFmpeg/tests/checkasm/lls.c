@@ -17,9 +17,6 @@
  */
 
 #include <float.h>
-#include <stdio.h>
-#include <string.h>
-
 #include "libavutil/lls.h"
 #include "checkasm.h"
 

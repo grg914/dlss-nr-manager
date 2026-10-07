@@ -2,7 +2,7 @@
     "id":  "reshade",
     "group":  "core",
     "url":  "https://github.com/crosire/reshade.git",
-    "ref":  "7bf9de8b33bcc76c3177007e65d73c72dd0f34c0",
-    "imported_at_utc":  "2026-10-06T21:56:01.8849732Z",
-    "normalized_at_utc":  "2026-10-06T22:17:11.9714364Z"
+    "ref":  "18deaa52de0c425a78b329e9cb3c497281cd00ec",
+    "tree":  "76acccd51dedd5bb60fc26fb579dea5648b8077c",
+    "imported_at_utc":  "2026-10-07T08:09:46.0497423Z"
 }

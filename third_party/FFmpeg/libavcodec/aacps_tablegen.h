@@ -32,6 +32,7 @@
 #include "libavcodec/aacps_tables.h"
 #else
 #include "libavutil/common.h"
+#include "libavutil/libm.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/mem_internal.h"
 #define NR_ALLPASS_BANDS20 30

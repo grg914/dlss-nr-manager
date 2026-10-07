@@ -57,7 +57,7 @@ typedef unsigned int            UINTFLOAT;
 typedef int16_t                 SHORTFLOAT;
 
 #else /* USE_FIXED */
-#include "libavutil/mathematics.h"
+#include "libavutil/libm.h"
 
 #define FIXR(x)                 ((float)(x))
 #define FIXR12(x)               ((float)(x))

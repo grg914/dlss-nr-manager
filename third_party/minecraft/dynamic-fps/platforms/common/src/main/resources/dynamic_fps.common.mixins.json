@@ -10,7 +10,6 @@
         "LoadingOverlayMixin",
         "MinecraftMixin",
         "OptionsMixin",
-        "SDLEventHandlerMixin",
         "SoundEngineMixin",
         "ToastManagerMixin",
         "bugfix.BlockableEventLoopMixin"

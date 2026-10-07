@@ -43,6 +43,7 @@
 #include "huffyuvdsp.h"
 #include "lossless_videodsp.h"
 #include "thread.h"
+#include "libavutil/emms.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/mem.h"
 #include "libavutil/pixdesc.h"
@@ -350,7 +351,7 @@ static av_cold int decode_init(AVCodecContext *avctx)
     s->flags = avctx->flags;
 
     ff_bswapdsp_init(&s->bdsp);
-    ff_huffyuvdsp_init(&s->hdsp);
+    ff_huffyuvdsp_init(&s->hdsp, avctx->pix_fmt);
     ff_llviddsp_init(&s->llviddsp);
 
     s->interlaced = avctx->height > 288;
@@ -886,6 +887,7 @@ static void draw_slice(HYuvDecContext *s, AVCodecContext *avctx, AVFrame *frame,
     offset[2] = frame->linesize[2] * cy;
     for (i = 3; i < AV_NUM_DATA_POINTERS; i++)
         offset[i] = 0;
+    emms_c();
 
     avctx->draw_horiz_band(avctx, frame, offset, y, 3, h);
 
@@ -1303,6 +1305,7 @@ static int decode_frame(AVCodecContext *avctx, AVFrame *p,
         }
 
         ret = decode_slice(avctx, p, slice_height, slice_size, y_offset, table_size);
+        emms_c();
         if (ret < 0)
             return ret;
     }

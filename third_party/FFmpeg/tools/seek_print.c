@@ -24,14 +24,13 @@
 #endif
 
 #include "libavformat/avformat.h"
-#include "libavutil/attributes.h"
 #include "libavutil/timestamp.h"
 
 #if !HAVE_GETOPT
 #include "compat/getopt.c"
 #endif
 
-av_noreturn static void usage(int ret)
+static void usage(int ret)
 {
     fprintf(ret ? stderr : stdout,
             "Usage: seek_print file [command ...]\n"

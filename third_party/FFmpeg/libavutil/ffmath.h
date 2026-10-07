@@ -26,10 +26,8 @@
 #ifndef AVUTIL_FFMATH_H
 #define AVUTIL_FFMATH_H
 
-#include <math.h>
-
 #include "attributes.h"
-#include "mathematics.h"
+#include "libm.h"
 
 /**
  * Compute 10^x for floating point values. Note: this function is by no means

@@ -25,7 +25,6 @@
  * @author Peter Ross <pross@xvid.org>
  */
 
-#include "libavutil/attributes.h"
 #include "libavutil/channel_layout.h"
 #include "libavutil/intreadwrite.h"
 #include "libavutil/mem.h"
@@ -183,7 +182,6 @@ static int read_packet(AVFormatContext *s, AVPacket *pkt)
                 pkt->flags       |= AV_PKT_FLAG_KEY;
                 return 0;
             }
-            av_fallthrough;
         case JV_VIDEO:
             jv->state++;
             if (jvf->video_size || jvf->palette_size) {
@@ -208,7 +206,6 @@ static int read_packet(AVFormatContext *s, AVPacket *pkt)
                     pkt->flags |= AV_PKT_FLAG_KEY;
                 return 0;
             }
-            av_fallthrough;
         case JV_PADDING:
             avio_skip(pb, FFMAX(e->size - jvf->audio_size - jvf->video_size
                                         - jvf->palette_size, 0));

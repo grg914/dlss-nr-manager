@@ -3,7 +3,7 @@ name: Lint
 on:
   push:
     branches:
-      - master
+      - release/9.0
   pull_request:
 
 concurrency:
@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Rebase onto target branch
-        uses: ./.forgejo/actions/rebase-pr
       - name: Install pre-commit CI
         id: install
         run: |

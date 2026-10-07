@@ -70,10 +70,6 @@ public class DynamicFPSMod {
 		return window;
 	}
 
-	public static @Nullable ClickIgnoreHandler getClickHandler() {
-		return clickHandler;
-	}
-
 	public static boolean isDisabled() {
 		return isKeybindDisabled || !DynamicFPSConfig.INSTANCE.enabled() || ModCompat.getInstance().isDisabled();
 	}
@@ -139,6 +135,7 @@ public class DynamicFPSMod {
 	}
 
 	public static void setWindow(long address) {
+		IdleHandler.setWindow(address);
 		window = new WindowObserver(address);
 
 		initClickHandler();
@@ -230,11 +227,11 @@ public class DynamicFPSMod {
 			return;
 		}
 
+
 		if (ClickIgnoreHandler.isFeatureActive()) {
-			clickHandler = new ClickIgnoreHandler();
+			clickHandler = new ClickIgnoreHandler(window.address());
 		}
 	}
-
 	private static void showNotification(String titleTranslationKey, String iconPath) {
 		if (!DynamicFPSConfig.INSTANCE.batteryTracker().notifications()) {
 			return;

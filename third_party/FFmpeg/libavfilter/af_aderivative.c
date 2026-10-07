@@ -28,7 +28,7 @@ typedef struct ADerivativeContext {
                    int nb_samples, int channels);
 } ADerivativeContext;
 
-#define DERIVATIVE(name, type, difference)                              \
+#define DERIVATIVE(name, type)                                          \
 static void aderivative_## name ##p(void **d, void **p, const void **s, \
                                     int nb_samples, int channels)       \
 {                                                                       \
@@ -42,16 +42,16 @@ static void aderivative_## name ##p(void **d, void **p, const void **s, \
         for (n = 0; n < nb_samples; n++) {                              \
             const type current = src[n];                                \
                                                                         \
-            dst[n] = difference;                                        \
+            dst[n] = current - prv[0];                                  \
             prv[0] = current;                                           \
         }                                                               \
     }                                                                   \
 }
 
-DERIVATIVE(flt, float,   current - prv[0])
-DERIVATIVE(dbl, double,  current - prv[0])
-DERIVATIVE(s16, int16_t, av_clip_int16(current - prv[0]))
-DERIVATIVE(s32, int32_t, av_sat_sub32(current, prv[0]))
+DERIVATIVE(flt, float)
+DERIVATIVE(dbl, double)
+DERIVATIVE(s16, int16_t)
+DERIVATIVE(s32, int32_t)
 
 #define INTEGRAL(name, type)                                          \
 static void aintegral_## name ##p(void **d, void **p, const void **s, \

@@ -543,7 +543,6 @@ static int get_pixel_format(AVCodecContext *avctx)
                      CONFIG_AV1_D3D11VA_HWACCEL * 2 + \
                      CONFIG_AV1_D3D12VA_HWACCEL + \
                      CONFIG_AV1_NVDEC_HWACCEL + \
-                     CONFIG_AV1_NVDEC_CUARRAY_HWACCEL + \
                      CONFIG_AV1_VAAPI_HWACCEL + \
                      CONFIG_AV1_VDPAU_HWACCEL + \
                      CONFIG_AV1_VIDEOTOOLBOX_HWACCEL + \
@@ -567,9 +566,6 @@ static int get_pixel_format(AVCodecContext *avctx)
 #endif
 #if CONFIG_AV1_NVDEC_HWACCEL
         *fmtp++ = AV_PIX_FMT_CUDA;
-#endif
-#if CONFIG_AV1_NVDEC_CUARRAY_HWACCEL
-        *fmtp++ = AV_PIX_FMT_CUARRAY;
 #endif
 #if CONFIG_AV1_VAAPI_HWACCEL
         *fmtp++ = AV_PIX_FMT_VAAPI;
@@ -598,9 +594,6 @@ static int get_pixel_format(AVCodecContext *avctx)
 #if CONFIG_AV1_NVDEC_HWACCEL
         *fmtp++ = AV_PIX_FMT_CUDA;
 #endif
-#if CONFIG_AV1_NVDEC_CUARRAY_HWACCEL
-        *fmtp++ = AV_PIX_FMT_CUARRAY;
-#endif
 #if CONFIG_AV1_VAAPI_HWACCEL
         *fmtp++ = AV_PIX_FMT_VAAPI;
 #endif
@@ -615,31 +608,16 @@ static int get_pixel_format(AVCodecContext *avctx)
 #endif
         break;
     case AV_PIX_FMT_YUV420P12:
-#if CONFIG_AV1_D3D11VA_HWACCEL
-        *fmtp++ = AV_PIX_FMT_D3D11VA_VLD;
-        *fmtp++ = AV_PIX_FMT_D3D11;
-#endif
-#if CONFIG_AV1_D3D12VA_HWACCEL
-        *fmtp++ = AV_PIX_FMT_D3D12;
-#endif
 #if CONFIG_AV1_VULKAN_HWACCEL
         *fmtp++ = AV_PIX_FMT_VULKAN;
 #endif
         break;
     case AV_PIX_FMT_YUV422P:
-#if CONFIG_AV1_D3D11VA_HWACCEL
-        *fmtp++ = AV_PIX_FMT_D3D11VA_VLD;
-        *fmtp++ = AV_PIX_FMT_D3D11;
-#endif
 #if CONFIG_AV1_VULKAN_HWACCEL
         *fmtp++ = AV_PIX_FMT_VULKAN;
 #endif
         break;
     case AV_PIX_FMT_YUV422P10:
-#if CONFIG_AV1_D3D11VA_HWACCEL
-        *fmtp++ = AV_PIX_FMT_D3D11VA_VLD;
-        *fmtp++ = AV_PIX_FMT_D3D11;
-#endif
 #if CONFIG_AV1_VULKAN_HWACCEL
         *fmtp++ = AV_PIX_FMT_VULKAN;
 #endif
@@ -650,19 +628,11 @@ static int get_pixel_format(AVCodecContext *avctx)
 #endif
         break;
     case AV_PIX_FMT_YUV444P:
-#if CONFIG_AV1_D3D11VA_HWACCEL
-        *fmtp++ = AV_PIX_FMT_D3D11VA_VLD;
-        *fmtp++ = AV_PIX_FMT_D3D11;
-#endif
 #if CONFIG_AV1_VULKAN_HWACCEL
         *fmtp++ = AV_PIX_FMT_VULKAN;
 #endif
         break;
     case AV_PIX_FMT_YUV444P10:
-#if CONFIG_AV1_D3D11VA_HWACCEL
-        *fmtp++ = AV_PIX_FMT_D3D11VA_VLD;
-        *fmtp++ = AV_PIX_FMT_D3D11;
-#endif
 #if CONFIG_AV1_VULKAN_HWACCEL
         *fmtp++ = AV_PIX_FMT_VULKAN;
 #endif
@@ -676,16 +646,10 @@ static int get_pixel_format(AVCodecContext *avctx)
 #if CONFIG_AV1_NVDEC_HWACCEL
         *fmtp++ = AV_PIX_FMT_CUDA;
 #endif
-#if CONFIG_AV1_NVDEC_CUARRAY_HWACCEL
-        *fmtp++ = AV_PIX_FMT_CUARRAY;
-#endif
         break;
     case AV_PIX_FMT_GRAY10:
 #if CONFIG_AV1_NVDEC_HWACCEL
         *fmtp++ = AV_PIX_FMT_CUDA;
-#endif
-#if CONFIG_AV1_NVDEC_CUARRAY_HWACCEL
-        *fmtp++ = AV_PIX_FMT_CUARRAY;
 #endif
         break;
     }
@@ -693,14 +657,11 @@ static int get_pixel_format(AVCodecContext *avctx)
     *fmtp++ = pix_fmt;
     *fmtp = AV_PIX_FMT_NONE;
 
-    /* the negotiated hwaccel can only be kept if the underlying pixel
-     * format did not change, otherwise its surfaces have the wrong format */
-    if (pix_fmt == avctx->sw_pix_fmt)
-        for (int i = 0; pix_fmts[i] != pix_fmt; i++)
-            if (pix_fmts[i] == avctx->pix_fmt) {
-                s->pix_fmt = pix_fmt;
-                return 1;
-            }
+    for (int i = 0; pix_fmts[i] != pix_fmt; i++)
+        if (pix_fmts[i] == avctx->pix_fmt) {
+            s->pix_fmt = pix_fmt;
+            return 1;
+        }
 
     ret = ff_get_format(avctx, pix_fmts);
 
@@ -727,8 +688,8 @@ static int get_pixel_format(AVCodecContext *avctx)
 
 static void av1_frame_unref(AV1Frame *f)
 {
-    av_refstruct_unref(&f->hwaccel_picture_private);
     ff_progress_frame_unref(&f->pf);
+    av_refstruct_unref(&f->hwaccel_picture_private);
     av_refstruct_unref(&f->header_ref);
     f->raw_frame_header = NULL;
     f->spatial_id = f->temporal_id = 0;
@@ -1593,9 +1554,6 @@ const FFCodec ff_av1_decoder = {
 #endif
 #if CONFIG_AV1_NVDEC_HWACCEL
         HWACCEL_NVDEC(av1),
-#endif
-#if CONFIG_AV1_NVDEC_CUARRAY_HWACCEL
-        HWACCEL_NVDEC_CUARRAY(av1),
 #endif
 #if CONFIG_AV1_VAAPI_HWACCEL
         HWACCEL_VAAPI(av1),

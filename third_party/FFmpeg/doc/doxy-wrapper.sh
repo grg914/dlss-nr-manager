@@ -9,7 +9,11 @@ shift 4
 
 cd ${SRC_DIR}
 
-VERSION=$(./ffbuild/version.sh .)
+if [ -e "VERSION" ]; then
+    VERSION=`cat "VERSION"`
+else
+    VERSION=`git describe`
+fi
 
 $DOXYGEN - <<EOF
 @INCLUDE        = ${DOXYFILE}

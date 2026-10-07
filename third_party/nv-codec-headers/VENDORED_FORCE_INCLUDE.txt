@@ -1,0 +1,2 @@
+﻿# Files tracked in the monorepo with git add -f because vendored .gitignore rules would otherwise hide them.
+# Their presence is verified by tools/verify-self-contained.ps1.

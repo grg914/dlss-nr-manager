@@ -102,15 +102,6 @@ cextern pd_8192
 
 SECTION .text
 
-%macro NEGATE 2 ; dst/src, pw_m1
-%if cpuflag(ssse3)
-    psignw     %1, %2
-%else
-    pxor       %1, %2
-    psubw      %1, %2
-%endif
-%endmacro
-
 %macro VP9_UNPACK_MULSUB_2D_4X 6 ; dst1 [src1], dst2 [src2], dst3, dst4, mul1, mul2
     punpckhwd          m%4, m%2, m%1
     punpcklwd          m%2, m%1
@@ -744,7 +735,7 @@ VP9_IDCT_IDCT_8x8_ADD_XMM ssse3, 13
     SCRATCH                  1, 12, blockq+ 0*16
     VP9_RND_SH_SUMSUB_BA     5,  7,  4,  3, 1, D_8192_REG
     UNSCRATCH                1, 12, blockq+ 0*16
-    NEGATE                  m5, W_M1_REG                    ; m5=out1[w], m7=t6[w]
+    PSIGNW                  m5, W_M1_REG                    ; m5=out1[w], m7=t6[w]
     VP9_RND_SH_SUMSUB_BA     2,  0,  6,  1, 3, D_8192_REG   ; m2=out6[w], m0=t7[w]
 
     UNSCRATCH                1,  8, blockq+16*1
@@ -755,7 +746,7 @@ VP9_IDCT_IDCT_8x8_ADD_XMM ssse3, 13
 
     SUMSUB_BA                w,  6,  4, 2                   ; m6=out0[w], m4=t2[w]
     SUMSUB_BA                w,  1,  3, 2
-    NEGATE                  m1, W_M1_REG                    ; m1=out7[w], m3=t3[w]
+    PSIGNW                  m1, W_M1_REG                    ; m1=out7[w], m3=t3[w]
 
     ; m6=out0, m5=out1, m4=t2, m3=t3, m7=t6, m0=t7, m2=out6, m1=out7
 
@@ -773,8 +764,8 @@ VP9_IDCT_IDCT_8x8_ADD_XMM ssse3, 13
     VP9_UNPACK_MULSUB_2W_4X  7, 0, 11585, 11585, D_8192_REG, 2, 5
     UNSCRATCH                5,  9, blockq+16*1
 %endif
-    NEGATE                  m3, W_M1_REG                    ; out3
-    NEGATE                  m7, W_M1_REG                    ; out5
+    PSIGNW                  m3, W_M1_REG                    ; out3
+    PSIGNW                  m7, W_M1_REG                    ; out5
 
     ; m6=out0, m5=out1, m0=out2, m3=out3, m4=out4, m7=out5, m2=out6, m1=out7
 
@@ -822,7 +813,7 @@ cglobal vp9_%1_%3_8x8_add, 3, 3, %6, dst, stride, block, eob
     mova               m15, [pw_11585x2]    ; often used
 %endif
     mova               m13, [pd_8192]       ; rounding
-    pcmpeqw            m14, m14             ; pw_m1
+    mova               m14, [pw_m1]
 %define W_11585x2_REG m15
 %define D_8192_REG m13
 %define W_M1_REG m14
@@ -1602,7 +1593,7 @@ VP9_IDCT_IDCT_16x16_ADD_XMM ssse3
     UNSCRATCH            7, 15, tmpq+12*%%str
 
     SUMSUB_BA                w,  3,  7,  1
-    NEGATE                  m3, [pw_m1]                     ; m3=out1[w], m7=t10[w]
+    PSIGNW                  m3, [pw_m1]                     ; m3=out1[w], m7=t10[w]
     SUMSUB_BA                w,  2,  6,  1                  ; m2=out14[w], m6=t11[w]
 
     ; unfortunately, the code below overflows in some cases, e.g.
@@ -1628,7 +1619,7 @@ VP9_IDCT_IDCT_16x16_ADD_XMM ssse3
     VP9_RND_SH_SUMSUB_BA     5,  6,  1,  3,  0, [pd_8192]   ; m5=out2[w], m6=t14[w]
     UNSCRATCH            0, 9, tmpq+ 2*%%str
     VP9_RND_SH_SUMSUB_BA     4,  7,  0,  2,  1, [pd_8192]
-    NEGATE                  m4, [pw_m1]                     ; m4=out13[w], m7=t15[w]
+    PSIGNW                  m4, [pw_m1]                     ; m4=out13[w], m7=t15[w]
 
     ; unfortunately, the code below overflows in some cases
 %if 0; cpuflag(ssse3)
@@ -1636,7 +1627,7 @@ VP9_IDCT_IDCT_16x16_ADD_XMM ssse3
     pmulhrsw                m7, [pw_m11585x2]               ; m7=out5[w]
     pmulhrsw                m6, [pw_11585x2]                ; m6=out10[w]
 %else
-    NEGATE                  m7, [pw_m1]
+    PSIGNW                  m7, [pw_m1]
     VP9_UNPACK_MULSUB_2W_4X  7,  6, 11585, 11585, [pd_8192], 1, 0
 %endif
 
@@ -1672,7 +1663,7 @@ VP9_IDCT_IDCT_16x16_ADD_XMM ssse3
     SCRATCH                  6, 10, tmpq+ 0*%%str
     VP9_RND_SH_SUMSUB_BA     0,  3,  1,  5,  6, [pd_8192]
     UNSCRATCH                6, 10, tmpq+ 0*%%str
-    NEGATE                  m0, [pw_m1]                     ; m0=out3[w], m3=t6[w]
+    PSIGNW                  m0, [pw_m1]                     ; m0=out3[w], m3=t6[w]
     VP9_RND_SH_SUMSUB_BA     4,  2,  6,  7,  5, [pd_8192]   ; m9=out12[w], m2=t7[w]
 
     UNSCRATCH                1,  8, tmpq+10*%%str
@@ -1683,7 +1674,7 @@ VP9_IDCT_IDCT_16x16_ADD_XMM ssse3
 
     SUMSUB_BA                w,  1,  6,  4                  ; m13=out0[w], m1=t2[w]
     SUMSUB_BA                w,  5,  7,  4
-    NEGATE                  m5, [pw_m1]                     ; m12=out15[w], m8=t3[w]
+    PSIGNW                  m5, [pw_m1]                     ; m12=out15[w], m8=t3[w]
 
     ; unfortunately, the code below overflows in some cases, e.g.
     ; http://downloads.webmproject.org/test_data/libvpx/vp90-2-14-resize-fp-tiles-16-8-4-2-1.webm
@@ -1937,12 +1928,12 @@ IADST16_FN iadst, IADST16, iadst, IADST16, ssse3
     VP9_UNPACK_MULSUB_2D_4X  2, 13,  1,  6,  6270, 15137    ; m2/x=t14[d], m13/x=t15[d]
     VP9_RND_SH_SUMSUB_BA     2,  0,  1, 12, 14, [pd_8192]   ; m2=out2[w], m0=t14a[w]
     VP9_RND_SH_SUMSUB_BA    13, 15,  6,  9, 14, [pd_8192]
-    NEGATE                 m13, [pw_m1]                     ; m13=out13[w], m15=t15a[w]
+    PSIGNW                 m13, [pw_m1]                     ; m13=out13[w], m15=t15a[w]
 
     VP9_UNPACK_MULSUB_2D_4X  8,  7, 12,  9, 15137,  6270    ; m8/x=t5[d], m7/x=t4[d]
     VP9_UNPACK_MULSUB_2D_4X  5, 10,  1,  6,  6270, 15137    ; m5/x=t6[d], m10/x=t7[d]
     VP9_RND_SH_SUMSUB_BA     5,  7,  1,  9, 14, [pd_8192]
-    NEGATE                  m5, [pw_m1]                     ; m5=out3[w], m7=t6[w]
+    PSIGNW                  m5, [pw_m1]                     ; m5=out3[w], m7=t6[w]
     VP9_RND_SH_SUMSUB_BA    10,  8,  6, 12, 14, [pd_8192]   ; m10=out12[w], m8=t7[w]
 
     mova                    m1, [blockq+  0]
@@ -1955,19 +1946,19 @@ IADST16_FN iadst, IADST16, iadst, IADST16, ssse3
 
     SUMSUB_BA            w, 14, 12,  5                      ; m14=out0, m12=t2a
     SUMSUB_BA            w,  1,  3,  5
-    NEGATE                  m1, [pw_m1]                     ; m1=out15, m3=t3a
+    PSIGNW                  m1, [pw_m1]                     ; m1=out15, m3=t3a
 
     SUMSUB_BA            w,  9, 11,  5
-    NEGATE                  m9, [pw_m1]                     ; m9=out1, m11=t10
+    PSIGNW                  m9, [pw_m1]                     ; m9=out1, m11=t10
     SUMSUB_BA            w,  6,  4,  5                      ; m6=out14, m4=t11
 
     VP9_UNPACK_MULSUB_2W_4X  4, 11, 11585, 11585, [pd_8192],  5, 10 ; m4=out9, m11=out6
     mova                    m5, [blockq+128]
     mova          [blockq+192], m11
-    NEGATE                 m15, [pw_m1]
+    PSIGNW                 m15, [pw_m1]
     VP9_UNPACK_MULSUB_2W_4X 15,  0, 11585, 11585, [pd_8192], 10, 11 ; m15=out5, m0=out10
 
-    NEGATE                  m3, [pw_m1]
+    PSIGNW                  m3, [pw_m1]
     VP9_UNPACK_MULSUB_2W_4X  3, 12, 11585, 11585, [pd_8192], 10, 11 ; m3=out7,m12=out8
     VP9_UNPACK_MULSUB_2W_4X  8,  7, 11585, 11585, [pd_8192], 10, 11 ; m8=out11,m7=out4
 
