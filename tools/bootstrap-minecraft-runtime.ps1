@@ -7,7 +7,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$RuntimeLockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"\n$FabricProfileScript = Join-Path $PSScriptRoot "fabric-profile.ps1"\nif (!(Test-Path -LiteralPath $FabricProfileScript)) { throw "Missing Fabric profile helper: $FabricProfileScript" }\n. $FabricProfileScript
+$RuntimeLockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
+$FabricProfileScript = Join-Path $PSScriptRoot "fabric-profile.ps1"
+if (!(Test-Path -LiteralPath $FabricProfileScript)) { throw "Missing Fabric profile helper: $FabricProfileScript" }
+. $FabricProfileScript
 $UserAgent = "DlssNrManager-MinecraftBootstrap/1.0 (+https://github.com/grg914/dlss-nr-manager)"
 
 if (!(Test-Path -LiteralPath $RuntimeLockPath)) {
@@ -206,16 +209,9 @@ if ([string]::IsNullOrWhiteSpace($loaderVersion) -or
 
 Write-Host "Using pinned Fabric Loader $loaderVersion for Minecraft $MinecraftVersion..."
 
-Write-Host "Resolving Fabric Loader metadata and deterministic launcher profile..."
-$encodedMinecraft = [Uri]::EscapeDataString($MinecraftVersion)
-$encodedLoader = [Uri]::EscapeDataString($loaderVersion)
-$loaderInfo = Invoke-Json "https://meta.fabricmc.net/v2/versions/loader/$encodedMinecraft/$encodedLoader"
-if (-not $loaderInfo -or [string]$loaderInfo.loader.version -ne $loaderVersion) {
-    throw "Fabric loader detail metadata did not resolve $MinecraftVersion / $loaderVersion."
-}
-
+Write-Host "Generating pinned deterministic Fabric launcher profile..."
 $profilePath = Join-Path $package "fabric-profile.json"
-$profile = Write-DeterministicFabricProfile -LoaderInfo $loaderInfo -MinecraftVersion $MinecraftVersion -LoaderVersion $loaderVersion -OutputPath $profilePath
+$profile = Write-DeterministicFabricProfile -FabricLoader $RuntimeLock.fabric_loader -MinecraftVersion $MinecraftVersion -OutputPath $profilePath
 
 $expectedProfileSha256 = ([string]$RuntimeLock.fabric_loader.profile_sha256).ToLowerInvariant()
 $actualProfileSha256 = (Get-FileHash -LiteralPath $profilePath -Algorithm SHA256).Hash.ToLowerInvariant()
