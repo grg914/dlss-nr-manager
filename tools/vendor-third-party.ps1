@@ -152,6 +152,54 @@ function Stage-PublicImport {
         throw "git add -f failed for '$Destination'."
     }
 
+    $indexedIgnored = @(
+        git -C $Root ls-files --cached --ignored --exclude-standard -- $Destination
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw "git ls-files failed while auditing forced files in '$Destination'."
+    }
+
+    $destinationPrefix = $Destination.TrimEnd(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar).Replace(
+            [IO.Path]::DirectorySeparatorChar,
+            [char]'/') + "/"
+
+    $relativeIgnored = @(
+        $indexedIgnored |
+            ForEach-Object {
+                ([string]$_).Replace(
+                    [IO.Path]::DirectorySeparatorChar,
+                    [char]'/')
+            } |
+            Where-Object {
+                $_.StartsWith(
+                    $destinationPrefix,
+                    [StringComparison]::OrdinalIgnoreCase)
+            } |
+            ForEach-Object {
+                $_.Substring($destinationPrefix.Length)
+            } |
+            Where-Object {
+                $_ -ne "VENDORED_FORCE_INCLUDE.txt"
+            } |
+            Sort-Object -Unique
+    )
+
+    $manifestPath = Join-Path (Join-Path $Root $Destination) "VENDORED_FORCE_INCLUDE.txt"
+    $manifestLines = @(
+        "# Files tracked in the monorepo with git add -f because vendored .gitignore rules would otherwise hide them."
+        "# Their presence is verified by tools/verify-self-contained.ps1."
+    ) + $relativeIgnored
+
+    Set-Content -LiteralPath $manifestPath -Value $manifestLines -Encoding UTF8
+
+    git -C $Root add -f -- $manifestPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "git add -f failed for '$manifestPath'."
+    }
+
+    Write-Host "FORCE-INCLUDE indexed manifest: $($relativeIgnored.Count) ignored tracked file(s) in $Destination"
     Write-Host "STAGED $Destination (forced so tracked upstream binaries ignored by nested .gitignore files are preserved)"
 }
 
