@@ -1,4 +1,7 @@
-param([switch]$Strict)
+param(
+    [switch]$Strict,
+    [switch]$AllowLfsPointers
+)
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -297,7 +300,7 @@ $failed =
     $missing.Count -gt 0 -or
     $metadataIssues.Count -gt 0 -or
     $nestedGit.Count -gt 0 -or
-    $lfsPointers.Count -gt 0 -or
+    ((-not $AllowLfsPointers) -and $lfsPointers.Count -gt 0) -or
     $retentionIssues.Count -gt 0 -or
     $forceIncludeIssues.Count -gt 0 -or
     $references.Count -gt 0
