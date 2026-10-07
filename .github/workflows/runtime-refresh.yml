@@ -32,7 +32,9 @@ permissions:
 
 concurrency:
   group: runtime-seed-refresh
-  cancel-in-progress: false
+  # Only the newest main state should promote the shared runtime seed.
+  # This prevents an obsolete refresh from blocking a newer release.
+  cancel-in-progress: true
 
 env:
   RUNTIME_SEED_TAG: runtime-seed-v1
@@ -46,13 +48,53 @@ jobs:
       - name: Resolve refresh scope
         id: ids
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             value="java25"
-          else
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             value="${{ github.event.inputs.changed_ids }}"
             if [ -z "$value" ]; then value="all"; fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            before="${{ github.event.before }}"
+            after="${{ github.sha }}"
+            compare="repos/${{ github.repository }}/compare/$before...$after"
+
+            mapfile -t files < <(
+              gh api "$compare" --paginate --jq '.files[].filename'
+            )
+
+            # A pure application-version bump or a change to this orchestration
+            # workflow does not invalidate manager-owned runtime binaries.
+            # In that case, publish the application from the already validated
+            # seed instead of rebuilding FFmpeg/OptiScaler/ReShade/etc.
+            value="release-only"
+            for file in "${files[@]}"; do
+              case "$file" in
+                .github/workflows/runtime-refresh.yml)
+                  ;;
+                DlssNrManager.csproj)
+                  patch="$(gh api "$compare" --jq '.files[] | select(.filename == "DlssNrManager.csproj") | .patch // ""')"
+                  non_version_changes="$(
+                    printf '%s\n' "$patch" |
+                    grep -E '^[+-]' |
+                    grep -Ev '^---|^\+\+\+' |
+                    grep -Ev '<(Version|AssemblyVersion|FileVersion|InformationalVersion)>' || true
+                  )"
+                  if [ -n "$non_version_changes" ]; then
+                    value="all"
+                  fi
+                  ;;
+                *)
+                  value="all"
+                  ;;
+              esac
+            done
+          else
+            value="all"
           fi
+
           echo "value=$value" >> "$GITHUB_OUTPUT"
           echo "Refresh scope: $value"
 
