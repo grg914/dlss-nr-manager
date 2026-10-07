@@ -1,100 +1,53 @@
 name: Release
+
 on:
   push:
-    branches: [ main ]
     tags: [ 'v*' ]
-    paths:
-      - 'DlssNrManager.csproj'
-      - '.github/workflows/release.yml'
-      - 'tools/build-realesrgan.ps1'
-      - 'tools/build-optiscaler.ps1'
-      - 'tools/build-reshade.ps1'
-      - 'tools/build-ffmpeg-windows.sh'
-      - 'tools/build-video2dlssnr.ps1'
-      - 'tools/publish-video2dlssnr.ps1'
-      - 'tools/publish-streamline-runtime.ps1'
-      - 'tools/bootstrap-minecraft-runtime.ps1'
-      - 'third_party/FFmpeg/**'
-      - 'third_party/nv-codec-headers/**'
-      - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
-      - 'third_party/OptiScaler/**'
-      - 'third_party/ReShade/**'
-      - 'third_party/Real-ESRGAN-model-sources/**'
-      - 'third_party/ai-models/**'
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RUNTIME_SEED_TAG: runtime-seed-v1
+
 jobs:
-  ffmpeg-runtime:
-    runs-on: ubuntu-latest
+  release:
+    runs-on: windows-2025
     steps:
       - name: Require main branch for manual release
         if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
-        shell: bash
+        shell: pwsh
+        run: throw "Manual release runs must be started from the main branch."
+
+      - name: Checkout manager repository without external action
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "::error::Manual release runs must be started from the main branch."
-          exit 1
+          gh auth setup-git
+          git init .
+          git remote add origin "https://github.com/${{ github.repository }}.git"
+          git -c protocol.version=2 fetch --no-tags --depth=1 origin "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch release commit ${{ github.sha }}." }
+          git checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Unable to checkout release commit." }
 
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-
-      - name: Install MinGW cross-build toolchain
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            mingw-w64 \
-            nasm \
-            pkg-config \
-            make \
-            zip \
-            binutils-mingw-w64-x86-64
-
-      - name: Build vendored FFmpeg Windows x64 runtime
-        shell: bash
-        run: |
-          bash ./tools/build-ffmpeg-windows.sh
-
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
-          name: FFmpeg-DlssNrManager-win-x64
-          path: build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip
-          if-no-files-found: error
-          compression-level: 0
-
-  release:
-    needs: ffmpeg-runtime
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-
-      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: FFmpeg-DlssNrManager-win-x64
-          path: release-assets
-
-      - name: Verify manager-owned FFmpeg release asset
+      - name: Verify pinned runner toolchain
         shell: pwsh
         run: |
-          $asset = "release-assets/ffmpeg-dlssnr-win-x64.zip"
-          if (!(Test-Path -LiteralPath $asset)) {
-            throw "Manager-owned FFmpeg runtime artifact was not downloaded."
+          $dotnet = (dotnet --version).Trim()
+          if ($LASTEXITCODE -ne 0 -or $dotnet -notmatch "^8\.") {
+            throw "A compatible preinstalled .NET 8 SDK is required. Resolved: '$dotnet'"
           }
-
-          if ((Get-Item -LiteralPath $asset).Length -lt 1MB) {
-            throw "Manager-owned FFmpeg runtime artifact is unexpectedly small."
-          }
-
-          Write-Host "FFmpeg release asset ready: $asset"
-
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: '8.0.x'
+          gh --version
+          git --version
+          git lfs version
+          Write-Host "Using preinstalled .NET SDK $dotnet"
 
       - name: Resolve release version
         id: version
@@ -114,152 +67,132 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Reuse manager-owned video2dlssnr runtime
+      - name: Download and verify manager-owned runtime seed
+        id: seed
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          $seedDir = "build-local/runtime-seed"
+          $releaseDir = "release-assets"
+          $feed = "build-local/nuget-offline"
+          New-Item -ItemType Directory -Force -Path $seedDir,$releaseDir,$feed | Out-Null
 
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept = "application/vnd.github+json"
-            "User-Agent" = "DlssNrManager-Release"
+          $releaseJson = gh api "repos/${{ github.repository }}/releases/tags/$env:RUNTIME_SEED_TAG"
+          if ($LASTEXITCODE -ne 0) { throw "Unable to read manager-owned runtime seed metadata." }
+          $seedRelease = $releaseJson | ConvertFrom-Json
+
+          if (-not $seedRelease.prerelease) {
+            throw "Runtime seed must remain a prerelease."
           }
 
-          $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50"
+          function Get-SeedAsset {
+            param(
+              [Parameter(Mandatory=$true)][string]$Pattern,
+              [switch]$Exact
+            )
 
-          $asset = $releases |
-            Where-Object { -not $_.draft } |
-            ForEach-Object { $_.assets } |
-            Where-Object { $_.name -eq "video2dlssnr_release.zip" } |
-            Select-Object -First 1
+            $matches = @($seedRelease.assets | Where-Object {
+              if ($Exact) {
+                [string]$_.name -eq $Pattern
+              }
+              else {
+                [string]$_.name -like $Pattern
+              }
+            })
 
-          if (-not $asset) {
-            throw "No manager-owned video2dlssnr_release.zip exists yet. Bootstrap it once with tools/publish-video2dlssnr.ps1 before publishing a self-contained release."
+            if ($matches.Count -ne 1) {
+              throw "Expected exactly one runtime seed asset matching '$Pattern'; found $($matches.Count)."
+            }
+
+            $asset = $matches[0]
+            $digest = [string]$asset.digest
+            if ([string]::IsNullOrWhiteSpace($digest) -or -not $digest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+              throw "Runtime seed asset '$($asset.name)' has no GitHub SHA-256 digest."
+            }
+
+            gh release download $env:RUNTIME_SEED_TAG --repo "${{ github.repository }}" --pattern ([string]$asset.name) --dir $seedDir --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Unable to download runtime seed asset '$($asset.name)'." }
+
+            $path = Join-Path $seedDir ([string]$asset.name)
+            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            $expected = $digest.Substring(7).ToLowerInvariant()
+            if ($actual -ne $expected) {
+              throw "Runtime seed SHA-256 mismatch for '$($asset.name)'. Expected $expected, got $actual."
+            }
+
+            return $asset
           }
 
-          if (-not $asset.digest -or -not ([string]$asset.digest).StartsWith("sha256:")) {
-            throw "Manager-owned video2dlssnr asset has no GitHub SHA-256 digest."
+          $nuget = Get-SeedAsset -Pattern "nuget-offline.zip" -Exact
+          $ffmpeg = Get-SeedAsset -Pattern "ffmpeg-dlssnr-win-x64.zip" -Exact
+          $video = Get-SeedAsset -Pattern "video2dlssnr_release.zip" -Exact
+          $minecraft = Get-SeedAsset -Pattern "minecraft-runtime-26.2.zip" -Exact
+          $streamline = Get-SeedAsset -Pattern "streamline-runtime-v*-win-x64.zip"
+          $realesrgan = Get-SeedAsset -Pattern "realesrgan-ncnn-vulkan-windows-x64.zip" -Exact
+          $optiscaler = Get-SeedAsset -Pattern "OptiScaler-NR-*-vendored-win-x64.zip"
+          $reshade = Get-SeedAsset -Pattern "ReShade-Setup-*-vendored.zip"
+
+          foreach ($asset in @($ffmpeg,$video,$minecraft,$streamline,$realesrgan,$optiscaler,$reshade)) {
+            Copy-Item (Join-Path $seedDir ([string]$asset.name)) (Join-Path $releaseDir ([string]$asset.name)) -Force
           }
 
-          $destination = "release-assets/video2dlssnr_release.zip"
-          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $destination
-
-          $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
-          $actual = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant()
-
-          if ($actual -ne $expected) {
-            throw "video2dlssnr SHA-256 mismatch. Expected $expected, got $actual."
+          Expand-Archive -LiteralPath (Join-Path $seedDir "nuget-offline.zip") -DestinationPath $feed -Force
+          $manifestPath = Join-Path $feed "manifest.json"
+          if (!(Test-Path -LiteralPath $manifestPath)) {
+            throw "Offline NuGet seed manifest is missing."
           }
 
-          if ((Get-Item -LiteralPath $destination).Length -lt 1MB) {
-            throw "Manager-owned video2dlssnr runtime package is unexpectedly small."
+          $metadata = Get-Content $manifestPath -Raw | ConvertFrom-Json
+          if ([int]$metadata.schema -lt 2) {
+            throw "Runtime seed NuGet schema $($metadata.schema) is too old; schema 2 with lockfiles is required."
           }
 
-          Write-Host "Reused validated video2dlssnr runtime from DLSS NR Manager release history."
-          Write-Host "SHA-256: $actual"
-      - name: Reuse manager-owned Streamline runtime
-        id: streamline
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
-
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept = "application/vnd.github+json"
-            "User-Agent" = "DlssNrManager-Release"
+          foreach ($package in @($metadata.packages)) {
+            $path = Join-Path $feed ([string]$package.name)
+            if (!(Test-Path -LiteralPath $path)) {
+              throw "Offline NuGet package is missing: $($package.name)"
+            }
+            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne ([string]$package.sha256).ToLowerInvariant()) {
+              throw "Offline NuGet package digest mismatch: $($package.name)"
+            }
           }
 
-          $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50"
-
-          $asset = $releases |
-            Where-Object { -not $_.draft } |
-            ForEach-Object { $_.assets } |
-            Where-Object { $_.name -like "streamline-runtime-v*-win-x64.zip" } |
-            Select-Object -First 1
-
-          if (-not $asset) {
-            throw "No manager-owned Streamline runtime bundle exists yet. Bootstrap it once with tools/publish-streamline-runtime.ps1."
+          foreach ($lock in @($metadata.locks)) {
+            $path = Join-Path $feed ([string]$lock.asset)
+            if (!(Test-Path -LiteralPath $path)) {
+              throw "Offline NuGet lockfile is missing: $($lock.asset)"
+            }
+            $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne ([string]$lock.sha256).ToLowerInvariant()) {
+              throw "Offline NuGet lockfile digest mismatch: $($lock.asset)"
+            }
           }
 
-          if (-not $asset.digest -or -not ([string]$asset.digest).StartsWith("sha256:")) {
-            throw "Manager-owned Streamline runtime asset has no GitHub SHA-256 digest."
-          }
+          Copy-Item (Join-Path $feed "packages.lock.json") "packages.lock.json" -Force
+          Copy-Item (Join-Path $feed "tests-packages.lock.json") "tests/DlssNrManager.Tests/packages.lock.json" -Force
 
-          $destination = Join-Path "release-assets" $asset.name
-          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $destination
+          "streamline_asset=$($streamline.name)" >> $env:GITHUB_OUTPUT
+          "optiscaler_asset=$($optiscaler.name)" >> $env:GITHUB_OUTPUT
+          "reshade_asset=$($reshade.name)" >> $env:GITHUB_OUTPUT
 
-          $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
-          $actual = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne $expected) {
-            throw "Streamline runtime SHA-256 mismatch. Expected $expected, got $actual."
-          }
+          Write-Host "Manager-owned runtime seed and NuGet dependency graph verified."
 
-          if ((Get-Item -LiteralPath $destination).Length -lt 1MB) {
-            throw "Manager-owned Streamline runtime package is unexpectedly small."
-          }
-
-          "asset=$($asset.name)" >> $env:GITHUB_OUTPUT
-          Write-Host "Reused manager-owned Streamline runtime: $($asset.name)"
-          Write-Host "SHA-256: $actual"
-      - name: Reuse manager-owned Minecraft runtime
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
-
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept = "application/vnd.github+json"
-            "User-Agent" = "DlssNrManager-Release"
-          }
-
-          $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50"
-
-          $asset = $releases |
-            Where-Object { -not $_.draft } |
-            ForEach-Object { $_.assets } |
-            Where-Object { $_.name -eq "minecraft-runtime-26.2.zip" } |
-            Select-Object -First 1
-
-          if (-not $asset) {
-            throw "No manager-owned minecraft-runtime-26.2.zip exists yet. Bootstrap it once with tools/bootstrap-minecraft-runtime.ps1."
-          }
-
-          if (-not $asset.digest -or -not ([string]$asset.digest).StartsWith("sha256:")) {
-            throw "Manager-owned Minecraft runtime asset has no GitHub SHA-256 digest."
-          }
-
-          $destination = "release-assets/minecraft-runtime-26.2.zip"
-          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $destination
-
-          $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
-          $actual = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne $expected) {
-            throw "Minecraft runtime SHA-256 mismatch. Expected $expected, got $actual."
-          }
-
-          if ((Get-Item -LiteralPath $destination).Length -lt 1MB) {
-            throw "Manager-owned Minecraft runtime package is unexpectedly small."
-          }
-
-          Write-Host "Reused manager-owned Minecraft runtime bundle."
-          Write-Host "SHA-256: $actual"
-      - name: Restore
+      - name: Restore from manager-owned NuGet feed only
         shell: pwsh
         run: |
-          dotnet restore DlssNrManager.csproj
-          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj
+          $feed = (Resolve-Path "build-local/nuget-offline").Path
+          dotnet restore DlssNrManager.csproj --source $feed --no-cache --locked-mode
+          if ($LASTEXITCODE -ne 0) { throw "Offline manager restore failed." }
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --source $feed --no-cache --locked-mode
+          if ($LASTEXITCODE -ne 0) { throw "Offline test restore failed." }
 
       - name: Run regression tests
         run: dotnet test tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj -c Release --no-restore -p:TreatWarningsAsErrors=true
 
       - name: Publish
-        run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -warnaserror -o publish
+        run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -warnaserror -o publish
 
       - name: Verify published application identity
         shell: pwsh
@@ -280,74 +213,6 @@ jobs:
       - name: Create zip
         shell: pwsh
         run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
-
-      - name: Build and package vendored Real-ESRGAN Windows engine
-        shell: pwsh
-        run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
-          if ($LASTEXITCODE -ne 0) {
-            throw "Vendored Real-ESRGAN build tool failed."
-          }
-
-          $packageDir = "release-assets/realesrgan-ncnn-vulkan-windows-x64"
-          $zip = "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip"
-          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
-
-          Copy-Item "build-realesrgan/Release/realesrgan-ncnn-vulkan.exe" $packageDir -Force
-          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/LICENSE" (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
-          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt" (Join-Path $packageDir "LICENSE-ncnn.txt") -Force
-          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING" (Join-Path $packageDir "LICENSE-libwebp.txt") -Force
-
-          $vcomp = "$env:WINDIR\System32\vcomp140.dll"
-          if (Test-Path -LiteralPath $vcomp) {
-            Copy-Item -LiteralPath $vcomp -Destination $packageDir -Force
-          }
-
-          Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
-          if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 256KB) {
-            throw "Real-ESRGAN release package was not generated correctly."
-          }
-
-          Write-Host "Packaged manager-owned Real-ESRGAN runtime: $zip"
-      - name: Build and package vendored OptiScaler
-        id: optiscaler
-        shell: pwsh
-        run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory release-assets -Clean
-          if ($LASTEXITCODE -ne 0) {
-            throw "Vendored OptiScaler build tool failed."
-          }
-
-          $zip = Get-ChildItem "release-assets" -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -First 1
-
-          if (-not $zip) {
-            throw "Vendored OptiScaler release package was not generated."
-          }
-
-          "asset=$($zip.Name)" >> $env:GITHUB_OUTPUT
-          Write-Host "Packaged manager-owned OptiScaler runtime: $($zip.FullName)"
-
-      - name: Build and package vendored ReShade
-        id: reshade
-        shell: pwsh
-        run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-reshade.ps1 -OutputDirectory release-assets -Clean
-          if ($LASTEXITCODE -ne 0) {
-            throw "Vendored ReShade build tool failed."
-          }
-
-          $zip = Get-ChildItem "release-assets" -Filter "ReShade-Setup-*-vendored.zip" -File |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -First 1
-
-          if (-not $zip) {
-            throw "Vendored ReShade release package was not generated."
-          }
-
-          "asset=$($zip.Name)" >> $env:GITHUB_OUTPUT
-          Write-Host "Packaged manager-owned ReShade setup: $($zip.FullName)"
 
       - name: Bundle AI detector runtime models from vendored LFS sources
         shell: pwsh
@@ -561,9 +426,9 @@ jobs:
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
             "release-assets/video2dlssnr_release.zip",
             "release-assets/minecraft-runtime-26.2.zip",
-            (Join-Path "release-assets" "${{ steps.streamline.outputs.asset }}"),
-            (Join-Path "release-assets" "${{ steps.optiscaler.outputs.asset }}"),
-            (Join-Path "release-assets" "${{ steps.reshade.outputs.asset }}"),
+            (Join-Path "release-assets" "${{ steps.seed.outputs.streamline_asset }}"),
+            (Join-Path "release-assets" "${{ steps.seed.outputs.optiscaler_asset }}"),
+            (Join-Path "release-assets" "${{ steps.seed.outputs.reshade_asset }}"),
             "release-assets/ai-origin-primary-int8.onnx",
             "release-assets/ai-origin-secondary-int8.onnx",
             "release-assets/realesrgan-x4plus.param",
@@ -601,14 +466,6 @@ jobs:
             [System.Text.UTF8Encoding]::new($false))
 
           Get-Content SHA256SUMS.txt
-
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
-        with:
-          name: DlssNrManager-win-x64
-          path: |
-            publish/DlssNrManager.exe
-            DlssNrManager-win-x64.zip
-            SHA256SUMS.txt
 
       - name: Create or update GitHub release
         shell: pwsh
