@@ -12,6 +12,7 @@ on:
       - 'tools/build-ffmpeg-windows.sh'
       - 'tools/build-video2dlssnr.ps1'
       - 'tools/publish-video2dlssnr.ps1'
+      - 'tools/publish-streamline-runtime.ps1'
       - 'third_party/FFmpeg/**'
       - 'third_party/nv-codec-headers/**'
       - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
@@ -149,6 +150,430 @@ jobs:
           }
 
           Write-Host "Reused validated video2dlssnr runtime from DLSS NR Manager release history."
+          Write-Host "SHA-256: $actual"
+      - name: Reuse manager-owned Streamline runtime
+        id: streamline
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "DlssNrManager-Release"
+          }
+
+          $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50"
+
+          $asset = $releases |
+            Where-Object { -not $_.draft } |
+            ForEach-Object { $_.assets } |
+            Where-Object { $_.name -match '^streamline-runtime-v[0-9.]+-win-x64\.zip
+        run: |
+          dotnet restore DlssNrManager.csproj
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj
+
+      - name: Run regression tests
+        run: dotnet test tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj -c Release --no-restore -p:TreatWarningsAsErrors=true
+
+      - name: Publish
+        run: dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -warnaserror -o publish
+
+      - name: Verify published application identity
+        shell: pwsh
+        run: |
+          if (!(Test-Path "publish/DlssNrManager.exe")) {
+            throw "DlssNrManager.exe was not generated."
+          }
+
+          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo(
+            (Resolve-Path "publish/DlssNrManager.exe")).FileVersion
+
+          if (-not $version.StartsWith("${{ steps.version.outputs.version }}")) {
+            throw "Published EXE version '$version' does not match release version '${{ steps.version.outputs.version }}'."
+          }
+
+          Write-Host "Published EXE version verified: $version"
+
+      - name: Create zip
+        shell: pwsh
+        run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
+
+      - name: Build and package vendored Real-ESRGAN Windows engine
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
+          if ($LASTEXITCODE -ne 0) {
+            throw "Vendored Real-ESRGAN build tool failed."
+          }
+
+          $packageDir = "release-assets/realesrgan-ncnn-vulkan-windows-x64"
+          $zip = "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+
+          Copy-Item "build-realesrgan/Release/realesrgan-ncnn-vulkan.exe" $packageDir -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/LICENSE" (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt" (Join-Path $packageDir "LICENSE-ncnn.txt") -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING" (Join-Path $packageDir "LICENSE-libwebp.txt") -Force
+
+          $vcomp = "$env:WINDIR\System32\vcomp140.dll"
+          if (Test-Path -LiteralPath $vcomp) {
+            Copy-Item -LiteralPath $vcomp -Destination $packageDir -Force
+          }
+
+          Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
+          if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 256KB) {
+            throw "Real-ESRGAN release package was not generated correctly."
+          }
+
+          Write-Host "Packaged manager-owned Real-ESRGAN runtime: $zip"
+      - name: Build and package vendored OptiScaler
+        id: optiscaler
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory release-assets -Clean
+          if ($LASTEXITCODE -ne 0) {
+            throw "Vendored OptiScaler build tool failed."
+          }
+
+          $zip = Get-ChildItem "release-assets" -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+
+          if (-not $zip) {
+            throw "Vendored OptiScaler release package was not generated."
+          }
+
+          "asset=$($zip.Name)" >> $env:GITHUB_OUTPUT
+          Write-Host "Packaged manager-owned OptiScaler runtime: $($zip.FullName)"
+
+      - name: Build and package vendored ReShade
+        id: reshade
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-reshade.ps1 -OutputDirectory release-assets -Clean
+          if ($LASTEXITCODE -ne 0) {
+            throw "Vendored ReShade build tool failed."
+          }
+
+          $zip = Get-ChildItem "release-assets" -Filter "ReShade-Setup-*-vendored.zip" -File |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+
+          if (-not $zip) {
+            throw "Vendored ReShade release package was not generated."
+          }
+
+          "asset=$($zip.Name)" >> $env:GITHUB_OUTPUT
+          Write-Host "Packaged manager-owned ReShade setup: $($zip.FullName)"
+
+      - name: Bundle AI detector runtime models from vendored LFS sources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $primarySource = "third_party/ai-models/ai-image-detection-ONNX/onnx/model_int8.onnx"
+          $secondarySource = "third_party/ai-models/ai-image-detect-distilled-ONNX/onnx/model_int8.onnx"
+
+          git lfs version
+          git lfs pull --include="$primarySource,$secondarySource" --exclude=""
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to materialize vendored AI detector models from Git LFS."
+          }
+
+          $assets = @(
+            @{
+              Source = $primarySource
+              Destination = "release-assets/ai-origin-primary-int8.onnx"
+              Sha256 = "08B349F1B535F2F0CC2A8610BBF57C27593A0364E78B6C91205C0FF2BF29D714"
+            },
+            @{
+              Source = $secondarySource
+              Destination = "release-assets/ai-origin-secondary-int8.onnx"
+              Sha256 = "7273CB9CD81E17EAE04771010D2199BA6AE34EA2A75A275518C0BC4A2C26FFD2"
+            }
+          )
+
+          foreach ($asset in $assets) {
+            if (!(Test-Path -LiteralPath $asset.Source)) {
+              throw "Vendored AI model is missing: $($asset.Source)"
+            }
+
+            $actual = (Get-FileHash -LiteralPath $asset.Source -Algorithm SHA256).Hash.ToUpperInvariant()
+            if ($actual -ne $asset.Sha256) {
+              throw "AI model SHA-256 mismatch for $($asset.Source). Expected $($asset.Sha256), got $actual."
+            }
+
+            Copy-Item -LiteralPath $asset.Source -Destination $asset.Destination -Force
+            Write-Host "Bundled $($asset.Destination) • SHA-256 $actual"
+          }
+
+      - name: Bundle Real-ESRGAN runtime models from vendored sources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $modelAssets = @(
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesrgan-x4plus.param"; Name = "realesrgan-x4plus.param"; GitBlobSha1 = "d14d62ebb815bdd522ed112e67695b3377f86ca0" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesrgan-x4plus.bin"; Name = "realesrgan-x4plus.bin"; GitBlobSha1 = "5cea94783710c25d6fffa9fe9b59999498aec3d4" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/spintexture/vendor/realesrgan/models/realesrnet-x4plus.param"; Name = "realesrnet-x4plus.param"; GitBlobSha1 = "d14d62ebb815bdd522ed112e67695b3377f86ca0" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/spintexture/vendor/realesrgan/models/realesrnet-x4plus.bin"; Name = "realesrnet-x4plus.bin"; GitBlobSha1 = "4f5b87990354b39b744adf25e36f4857065584a6" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.param"; Name = "realesrgan-x4plus-anime.param"; GitBlobSha1 = "6c98f9a1932603688683a6f0108cbdfcd6b3e680" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesrgan-x4plus-anime.bin"; Name = "realesrgan-x4plus-anime.bin"; GitBlobSha1 = "95201b7beeefaa2de45bc80f77f879f51d2fc534" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.param"; Name = "realesr-animevideov3-x2.param"; GitBlobSha1 = "42e774841c35c8bf0ffeb215bb40c61d4868be16" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x2.bin"; Name = "realesr-animevideov3-x2.bin"; GitBlobSha1 = "20691050e279557160fbef5fa3f45fafeeac5402" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.param"; Name = "realesr-animevideov3-x3.param"; GitBlobSha1 = "bf4718580cc40eac9ff34f730ca64053feaf7bf4" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x3.bin"; Name = "realesr-animevideov3-x3.bin"; GitBlobSha1 = "20691050e279557160fbef5fa3f45fafeeac5402" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.param"; Name = "realesr-animevideov3-x4.param"; GitBlobSha1 = "5b922cc388374b1152e01fa633bcab80b2448dae" },
+            @{ Source = "third_party/Real-ESRGAN-model-sources/realesrgan-ncnn-py/src/realesrgan_ncnn_py/models/realesr-animevideov3-x4.bin"; Name = "realesr-animevideov3-x4.bin"; GitBlobSha1 = "20691050e279557160fbef5fa3f45fafeeac5402" }
+          )
+
+          $include = ($modelAssets.Source -join ",")
+          git lfs pull --include="$include" --exclude=""
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to materialize vendored Real-ESRGAN model files from Git LFS."
+          }
+
+          foreach ($asset in $modelAssets) {
+            if (!(Test-Path -LiteralPath $asset.Source)) {
+              throw "Vendored Real-ESRGAN model is missing: $($asset.Source)"
+            }
+
+            $actualBlob = (git hash-object -- $asset.Source).Trim().ToLowerInvariant()
+            if ($LASTEXITCODE -ne 0 -or $actualBlob -ne $asset.GitBlobSha1.ToLowerInvariant()) {
+              throw "Real-ESRGAN model fingerprint mismatch for $($asset.Source). Expected $($asset.GitBlobSha1), got $actualBlob."
+            }
+
+            $destination = Join-Path "release-assets" $asset.Name
+            Copy-Item -LiteralPath $asset.Source -Destination $destination -Force
+            Write-Host "Bundled $destination • git blob $actualBlob"
+          }
+
+      - name: Bundle Caustica RTX from monorepo or manager release
+        id: caustica
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $local = Get-ChildItem "Caustica-RTX/build/libs" -Filter "*.jar" -File -ErrorAction SilentlyContinue |
+            Where-Object {
+              $_.Name -match "(?i)caustica" -and
+              $_.Name -notmatch "(?i)(sources|dev|javadoc)"
+            } |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+
+          if ($local) {
+            $destination = Join-Path "release-assets" $local.Name
+            Copy-Item $local.FullName $destination -Force
+            "asset=$($local.Name)" >> $env:GITHUB_OUTPUT
+            Write-Host "Bundled local monorepo Caustica build: $($local.Name)"
+            exit 0
+          }
+
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "DlssNrManager-Release"
+          }
+
+          # Fallback remains inside this repository only. This avoids any
+          # production dependency on the legacy standalone Caustica repository.
+          $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50"
+
+          $asset = $releases |
+            Where-Object { -not $_.draft } |
+            ForEach-Object { $_.assets } |
+            Where-Object {
+              $_.name -match "(?i)^Caustica-RTX-Minecraft-26\.2-build-.*\.jar$" -and
+              $_.name -notmatch "(?i)(sources|dev|javadoc)"
+            } |
+            Select-Object -First 1
+
+          if (-not $asset) {
+            throw "No local or previously bundled Caustica RTX Minecraft 26.2 JAR is available in ${{ github.repository }}."
+          }
+
+          $destination = Join-Path "release-assets" $asset.name
+          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $destination
+
+          if ($asset.digest -and $asset.digest.StartsWith("sha256:")) {
+            $expected = $asset.digest.Substring(7)
+            $actual = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected.ToLowerInvariant()) {
+              throw "Caustica SHA-256 mismatch. Expected $expected, got $actual."
+            }
+          }
+
+          "asset=$($asset.name)" >> $env:GITHUB_OUTPUT
+          Write-Host "Reused Caustica asset from DLSS NR Manager release history: $($asset.name)"
+
+      - name: Reuse validated SPBRScandi release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          $target = Join-Path "release-assets" "SPBRScandi.zip"
+          if (!(Test-Path $target)) {
+            $headers = @{
+              Authorization = "Bearer $env:GH_TOKEN"
+              Accept = "application/vnd.github+json"
+              "User-Agent" = "DlssNrManager-Release"
+            }
+            $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/grg914/dlss-nr-manager/releases?per_page=20"
+            $asset = $null
+            foreach ($release in $releases) {
+              $candidate = $release.assets | Where-Object { $_.name -eq "SPBRScandi.zip" } | Select-Object -First 1
+              if ($candidate) { $asset = $candidate; break }
+            }
+            if (-not $asset) {
+              throw "No previously published SPBRScandi.zip asset was found."
+            }
+            Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $target
+          }
+
+      - name: Validate optional Scandi release assets
+        shell: pwsh
+        run: |
+          # Scandi release assets are optional and must only be placed in
+          # release-assets/ after redistribution rights have been verified.
+          # The texture fingerprint below is the validated SPBR-based Scandi-safe pack.
+          # It keeps SPBR terrain/PBR assets and adds the verified Scandi sky/UI/effects set.
+          $assets = @(
+            @{ Name = "SPBRScandi.zip"; Sha256 = "1BB19E99208E8826EABF7775FA06353E78A6EA449D43F12CD9D26EACF5BD9177" },
+            @{ Name = "ScandiShaderV2.zip";  Sha256 = "C2C1E9C531342CC314368146A963FC2FD7D4A414F67C971558FC5ECA89D329F9" }
+          )
+
+          foreach ($asset in $assets) {
+            $path = Join-Path "release-assets" $asset.Name
+            if (!(Test-Path $path)) {
+              Write-Host "Optional asset not present in repository checkout: $($asset.Name)"
+              continue
+            }
+
+            $actual = (Get-FileHash $path -Algorithm SHA256).Hash.ToUpperInvariant()
+            if ($actual -ne $asset.Sha256) {
+              throw "SHA-256 mismatch for $($asset.Name). Expected $($asset.Sha256), got $actual."
+            }
+
+            Write-Host "Validated $($asset.Name) • SHA-256 $actual"
+          }
+
+      - name: Generate final SHA-256 checksums
+        shell: pwsh
+        run: |
+          $files = @(
+            "publish/DlssNrManager.exe",
+            "DlssNrManager-win-x64.zip",
+            (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}"),
+            "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
+            "release-assets/ffmpeg-dlssnr-win-x64.zip",
+            "release-assets/video2dlssnr_release.zip",
+            (Join-Path "release-assets" "${{ steps.streamline.outputs.asset }}"),
+            (Join-Path "release-assets" "${{ steps.optiscaler.outputs.asset }}"),
+            (Join-Path "release-assets" "${{ steps.reshade.outputs.asset }}"),
+            "release-assets/ai-origin-primary-int8.onnx",
+            "release-assets/ai-origin-secondary-int8.onnx",
+            "release-assets/realesrgan-x4plus.param",
+            "release-assets/realesrgan-x4plus.bin",
+            "release-assets/realesrnet-x4plus.param",
+            "release-assets/realesrnet-x4plus.bin",
+            "release-assets/realesrgan-x4plus-anime.param",
+            "release-assets/realesrgan-x4plus-anime.bin",
+            "release-assets/realesr-animevideov3-x2.param",
+            "release-assets/realesr-animevideov3-x2.bin",
+            "release-assets/realesr-animevideov3-x3.param",
+            "release-assets/realesr-animevideov3-x3.bin",
+            "release-assets/realesr-animevideov3-x4.param",
+            "release-assets/realesr-animevideov3-x4.bin"
+          )
+
+          foreach ($optional in @(
+            "release-assets/SPBRScandi.zip",
+            "release-assets/ScandiShaderV2.zip"
+          )) {
+            if (Test-Path $optional) {
+              $files += $optional
+            }
+          }
+
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([System.IO.Path]::GetFileName($file))"
+          }
+
+          [System.IO.File]::WriteAllLines(
+            (Join-Path $PWD "SHA256SUMS.txt"),
+            $lines,
+            [System.Text.UTF8Encoding]::new($false))
+
+          Get-Content SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: DlssNrManager-win-x64
+          path: |
+            publish/DlssNrManager.exe
+            DlssNrManager-win-x64.zip
+            SHA256SUMS.txt
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: main
+          name: DLSS NR Manager v${{ steps.version.outputs.version }}
+          files: |
+            publish/DlssNrManager.exe
+            DlssNrManager-win-x64.zip
+            SHA256SUMS.txt
+            release-assets/SPBRScandi.zip
+            release-assets/ScandiShaderV2.zip
+            release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
+            release-assets/realesrgan-ncnn-vulkan-windows-x64.zip
+            release-assets/ffmpeg-dlssnr-win-x64.zip
+            release-assets/video2dlssnr_release.zip
+            release-assets/streamline-runtime-v*-win-x64.zip
+            release-assets/OptiScaler-NR-*-vendored-win-x64.zip
+            release-assets/ReShade-Setup-*-vendored.zip
+            release-assets/ai-origin-primary-int8.onnx
+            release-assets/ai-origin-secondary-int8.onnx
+            release-assets/realesr*.param
+            release-assets/realesr*.bin
+          fail_on_unmatched_files: false
+          generate_release_notes: true
+          make_latest: true
+ } |
+            Select-Object -First 1
+
+          if (-not $asset) {
+            throw "No manager-owned Streamline runtime bundle exists yet. Bootstrap it once with tools/publish-streamline-runtime.ps1."
+          }
+
+          if (-not $asset.digest -or -not ([string]$asset.digest).StartsWith("sha256:")) {
+            throw "Manager-owned Streamline runtime asset has no GitHub SHA-256 digest."
+          }
+
+          $destination = Join-Path "release-assets" $asset.name
+          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $destination
+
+          $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
+          $actual = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Streamline runtime SHA-256 mismatch. Expected $expected, got $actual."
+          }
+
+          if ((Get-Item -LiteralPath $destination).Length -lt 1MB) {
+            throw "Manager-owned Streamline runtime package is unexpectedly small."
+          }
+
+          "asset=$($asset.name)" >> $env:GITHUB_OUTPUT
+          Write-Host "Reused manager-owned Streamline runtime: $($asset.name)"
           Write-Host "SHA-256: $actual"
       - name: Restore
         shell: pwsh
