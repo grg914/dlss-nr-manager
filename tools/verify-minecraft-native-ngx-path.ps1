@@ -16,7 +16,7 @@ if (!(Test-Path -LiteralPath $PolicyPath)) {
 }
 
 $Policy = Get-Content -LiteralPath $PolicyPath -Raw
-if ($Policy -notmatch 'RequiredBackend\s*=\s*"vulkan"') {
+if ($Policy -notmatch 'RequiredBackends*=s*"vulkan"') {
     throw "Minecraft render policy no longer pins Vulkan as the required backend."
 }
 
@@ -33,8 +33,8 @@ foreach ($requiredForbiddenName in @(
 
 $ForbiddenOperationalPatterns = @(
     'OptiScaler',
-    'dxgi\.dll',
-    'd3d12\.dll',
+    'dxgi.dll',
+    'd3d12.dll',
     'VulkanUpscaler',
     'OutputScaling'
 )
@@ -54,10 +54,10 @@ foreach ($relative in $OperationalMinecraftFiles) {
 }
 
 $OneClick = Get-Content -LiteralPath (Join-Path $Root "Services/MinecraftOneClickService.cs") -Raw
-if ($OneClick -notmatch 'SetPreferredGraphicsBackend\(root,\s*MinecraftRenderPipelinePolicy\.RequiredBackend\)') {
+if ($OneClick -notmatch 'SetPreferredGraphicsBackend(root,s*MinecraftRenderPipelinePolicy.RequiredBackend)') {
     throw "Minecraft one-click no longer routes the backend through MinecraftRenderPipelinePolicy.RequiredBackend."
 }
-if ($OneClick -notmatch 'SPBRScandi\.zip') {
+if ($OneClick -notmatch 'SPBRScandi.zip') {
     throw "Minecraft one-click no longer contains the validated SPBRScandi installation path."
 }
 
@@ -69,7 +69,7 @@ if ($Integration -notmatch 'IsProductionCausticaJar') {
 $Package = Get-Content -LiteralPath (Join-Path $Root "Services/MinecraftDlssPackageService.cs") -Raw
 $PolicyCalls = [regex]::Matches(
     $Package,
-    'MinecraftRenderPipelinePolicy\.EnsureManagerRuntimeIsNativeNgxOnly\('
+    'MinecraftRenderPipelinePolicy.EnsureManagerRuntimeIsNativeNgxOnly('
 ).Count
 if ($PolicyCalls -lt 2) {
     throw "Minecraft DLSS package staging is not guarded in both staging paths."
