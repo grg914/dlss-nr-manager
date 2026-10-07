@@ -1,6 +1,13 @@
 name: Upstream Dependency Sync
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/upstream-monitor.yml'
+      - 'third_party/UPSTREAMS.json'
+      - 'tools/refresh-upstream.ps1'
+      - 'tools/refresh-minecraft-runtime-lock.ps1'
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
