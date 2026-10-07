@@ -341,7 +341,15 @@ jobs:
           echo "Validated branch `$branch` is intentionally left pending because Actions cannot create the required PR." >> "$GITHUB_STEP_SUMMARY"
           echo "promoted=false" >> "$GITHUB_OUTPUT"
 
-      - name: Confirm runtime refresh trigger
+      - name: Refresh manager-owned runtime seed after automatic merge
         if: steps.promote.outputs.promoted == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Dependency PR merged. Its push to main triggers Runtime Seed Refresh through the existing path filters."
+          # GITHUB_TOKEN-generated repository events do not recursively start push workflows.
+          # Explicit workflow_dispatch is therefore required only for this automatic merge path.
+          gh workflow run runtime-refresh.yml --repo "${{ github.repository }}" --ref main -f changed_ids="${{ needs.prepare.outputs.changed_ids }}"
+          if [ $? -ne 0 ]; then
+            echo "::error::Validated dependency PR merged, but Runtime Seed Refresh dispatch failed."
+            exit 1
+          fi
