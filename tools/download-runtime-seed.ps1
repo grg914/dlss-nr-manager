@@ -2,7 +2,8 @@ param(
     [string]$Repository = "grg914/dlss-nr-manager",
     [string]$ReleaseTag = "runtime-seed-v1",
     [Parameter(Mandatory=$true)][string[]]$Assets,
-    [string]$Destination = "build-local/runtime-seed"
+    [string]$Destination = "build-local/runtime-seed",
+    [switch]$AllMatches
 )
 
 $ErrorActionPreference = "Stop"
