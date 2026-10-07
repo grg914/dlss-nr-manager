@@ -78,6 +78,14 @@ jobs:
 
           Write-Host "Vendor tooling syntax and dependency lock verified."
 
+      - name: Enforce self-contained runtime/release audit
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-self-contained.ps1 -Strict -AllowLfsPointers
+          if ($LASTEXITCODE -ne 0) {
+            throw "Strict self-contained dependency audit failed."
+          }
+
       - name: Restore
         shell: pwsh
         run: |
