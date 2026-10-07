@@ -58,6 +58,26 @@ function Get-GitHubPagedCollection {
     return @($items)
 }
 
+function Get-GitRemoteTagNames {
+    param([Parameter(Mandatory=$true)][string]$Repository)
+
+    $remote = "https://github.com/$Repository.git"
+    $output = @(& git ls-remote --tags --refs $remote 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to list Git tags for $Repository via $remote. $($output -join [Environment]::NewLine)"
+    }
+
+    $tags = foreach ($line in $output) {
+        $parts = ([string]$line).Trim() -split "\s+", 2
+        if ($parts.Count -ne 2) { continue }
+        $ref = $parts[1]
+        if ($ref -notmatch "^refs/tags/(?<tag>.+)$") { continue }
+        $Matches["tag"]
+    }
+
+    return @($tags | Sort-Object -Unique)
+}
+
 function Resolve-CommitInfo {
     param(
         [Parameter(Mandatory=$true)][string]$Repository,
@@ -142,14 +162,18 @@ function Resolve-UpstreamState {
     }
 
     if ($strategy -eq "latest-tag") {
-        $tags = @(Get-GitHubPagedCollection -Uri "https://api.github.com/repos/$repository/tags")
+        # GitHub's REST tag endpoint is ordered by the tagged commit and can
+        # require an unbounded number of pages on repositories with a large
+        # historical tag set (FFmpeg is a concrete example). Git's native
+        # ref advertisement gives the complete tag namespace in one query.
+        $tagNames = @(Get-GitRemoteTagNames -Repository $repository)
         $pattern = if ($Policy.tag_regex) { [string]$Policy.tag_regex } else { "^[vV]?(?<version>\d+(?:\.\d+){1,3})$" }
 
-        $candidates = foreach ($tag in $tags) {
-            $version = Get-TagVersion -Tag ([string]$tag.name) -Pattern $pattern
+        $candidates = foreach ($tagName in $tagNames) {
+            $version = Get-TagVersion -Tag ([string]$tagName) -Pattern $pattern
             if ($version) {
                 [pscustomobject]@{
-                    Tag = [string]$tag.name
+                    Tag = [string]$tagName
                     Version = $version
                 }
             }
@@ -157,7 +181,7 @@ function Resolve-UpstreamState {
 
         $selected = $candidates | Sort-Object Version -Descending | Select-Object -First 1
         if (-not $selected) {
-            throw "No stable version tag matched '$pattern' for $repository."
+            throw "No stable version tag matched '$pattern' for $repository after enumerating Git refs."
         }
 
         $commit = Resolve-CommitInfo -Repository $repository -Ref $selected.Tag
