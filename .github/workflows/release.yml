@@ -30,6 +30,13 @@ jobs:
   ffmpeg-runtime:
     runs-on: ubuntu-latest
     steps:
+      - name: Require main branch for manual release
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        shell: bash
+        run: |
+          echo "::error::Manual release runs must be started from the main branch."
+          exit 1
+
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
