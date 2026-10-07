@@ -6,6 +6,11 @@ namespace DlssNrManager.Services;
 
 public sealed class ComponentUpdateService
 {
+    private const string ManagerLatestReleaseApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+    private const string ManagerFfmpegAsset =
+        "ffmpeg-dlssnr-win-x64.zip";
+
     private readonly HttpClient _http = new();
 
     private static readonly string StatePath = Path.Combine(
@@ -71,7 +76,7 @@ public sealed class ComponentUpdateService
             ?? "unknown";
 
         var ffmpeg = await GetJsonAsync(
-            "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest",
+            ManagerLatestReleaseApi,
             cancellationToken);
 
         long ffmpegAssetId = 0;
@@ -81,13 +86,19 @@ public sealed class ComponentUpdateService
             {
                 var name = asset.GetProperty("name").GetString() ?? "";
                 if (!name.Equals(
-                        "ffmpeg-master-latest-win64-gpl.zip",
+                        ManagerFfmpegAsset,
                         StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 ffmpegAssetId = asset.GetProperty("id").GetInt64();
                 break;
             }
+        }
+
+        if (ffmpegAssetId == 0)
+        {
+            throw new InvalidOperationException(
+                $"Latest DLSS NR Manager release has no {ManagerFfmpegAsset} asset.");
         }
 
         return new ComponentState(
