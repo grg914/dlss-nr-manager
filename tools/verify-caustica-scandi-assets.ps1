@@ -147,22 +147,22 @@ try {
 
     $markerChecks = @(
         @{
-            Entry = "dev/comfyfluffy/caustica/CausticaConfig$Rt$DlssNr.class"
+            Entry = 'dev/comfyfluffy/caustica/CausticaConfig$Rt$DlssNr.class'
             Marker = "caustica.rt.dlssNr"
             Description = "DLSS Neural Rendering config"
         },
         @{
-            Entry = "dev/comfyfluffy/caustica/CausticaConfig$Rt$PostFx.class"
+            Entry = 'dev/comfyfluffy/caustica/CausticaConfig$Rt$PostFx.class'
             Marker = "post-fx.scandi-shader"
             Description = "native ScandiShader RTX look"
         },
         @{
-            Entry = "dev/comfyfluffy/caustica/CausticaConfig$Rt$Performance.class"
+            Entry = 'dev/comfyfluffy/caustica/CausticaConfig$Rt$Performance.class'
             Marker = "performance.enabled"
             Description = "RTX Performance Mode"
         },
         @{
-            Entry = "dev/comfyfluffy/caustica/CausticaConfig$Rt$Fg.class"
+            Entry = 'dev/comfyfluffy/caustica/CausticaConfig$Rt$Fg.class'
             Marker = "frame-generation.enabled"
             Description = "DLSS Frame Generation config"
         },
