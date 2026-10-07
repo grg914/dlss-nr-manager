@@ -233,10 +233,10 @@ public sealed class ReShadeService
             try
             {
                 Directory.CreateDirectory(extractRoot);
-                SafeZip.ExtractToDirectory(
+                SafeZip.Extract(
                     package,
                     extractRoot,
-                    MaxPackageBytes);
+                    maxExpandedBytes: MaxPackageBytes);
 
                 var candidate = Directory.EnumerateFiles(
                         extractRoot,
