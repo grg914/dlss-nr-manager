@@ -131,11 +131,29 @@ try {
 
     $exe = Join-Path $stage "out\video2dlssnr.exe"
     $forwarder = Join-Path $stage "out\nvngx.dll_dlssnr.dll"
-    foreach ($artifact in @($exe, $forwarder)) {
-        if (!(Test-Path -LiteralPath $artifact) -or (Get-Item -LiteralPath $artifact).Length -lt 64KB) {
-            throw "Expected video2dlssnr runtime artifact is missing or unexpectedly small: $artifact"
-        }
+
+    if (!(Test-Path -LiteralPath $exe) -or (Get-Item -LiteralPath $exe).Length -lt 64KB) {
+        throw "Expected video2dlssnr executable is missing or unexpectedly small: $exe"
     }
+
+    if (!(Test-Path -LiteralPath $forwarder)) {
+        throw "Expected video2dlssnr forwarder DLL is missing: $forwarder"
+    }
+
+    # The forwarder is intentionally a very small shim and can legitimately be below 64 KiB
+    # in optimized release builds. Validate it as a PE image instead of applying the executable
+    # size heuristic to it.
+    $forwarderInfo = Get-Item -LiteralPath $forwarder
+    if ($forwarderInfo.Length -lt 4KB) {
+        throw "Expected video2dlssnr forwarder DLL is unexpectedly small: $($forwarderInfo.Length) bytes."
+    }
+
+    $forwarderHeader = [IO.File]::ReadAllBytes($forwarder)
+    if ($forwarderHeader.Length -lt 2 -or $forwarderHeader[0] -ne 0x4D -or $forwarderHeader[1] -ne 0x5A) {
+        throw "Expected video2dlssnr forwarder DLL is not a valid PE image: $forwarder"
+    }
+
+    Write-Host "Validated forwarder: $forwarder ($($forwarderInfo.Length) bytes)"
 
     if (Test-Path -LiteralPath $OutputPath) {
         Remove-Item -LiteralPath $OutputPath -Recurse -Force
