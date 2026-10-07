@@ -9,6 +9,9 @@ on:
       - 'tools/build-realesrgan.ps1'
       - 'tools/build-optiscaler.ps1'
       - 'tools/build-reshade.ps1'
+      - 'tools/build-ffmpeg-windows.sh'
+      - 'third_party/FFmpeg/**'
+      - 'third_party/nv-codec-headers/**'
       - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
       - 'third_party/OptiScaler/**'
       - 'third_party/ReShade/**'
@@ -20,12 +23,64 @@ permissions:
   contents: write
 
 jobs:
+  ffmpeg-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Install MinGW cross-build toolchain
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            mingw-w64 \
+            nasm \
+            pkg-config \
+            make \
+            zip \
+            binutils-mingw-w64-x86-64
+
+      - name: Build vendored FFmpeg Windows x64 runtime
+        shell: bash
+        run: |
+          bash ./tools/build-ffmpeg-windows.sh
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: FFmpeg-DlssNrManager-win-x64
+          path: build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip
+          if-no-files-found: error
+          compression-level: 0
+
   release:
+    needs: ffmpeg-runtime
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
+
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: FFmpeg-DlssNrManager-win-x64
+          path: release-assets
+
+      - name: Verify manager-owned FFmpeg release asset
+        shell: pwsh
+        run: |
+          $asset = "release-assets/ffmpeg-dlssnr-win-x64.zip"
+          if (!(Test-Path -LiteralPath $asset)) {
+            throw "Manager-owned FFmpeg runtime artifact was not downloaded."
+          }
+
+          if ((Get-Item -LiteralPath $asset).Length -lt 1MB) {
+            throw "Manager-owned FFmpeg runtime artifact is unexpectedly small."
+          }
+
+          Write-Host "FFmpeg release asset ready: $asset"
+
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: '8.0.x'
@@ -351,6 +406,7 @@ jobs:
             "DlssNrManager-win-x64.zip",
             (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}"),
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
+            "release-assets/ffmpeg-dlssnr-win-x64.zip",
             (Join-Path "release-assets" "${{ steps.optiscaler.outputs.asset }}"),
             (Join-Path "release-assets" "${{ steps.reshade.outputs.asset }}"),
             "release-assets/ai-origin-primary-int8.onnx",
@@ -412,6 +468,7 @@ jobs:
             release-assets/ScandiShaderV2.zip
             release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
             release-assets/realesrgan-ncnn-vulkan-windows-x64.zip
+            release-assets/ffmpeg-dlssnr-win-x64.zip
             release-assets/OptiScaler-NR-*-vendored-win-x64.zip
             release-assets/ReShade-Setup-*-vendored.zip
             release-assets/ai-origin-primary-int8.onnx
