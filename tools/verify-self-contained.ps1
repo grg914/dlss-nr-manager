@@ -32,6 +32,7 @@ $mutableRefs = @()
 $nestedGit = @()
 $lfsPointers = @()
 $retentionIssues = @()
+$forceIncludeIssues = @()
 
 function Find-LfsPointers {
     param([Parameter(Mandatory=$true)][string]$Path)
@@ -77,6 +78,10 @@ foreach ($source in @($Lock.sources)) {
             if ($metadata.url -ne $url -or $metadata.ref -ne $ref) {
                 $metadataIssues += "$relative -> SOURCE.json does not match lock file"
             }
+
+            if ($source.tree -and $metadata.tree -ne [string]$source.tree) {
+                $metadataIssues += "$relative -> SOURCE.json tree does not match lock file"
+            }
         }
         catch {
             $metadataIssues += "$relative -> SOURCE.json is invalid JSON"
@@ -91,6 +96,27 @@ foreach ($source in @($Lock.sources)) {
 
     Find-LfsPointers -Path $path | ForEach-Object {
         $lfsPointers += Get-RelativePathCompat -BasePath $Root -TargetPath $_
+    }
+
+    if ($source.require_force_include_manifest) {
+        $manifestPath = Join-Path $path "VENDORED_FORCE_INCLUDE.txt"
+        if (!(Test-Path -LiteralPath $manifestPath)) {
+            $forceIncludeIssues += "$relative -> VENDORED_FORCE_INCLUDE.txt missing"
+        }
+        else {
+            Get-Content -LiteralPath $manifestPath |
+                ForEach-Object {
+                    $entry = ([string]$_).Trim()
+                    if ([string]::IsNullOrWhiteSpace($entry) -or $entry.StartsWith("#")) {
+                        return
+                    }
+
+                    $requiredPath = Join-Path $path $entry
+                    if (!(Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+                        $forceIncludeIssues += "$relative -> ignored upstream file missing: $entry"
+                    }
+                }
+        }
     }
 
     if ($source.retention) {
@@ -240,6 +266,15 @@ else {
 }
 
 Write-Host ""
+if ($forceIncludeIssues.Count -eq 0) {
+    Write-Host "Vendored ignored tracked files: OK"
+}
+else {
+    Write-Host "Vendored ignored tracked file issues:"
+    $forceIncludeIssues | Sort-Object -Unique | Select-Object -First 100 | ForEach-Object { Write-Host "  - $_" }
+}
+
+Write-Host ""
 if ($references.Count -eq 0) {
     Write-Host "Direct upstream dependency references in runtime/release code: NONE"
 }
@@ -264,6 +299,7 @@ $failed =
     $nestedGit.Count -gt 0 -or
     $lfsPointers.Count -gt 0 -or
     $retentionIssues.Count -gt 0 -or
+    $forceIncludeIssues.Count -gt 0 -or
     $references.Count -gt 0
 
 if ($Strict -and $failed) {
