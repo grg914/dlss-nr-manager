@@ -24,6 +24,10 @@ done
 rm -rf "$BUILD" "$OUTPUT"
 mkdir -p "$BUILD/nvcodec" "$BUILD/ffmpeg" "$OUTPUT"
 
+# Vendoring through Windows preserves file contents but not POSIX executable bits.
+# FFmpeg's Makefiles invoke several ffbuild/*.sh helpers directly.
+find "$SOURCE" -type f \( -name '*.sh' -o -name configure \) -exec chmod u+x {} +
+
 NV_PREFIX="$BUILD/nvcodec/prefix"
 INSTALL_PREFIX="$BUILD/install"
 
