@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v3.1.0**.
+Current stable application version: **v3.2.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, manager-owned validated NVIDIA runtime bundles, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -43,6 +43,20 @@ The Minecraft installer now resolves Caustica only from **DLSS NR Manager releas
 
 A literal zero-external-toolchain build is not possible: Windows, GPU drivers, Minecraft, Java/MSVC/Vulkan tooling and license-restricted NVIDIA SDK inputs remain external prerequisites. NVIDIA/DLSS is therefore treated as a local-only build input rather than blindly vendored into the public repository.
 
+## Repository policies
+
+Cross-feature security, licensing and distribution rules are documented in:
+
+- [Security policy](SECURITY.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [Contribution/dependency policy](CONTRIBUTING.md)
+- [Network, offline and privacy policy](docs/NETWORK_OFFLINE_PRIVACY_POLICY.md)
+- [Component lifecycle/distribution policy](docs/COMPONENT_LIFECYCLE_POLICY.md)
+- [Feature policy matrix](docs/FEATURE_POLICY_MATRIX.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
+
+The project does not treat "publicly downloadable" as equivalent to "redistributable". Restricted NVIDIA SDK inputs and gated/restricted AI model weights remain local/manual where their licenses require it.
+
 ## Download
 
 Use the latest GitHub Release for the Windows x64 single-file build. Current releases publish:
@@ -53,6 +67,18 @@ Use the latest GitHub Release for the Windows x64 single-file build. Current rel
 - the latest compatible Minecraft 26.2 Caustica RTX production JAR
 - `SPBRScandi.zip`, the validated SPBR-based Scandi resource pack
 - manager-owned validated runtime assets for FFmpeg, Real-ESRGAN, OptiScaler, ReShade, AI-origin models, Streamline/video Neural Rendering and Minecraft 26.2
+
+## What's new in v3.2.0
+
+v3.2 is the current stable checkpoint for the manager-owned runtime architecture.
+
+- **Persistent English/French UI selection** and localization completion for the existing production menu.
+- **OptiScaler selector reliability fix** plus cleanup of obsolete navigation/status messaging.
+- **Centralized NVIDIA DLSS / Streamline management** under Games & DLSS while preserving the protected Minecraft RTX path.
+- **Minecraft RTX remains on the validated Caustica Vulkan/NGX route** rather than falling back to an unsafe generic runtime path.
+- **Complete manager-owned Streamline bundle** including the controlled Neural Rendering pair `sl.dlss_nr.dll` + `nvngx_dlssnr.dll`.
+- **Runtime seed/release hardening** for deterministic manager-owned asset reuse and release-only refresh behavior.
+- **Zero-upstream production audit remains enforced** in CI for redistributable runtime paths.
 
 ## What's new in v3.1.0
 
