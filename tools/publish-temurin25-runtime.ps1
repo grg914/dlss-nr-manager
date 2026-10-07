@@ -16,9 +16,9 @@ $release = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repo
 if (-not $release -or $release.draft -or $release.prerelease) {
     throw "Adoptium latest release is missing, a draft, or a prerelease."
 }
-$releaseTag = [string]$release.tag_name
-if ($releaseTag -notmatch "^jdk-25(?:\.|\+|$)") {
-    throw "Adoptium latest stable release '$releaseTag' is not a Temurin 25 release."
+$upstreamReleaseTag = [string]$release.tag_name
+if ($upstreamReleaseTag -notmatch "^jdk-25(?:\.|\+|$)") {
+    throw "Adoptium latest stable release '$upstreamReleaseTag' is not a Temurin 25 release."
 }
 
 $asset = @($release.assets) | Where-Object { [string]$_.name -match "^OpenJDK25U-jre_x64_windows_hotspot_.*\.zip$" } | Select-Object -First 1
