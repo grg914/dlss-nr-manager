@@ -314,16 +314,7 @@ if ($actualInstallerSha -ne $installerSha256) {
 
 $components = @()
 foreach ($project in @($RuntimeLock.components)) {
-    try {
-        $components += Resolve-ModrinthComponent -Component $project
-    }
-    catch {
-        if ([bool]$project.required) {
-            throw
-        }
-
-        Write-Warning "Optional Minecraft component $($project.name) was not bundled: $($_.Exception.Message)"
-    }
+    $components += Resolve-ModrinthComponent -Component $project
 }
 
 $licenseSources = @(
