@@ -1,3 +1,65 @@
+0. CHECKPOINT DE REPRISE — AUTORITATIF (2026-10-07)
+
+Ce bloc prime sur les états historiques plus bas tant qu'ils n'ont pas encore été consolidés.
+
+Checkpoint persistant :
+- GitHub issue #51 : [continuity] DLSS NR Manager pipeline checkpoint
+- Après fusion de PR #50, le workflow .github/workflows/continuity-checkpoint.yml met automatiquement à jour #51 après Build / Upstream Dependency Sync / Runtime Seed Refresh / Release.
+- En cas de coupure ChatGPT : lire #51, puis ce fichier, puis vérifier les runs GitHub réels avant toute modification.
+
+État GitHub vérifié :
+- main : bb523d2ba27ca577067a3668410d9a24c04e6b2b
+- Version déclarée : 3.1.1
+- PR #49 : MERGED après Build #644 PASSED.
+- Upstream Dependency Sync #13 :
+  - prepare : PASSED
+  - validate-windows : PASSED
+  - ReShade : PASSED
+  - Minecraft runtime bootstrap : PASSED
+  - validate-linux / FFmpeg : PASSED
+  - promote : FAILED uniquement parce que le ruleset Protect main impose PR + check build et refuse le fallback push direct.
+- Runtime Seed Refresh #8 : PASSED COMPLET.
+  - nuget-runtime : PASSED
+  - ffmpeg-runtime : PASSED
+  - native-runtime / Real-ESRGAN / OptiScaler / ReShade : PASSED
+  - windows-runtime / Minecraft / Streamline : PASSED
+  - java-runtime / Temurin 25 : PASSED
+  - dispatch-release : PASSED
+- Release #22 : EN COURS au dernier contrôle, sur main bb523d2.
+- Build #645 sur main : FAILED dans Prepare manager-owned offline NuGet feed.
+  Cause exacte observée : runtime-seed-v1/nuget-offline.zip a été remplacé pendant Runtime Seed Refresh #8 entre la lecture du digest GitHub et le téléchargement ; l'ancien digest attendu ne correspondait donc plus aux nouveaux octets téléchargés.
+  Ce n'est pas une régression de compilation/application.
+- PR #50 : OPEN, branche fix/upstream-protected-main-fallback.
+  Correctifs consolidés :
+  1. téléchargement runtime seed par snapshot cohérent avec retries bornés et revalidation GitHub SHA-256 ;
+  2. aucun push direct vers main lorsque GitHub Actions ne peut pas créer la PR ;
+  3. branche upstream stable/persistante pour éviter les branches/revalidations en boucle ;
+  4. attente explicite du check build requis avant merge automatique quand la création de PR par Actions est autorisée ;
+  5. pas de dispatch Runtime Seed redondant après merge : le push main déclenche le workflow existant ;
+  6. checkpoint GitHub automatique issue #51 pour reprendre après interruption.
+- Build PR #651 : PENDING au dernier contrôle sur le head consolidé de PR #50.
+
+Règle de protection :
+- Le ruleset Protect main reste actif.
+- PR obligatoire.
+- Check required : build.
+- Historique linéaire.
+- Aucun bypass n'est introduit.
+
+Prochaines actions exactes :
+1. Faire passer le Build final de PR #50 sur son dernier head.
+2. Fusionner PR #50 uniquement si ce Build est PASSED.
+3. Vérifier le Build main post-merge avec le downloader snapshot-consistent.
+4. Vérifier Release #22 ; si elle échoue sur une cause déjà corrigée seulement dans PR #50, laisser la fusion déclencher/retester le circuit corrigé au lieu de masquer l'erreur.
+5. Vérifier un nouvel Upstream Dependency Sync réel :
+   - aucune tentative de push direct vers main ;
+   - si Actions ne peut toujours pas créer de PR : branche automation/upstream-sync + issue persistante, workflow non-bouclant ;
+   - si le réglage GitHub est activé : PR + Build required + merge protégé.
+6. Mettre à jour ce checkpoint avec les résultats réels.
+7. Seulement après Build + Runtime Seed + Release + Upstream Sync fermés, passer à la phase suivante du cahier des charges / feuille de route.
+
+---
+
 AI PROJECT PROGRESS
 
 1. INFORMATIONS DU PROJET
@@ -6,9 +68,9 @@ Nom du projet :
 DLSS NR Manager
 
 Version actuelle :
-- Version déclarée dans DlssNrManager.csproj : 3.1.0
+- Version déclarée dans DlssNrManager.csproj : 3.1.1
 - Dernière release stable GitHub vérifiée : v3.0.0
-- IMPORTANT : 3.1.0 est la version du code courant, mais n'est pas encore confirmée comme release stable publiée.
+- IMPORTANT : 3.1.1 est la version du code courant ; sa publication stable reste à confirmer par le workflow Release.
 
 Version cible :
 4.0 (objectif du cahier des charges ; PRÉVU, pas encore atteint)
