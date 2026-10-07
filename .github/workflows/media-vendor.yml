@@ -1,12 +1,6 @@
 name: Media Vendor Builds
 
 on:
-  pull_request:
-    paths:
-      - 'third_party/FFmpeg/**'
-      - 'third_party/nv-codec-headers/**'
-      - 'tools/build-ffmpeg-windows.sh'
-      - '.github/workflows/media-vendor.yml'
   workflow_dispatch:
 
 concurrency:
