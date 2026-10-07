@@ -5,9 +5,19 @@ on:
     branches: [ main ]
     paths:
       - '.github/workflows/runtime-refresh.yml'
+      - 'DlssNrManager.csproj'
+      - 'tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj'
+      - 'tools/build-ffmpeg-windows.sh'
+      - 'tools/build-realesrgan.ps1'
+      - 'tools/build-optiscaler.ps1'
+      - 'tools/build-reshade.ps1'
       - 'tools/generate-components-manifest.ps1'
       - 'tools/publish-streamline-runtime.ps1'
+      - 'tools/publish-temurin25-runtime.ps1'
       - 'tools/bootstrap-minecraft-runtime.ps1'
+      - 'third_party/**'
+  schedule:
+    - cron: '47 4 * * *'
   workflow_dispatch:
     inputs:
       changed_ids:
@@ -34,10 +44,16 @@ jobs:
     steps:
       - name: Resolve refresh scope
         id: ids
+        shell: bash
         run: |
-          value="${{ github.event.inputs.changed_ids }}"
-          if [ -z "$value" ]; then value="all"; fi
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            value="java25"
+          else
+            value="${{ github.event.inputs.changed_ids }}"
+            if [ -z "$value" ]; then value="all"; fi
+          fi
           echo "value=$value" >> "$GITHUB_OUTPUT"
+          echo "Refresh scope: $value"
 
       - name: Ensure manager-owned seed release exists
         env:
@@ -49,6 +65,7 @@ jobs:
 
   windows-runtime:
     needs: seed-release
+    if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'streamline') || contains(needs.seed-release.outputs.changed_ids, 'minecraft-')
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -71,23 +88,85 @@ jobs:
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\bootstrap-minecraft-runtime.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG"
 
+  preserve-restricted-runtime:
+    needs: seed-release
+    if: needs.seed-release.outputs.changed_ids == 'all'
+    runs-on: windows-latest
+    steps:
       - name: Preserve restricted video runtime in seed
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $assets = gh release view $env:RUNTIME_SEED_TAG --repo "${{ github.repository }}" --json assets --jq '.assets[].name'
+          $assets = @(gh release view $env:RUNTIME_SEED_TAG --repo "${{ github.repository }}" --json assets --jq '.assets[].name')
           if ($assets -contains "video2dlssnr_release.zip") {
             Write-Host "video2dlssnr_release.zip already exists in runtime seed."
             exit 0
           }
 
-          $dir = "build-local/video-seed"
+          $dir = Join-Path $env:RUNNER_TEMP "video-seed"
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
           gh release download --repo "${{ github.repository }}" --pattern "video2dlssnr_release.zip" --dir $dir
           if ($LASTEXITCODE -ne 0) { throw "Unable to copy manager-owned video runtime from latest stable release." }
           gh release upload $env:RUNTIME_SEED_TAG (Join-Path $dir "video2dlssnr_release.zip") --repo "${{ github.repository }}" --clobber
           if ($LASTEXITCODE -ne 0) { throw "Unable to publish video runtime into runtime seed." }
+
+  native-runtime:
+    needs: seed-release
+    if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan') || contains(needs.seed-release.outputs.changed_ids, 'optiscaler') || contains(needs.seed-release.outputs.changed_ids, 'reshade')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          lfs: true
+
+      - name: Build and package Real-ESRGAN
+        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
+          if ($LASTEXITCODE -ne 0) { throw "Real-ESRGAN refresh build failed." }
+
+          $packageDir = "build-local/realesrgan-package"
+          $zip = "build-local/realesrgan-ncnn-vulkan-windows-x64.zip"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          Copy-Item "build-realesrgan/Release/realesrgan-ncnn-vulkan.exe" $packageDir -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/LICENSE" (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt" (Join-Path $packageDir "LICENSE-ncnn.txt") -Force
+          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING" (Join-Path $packageDir "LICENSE-libwebp.txt") -Force
+          $vcomp = "$env:WINDIR\System32\vcomp140.dll"
+          if (Test-Path -LiteralPath $vcomp) { Copy-Item -LiteralPath $vcomp -Destination $packageDir -Force }
+          Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
+          gh release upload $env:RUNTIME_SEED_TAG $zip --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish Real-ESRGAN runtime seed." }
+
+      - name: Build and package OptiScaler
+        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'optiscaler')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory build-local/optiscaler -Clean
+          if ($LASTEXITCODE -ne 0) { throw "OptiScaler refresh build failed." }
+          $zip = Get-ChildItem "build-local/optiscaler" -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if (-not $zip) { throw "OptiScaler package was not generated." }
+          gh release upload $env:RUNTIME_SEED_TAG $zip.FullName --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish OptiScaler runtime seed." }
+
+      - name: Build and package ReShade
+        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'reshade')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-reshade.ps1 -OutputDirectory build-local/reshade -Clean
+          if ($LASTEXITCODE -ne 0) { throw "ReShade refresh build failed." }
+          $zip = Get-ChildItem "build-local/reshade" -Filter "ReShade-Setup-*-vendored.zip" -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if (-not $zip) { throw "ReShade package was not generated." }
+          gh release upload $env:RUNTIME_SEED_TAG $zip.FullName --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish ReShade runtime seed." }
 
   ffmpeg-runtime:
     needs: seed-release
@@ -109,14 +188,118 @@ jobs:
       - name: Publish FFmpeg into runtime seed
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RUNTIME_SEED_TAG" build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip --repo "${{ github.repository }}" --clobber
+        run: |
+          gh release upload "$RUNTIME_SEED_TAG" build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip --repo "${{ github.repository }}" --clobber
+          if [ $? -ne 0 ]; then exit 1; fi
+
+  nuget-runtime:
+    needs: seed-release
+    if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'onnxruntime')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve exact NuGet graph from upstream in refresh circuit
+        shell: pwsh
+        run: |
+          $packages = "build-local/nuget-global"
+          dotnet restore DlssNrManager.csproj --packages $packages
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj --packages $packages
+          if ($LASTEXITCODE -ne 0) { throw "NuGet refresh restore failed." }
+
+      - name: Build exact offline package feed
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $feed = "build-local/nuget-feed"
+          New-Item -ItemType Directory -Force -Path $feed | Out-Null
+          $seen = @{}
+
+          foreach ($assetPath in @("obj/project.assets.json", "tests/DlssNrManager.Tests/obj/project.assets.json")) {
+            $json = Get-Content $assetPath -Raw | ConvertFrom-Json
+            foreach ($property in $json.libraries.PSObject.Properties) {
+              if ([string]$property.Value.type -ne "package") { continue }
+              $parts = $property.Name -split "/", 2
+              if ($parts.Count -ne 2) { continue }
+              $id = $parts[0]
+              $version = $parts[1]
+              $key = "$id/$version".ToLowerInvariant()
+              if ($seen.ContainsKey($key)) { continue }
+              $seen[$key] = $true
+
+              $idLower = $id.ToLowerInvariant()
+              $versionLower = $version.ToLowerInvariant()
+              $name = "$idLower.$versionLower.nupkg"
+              $url = "https://api.nuget.org/v3-flatcontainer/$idLower/$versionLower/$name"
+              Invoke-WebRequest -Uri $url -OutFile (Join-Path $feed $name)
+            }
+          }
+
+          $manifest = [ordered]@{
+            schema = 1
+            generated_at_utc = [DateTime]::UtcNow.ToString("o")
+            packages = @(
+              Get-ChildItem $feed -Filter "*.nupkg" -File | Sort-Object Name | ForEach-Object {
+                [ordered]@{
+                  name = $_.Name
+                  sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+              }
+            )
+          }
+          $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $feed "manifest.json") -Encoding UTF8
+          Compress-Archive -Path (Join-Path $feed "*") -DestinationPath "build-local/nuget-offline.zip" -Force
+          gh release upload $env:RUNTIME_SEED_TAG "build-local/nuget-offline.zip" --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish offline NuGet seed." }
+
+  java-runtime:
+    needs: seed-release
+    if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'java25')
+    runs-on: windows-latest
+    outputs:
+      changed: ${{ steps.java.outputs.changed }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Refresh verified Temurin 25 runtime
+        id: java
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\publish-temurin25-runtime.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG"
+          if ($LASTEXITCODE -ne 0) { throw "Temurin 25 runtime refresh failed." }
 
   dispatch-release:
-    needs: [seed-release, windows-runtime, ffmpeg-runtime]
-    if: always() && needs.seed-release.result == 'success' && needs.windows-runtime.result == 'success' && (needs.ffmpeg-runtime.result == 'success' || needs.ffmpeg-runtime.result == 'skipped') && github.event_name == 'workflow_dispatch'
+    needs:
+      - seed-release
+      - windows-runtime
+      - preserve-restricted-runtime
+      - native-runtime
+      - ffmpeg-runtime
+      - nuget-runtime
+      - java-runtime
+    if: >-
+      always() &&
+      needs.seed-release.result == 'success' &&
+      (needs.windows-runtime.result == 'success' || needs.windows-runtime.result == 'skipped') &&
+      (needs.preserve-restricted-runtime.result == 'success' || needs.preserve-restricted-runtime.result == 'skipped') &&
+      (needs.native-runtime.result == 'success' || needs.native-runtime.result == 'skipped') &&
+      (needs.ffmpeg-runtime.result == 'success' || needs.ffmpeg-runtime.result == 'skipped') &&
+      (needs.nuget-runtime.result == 'success' || needs.nuget-runtime.result == 'skipped') &&
+      (needs.java-runtime.result == 'success' || needs.java-runtime.result == 'skipped') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.java-runtime.outputs.changed == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch production release after seed promotion
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run release.yml --repo "${{ github.repository }}" --ref main
+        run: |
+          gh workflow run release.yml --repo "${{ github.repository }}" --ref main
+          if [ $? -ne 0 ]; then exit 1; fi
