@@ -226,10 +226,6 @@ jobs:
     if: needs.prepare.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          fetch-depth: 0
-
       - name: Promote validated dependency update
         env:
           GH_TOKEN: ${{ github.token }}
@@ -237,35 +233,39 @@ jobs:
           set -euo pipefail
           pr="${{ needs.prepare.outputs.pr_number }}"
           branch="${{ needs.prepare.outputs.branch }}"
+          ids="${{ needs.prepare.outputs.changed_ids }}"
 
           if [ -n "$pr" ]; then
             gh pr merge "$pr" --repo "${{ github.repository }}" --squash --delete-branch
+            exit 0
+          fi
+
+          echo "::warning::GitHub Actions cannot create pull requests for this repository. The validated branch is preserved and main remains protected."
+          title="[upstream] validated promotion pending"
+          body=$(cat <<EOF
+          Upstream Dependency Sync validated a dependency update but repository policy currently prevents the workflow token from creating the required pull request.
+
+          Validated branch: \`$branch\`
+          Updated dependencies: \`$ids\`
+          Source workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          The \`main\` ruleset is intentionally preserved: changes must go through a pull request and pass the required \`build\` check.
+
+          To restore fully automatic promotion, enable **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**.
+
+          Until then, create a PR from \`$branch\` to \`main\`. The runtime seed refresh will be triggered by the resulting protected-branch merge.
+          EOF
+          )
+
+          existing=$(gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "${{ github.repository }}" --body "$body"
           else
-            echo "::warning::GitHub Actions PR creation is disabled; using guarded validated-branch promotion."
-            git config user.name "dlss-nr-manager-upstream-bot"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git fetch origin "main:refs/remotes/origin/main" "$branch:refs/remotes/origin/$branch"
-
-            expected_main="${{ github.sha }}"
-            current_main="$(git rev-parse refs/remotes/origin/main)"
-            if [ "$current_main" != "$expected_main" ]; then
-              echo "::error::main moved during upstream validation ($expected_main -> $current_main); refusing automatic promotion."
-              exit 1
-            fi
-
-            git checkout -B main refs/remotes/origin/main
-            git merge --squash "refs/remotes/origin/$branch"
-            if git diff --cached --quiet; then
-              echo "::error::Validated automation branch produced no promotable diff."
-              exit 1
-            fi
-
-            git commit -m "deps: promote validated upstream dependencies (${{ needs.prepare.outputs.changed_ids }})"
-            git push origin main
-            git push origin --delete "$branch"
+            gh issue create --repo "${{ github.repository }}" --title "$title" --body "$body"
           fi
 
       - name: Refresh manager-owned runtime seed
+        if: needs.prepare.outputs.pr_number != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
