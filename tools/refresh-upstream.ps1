@@ -42,6 +42,22 @@ function Invoke-GitHubJson {
     throw "GitHub API request failed after retries: $Uri :: $last"
 }
 
+function Get-GitHubPagedCollection {
+    param(
+        [Parameter(Mandatory=$true)][string]$Uri,
+        [int]$MaxPages = 20
+    )
+
+    $items = @()
+    for ($page = 1; $page -le $MaxPages; $page++) {
+        $separator = if ($Uri.Contains("?")) { "&" } else { "?" }
+        $batch = @(Invoke-GitHubJson "${Uri}${separator}per_page=100&page=$page")
+        $items += $batch
+        if ($batch.Count -lt 100) { break }
+    }
+    return @($items)
+}
+
 function Resolve-CommitInfo {
     param(
         [Parameter(Mandatory=$true)][string]$Repository,
@@ -126,7 +142,7 @@ function Resolve-UpstreamState {
     }
 
     if ($strategy -eq "latest-tag") {
-        $tags = @(Invoke-GitHubJson "https://api.github.com/repos/$repository/tags?per_page=100")
+        $tags = @(Get-GitHubPagedCollection -Uri "https://api.github.com/repos/$repository/tags")
         $pattern = if ($Policy.tag_regex) { [string]$Policy.tag_regex } else { "^[vV]?(?<version>\d+(?:\.\d+){1,3})$" }
 
         $candidates = foreach ($tag in $tags) {
@@ -232,6 +248,39 @@ function Update-ReleaseMetadata {
     }
 }
 
+function Update-ManagedPackageVersion {
+    param(
+        [Parameter(Mandatory=$true)]$Policy,
+        [Parameter(Mandatory=$true)]$State
+    )
+
+    if (-not $Policy.managed_package_id) { return }
+
+    $packageId = [string]$Policy.managed_package_id
+    $projectRelative = if ($Policy.managed_project_path) { [string]$Policy.managed_project_path } else { "DlssNrManager.csproj" }
+    $project = Join-Path $Root $projectRelative
+    if (!(Test-Path -LiteralPath $project)) { throw "Managed package project not found: $projectRelative" }
+
+    $version = ([string]$State.Version).Trim()
+    $version = $version -replace "^[vV]", ""
+    if ($version -notmatch "^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$") {
+        throw "Unable to map upstream version '$($State.Version)' to NuGet package '$packageId'."
+    }
+
+    $text = Get-Content -LiteralPath $project -Raw
+    $escaped = [regex]::Escape($packageId)
+    $pattern = "(<PackageReference\s+Include=`"$escaped`"\s+Version=`")[^`"]+(`")"
+    if (-not [regex]::IsMatch($text, $pattern)) {
+        throw "PackageReference '$packageId' was not found in $projectRelative."
+    }
+
+    $updated = [regex]::Replace($text, $pattern, "`${1}$version`${2}", 1)
+    Set-Content -LiteralPath $project -Value $updated -Encoding UTF8 -NoNewline
+    git -C $Root add -- $projectRelative
+    if ($LASTEXITCODE -ne 0) { throw "Failed to stage managed package update for $packageId." }
+    Write-Host "MANAGED PACKAGE $packageId -> $version"
+}
+
 function Bump-ApplicationPatchVersion {
     $xmlText = Get-Content -LiteralPath $ProjectPath -Raw
     $match = [regex]::Match($xmlText, "<Version>(?<version>\d+\.\d+\.\d+)</Version>")
@@ -310,6 +359,7 @@ foreach ($policy in @($Policies.sources)) {
             $entry.tree = $state.Tree
         }
         Update-ReleaseMetadata -Entry $entry -Policy $policy -State $state
+        Update-ManagedPackageVersion -Policy $policy -State $state
     }
 }
 
