@@ -12,11 +12,9 @@ public static class UiLocalizationService
     [
         new("Navigation", "Navigation"),
         new("Games & DLSS", "Jeux & DLSS"),
-        new("Jeux & DLSS", "Jeux & DLSS"),
         new("Minecraft RTX", "Minecraft RTX"),
         new("Media Neural", "Média neuronal"),
         new("AI Detection", "Détection IA"),
-        new("Détection IA", "Détection IA"),
         new("PC Update Center", "Centre de mises à jour PC"),
         new("PC Cleanup", "Nettoyage PC"),
         new("Diagnostics", "Diagnostics"),
