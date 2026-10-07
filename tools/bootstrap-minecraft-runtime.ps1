@@ -350,6 +350,6 @@ if ($remote.digest -and ([string]$remote.digest).StartsWith("sha256:")) {
 
 Write-Host "Published minecraft-runtime-$MinecraftVersion.zip"
 Write-Host "Fabric Loader: $loaderVersion"
-Write-Host "Fabric Installer: $($installer.version)"
+Write-Host "Fabric Installer: $FabricInstallerVersion"
 Write-Host "Components: $($components.Count)"
 Write-Host "SHA-256: $bundleSha"
