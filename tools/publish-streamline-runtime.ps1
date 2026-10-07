@@ -61,7 +61,7 @@ function Test-ControlledRuntime {
 
     $resolved = (Resolve-Path -LiteralPath $Path).Path
     if (-not ([IO.Path]::GetFileName($resolved)).Equals($ExpectedName, [StringComparison]::OrdinalIgnoreCase)) {
-        throw "Controlled runtime must be named $ExpectedName: $resolved"
+        throw "Controlled runtime must be named ${ExpectedName}: $resolved"
     }
 
     $actual = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant()
