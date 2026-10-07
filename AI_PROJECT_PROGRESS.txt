@@ -221,6 +221,56 @@ Prochaine action exacte:
 4. passer au point 2 du cahier des charges: audit OptiScaler pour Minecraft RTX / DLSS 5;
 5. pour ce point 2, respecter la consigne utilisateur: analyser et proposer les solutions A/B/C d'abord, NE MODIFIER AUCUN fichier OptiScaler/DLL/config avant validation explicite de l'utilisateur.
 
+CHECKPOINT 0D - AUDIT OPTISCALER / MINECRAFT RTX (LECTURE SEULE) (2026-10-07)
+
+Phase:
+- 7.2 OptiScaler / DLSS 5
+- sous-phase A: role reel d'OptiScaler dans le chemin Minecraft + solutions A/B/C.
+- aucune modification OptiScaler.ini / DLL / code OptiScaler n'a ete effectuee.
+
+OptiScaler vendore:
+- source: wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass
+- commit immuable: 1bd39091337cc07ba961c8e59ded57e21dc95b18
+- tree: 2e71bd96f977cf432120f6650579478a463cf6dd
+- version source: 0.7.7
+- asset stable v3.1.1: OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip
+- SHA-256: 9a8e1eb945cf9438b6f78350db1f0c8e3e4383bf3e72db7415212dbfd6234ae6
+
+Conclusion principale:
+- OptiScaler n'est PAS dans le chemin Minecraft manager-owned actuel.
+- MinecraftOneClickService / MinecraftIntegrationService / MinecraftPreflightService ne referencent ni OptiScaler, ni dxgi.dll, ni d3d12.dll.
+- MinecraftOneClickService force le backend Vulkan.
+- MinecraftDlssPackageService stage les runtimes NVIDIA dans <instance>/.dlss-nr-manager-runtime.
+- Caustica NgxRuntime charge directement son ngxshim Vulkan et importe les runtimes manager-staged.
+- RtDlssRr, RtDlssFg et RtDlssNr appellent directement NGX via NgxLibrary.
+- SPBRScandi est un resource pack et ScandiShader RTX Look est natif Caustica.
+
+Implication:
+- cout OptiScaler actuel dans Minecraft: aucun, car il n'est pas charge.
+- TextureSyncMethod / CopyBackSyncMethod / SyncAfterDx12 concernent DX11withDX12 et ne sont pas applicables au chemin Minecraft/Caustica Vulkan.
+- OutputScaling, CAS/sharpening, ratio overrides, DRS overrides et OptiScaler FG ne sont pas actifs dans le chemin Minecraft.
+- injecter OptiScaler sans configuration serait risqué: VulkanUpscaler=auto est documente comme FSR2.2 dans ce snapshot, alors que Caustica gere deja DLSS/NGX directement.
+
+Analyse des solutions:
+- Solution A / Performance maximale: conserver OptiScaler hors de Minecraft, garder Caustica Vulkan + NGX direct. RECOMMANDEE.
+- Solution B / Equilibree: prototype NR-only/diagnostic OptiScaler autour de Caustica, sans remplacement upscaler/FG/scaling; non implemente aujourd'hui et a benchmarker.
+- Solution C / Qualite/experimentation: OptiScaler actif complet; risque maximal de double upscaling, double FG, sharpening, copies et conflits NGX.
+
+Document:
+- docs/OPTISCALER_MINECRAFT_AUDIT.md
+
+Regle:
+- NE MODIFIER AUCUN fichier OptiScaler.ini / DLL / code OptiScaler avant validation explicite de l'utilisateur.
+- ne pas inventer de chiffres FPS; toute difference doit etre benchmarkee sur la machine utilisateur.
+
+Prochaine action exacte:
+1. ouvrir une PR documentation-only pour cet audit;
+2. verifier le Build CI;
+3. fusionner la documentation si verte;
+4. presenter les solutions A/B/C et recommander A a l'utilisateur;
+5. attendre sa validation explicite;
+6. seulement apres validation, implementer la solution choisie.
+
 CHECKPOINT 0C - ROBUSTESSE CHECKOUT CI PR (2026-10-07)
 
 Constat:
