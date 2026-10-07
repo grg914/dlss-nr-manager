@@ -29,6 +29,10 @@ public partial class MainWindow : Window
     private readonly NvidiaDlssNrDiscoveryService _nvidiaNrDiscovery = new();
     private readonly PcCleanupService _pcCleanup = new();
 
+    private UiLocalizationController? _localization;
+    private string _uiLanguage = "en";
+    private bool _languageSelectorReady;
+
     private GpuInfo _gpu = new("Unknown GPU", "Unknown", false);
     private RtxCapabilities _gpuCapabilities = GpuCapabilityService.Evaluate(new("Unknown GPU", "Unknown", false));
     private ReleaseInfo? _release;
@@ -81,6 +85,18 @@ public partial class MainWindow : Window
             appPreferences.SoftwareRendering
                 ? "Use hardware UI rendering"
                 : "Use software UI rendering";
+
+        _uiLanguage = UiLocalizationService.NormalizeLanguage(
+            appPreferences.Language);
+        LanguageSelector.SelectedIndex =
+            _uiLanguage.Equals("fr", StringComparison.OrdinalIgnoreCase)
+                ? 0
+                : 1;
+        _localization = new UiLocalizationController(
+            this,
+            () => _uiLanguage);
+        _localization.Apply();
+        _languageSelectorReady = true;
 
         Loaded += async (_, _) =>
         {
@@ -3108,6 +3124,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private void LanguageSelector_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (!_languageSelectorReady ||
+            LanguageSelector.SelectedItem is not ComboBoxItem item ||
+            item.Tag is not string requestedLanguage)
+        {
+            return;
+        }
+
+        _uiLanguage = UiLocalizationService.NormalizeLanguage(
+            requestedLanguage);
+
+        var software =
+            System.Windows.Media.RenderOptions.ProcessRenderMode ==
+            System.Windows.Interop.RenderMode.SoftwareOnly;
+
+        AppPreferencesService.Save(
+            new AppPreferences(
+                software,
+                _uiLanguage));
+
+        _localization?.Apply();
+
+        AppLogger.Info(
+            "UI language changed to " + _uiLanguage + ".");
+    }
+
     private void ToggleSoftwareRendering_Click(
         object sender,
         RoutedEventArgs e)
@@ -3122,7 +3167,9 @@ public partial class MainWindow : Window
                 : System.Windows.Interop.RenderMode.Default;
 
         AppPreferencesService.Save(
-            new AppPreferences(software));
+            new AppPreferences(
+                software,
+                _uiLanguage));
 
         SoftwareRenderingButton.Content = software
             ? "Use hardware UI rendering"

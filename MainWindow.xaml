@@ -90,7 +90,6 @@
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
 
           <StackPanel Margin="8,0,8,14">
@@ -158,18 +157,6 @@
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="☰" Width="26"/><TextBlock Text="Application"/></StackPanel></ListBoxItem>
           </ListBox>
 
-          <Border Grid.Row="2"
-                  Background="#0B121A"
-                  BorderBrush="#1D2A39"
-                  BorderThickness="1"
-                  CornerRadius="9"
-                  Padding="10"
-                  Margin="0,12,0,0">
-            <TextBlock Text="Les options sont séparées par fonction pour éviter une longue page déroulante."
-                       Foreground="{StaticResource Muted}"
-                       FontSize="10"
-                       TextWrapping="Wrap"/>
-          </Border>
         </Grid>
       </Border>
 
@@ -742,7 +729,7 @@
                 <StackPanel>
                   <TextBlock Text="Open-source renderer stack"
                              FontWeight="SemiBold"/>
-                  <TextBlock Text="Downloads Fabric Installer from the official Fabric Maven and Fabric API/optional mods from Modrinth. The tested Minecraft 26.2 Caustica RTX JAR is bundled into DLSS NR Manager releases when available, with grg914/Caustica-RTX used as a fallback source."
+                  <TextBlock Text="Downloads Fabric Installer from the official Fabric Maven and Fabric API/optional mods from Modrinth. The tested Minecraft 26.2 Caustica RTX JAR is bundled into DLSS NR Manager releases when available, with the configured manager-owned Caustica fallback used when needed."
                              Foreground="{StaticResource Muted}"
                              TextWrapping="Wrap"
                              FontSize="11"
@@ -1695,6 +1682,20 @@
               <StackPanel Grid.Column="2"
                           VerticalAlignment="Center"
                           HorizontalAlignment="Right">
+                <TextBlock Text="Language"
+                           Foreground="{StaticResource Muted}"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,4"/>
+                <ComboBox x:Name="LanguageSelector"
+                          Width="170"
+                          HorizontalAlignment="Stretch"
+                          Margin="0,0,0,12"
+                          SelectionChanged="LanguageSelector_SelectionChanged">
+                  <ComboBoxItem Content="Français" Tag="fr"/>
+                  <ComboBoxItem Content="English" Tag="en"/>
+                </ComboBox>
+
                 <Button x:Name="ManagerCheckUpdateButton"
                         Style="{StaticResource CyanButton}"
                         Content="Check for app updates"

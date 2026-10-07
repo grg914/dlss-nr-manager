@@ -123,7 +123,7 @@ public sealed class GitHubReleaseService
         return results;
     }
 
-    private static ReleaseInfo? TryGetManagerOwnedOptiScaler(
+    internal static ReleaseInfo? TryGetManagerOwnedOptiScaler(
         JsonElement release)
     {
         if (!release.TryGetProperty("assets", out var assets) ||
@@ -165,10 +165,16 @@ public sealed class GitHubReleaseService
                 }
             }
 
+            var managerReleasePrerelease =
+                release.TryGetProperty(
+                    "prerelease",
+                    out var prereleaseElement) &&
+                prereleaseElement.ValueKind == JsonValueKind.True;
+
             return new ReleaseInfo(
                 tag,
                 $"OptiScaler {tag}",
-                IsOptiScalerPrerelease(tag),
+                managerReleasePrerelease,
                 url,
                 sha256);
         }
