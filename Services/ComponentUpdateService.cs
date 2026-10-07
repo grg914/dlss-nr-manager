@@ -8,8 +8,12 @@ public sealed class ComponentUpdateService
 {
     private const string ManagerLatestReleaseApi =
         "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+    private const string ManagerProcessorAsset =
+        "video2dlssnr_release.zip";
     private const string ManagerFfmpegAsset =
         "ffmpeg-dlssnr-win-x64.zip";
+    private const string ProcessorUpstreamApi =
+        "https://api.github.com/repos/DaniilSokolyuk/video2dlssnr/releases/latest";
 
     private readonly HttpClient _http = new();
 
@@ -68,31 +72,48 @@ public sealed class ComponentUpdateService
     public async Task<ComponentState> GetRemoteStateAsync(
         CancellationToken cancellationToken = default)
     {
-        var processor = await GetJsonAsync(
-            "https://api.github.com/repos/DaniilSokolyuk/video2dlssnr/releases/latest",
-            cancellationToken);
-
-        var processorTag = processor.RootElement.GetProperty("tag_name").GetString()
-            ?? "unknown";
-
-        var ffmpeg = await GetJsonAsync(
+        using var manager = await GetJsonAsync(
             ManagerLatestReleaseApi,
             cancellationToken);
 
+        long processorAssetId = 0;
         long ffmpegAssetId = 0;
-        if (ffmpeg.RootElement.TryGetProperty("assets", out var assets))
+
+        if (manager.RootElement.TryGetProperty("assets", out var assets))
         {
             foreach (var asset in assets.EnumerateArray())
             {
                 var name = asset.GetProperty("name").GetString() ?? "";
-                if (!name.Equals(
-                        ManagerFfmpegAsset,
+                if (name.Equals(
+                        ManagerProcessorAsset,
                         StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                ffmpegAssetId = asset.GetProperty("id").GetInt64();
-                break;
+                {
+                    processorAssetId = asset.GetProperty("id").GetInt64();
+                }
+                else if (name.Equals(
+                             ManagerFfmpegAsset,
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    ffmpegAssetId = asset.GetProperty("id").GetInt64();
+                }
             }
+        }
+
+        string processorTag;
+        if (processorAssetId != 0)
+        {
+            processorTag = $"manager:{processorAssetId}";
+        }
+        else
+        {
+            using var upstream = await GetJsonAsync(
+                ProcessorUpstreamApi,
+                cancellationToken);
+
+            processorTag = upstream.RootElement.GetProperty(
+                    "tag_name")
+                .GetString()
+                ?? "unknown";
         }
 
         if (ffmpegAssetId == 0)
