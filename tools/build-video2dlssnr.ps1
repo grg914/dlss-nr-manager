@@ -153,7 +153,46 @@ try {
         throw "Expected video2dlssnr forwarder DLL is not a valid PE image: $forwarder"
     }
 
-    Write-Host "Validated forwarder: $forwarder ($($forwarderInfo.Length) bytes)"
+    if (-not ("DlssNrManager.NativeLibraryValidator" -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace DlssNrManager {
+    public static class NativeLibraryValidator {
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern IntPtr LoadLibrary(string lpFileName);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
+        public static extern IntPtr GetProcAddress(IntPtr hModule, string lpProcName);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool FreeLibrary(IntPtr hModule);
+    }
+}
+"@
+    }
+
+    $forwarderModule = [DlssNrManager.NativeLibraryValidator]::LoadLibrary($forwarder)
+    if ($forwarderModule -eq [IntPtr]::Zero) {
+        $win32Error = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        throw "Expected video2dlssnr forwarder DLL could not be loaded. Win32Error=$win32Error Path=$forwarder"
+    }
+
+    try {
+        foreach ($exportName in @("fwd_create", "fwd_evaluate", "fwd_release")) {
+            $export = [DlssNrManager.NativeLibraryValidator]::GetProcAddress($forwarderModule, $exportName)
+            if ($export -eq [IntPtr]::Zero) {
+                throw "Expected video2dlssnr forwarder export is missing: $exportName"
+            }
+        }
+    }
+    finally {
+        [void][DlssNrManager.NativeLibraryValidator]::FreeLibrary($forwarderModule)
+    }
+
+    Write-Host "Validated forwarder PE and exports: $forwarder ($($forwarderInfo.Length) bytes)"
 
     if (Test-Path -LiteralPath $OutputPath) {
         Remove-Item -LiteralPath $OutputPath -Recurse -Force
