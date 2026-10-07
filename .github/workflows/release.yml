@@ -10,6 +10,8 @@ on:
       - 'tools/build-optiscaler.ps1'
       - 'tools/build-reshade.ps1'
       - 'tools/build-ffmpeg-windows.sh'
+      - 'tools/build-video2dlssnr.ps1'
+      - 'tools/publish-video2dlssnr.ps1'
       - 'third_party/FFmpeg/**'
       - 'third_party/nv-codec-headers/**'
       - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
@@ -103,6 +105,51 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
 
+      - name: Reuse manager-owned video2dlssnr runtime
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "DlssNrManager-Release"
+          }
+
+          $releases = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/${{ github.repository }}/releases?per_page=50"
+
+          $asset = $releases |
+            Where-Object { -not $_.draft } |
+            ForEach-Object { $_.assets } |
+            Where-Object { $_.name -eq "video2dlssnr_release.zip" } |
+            Select-Object -First 1
+
+          if (-not $asset) {
+            throw "No manager-owned video2dlssnr_release.zip exists yet. Bootstrap it once with tools/publish-video2dlssnr.ps1 before publishing a self-contained release."
+          }
+
+          if (-not $asset.digest -or -not ([string]$asset.digest).StartsWith("sha256:")) {
+            throw "Manager-owned video2dlssnr asset has no GitHub SHA-256 digest."
+          }
+
+          $destination = "release-assets/video2dlssnr_release.zip"
+          Invoke-WebRequest -Headers $headers -Uri $asset.browser_download_url -OutFile $destination
+
+          $expected = ([string]$asset.digest).Substring(7).ToLowerInvariant()
+          $actual = (Get-FileHash $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          if ($actual -ne $expected) {
+            throw "video2dlssnr SHA-256 mismatch. Expected $expected, got $actual."
+          }
+
+          if ((Get-Item -LiteralPath $destination).Length -lt 1MB) {
+            throw "Manager-owned video2dlssnr runtime package is unexpectedly small."
+          }
+
+          Write-Host "Reused validated video2dlssnr runtime from DLSS NR Manager release history."
+          Write-Host "SHA-256: $actual"
       - name: Restore
         shell: pwsh
         run: |
@@ -407,6 +454,7 @@ jobs:
             (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}"),
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
+            "release-assets/video2dlssnr_release.zip",
             (Join-Path "release-assets" "${{ steps.optiscaler.outputs.asset }}"),
             (Join-Path "release-assets" "${{ steps.reshade.outputs.asset }}"),
             "release-assets/ai-origin-primary-int8.onnx",
@@ -469,6 +517,7 @@ jobs:
             release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
             release-assets/realesrgan-ncnn-vulkan-windows-x64.zip
             release-assets/ffmpeg-dlssnr-win-x64.zip
+            release-assets/video2dlssnr_release.zip
             release-assets/OptiScaler-NR-*-vendored-win-x64.zip
             release-assets/ReShade-Setup-*-vendored.zip
             release-assets/ai-origin-primary-int8.onnx
