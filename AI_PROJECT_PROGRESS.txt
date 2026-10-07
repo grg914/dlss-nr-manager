@@ -3,68 +3,72 @@
 Ce bloc prime sur les états historiques plus bas tant qu'ils n'ont pas encore été consolidés.
 
 Checkpoint persistant :
-- GitHub issue #51 : [continuity] DLSS NR Manager pipeline checkpoint
-- Après fusion de PR #50, le workflow .github/workflows/continuity-checkpoint.yml met automatiquement à jour #51 après Build / Upstream Dependency Sync / Runtime Seed Refresh / Release.
+- GitHub issue #51 : [continuity] DLSS NR Manager pipeline checkpoint.
+- .github/workflows/continuity-checkpoint.yml met automatiquement à jour #51 après Build / Upstream Dependency Sync / Runtime Seed Refresh / Release.
 - En cas de coupure ChatGPT : lire #51, puis ce fichier, puis vérifier les runs GitHub réels avant toute modification.
+- Correctif anti-coupure en cours via PR de continuité : le rendu de Current main / Trigger / chemins de reprise est corrigé pour éviter la substitution shell des backticks Markdown.
 
 État GitHub vérifié :
-- main : a8fcf36c1cfe41f6b11df7aaeb41421b916e63ef
+- main : 6f2257e3d2ef72587613eda070a8645e06c4a8af
 - Version déclarée : 3.1.1
-- PR #49 : MERGED après Build #644 PASSED.
-- PR #50 : MERGED sur main ; correctifs protected-main, seed snapshot-consistent, Release #22/Caustica et continuité intégrés.
-- Build #657 (head final PR #50) : PASSED.
-- Build #658 sur main : PASSED COMPLET ; feed NuGet snapshot-consistent, restore, tests, publish single-file et vérification EXE/icône validés.
-- Upstream Dependency Sync #14 sur main : PASSED ; aucun changement promotable, aucune boucle ni tentative de push direct vers main.
-- Upstream Dependency Sync #13 :
-  - prepare : PASSED
-  - validate-windows : PASSED
-  - ReShade : PASSED
-  - Minecraft runtime bootstrap : PASSED
-  - validate-linux / FFmpeg : PASSED
-  - promote : FAILED uniquement parce que le ruleset Protect main impose PR + check build et refuse le fallback push direct.
-- Runtime Seed Refresh #8 : PASSED COMPLET.
+- Dernière release stable GitHub vérifiée : v3.1.1
+- Build #660 (run 37600780505) : PASSED COMPLET.
+  - feed NuGet manager-owned snapshot-consistent : PASSED
+  - restore strict offline : PASSED
+  - tests de régression : PASSED
+  - publish win-x64 single-file : PASSED
+  - vérification EXE/icône : PASSED
+- Runtime Seed Refresh #9 (run 37600780497) : PASSED COMPLET.
   - nuget-runtime : PASSED
   - ffmpeg-runtime : PASSED
   - native-runtime / Real-ESRGAN / OptiScaler / ReShade : PASSED
   - windows-runtime / Minecraft / Streamline : PASSED
   - java-runtime / Temurin 25 : PASSED
+  - preserve-restricted-runtime : PASSED
   - dispatch-release : PASSED
-- Release #22 : FAILED après avoir validé avec succès checkout, audit zero-upstream, version 3.1.1, feed NuGet offline, restore, tests, publish EXE, identité, ZIP, runtime seed, modèles LFS/IA/Real-ESRGAN.
-  Échec exact : étape "Reuse manager-owned Caustica and Scandi assets" -> "No manager-owned Caustica RTX Minecraft 26.2 asset was found in stable release history."
-  Vérification GitHub réelle : v3.0.0 contient bien Caustica-RTX-Minecraft-26.2-build-46.jar (SHA-256 40cfc86c...) et SPBRScandi.zip (SHA-256 1bb19e99...).
-  Cause confirmée : la réponse JSON top-level /releases n'était pas explicitement énumérée avant la boucle PowerShell ; le filtre Caustica était correct.
-  Correction ajoutée à PR #50 : énumération explicite des releases et de leurs assets, sans changer les critères Caustica/SPBR.
-- Build #645 sur main : FAILED dans Prepare manager-owned offline NuGet feed.
-  Cause exacte observée : runtime-seed-v1/nuget-offline.zip a été remplacé pendant Runtime Seed Refresh #8 entre la lecture du digest GitHub et le téléchargement ; l'ancien digest attendu ne correspondait donc plus aux nouveaux octets téléchargés.
-  Ce n'est pas une régression de compilation/application.
-- PR #50 : MERGED, branche fix/upstream-protected-main-fallback.
-  Correctifs consolidés :
-  1. téléchargement runtime seed par snapshot cohérent avec retries bornés et revalidation GitHub SHA-256 ;
-  2. aucun push direct vers main lorsque GitHub Actions ne peut pas créer la PR ;
-  3. branche upstream stable/persistante pour éviter les branches/revalidations en boucle ;
-  4. attente explicite du check build requis avant merge automatique quand la création de PR par Actions est autorisée ;
-  5. dispatch Runtime Seed explicite uniquement après merge automatique par GITHUB_TOKEN ; un merge manuel déclenche le push main normalement ;
-  6. checkpoint GitHub automatique issue #51 pour reprendre après interruption.
-- Build final de PR #50 : PASSED (#657). Build post-merge main : PASSED (#658).
+- Release #23 (run 37602837808) : PASSED COMPLET.
+  - zero-upstream audit : PASSED
+  - version 3.1.1 : PASSED
+  - feed NuGet offline / restore / tests / EXE / ZIP : PASSED
+  - runtime seed manager-owned : PASSED
+  - modèles LFS / IA / Real-ESRGAN : PASSED
+  - récupération Caustica + SPBRScandi depuis l'historique stable : PASSED
+  - validation texture : PASSED
+  - components-manifest.json : PASSED
+  - SHA256SUMS.txt : PASSED
+  - publication GitHub Release : PASSED
+- Release stable v3.1.1 : PUBLIÉE ET VÉRIFIÉE.
+  - DlssNrManager.exe : présent, SHA-256 GitHub 77dc32b422b1e1e8cca769a0626f6e36c0f692e5c1e0ba4c2dde48958725b81f
+  - DlssNrManager-win-x64.zip : présent, SHA-256 GitHub c094eafd41823bc21653ff0bccf6665461f1de90023390564c40c7f8bd982291
+  - components-manifest.json : présent, SHA-256 GitHub a2bccfe4ad0b117ff827dc2dad7098bf126aed3d60c13b8c1001871a04f9c5d0
+  - SHA256SUMS.txt : présent, SHA-256 GitHub ee2f1496767760d19f11e90b71c1b36d865cb9299e32aa2f4b3a477792eb0d20
+  - Caustica-RTX-Minecraft-26.2-build-46.jar : présent, SHA-256 GitHub 40cfc86cda627102a4bee304996233b231b172e9f17a5a8dc3dcbd85121b47c7
+  - SPBRScandi.zip : présent, SHA-256 GitHub 1bb19e99208e8826eabf7775fa06353e78a6ea449d43f12cd9d26eacf5bd9177
+  - manager-owned FFmpeg / Minecraft runtime / OptiScaler / ReShade / Streamline / Temurin / video2dlssnr : présents.
+- Upstream Dependency Sync #14 (run 37598707359) : PASSED.
+  - aucune boucle
+  - aucune tentative de push direct vers main
+  - aucun changement promotable sur ce run
+- Les échecs historiques Release #22, Build #645 et Upstream Sync #11/#12/#13 sont RÉSOLUS par les runs ci-dessus.
 
 Règle de protection :
-- Le ruleset Protect main reste actif.
+- Protect main reste actif.
 - PR obligatoire.
 - Check required : build.
 - Historique linéaire.
 - Aucun bypass n'est introduit.
 
+Statut de phase :
+- Durcissement dépendances / production zero-upstream / synchronisation upstream / runtime seed manager-owned : CLÔTURE TECHNIQUE VALIDÉE.
+- Preuves de clôture : Build #660 + Runtime Seed #9 + Release #23 + Upstream Dependency Sync #14 tous PASSED, stable v3.1.1 publiée.
+- Ne pas rouvrir cette phase sauf nouvelle régression CI observée.
+
 Prochaines actions exactes :
-1. Faire passer le Build final de PR #50 sur son dernier head incluant le correctif Release #22.
-2. Fusionner PR #50 uniquement si ce Build est PASSED.
-3. Vérifier le Build main post-merge avec le downloader snapshot-consistent.
-4. Après fusion, exécuter une nouvelle Release sur le workflow corrigé et vérifier qu'elle franchit la récupération Caustica/SPBR puis crée réellement la release stable 3.1.1.
-5. Vérifier un nouvel Upstream Dependency Sync réel :
-   - aucune tentative de push direct vers main ;
-   - si Actions ne peut toujours pas créer de PR : branche automation/upstream-sync + issue persistante, workflow non-bouclant ;
-   - si le réglage GitHub est activé : PR + Build required + merge protégé.
-6. Mettre à jour ce checkpoint avec les résultats réels.
-7. Seulement après Build + Runtime Seed + Release + Upstream Sync fermés, passer à la phase suivante du cahier des charges / feuille de route.
+1. Faire passer le Build de la PR qui finalise le checkpoint de continuité.
+2. Fusionner cette PR uniquement si Build PASSED.
+3. Vérifier le Build post-merge et le rendu réel de l'issue #51.
+4. Relire le cahier de charges.txt et feuille de route.txt depuis les sources utilisateur avant de choisir la prochaine phase.
+5. Reprendre exactement la prochaine phase non terminée dans l'ordre du cahier des charges / feuille de route.
 
 ---
 
