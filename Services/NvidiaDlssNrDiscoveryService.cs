@@ -1,6 +1,5 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.IO.Compression;
 using System.Text.Json;
 
 namespace DlssNrManager.Services;
@@ -15,314 +14,161 @@ public sealed record NvidiaDlssNrAvailability(
 
 public sealed class NvidiaDlssNrDiscoveryService
 {
-    private const long MaxDiscoveryArchiveBytes = 2L * 1024 * 1024 * 1024;
-    private const string StreamlineRepository = "NVIDIA-RTX/Streamline";
-    private const string DlssRepository = "NVIDIA/DLSS";
-
-    private static readonly string[] RequiredSignals =
-    [
-        "nvsdk_ngx_helpers_dlssnr_vk.h",
-        "sl_dlss_nr.h",
-        "nvngx_dlssnr.dll",
-        "sl.dlss_nr.dll"
-    ];
+    private const string ManagerLatestReleaseApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+    private const string VideoAssetName = "video2dlssnr_release.zip";
+    private const string StreamlinePrefix = "streamline-runtime-v";
+    private const string StreamlineSuffix = "-win-x64.zip";
 
     private readonly HttpClient _http = new()
     {
-        Timeout = TimeSpan.FromMinutes(10)
+        Timeout = TimeSpan.FromMinutes(2)
     };
 
     public NvidiaDlssNrDiscoveryService()
     {
         _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
+            new ProductInfoHeaderValue(
+                "DlssNrManager",
+                AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            new MediaTypeWithQualityHeaderValue(
+                "application/vnd.github+json"));
     }
 
     public async Task<NvidiaDlssNrAvailability> CheckAsync(
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        progress?.Report("Checking official NVIDIA DLSS and Streamline repositories…");
+        progress?.Report(
+            "Checking manager-owned NVIDIA runtime assets…");
 
-        var dlssTreeTask = ReadTreeAsync(DlssRepository, cancellationToken);
-        var streamlineTreeTask = ReadTreeAsync(StreamlineRepository, cancellationToken);
-        var releaseTask = ReadLatestReleaseAsync(StreamlineRepository, cancellationToken);
-
-        await Task.WhenAll(dlssTreeTask, streamlineTreeTask, releaseTask);
-
-        var dlssPaths = await dlssTreeTask;
-        var streamlinePaths = await streamlineTreeTask;
-        var release = await releaseTask;
-
-        var packageEntries = await ReadLatestStreamlinePackageEntriesAsync(
-            release,
-            progress,
+        using var release = await GetJsonAsync(
+            ManagerLatestReleaseApi,
             cancellationToken);
 
-        var searchable = dlssPaths
-            .Concat(streamlinePaths)
-            .Concat(release.Assets.Select(x => x.Name))
-            .Concat(packageEntries)
-            .ToArray();
+        var managerTag = release.RootElement.TryGetProperty(
+                "tag_name",
+                out var tagElement)
+            ? tagElement.GetString() ?? "latest"
+            : "latest";
 
-        var found = RequiredSignals
-            .Where(signal => searchable.Any(path =>
-                path.Contains(signal, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
+        JsonElement? videoAsset = null;
+        JsonElement? streamlineAsset = null;
 
-        var missing = RequiredSignals
-            .Where(signal => !found.Contains(signal, StringComparer.OrdinalIgnoreCase))
-            .ToList();
+        if (release.RootElement.TryGetProperty(
+                "assets",
+                out var assets) &&
+            assets.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var asset in assets.EnumerateArray())
+            {
+                var name = asset.TryGetProperty(
+                        "name",
+                        out var nameElement)
+                    ? nameElement.GetString() ?? ""
+                    : "";
 
-        // A public usable integration needs both an API/header signal and a runtime DLL signal.
-        // A single matching filename is not enough to claim support is deployable.
-        var hasCausticaVulkanHeader = found.Contains(
-            "nvsdk_ngx_helpers_dlssnr_vk.h",
-            StringComparer.OrdinalIgnoreCase);
-        var hasRuntime = found.Any(x =>
-            x.Equals("nvngx_dlssnr.dll", StringComparison.OrdinalIgnoreCase) ||
-            x.Equals("sl.dlss_nr.dll", StringComparison.OrdinalIgnoreCase));
-        var ready = hasCausticaVulkanHeader && hasRuntime;
+                if (name.Equals(
+                        VideoAssetName,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    videoAsset = asset.Clone();
+                    continue;
+                }
+
+                if (name.StartsWith(
+                        StreamlinePrefix,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    name.EndsWith(
+                        StreamlineSuffix,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    streamlineAsset = asset.Clone();
+                }
+            }
+        }
+
+        var found = new List<string>();
+        var missing = new List<string>();
+
+        if (HasSha256Digest(videoAsset))
+            found.Add("nvngx_dlssnr.dll via video2dlssnr_release.zip");
+        else
+            missing.Add(VideoAssetName);
+
+        if (HasSha256Digest(streamlineAsset))
+            found.Add("manager-owned Streamline runtime bundle");
+        else
+            missing.Add("streamline-runtime-v*-win-x64.zip");
+
+        var ready = missing.Count == 0;
+        var streamlineVersion =
+            streamlineAsset is { } streamAsset
+                ? GetStreamlineVersion(
+                      streamAsset.GetProperty("name").GetString() ?? "")
+                  ?? managerTag
+                : managerTag;
 
         var summary = ready
-            ? $"Public NVIDIA DLSS Neural Rendering files detected in official sources ({release.Tag})."
-            : $"No complete public DLSS Neural Rendering SDK/runtime detected yet ({release.Tag}).";
+            ? $"Manager-owned NVIDIA runtime assets are ready ({streamlineVersion})."
+            : $"Manager-owned NVIDIA runtime bootstrap is incomplete ({managerTag}).";
 
         var details =
-            $"Official sources checked: {DlssRepository}, {StreamlineRepository}. " +
-            "Caustica-ready requires nvsdk_ngx_helpers_dlssnr_vk.h plus an official DLSS-NR runtime. " +
+            $"DLSS NR Manager release checked: {managerTag}. " +
             $"Found: {(found.Count == 0 ? "none" : string.Join(", ", found))}. " +
             $"Missing: {(missing.Count == 0 ? "none" : string.Join(", ", missing))}. " +
-            "The manager never treats copied, renamed or unofficial DLLs as proof of DLSS-NR availability.";
+            "Runtime packages are accepted only after the bootstrap tools validate source digests, " +
+            "NVIDIA Authenticode signatures where applicable, and GitHub release digests.";
 
         return new NvidiaDlssNrAvailability(
             ready,
-            release.Tag,
+            streamlineVersion,
             found,
             missing,
             summary,
             details);
     }
 
-    private async Task<IReadOnlyList<string>> ReadTreeAsync(
-        string repository,
-        CancellationToken cancellationToken)
+    private static bool HasSha256Digest(
+        JsonElement? asset)
     {
-        using var repo = await GetJsonAsync(
-            $"https://api.github.com/repos/{repository}",
-            cancellationToken);
+        if (asset is not { } value ||
+            !value.TryGetProperty(
+                "digest",
+                out var digestElement))
+            return false;
 
-        var branch = repo.RootElement.TryGetProperty("default_branch", out var branchElement)
-            ? branchElement.GetString()
-            : null;
-
-        if (string.IsNullOrWhiteSpace(branch))
-            branch = "main";
-
-        using var tree = await GetJsonAsync(
-            $"https://api.github.com/repos/{repository}/git/trees/{Uri.EscapeDataString(branch)}?recursive=1",
-            cancellationToken);
-
-        if (!tree.RootElement.TryGetProperty("tree", out var items))
-            return [];
-
-        return items.EnumerateArray()
-            .Select(x => x.TryGetProperty("path", out var p) ? p.GetString() : null)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Select(x => x!)
-            .ToList();
+        var digest = digestElement.GetString();
+        return !string.IsNullOrWhiteSpace(digest) &&
+               digest.StartsWith(
+                   "sha256:",
+                   StringComparison.OrdinalIgnoreCase) &&
+               digest.Length == "sha256:".Length + 64;
     }
 
-    private async Task<ReleaseSnapshot> ReadLatestReleaseAsync(
-        string repository,
-        CancellationToken cancellationToken)
+    private static string? GetStreamlineVersion(
+        string assetName)
     {
-        using var release = await GetJsonAsync(
-            $"https://api.github.com/repos/{repository}/releases/latest",
-            cancellationToken);
+        if (!assetName.StartsWith(
+                StreamlinePrefix,
+                StringComparison.OrdinalIgnoreCase) ||
+            !assetName.EndsWith(
+                StreamlineSuffix,
+                StringComparison.OrdinalIgnoreCase))
+            return null;
 
-        var tag = release.RootElement.TryGetProperty("tag_name", out var t)
-            ? t.GetString() ?? "latest"
-            : "latest";
+        var length =
+            assetName.Length -
+            StreamlinePrefix.Length -
+            StreamlineSuffix.Length;
 
-        var assets = release.RootElement.TryGetProperty("assets", out var assetArray)
-            ? assetArray.EnumerateArray()
-                .Select(x => new ReleaseAsset(
-                    x.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
-                    x.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : ""))
-                .Where(x => !string.IsNullOrWhiteSpace(x.Name))
-                .ToList()
-            : [];
+        if (length <= 0)
+            return null;
 
-        return new ReleaseSnapshot(tag, assets);
-    }
-
-    private async Task<IReadOnlyList<string>> ReadLatestStreamlinePackageEntriesAsync(
-        ReleaseSnapshot release,
-        IProgress<string>? progress,
-        CancellationToken cancellationToken)
-    {
-        var asset = release.Assets
-            .Where(x => x.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-            .Where(x => !x.Name.Contains("source", StringComparison.OrdinalIgnoreCase))
-            .Where(x => !x.Name.Contains("arm", StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(x =>
-                x.Name.Contains("x64", StringComparison.OrdinalIgnoreCase) ||
-                x.Name.Contains("win64", StringComparison.OrdinalIgnoreCase))
-            .ThenBy(x => x.Name.Length)
-            .FirstOrDefault();
-
-        if (asset == null || string.IsNullOrWhiteSpace(asset.Url))
-            return [];
-
-        var cacheRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "DlssNrManager",
-            "nvidia-nr-discovery");
-        Directory.CreateDirectory(cacheRoot);
-        var safeTag = string.Concat(release.Tag.Select(ch =>
-            Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
-        var entryCache = Path.Combine(cacheRoot, safeTag + ".entries.txt");
-
-        if (File.Exists(entryCache) &&
-            DateTime.UtcNow - File.GetLastWriteTimeUtc(entryCache) < TimeSpan.FromHours(12))
-        {
-            var cachedEntries = await File.ReadAllLinesAsync(
-                entryCache,
-                cancellationToken);
-
-            if (cachedEntries.Length > 0)
-            {
-                progress?.Report(
-                    $"Using cached NVIDIA Streamline {release.Tag} package index…");
-                return cachedEntries;
-            }
-        }
-
-        var sharedStreamlineZip = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "DlssNrManager",
-            "nvidia-streamline",
-            safeTag,
-            "streamline-sdk.zip");
-
-        if (File.Exists(sharedStreamlineZip))
-        {
-            try
-            {
-                using var cachedArchive = ZipFile.OpenRead(sharedStreamlineZip);
-                var cachedEntries = cachedArchive.Entries
-                    .Select(entry => entry.FullName)
-                    .Where(name => !string.IsNullOrWhiteSpace(name))
-                    .ToList();
-
-                cancellationToken.ThrowIfCancellationRequested();
-                AtomicFile.WriteAllLines(entryCache, cachedEntries);
-                progress?.Report(
-                    $"Inspecting cached NVIDIA Streamline {release.Tag} package…");
-                return cachedEntries;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                progress?.Report(
-                    $"Cached Streamline package index failed; refreshing from NVIDIA ({ex.Message})…");
-            }
-        }
-
-        progress?.Report($"Inspecting official NVIDIA Streamline {release.Tag} package…");
-
-        var tempRoot = Path.Combine(
-            Path.GetTempPath(),
-            "DlssNrManager",
-            "nvidia-nr-discovery");
-        Directory.CreateDirectory(tempRoot);
-        var tempZip = Path.Combine(tempRoot, $"{Guid.NewGuid():N}.zip");
-
-        try
-        {
-            using var response = await _http.GetAsync(
-                asset.Url,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-            response.EnsureSuccessStatusCode();
-
-            if (response.Content.Headers.ContentLength is > MaxDiscoveryArchiveBytes)
-            {
-                throw new InvalidDataException(
-                    "NVIDIA Streamline discovery archive exceeds the 2 GB safety limit.");
-            }
-
-            await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-            await using (var output = new FileStream(
-                             tempZip,
-                             FileMode.Create,
-                             FileAccess.Write,
-                             FileShare.None,
-                             128 * 1024,
-                             useAsync: true))
-            {
-                await CopyWithLimitAsync(
-                    input,
-                    output,
-                    MaxDiscoveryArchiveBytes,
-                    cancellationToken);
-            }
-
-            using var archive = ZipFile.OpenRead(tempZip);
-            var entries = archive.Entries
-                .Select(entry => entry.FullName)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .ToList();
-
-            cancellationToken.ThrowIfCancellationRequested();
-            AtomicFile.WriteAllLines(entryCache, entries);
-            return entries;
-        }
-        finally
-        {
-            try
-            {
-                if (File.Exists(tempZip))
-                    File.Delete(tempZip);
-            }
-            catch
-            {
-                // Discovery is read-only; cleanup failure must not change the result.
-            }
-        }
-    }
-
-    private static async Task CopyWithLimitAsync(
-        Stream input,
-        Stream output,
-        long maxBytes,
-        CancellationToken cancellationToken)
-    {
-        var buffer = new byte[128 * 1024];
-        long total = 0;
-
-        while (true)
-        {
-            var read = await input.ReadAsync(
-                buffer.AsMemory(0, buffer.Length),
-                cancellationToken);
-
-            if (read == 0)
-                break;
-
-            total += read;
-            if (total > maxBytes)
-            {
-                throw new InvalidDataException(
-                    $"Download exceeded the {maxBytes / (1024 * 1024)} MB safety limit.");
-            }
-
-            await output.WriteAsync(
-                buffer.AsMemory(0, read),
-                cancellationToken);
-        }
+        return assetName.Substring(
+            StreamlinePrefix.Length,
+            length);
     }
 
     private async Task<JsonDocument> GetJsonAsync(
@@ -336,12 +182,11 @@ public sealed class NvidiaDlssNrDiscoveryService
         response.EnsureSuccessStatusCode();
 
         await using var stream =
-            await response.Content.ReadAsStreamAsync(cancellationToken);
+            await response.Content.ReadAsStreamAsync(
+                cancellationToken);
+
         return await JsonDocument.ParseAsync(
             stream,
             cancellationToken: cancellationToken);
     }
-
-    private sealed record ReleaseAsset(string Name, string Url);
-    private sealed record ReleaseSnapshot(string Tag, IReadOnlyList<ReleaseAsset> Assets);
 }
