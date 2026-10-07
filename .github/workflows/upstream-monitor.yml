@@ -37,7 +37,41 @@ jobs:
           fetch-depth: 0
           lfs: true
 
+      - name: Check for pending validated upstream update
+        id: pending
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $title = "[upstream] validated branch awaiting PR"
+          $branch = "automation/upstream-sync"
+
+          $issues = @(gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number,title | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0) { throw "Unable to query pending upstream issues." }
+
+          $issue = $issues | Where-Object { [string]$_.title -eq $title } | Select-Object -First 1
+          if (-not $issue) {
+            "blocked=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $remote = (git ls-remote --heads origin "refs/heads/$branch" | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "Unable to inspect pending upstream branch." }
+
+          if ([string]::IsNullOrWhiteSpace($remote)) {
+            gh issue close $issue.number --repo "${{ github.repository }}" --comment "The pending automation branch no longer exists; closing this stale checkpoint."
+            if ($LASTEXITCODE -ne 0) { throw "Unable to close stale upstream checkpoint issue." }
+            "blocked=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          Write-Warning "Validated upstream branch '$branch' is still awaiting a pull request/merge. Skipping a duplicate refresh run."
+          "Pending validated upstream branch: `$branch` (issue #$($issue.number)). No duplicate branch will be generated." >> $env:GITHUB_STEP_SUMMARY
+          "blocked=true" >> $env:GITHUB_OUTPUT
+          "branch=$branch" >> $env:GITHUB_OUTPUT
+
       - name: Configure updater identity
+        if: steps.pending.outputs.blocked != 'true'
         shell: pwsh
         run: |
           git config user.name "dlss-nr-manager-upstream-bot"
@@ -45,6 +79,7 @@ jobs:
 
       - name: Detect, vendor and pin new upstream versions
         id: refresh
+        if: steps.pending.outputs.blocked != 'true'
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -74,8 +109,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $branch = "automation/upstream-sync-${{ github.run_id }}"
-          git switch -c $branch
+          $branch = "automation/upstream-sync"
+          $remote = (git ls-remote --heads origin "refs/heads/$branch" | Select-Object -First 1)
+          if ($LASTEXITCODE -ne 0) { throw "Unable to inspect existing automation branch." }
+
+          $remoteSha = ""
+          if (-not [string]::IsNullOrWhiteSpace(($remote | Out-String).Trim())) {
+            $remoteSha = (($remote | Out-String).Trim() -split "\s+")[0]
+          }
+
+          git switch -C $branch
+          if ($LASTEXITCODE -ne 0) { throw "Unable to create local automation branch." }
           git add -A
 
           if (-not (git status --porcelain)) {
@@ -85,7 +129,15 @@ jobs:
           $ids = "${{ steps.refresh.outputs.changed_ids }}"
           $version = "${{ steps.refresh.outputs.app_version }}"
           git commit -m "deps: refresh validated upstream dependencies ($ids)"
-          git push --set-upstream origin $branch
+          if ($LASTEXITCODE -ne 0) { throw "Unable to commit refreshed upstream dependencies." }
+
+          if ([string]::IsNullOrWhiteSpace($remoteSha)) {
+            git push --set-upstream origin $branch
+          }
+          else {
+            git push "--force-with-lease=refs/heads/${branch}:$remoteSha" --set-upstream origin $branch
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Unable to publish automation branch safely." }
 
           $body = @"
           Automated upstream synchronization.
@@ -97,7 +149,9 @@ jobs:
           - immutable upstream commit SHA recorded
           - complete source snapshot vendored
           - restricted NVIDIA DLSS SDK remains notify-only
-          - merge occurs only after the Windows/Linux validation jobs pass
+          - Windows/Linux refresh validation must pass
+          - repository-required PR Build check must pass
+          - merge is performed through the protected-main PR path
           - production release consumes manager-owned assets only
           "@
 
@@ -108,6 +162,12 @@ jobs:
           if ($prExit -eq 0) {
             $pr = (gh pr view $branch --json number --jq ".number").Trim()
             if ([string]::IsNullOrWhiteSpace($pr)) { throw "Unable to resolve created PR number." }
+
+            # Events emitted by GITHUB_TOKEN do not reliably trigger other workflows.
+            # Dispatch Build explicitly so the protected-main required check is attached
+            # to this exact automation branch SHA.
+            gh workflow run build.yml --repo "${{ github.repository }}" --ref $branch
+            if ($LASTEXITCODE -ne 0) { throw "Unable to dispatch required Build validation for automated PR #$pr." }
           }
           else {
             $message = ($prOutput | Out-String).Trim()
@@ -115,8 +175,8 @@ jobs:
               throw "Failed to create upstream refresh PR: $message"
             }
 
-            Write-Warning "Repository policy blocks PR creation by GITHUB_TOKEN. Continuing with the pushed automation branch; promotion will occur only after Windows/Linux validation and an unchanged-main check."
-            "PR creation by GitHub Actions is disabled for this repository. Validation will continue on branch ``$branch`` and promotion will use the guarded branch fallback." >> $env:GITHUB_STEP_SUMMARY
+            Write-Warning "Repository policy blocks PR creation by GITHUB_TOKEN. Validation will continue, but promotion will stop at a persistent validated branch + issue instead of attempting a forbidden push to main."
+            "PR creation by GitHub Actions is disabled. The stable branch `$branch` will be validated and then recorded in a persistent issue; no direct push to protected `main` will be attempted." >> $env:GITHUB_STEP_SUMMARY
             $global:LASTEXITCODE = 0
           }
 
@@ -226,47 +286,62 @@ jobs:
     if: needs.prepare.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          fetch-depth: 0
-
       - name: Promote validated dependency update
+        id: promote
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           pr="${{ needs.prepare.outputs.pr_number }}"
           branch="${{ needs.prepare.outputs.branch }}"
+          ids="${{ needs.prepare.outputs.changed_ids }}"
 
           if [ -n "$pr" ]; then
+            echo "Waiting for repository-required checks on PR #$pr..."
+            gh pr checks "$pr" --repo "${{ github.repository }}" --required --watch --interval 15
             gh pr merge "$pr" --repo "${{ github.repository }}" --squash --delete-branch
-          else
-            echo "::warning::GitHub Actions PR creation is disabled; using guarded validated-branch promotion."
-            git config user.name "dlss-nr-manager-upstream-bot"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git fetch origin "main:refs/remotes/origin/main" "$branch:refs/remotes/origin/$branch"
-
-            expected_main="${{ github.sha }}"
-            current_main="$(git rev-parse refs/remotes/origin/main)"
-            if [ "$current_main" != "$expected_main" ]; then
-              echo "::error::main moved during upstream validation ($expected_main -> $current_main); refusing automatic promotion."
-              exit 1
-            fi
-
-            git checkout -B main refs/remotes/origin/main
-            git merge --squash "refs/remotes/origin/$branch"
-            if git diff --cached --quiet; then
-              echo "::error::Validated automation branch produced no promotable diff."
-              exit 1
-            fi
-
-            git commit -m "deps: promote validated upstream dependencies (${{ needs.prepare.outputs.changed_ids }})"
-            git push origin main
-            git push origin --delete "$branch"
+            echo "promoted=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-      - name: Refresh manager-owned runtime seed
-        env:
-          GH_TOKEN: ${{ github.token }}
+          title="[upstream] validated branch awaiting PR"
+          body_file="$RUNNER_TEMP/upstream-pending.md"
+          cat > "$body_file" <<EOF
+          A dependency update has passed the refresh-circuit validations but GitHub repository policy prevents `GITHUB_TOKEN` from creating the required pull request.
+
+          Validated branch: `$branch`
+          Updated dependencies: `$ids`
+          Source workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Verified in this run:
+          - upstream detection/vendorization completed
+          - strict self-contained audit completed
+          - Windows validation completed
+          - Linux validation completed
+
+          Protected-main policy remains intact. No direct push to `main` was attempted.
+
+          Required action:
+          1. Create a PR from `$branch` to `main`.
+          2. Let the repository-required `build` check pass.
+          3. Merge with squash.
+          4. The main push will trigger Runtime Seed Refresh automatically.
+
+          To restore fully autonomous promotion, enable the GitHub repository setting that allows GitHub Actions to create pull requests, or provide a dedicated credential with equivalent scoped permission.
+          EOF
+
+          existing="$(gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number,title --jq '.[] | select(.title == "[upstream] validated branch awaiting PR") | .number' | head -n 1)"
+          if [ -z "$existing" ]; then
+            gh issue create --repo "${{ github.repository }}" --title "$title" --body-file "$body_file"
+          else
+            gh issue edit "$existing" --repo "${{ github.repository }}" --body-file "$body_file"
+          fi
+
+          echo "::warning::Validated dependency branch is awaiting a protected-main pull request. See issue '$title'."
+          echo "Validated branch `$branch` is intentionally left pending because Actions cannot create the required PR." >> "$GITHUB_STEP_SUMMARY"
+          echo "promoted=false" >> "$GITHUB_OUTPUT"
+
+      - name: Confirm runtime refresh trigger
+        if: steps.promote.outputs.promoted == 'true'
         run: |
-          gh workflow run runtime-refresh.yml --repo ${{ github.repository }} --ref main -f changed_ids="${{ needs.prepare.outputs.changed_ids }}"
+          echo "Dependency PR merged. Its push to main triggers Runtime Seed Refresh through the existing path filters."
