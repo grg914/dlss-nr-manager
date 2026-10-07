@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "description": "Policy registry for automatic upstream detection. Production builds never use these URLs; only the refresh circuit may contact them.",
+  "sources": [
+    {
+      "id": "caustica",
+      "provider": "github",
+      "repository": "grg914/Caustica-RTX",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "streamline",
+      "provider": "github",
+      "repository": "NVIDIA-RTX/Streamline",
+      "strategy": "latest-release",
+      "enabled": true,
+      "promotion": "auto-after-validation",
+      "lock_tag_field": "release_tag",
+      "release_asset_pattern": "^streamline-sdk-v.*\\.zip$",
+      "lock_asset_field": "release_asset",
+      "lock_asset_sha256_field": "release_sha256"
+    },
+    {
+      "id": "optiscaler",
+      "provider": "github",
+      "repository": "wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "video2dlssnr",
+      "provider": "github",
+      "repository": "DaniilSokolyuk/video2dlssnr",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "notify-only",
+      "reason": "Native rebuild requires local license-restricted NVIDIA SDK/runtime inputs; detect automatically but do not promote an unusable runtime."
+    },
+    {
+      "id": "ffmpeg",
+      "provider": "github",
+      "repository": "FFmpeg/FFmpeg",
+      "strategy": "latest-tag",
+      "tag_regex": "^n(?<version>\\d+\\.\\d+(?:\\.\\d+)?)$",
+      "enabled": true,
+      "promotion": "auto-after-validation",
+      "lock_tag_field": "source_tag"
+    },
+    {
+      "id": "ffmpeg-builds",
+      "provider": "github",
+      "repository": "BtbN/FFmpeg-Builds",
+      "strategy": "default-branch-head",
+      "enabled": false,
+      "promotion": "manual",
+      "reason": "Historical/reference build recipes only; not used by the production runtime."
+    },
+    {
+      "id": "nv-codec-headers",
+      "provider": "github",
+      "repository": "FFmpeg/nv-codec-headers",
+      "strategy": "latest-tag",
+      "tag_regex": "^n(?<version>\\d+(?:\\.\\d+){1,3})$",
+      "enabled": true,
+      "promotion": "auto-after-validation",
+      "lock_tag_field": "source_tag"
+    },
+    {
+      "id": "realesrgan",
+      "provider": "github",
+      "repository": "xinntao/Real-ESRGAN-ncnn-vulkan",
+      "strategy": "latest-release",
+      "enabled": true,
+      "promotion": "auto-after-validation",
+      "lock_tag_field": "source_tag"
+    },
+    {
+      "id": "realesrgan-model-source-a",
+      "provider": "github",
+      "repository": "Tohrusky/realesrgan-ncnn-py",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "realesrgan-model-source-b",
+      "provider": "github",
+      "repository": "itsspin/spintexture",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "reshade",
+      "provider": "github",
+      "repository": "crosire/reshade",
+      "strategy": "latest-tag",
+      "enabled": true,
+      "promotion": "auto-after-validation",
+      "lock_tag_field": "base_tag",
+      "tag_regex": "^v(?<version>\\d+\\.\\d+\\.\\d+)$"
+    },
+    {
+      "id": "scoop-versions",
+      "provider": "github",
+      "repository": "ScoopInstaller/Versions",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "onnxruntime",
+      "provider": "github",
+      "repository": "microsoft/onnxruntime",
+      "strategy": "latest-release",
+      "enabled": true,
+      "promotion": "auto-after-validation",
+      "lock_tag_field": "source_tag"
+    },
+    {
+      "id": "ai-primary",
+      "provider": "huggingface",
+      "enabled": false,
+      "promotion": "manual",
+      "reason": "Not a GitHub upstream; retained as an immutable vendored model snapshot."
+    },
+    {
+      "id": "ai-secondary",
+      "provider": "huggingface",
+      "enabled": false,
+      "promotion": "manual",
+      "reason": "Not a GitHub upstream; retained as an immutable vendored model snapshot."
+    },
+    {
+      "id": "minecraft-fabric-installer",
+      "provider": "github",
+      "repository": "FabricMC/fabric-installer",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "minecraft-fabric-api",
+      "provider": "github",
+      "repository": "FabricMC/fabric-api",
+      "strategy": "branch-head",
+      "branch": "26.2",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "minecraft-lithium",
+      "provider": "github",
+      "repository": "CaffeineMC/lithium",
+      "strategy": "branch-head",
+      "branch": "26.2",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "minecraft-ferritecore",
+      "provider": "github",
+      "repository": "malte0811/FerriteCore",
+      "strategy": "branch-head",
+      "enabled": true,
+      "promotion": "auto-after-validation",
+      "branch": "26.1"
+    },
+    {
+      "id": "minecraft-krypton",
+      "provider": "github",
+      "repository": "astei/krypton",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "minecraft-c2me",
+      "provider": "github",
+      "repository": "RelativityMC/C2ME-fabric",
+      "strategy": "branch-head",
+      "branch": "dev/26.2.0",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "minecraft-badoptimizations",
+      "provider": "github",
+      "repository": "imthosea/BadOptimizations",
+      "strategy": "branch-head",
+      "branch": "26.2",
+      "enabled": true,
+      "promotion": "auto-after-validation"
+    },
+    {
+      "id": "minecraft-dynamic-fps",
+      "provider": "github",
+      "repository": "juliand665/Dynamic-FPS",
+      "strategy": "latest-release",
+      "enabled": true,
+      "promotion": "auto-after-validation",
+      "lock_tag_field": "source_tag",
+      "release_name_regex": "(?i)Minecraft.*26\\.2"
+    },
+    {
+      "id": "nvidia-dlss-sdk",
+      "provider": "github",
+      "repository": "NVIDIA/DLSS",
+      "strategy": "latest-release",
+      "enabled": true,
+      "promotion": "notify-only",
+      "lock_tag_field": "source_tag",
+      "reason": "License-restricted SDK: detect automatically, but never vendor or publish raw SDK material."
+    }
+  ]
+}

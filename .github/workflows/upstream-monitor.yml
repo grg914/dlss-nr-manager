@@ -1,0 +1,230 @@
+name: Upstream Dependency Sync
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/upstream-monitor.yml'
+      - 'third_party/UPSTREAMS.json'
+      - 'tools/refresh-upstream.ps1'
+      - 'tools/refresh-minecraft-runtime-lock.ps1'
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: upstream-dependency-sync
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: windows-latest
+    outputs:
+      changed: ${{ steps.refresh.outputs.changed }}
+      changed_ids: ${{ steps.refresh.outputs.changed_ids }}
+      notify_ids: ${{ steps.refresh.outputs.notify_ids }}
+      branch: ${{ steps.publish.outputs.branch }}
+      pr_number: ${{ steps.publish.outputs.pr_number }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Configure updater identity
+        shell: pwsh
+        run: |
+          git config user.name "dlss-nr-manager-upstream-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect, vendor and pin new upstream versions
+        id: refresh
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\refresh-upstream.ps1 -Apply -BumpPatchVersion
+          if ($LASTEXITCODE -ne 0) { throw "Upstream refresh failed." }
+
+      - name: Refresh Minecraft runtime lock
+        if: steps.refresh.outputs.changed == 'true' && contains(steps.refresh.outputs.changed_ids, 'minecraft-')
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\refresh-minecraft-runtime-lock.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Minecraft runtime lock refresh failed." }
+          git add -- third_party/minecraft/RUNTIME.lock.json
+
+      - name: Validate refreshed vendored tree
+        if: steps.refresh.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-self-contained.ps1 -Strict -AllowLfsPointers
+          if ($LASTEXITCODE -ne 0) { throw "Strict self-contained audit failed." }
+
+      - name: Publish dependency PR
+        id: publish
+        if: steps.refresh.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $branch = "automation/upstream-sync-${{ github.run_id }}"
+          git switch -c $branch
+          git add -A
+
+          if (-not (git status --porcelain)) {
+            throw "Updater reported changes but the worktree is clean."
+          }
+
+          $ids = "${{ steps.refresh.outputs.changed_ids }}"
+          $version = "${{ steps.refresh.outputs.app_version }}"
+          git commit -m "deps: refresh validated upstream dependencies ($ids)"
+          git push --set-upstream origin $branch
+
+          $body = @"
+          Automated upstream synchronization.
+
+          Updated dependencies: $ids
+          Application version: $version
+
+          Promotion policy:
+          - immutable upstream commit SHA recorded
+          - complete source snapshot vendored
+          - restricted NVIDIA DLSS SDK remains notify-only
+          - merge occurs only after the Windows/Linux validation jobs pass
+          - production release consumes manager-owned assets only
+          "@
+
+          gh pr create --base main --head $branch --title "deps: automated upstream refresh ($ids)" --body $body
+          if ($LASTEXITCODE -ne 0) { throw "Failed to create upstream refresh PR." }
+
+          $pr = (gh pr view $branch --json number --jq ".number").Trim()
+          if ([string]::IsNullOrWhiteSpace($pr)) { throw "Unable to resolve created PR number." }
+
+          "branch=$branch" >> $env:GITHUB_OUTPUT
+          "pr_number=$pr" >> $env:GITHUB_OUTPUT
+
+      - name: Record restricted updates
+        if: steps.refresh.outputs.notify_ids != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ids = "${{ steps.refresh.outputs.notify_ids }}"
+          "Restricted/manual upstream updates detected: $ids" >> $env:GITHUB_STEP_SUMMARY
+
+          $title = "[upstream] restricted update: $ids"
+          $existing = gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number" |
+            Select-Object -First 1
+
+          if ([string]::IsNullOrWhiteSpace($existing)) {
+            $body = @"
+          A newer upstream revision was detected for a dependency that cannot be automatically promoted because it crosses a license-restricted/local build boundary.
+
+          Dependency ids: $ids
+
+          No restricted NVIDIA SDK/runtime material was downloaded into the public repository and no production asset was changed automatically.
+
+          Resolve this by supplying the required licensed input locally, rebuilding the affected manager-owned runtime, validating signatures/hashes, then updating the corresponding lock.
+          "@
+            gh issue create --repo "${{ github.repository }}" --title $title --body $body
+            if ($LASTEXITCODE -ne 0) { throw "Unable to create restricted upstream update issue." }
+          }
+          else {
+            Write-Host "Restricted upstream issue #$existing is already open."
+          }
+
+  validate-windows:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.branch }}
+          lfs: true
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Strict self-contained audit
+        shell: pwsh
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-self-contained.ps1 -Strict
+
+      - name: Restore and test manager
+        shell: pwsh
+        run: |
+          dotnet restore DlssNrManager.csproj
+          dotnet restore tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj
+          dotnet test tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj -c Release --no-restore -p:TreatWarningsAsErrors=true
+          dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -warnaserror -o publish-validation
+
+      - name: Validate Real-ESRGAN build
+        if: contains(needs.prepare.outputs.changed_ids, 'realesrgan')
+        shell: pwsh
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan-validation -Clean
+
+      - name: Validate OptiScaler build
+        if: contains(needs.prepare.outputs.changed_ids, 'optiscaler')
+        shell: pwsh
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory build-optiscaler-validation -Clean
+
+      - name: Validate ReShade build
+        if: contains(needs.prepare.outputs.changed_ids, 'reshade')
+        shell: pwsh
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-reshade.ps1 -OutputDirectory build-reshade-validation -Clean
+
+      - name: Validate Minecraft runtime bootstrap
+        if: contains(needs.prepare.outputs.changed_ids, 'minecraft-')
+        shell: pwsh
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\bootstrap-minecraft-runtime.ps1 -NoUpload
+
+  validate-linux:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.branch }}
+          lfs: true
+
+      - name: Validate FFmpeg build
+        if: contains(needs.prepare.outputs.changed_ids, 'ffmpeg') || contains(needs.prepare.outputs.changed_ids, 'nv-codec-headers')
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 nasm pkg-config make zip binutils-mingw-w64-x86-64
+          bash ./tools/build-ffmpeg-windows.sh
+
+      - name: No Linux-specific build required
+        if: ${{ !(contains(needs.prepare.outputs.changed_ids, 'ffmpeg') || contains(needs.prepare.outputs.changed_ids, 'nv-codec-headers')) }}
+        run: echo "No Linux-specific upstream validation required."
+
+  promote:
+    needs: [prepare, validate-windows, validate-linux]
+    if: needs.prepare.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge validated dependency PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge ${{ needs.prepare.outputs.pr_number }} --repo ${{ github.repository }} --squash --delete-branch
+          if [ $? -ne 0 ]; then
+            echo "::error::Validated dependency PR could not be merged."
+            exit 1
+          fi
+
+      - name: Refresh manager-owned runtime seed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run runtime-refresh.yml --repo ${{ github.repository }} --ref main -f changed_ids="${{ needs.prepare.outputs.changed_ids }}"

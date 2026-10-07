@@ -4,14 +4,23 @@ using System.Text.Json;
 
 namespace DlssNrManager.Services;
 
+public sealed record ManagerComponentDescriptor(
+    string Id,
+    string Name,
+    string Version,
+    string Asset,
+    string Sha256,
+    string? SourceId,
+    string? SourceRef,
+    string Channel);
+
 public sealed class ComponentUpdateService
 {
     private const string ManagerLatestReleaseApi =
         "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
-    private const string ManagerProcessorAsset =
-        "video2dlssnr_release.zip";
-    private const string ManagerFfmpegAsset =
-        "ffmpeg-dlssnr-win-x64.zip";
+    private const string ManagerProcessorAsset = "video2dlssnr_release.zip";
+    private const string ManagerFfmpegAsset = "ffmpeg-dlssnr-win-x64.zip";
+    private const string ManagerManifestAsset = "components-manifest.json";
 
     private readonly HttpClient _http = new();
 
@@ -22,7 +31,7 @@ public sealed class ComponentUpdateService
 
     public ComponentUpdateService()
     {
-        _http.Timeout = TimeSpan.FromSeconds(12);
+        _http.Timeout = TimeSpan.FromSeconds(20);
         _http.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(
@@ -42,29 +51,55 @@ public sealed class ComponentUpdateService
             checkedAt != default &&
             DateTimeOffset.UtcNow - checkedAt < TimeSpan.FromHours(6))
         {
-            progress?.Report("Media components were checked recently.");
+            progress?.Report("Manager-owned components were checked recently.");
             return false;
         }
 
         var remote = await GetRemoteStateAsync(cancellationToken);
+
+        var hasManifestFingerprint =
+            !string.IsNullOrWhiteSpace(remote.MediaFingerprint);
+
         var changed =
             !media.IsReady ||
-            !string.Equals(local?.ProcessorTag, remote.ProcessorTag, StringComparison.Ordinal) ||
-            local?.FfmpegAssetId != remote.FfmpegAssetId;
+            (hasManifestFingerprint
+                ? !string.Equals(
+                    local?.MediaFingerprint,
+                    remote.MediaFingerprint,
+                    StringComparison.OrdinalIgnoreCase)
+                : !string.Equals(
+                      local?.ProcessorTag,
+                      remote.ProcessorTag,
+                      StringComparison.Ordinal) ||
+                  local?.FfmpegAssetId != remote.FfmpegAssetId);
 
         if (changed)
         {
-            progress?.Report("Updating GitHub media components…");
+            progress?.Report("Updating manager-owned media components…");
             await media.UpdateToolsAsync(progress, cancellationToken);
-            progress?.Report("GitHub media components updated.");
+            progress?.Report("Manager-owned media components updated.");
         }
         else
         {
-            progress?.Report("GitHub components are up to date.");
+            progress?.Report("Manager-owned components are up to date.");
         }
 
         SaveState(remote with { CheckedAt = DateTimeOffset.UtcNow });
         return changed;
+    }
+
+    public async Task<IReadOnlyList<ManagerComponentDescriptor>>
+        GetAvailableComponentsAsync(
+            CancellationToken cancellationToken = default)
+    {
+        using var manager = await GetJsonAsync(
+            ManagerLatestReleaseApi,
+            cancellationToken);
+
+        return await TryReadManifestAsync(
+                   manager.RootElement,
+                   cancellationToken)
+               ?? [];
     }
 
     public async Task<ComponentState> GetRemoteStateAsync(
@@ -110,11 +145,164 @@ public sealed class ComponentUpdateService
                 $"Latest DLSS NR Manager release has no {ManagerFfmpegAsset} asset.");
         }
 
+        var manifest = await TryReadManifestAsync(
+            manager.RootElement,
+            cancellationToken);
+
+        var mediaFingerprint = BuildMediaFingerprint(manifest);
+
         return new ComponentState(
             $"manager:{processorAssetId}",
             ffmpegAssetId,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            mediaFingerprint);
     }
+
+    private async Task<IReadOnlyList<ManagerComponentDescriptor>?>
+        TryReadManifestAsync(
+            JsonElement release,
+            CancellationToken cancellationToken)
+    {
+        if (!release.TryGetProperty("assets", out var assets) ||
+            assets.ValueKind != JsonValueKind.Array)
+            return null;
+
+        string? manifestUrl = null;
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            var name = asset.TryGetProperty("name", out var nameElement)
+                ? nameElement.GetString()
+                : null;
+
+            if (!string.Equals(
+                    name,
+                    ManagerManifestAsset,
+                    StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            manifestUrl = asset.TryGetProperty(
+                    "browser_download_url",
+                    out var urlElement)
+                ? urlElement.GetString()
+                : null;
+
+            break;
+        }
+
+        if (string.IsNullOrWhiteSpace(manifestUrl))
+            return null;
+
+        if (!Uri.TryCreate(
+                manifestUrl,
+                UriKind.Absolute,
+                out var uri) ||
+            !uri.Scheme.Equals(
+                Uri.UriSchemeHttps,
+                StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.Equals(
+                "github.com",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Unexpected manager component manifest URL: {manifestUrl}");
+        }
+
+        using var manifest = await GetJsonAsync(
+            uri.AbsoluteUri,
+            cancellationToken);
+
+        if (!manifest.RootElement.TryGetProperty(
+                "schema",
+                out var schemaElement) ||
+            schemaElement.GetInt32() != 1)
+        {
+            throw new InvalidDataException(
+                "Unsupported manager component manifest schema.");
+        }
+
+        if (!manifest.RootElement.TryGetProperty(
+                "components",
+                out var components) ||
+            components.ValueKind != JsonValueKind.Array)
+        {
+            throw new InvalidDataException(
+                "Manager component manifest has no components array.");
+        }
+
+        var result = new List<ManagerComponentDescriptor>();
+
+        foreach (var component in components.EnumerateArray())
+        {
+            var id = ReadString(component, "id");
+            var name = ReadString(component, "name");
+            var version = ReadString(component, "version");
+            var asset = ReadString(component, "asset");
+            var sha256 = ReadString(component, "sha256");
+            var channel = ReadString(component, "channel");
+
+            if (string.IsNullOrWhiteSpace(id) ||
+                string.IsNullOrWhiteSpace(asset) ||
+                sha256.Length != 64)
+            {
+                throw new InvalidDataException(
+                    "Manager component manifest contains an invalid component entry.");
+            }
+
+            result.Add(
+                new ManagerComponentDescriptor(
+                    id,
+                    name,
+                    version,
+                    asset,
+                    sha256.ToLowerInvariant(),
+                    ReadNullableString(component, "source_id"),
+                    ReadNullableString(component, "source_ref"),
+                    string.IsNullOrWhiteSpace(channel)
+                        ? "stable"
+                        : channel));
+        }
+
+        return result;
+    }
+
+    private static string? BuildMediaFingerprint(
+        IReadOnlyList<ManagerComponentDescriptor>? components)
+    {
+        if (components == null)
+            return null;
+
+        var processor = components.FirstOrDefault(
+            item => item.Id.Equals(
+                "video2dlssnr",
+                StringComparison.OrdinalIgnoreCase));
+
+        var ffmpeg = components.FirstOrDefault(
+            item => item.Id.Equals(
+                "ffmpeg",
+                StringComparison.OrdinalIgnoreCase));
+
+        if (processor == null || ffmpeg == null)
+            return null;
+
+        return $"video2dlssnr:{processor.Sha256}|ffmpeg:{ffmpeg.Sha256}";
+    }
+
+    private static string ReadString(
+        JsonElement element,
+        string property)
+        => element.TryGetProperty(property, out var value) &&
+           value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? ""
+            : "";
+
+    private static string? ReadNullableString(
+        JsonElement element,
+        string property)
+        => element.TryGetProperty(property, out var value) &&
+           value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     private async Task<JsonDocument> GetJsonAsync(
         string url,
@@ -169,10 +357,12 @@ public sealed class ComponentUpdateService
             Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
             AtomicFile.WriteAllText(
                 StatePath,
-                JsonSerializer.Serialize(state, new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                }));
+                JsonSerializer.Serialize(
+                    state,
+                    new JsonSerializerOptions
+                    {
+                        WriteIndented = true
+                    }));
         }
         catch { }
     }
@@ -181,4 +371,5 @@ public sealed class ComponentUpdateService
 public sealed record ComponentState(
     string ProcessorTag,
     long FfmpegAssetId,
-    DateTimeOffset CheckedAt = default);
+    DateTimeOffset CheckedAt = default,
+    string? MediaFingerprint = null);
