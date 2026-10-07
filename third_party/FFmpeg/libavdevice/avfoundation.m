@@ -25,21 +25,7 @@
  * @author Thilo Borgmann <thilo.borgmann@mail.de>
  */
 
-#include "config.h"
-
 #import <AVFoundation/AVFoundation.h>
-#if HAVE_IOKIT
-#   import <IOKit/IOKitLib.h>
-    /* kIOMainPortDefault is only available since macOS 12 or iOS 15; fall back
-     * to the equivalent kIOMasterPortDefault on macOS when targeting older
-     * releases. */
-#   if (TARGET_OS_OSX && __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000) || (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 150000)
-#       define AVF_IO_MAIN_PORT_DEFAULT kIOMainPortDefault
-#   elif TARGET_OS_OSX
-#       define AVF_IO_MAIN_PORT_DEFAULT kIOMasterPortDefault
-#   endif
-#endif
-
 #include <pthread.h>
 
 #include "libavutil/channel_layout.h"
@@ -103,8 +89,6 @@ typedef struct
     int             frames_captured;
     int             audio_frames_captured;
     pthread_mutex_t frame_lock;
-    pthread_cond_t  frame_wait_cond;
-    int             is_stopping;
     id              avf_delegate;
     id              avf_audio_delegate;
 
@@ -127,8 +111,6 @@ typedef struct
     char            *url;
     char            *video_filename;
     char            *audio_filename;
-    char            *video_device_id;
-    char            *audio_device_id;
 
     int             num_video_devices;
 
@@ -165,7 +147,6 @@ static void lock_frames(AVFContext* ctx)
 
 static void unlock_frames(AVFContext* ctx)
 {
-    pthread_cond_broadcast(&ctx->frame_wait_cond);
     pthread_mutex_unlock(&ctx->frame_lock);
 }
 
@@ -229,12 +210,7 @@ static void unlock_frames(AVFContext* ctx)
 
         if (mode != _context->observed_mode) {
             if (mode == AVCaptureDeviceTransportControlsNotPlayingMode) {
-                // Set under the lock and broadcast so a reader blocked in
-                // avf_read_packet() wakes up and returns EOF instead of
-                // hanging once the device stops delivering frames.
-                lock_frames(_context);
                 _context->observed_quit = 1;
-                unlock_frames(_context);
             }
             _context->observed_mode = mode;
         }
@@ -253,13 +229,8 @@ static void unlock_frames(AVFContext* ctx)
 {
     lock_frames(_context);
 
-    while ((_context->current_frame != nil) && !_context->is_stopping) {
-        pthread_cond_wait(&_context->frame_wait_cond, &_context->frame_lock);
-    }
-
-    if (_context->is_stopping) {
-        unlock_frames(_context);
-        return;
+    if (_context->current_frame != nil) {
+        CFRelease(_context->current_frame);
     }
 
     _context->current_frame = (CMSampleBufferRef)CFRetain(videoFrame);
@@ -302,13 +273,8 @@ static void unlock_frames(AVFContext* ctx)
 {
     lock_frames(_context);
 
-    while ((_context->current_audio_frame != nil) && !_context->is_stopping) {
-        pthread_cond_wait(&_context->frame_wait_cond, &_context->frame_lock);
-    }
-
-    if (_context->is_stopping) {
-        unlock_frames(_context);
-        return;
+    if (_context->current_audio_frame != nil) {
+        CFRelease(_context->current_audio_frame);
     }
 
     _context->current_audio_frame = (CMSampleBufferRef)CFRetain(audioFrame);
@@ -322,12 +288,6 @@ static void unlock_frames(AVFContext* ctx)
 
 static void destroy_context(AVFContext* ctx)
 {
-    // Wake any capture callback blocked waiting for the consumer and make it
-    // bail out, so stopRunning() can drain the session without a deadlock.
-    lock_frames(ctx);
-    ctx->is_stopping = 1;
-    unlock_frames(ctx);
-
     [ctx->capture_session stopRunning];
 
     [ctx->capture_session release];
@@ -345,17 +305,10 @@ static void destroy_context(AVFContext* ctx)
     av_freep(&ctx->url);
     av_freep(&ctx->audio_buffer);
 
-    pthread_cond_destroy(&ctx->frame_wait_cond);
     pthread_mutex_destroy(&ctx->frame_lock);
 
     if (ctx->current_frame) {
         CFRelease(ctx->current_frame);
-        ctx->current_frame = nil;
-    }
-
-    if (ctx->current_audio_frame) {
-        CFRelease(ctx->current_audio_frame);
-        ctx->current_audio_frame = nil;
     }
 }
 
@@ -394,7 +347,6 @@ static int configure_video_device(AVFormatContext *s, AVCaptureDevice *video_dev
     double framerate = av_q2d(ctx->framerate);
     NSObject *range = nil;
     NSObject *format = nil;
-    NSObject *matching_size_format = nil;
     NSObject *selected_range = nil;
     NSObject *selected_format = nil;
 
@@ -412,14 +364,13 @@ static int configure_video_device(AVFormatContext *s, AVCaptureDevice *video_dev
             if ((ctx->width == 0 && ctx->height == 0) ||
                 (dimensions.width == ctx->width && dimensions.height == ctx->height)) {
 
-                matching_size_format = format;
+                selected_format = format;
 
                 for (range in [format valueForKey:@"videoSupportedFrameRateRanges"]) {
                     double max_framerate;
 
                     [[range valueForKey:@"maxFrameRate"] getValue:&max_framerate];
                     if (fabs (framerate - max_framerate) < 0.01) {
-                        selected_format = format;
                         selected_range = range;
                         break;
                     }
@@ -427,7 +378,7 @@ static int configure_video_device(AVFormatContext *s, AVCaptureDevice *video_dev
             }
         }
 
-        if (!matching_size_format) {
+        if (!selected_format) {
             av_log(s, AV_LOG_ERROR, "Selected video size (%dx%d) is not supported by the device.\n",
                 ctx->width, ctx->height);
             goto unsupported_format;
@@ -437,7 +388,6 @@ static int configure_video_device(AVFormatContext *s, AVCaptureDevice *video_dev
             av_log(s, AV_LOG_ERROR, "Selected framerate (%f) is not supported by the device.\n",
                 framerate);
             if (ctx->video_is_muxed) {
-                selected_format = matching_size_format;
                 av_log(s, AV_LOG_ERROR, "Falling back to default.\n");
             } else {
                 goto unsupported_format;
@@ -498,7 +448,7 @@ static int add_video_device(AVFormatContext *s, AVCaptureDevice *video_device)
     NSDictionary *capture_dict;
     dispatch_queue_t queue;
 
-    if (!ctx->video_is_screen) {
+    if (ctx->video_device_index < ctx->num_video_devices) {
         capture_input = (AVCaptureInput*) [[[AVCaptureDeviceInput alloc] initWithDevice:video_device error:&error] autorelease];
     } else {
         capture_input = (AVCaptureInput*) video_device;
@@ -871,216 +821,6 @@ static NSArray* getDevicesWithMediaType(AVMediaType mediaType) {
 #endif
 }
 
-#if HAVE_IOKIT && defined(AVF_IO_MAIN_PORT_DEFAULT)
-static int avf_io_get_string(io_service_t service, CFStringRef key, char *buf, size_t size)
-{
-    CFTypeRef ref = IORegistryEntryCreateCFProperty(service, key, kCFAllocatorDefault, 0);
-    int ok = ref && CFGetTypeID(ref) == CFStringGetTypeID() && CFStringGetCString(ref, buf, size, kCFStringEncodingUTF8);
-    if (ref)
-        CFRelease(ref);
-    return ok;
-}
-
-static int avf_io_get_uint32(io_service_t service, CFStringRef key, uint32_t *out)
-{
-    CFTypeRef ref = IORegistryEntryCreateCFProperty(service, key, kCFAllocatorDefault, 0);
-    int ok = ref && CFGetTypeID(ref) == CFNumberGetTypeID() && CFNumberGetValue(ref, kCFNumberSInt32Type, out);
-    if (ref)
-        CFRelease(ref);
-    return ok;
-}
-
-static int64_t avf_usb_location_for_serial(const char *serial)
-{
-    int64_t location = -1;
-    io_iterator_t iterator = 0;
-    io_service_t service;
-
-    if (IOServiceGetMatchingServices(AVF_IO_MAIN_PORT_DEFAULT,
-            IOServiceMatching("IOUSBHostDevice"), &iterator) != KERN_SUCCESS)
-        return -1;
-
-    while (location < 0 && (service = IOIteratorNext(iterator))) {
-        char found[512];
-        uint32_t loc;
-        if (avf_io_get_string(service, CFSTR("USB Serial Number"), found, sizeof(found)) &&
-            !strcmp(found, serial) &&
-            avf_io_get_uint32(service, CFSTR("locationID"), &loc))
-            location = loc;
-        IOObjectRelease(service);
-    }
-    IOObjectRelease(iterator);
-
-    return location;
-}
-
-static NSString *avf_usb_serial_for_location(uint32_t location)
-{
-    NSString *serial = nil;
-    io_iterator_t iterator = 0;
-    io_service_t service;
-
-    if (IOServiceGetMatchingServices(AVF_IO_MAIN_PORT_DEFAULT,
-            IOServiceMatching("IOUSBHostDevice"), &iterator) != KERN_SUCCESS)
-        return nil;
-
-    while (!serial && (service = IOIteratorNext(iterator))) {
-        char found[512];
-        uint32_t loc;
-        if (avf_io_get_uint32(service, CFSTR("locationID"), &loc) && loc == location &&
-            avf_io_get_string(service, CFSTR("USB Serial Number"), found, sizeof(found)))
-            serial = [NSString stringWithUTF8String:found];
-        IOObjectRelease(service);
-    }
-    IOObjectRelease(iterator);
-
-    return serial;
-}
-
-// USB video uniqueID = locationID<<32 | VID<<16 | PID; match on the locationID.
-static AVCaptureDevice *avf_video_device_with_serial(const char *serial,
-    NSArray *devices, NSArray *devices_muxed, int *is_muxed)
-{
-    int64_t location = avf_usb_location_for_serial(serial);
-    NSArray *lists[2] = { devices, devices_muxed };
-
-    if (location < 0)
-        return nil;
-
-    for (int i = 0; i < 2; i++) {
-        for (AVCaptureDevice *device in lists[i]) {
-            NSString *uid = [device uniqueID];
-            if ([uid hasPrefix:@"0x"] &&
-                (uint32_t)(strtoull([uid UTF8String], NULL, 16) >> 32) == (uint32_t)location) {
-                *is_muxed = (i == 1);
-                return device;
-            }
-        }
-    }
-
-    return nil;
-}
-
-// CoreAudio USB-audio UID: AppleUSBAudioEngine:manufacturer:device:serial:interfaces
-static NSString *avf_audio_serial_for_uid(NSString *uid)
-{
-    if (![uid hasPrefix:@"AppleUSBAudioEngine:"])
-        return nil;
-    NSArray<NSString *> *fields = [uid componentsSeparatedByString:@":"];
-    if (fields.count < 5)
-        return nil;
-    NSString *serial = fields[fields.count - 2];
-    if (serial.length && avf_usb_location_for_serial([serial UTF8String]) >= 0)
-        return serial;
-    return nil;
-}
-
-#else
-
-static NSString *avf_usb_serial_for_location(uint32_t location)
-{
-    return nil;
-}
-static AVCaptureDevice *avf_video_device_with_serial(const char *serial,
-    NSArray *devices, NSArray *devices_muxed, int *is_muxed)
-{
-    return nil;
-}
-static NSString *avf_audio_serial_for_uid(NSString *uid)
-{
-    return nil;
-}
-#endif
-
-static AVCaptureDevice *avf_audio_device_with_serial(const char *serial, NSArray *devices)
-{
-    NSString *want = [NSString stringWithUTF8String:serial];
-
-    for (AVCaptureDevice *device in devices)
-        if ([avf_audio_serial_for_uid([device uniqueID]) isEqualToString:want])
-            return device;
-
-    return nil;
-}
-
-static AVCaptureDevice *avf_device_with_uid(const char *uid,
-    NSArray *devices, NSArray *devices_muxed, int *is_muxed)
-{
-    NSString *want = [NSString stringWithUTF8String:uid];
-    NSArray *lists[2] = { devices, devices_muxed };
-
-    for (int i = 0; i < 2; i++) {
-        for (AVCaptureDevice *device in lists[i]) {
-            if ([[device uniqueID] isEqualToString:want]) {
-                if (is_muxed)
-                    *is_muxed = (i == 1);
-                return device;
-            }
-        }
-    }
-
-    return nil;
-}
-
-// Best-effort serial string for -list_devices, or nil.
-static NSString *avf_device_listing_serial(AVCaptureDevice *device)
-{
-    NSString *uid = [device uniqueID];
-
-    if ([uid hasPrefix:@"0x"]) {
-        unsigned long long value = strtoull([uid UTF8String], NULL, 16);
-        NSString *serial = avf_usb_serial_for_location((uint32_t)(value >> 32));
-        return serial.length ? serial : nil;
-    }
-    return avf_audio_serial_for_uid(uid);
-}
-
-static void avf_log_device_entry(AVFContext *ctx, int index, AVCaptureDevice *device)
-{
-    NSString *serial = avf_device_listing_serial(device);
-
-    if (serial)
-        av_log(ctx, AV_LOG_INFO, "[%d] %s  [uid:%s] [serial:%s]\n", index,
-               [[device localizedName] UTF8String], [[device uniqueID] UTF8String],
-               [serial UTF8String]);
-    else
-        av_log(ctx, AV_LOG_INFO, "[%d] %s  [uid:%s]\n", index,
-               [[device localizedName] UTF8String], [[device uniqueID] UTF8String]);
-}
-
-// Returns 1 if a device id was set (*device = match, or nil after logging on miss), else 0.
-static int avf_device_from_id(AVFContext *ctx, AVMediaType media_type,
-    NSArray *devices, NSArray *devices_muxed,
-    const char *id, AVCaptureDevice **device, int *is_muxed)
-{
-    BOOL is_audio     = [media_type isEqualToString:AVMediaTypeAudio];
-    const char *kind  = is_audio ? "Audio" : "Video";
-    const char *value = NULL;
-
-    if (!id)
-        return 0;
-
-    if (av_strstart(id, "serial:", &value)) {
-        if (is_audio)
-            *device = avf_audio_device_with_serial(value, devices);
-        else
-            *device = avf_video_device_with_serial(value, devices, devices_muxed, is_muxed);
-        if (!*device)
-            av_log(ctx, AV_LOG_ERROR,
-                   "%s capture device with serial number '%s' not found\n", kind, value);
-    } else if (av_strstart(id, "uid:", &value)) {
-        *device = avf_device_with_uid(value, devices, devices_muxed, is_muxed);
-        if (!*device)
-            av_log(ctx, AV_LOG_ERROR,
-                   "%s capture device with unique ID '%s' not found\n", kind, value);
-    } else {
-        av_log(ctx, AV_LOG_ERROR,
-               "Invalid %s device id '%s': expected 'uid:<unique ID>' or 'serial:<serial number>'\n",
-               is_audio ? "audio" : "video", id);
-    }
-    return 1;
-}
-
 static int avf_read_header(AVFormatContext *s)
 {
     int ret = 0;
@@ -1092,13 +832,10 @@ static int avf_read_header(AVFormatContext *s)
     // Find capture device
     NSArray *devices       = getDevicesWithMediaType(AVMediaTypeVideo);
     NSArray *devices_muxed = getDevicesWithMediaType(AVMediaTypeMuxed);
-    NSArray *audio_devices = getDevicesWithMediaType(AVMediaTypeAudio);
 
     ctx->num_video_devices = [devices count] + [devices_muxed count];
 
     pthread_mutex_init(&ctx->frame_lock, NULL);
-    pthread_cond_init(&ctx->frame_wait_cond, NULL);
-    ctx->is_stopping = 0;
 
 #if !TARGET_OS_IPHONE && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     CGGetActiveDisplayList(0, NULL, &num_screens);
@@ -1109,12 +846,14 @@ static int avf_read_header(AVFormatContext *s)
         int index = 0;
         av_log(ctx, AV_LOG_INFO, "AVFoundation video devices:\n");
         for (AVCaptureDevice *device in devices) {
-            index = [devices indexOfObject:device];
-            avf_log_device_entry(ctx, index, device);
+            const char *name = [[device localizedName] UTF8String];
+            index            = [devices indexOfObject:device];
+            av_log(ctx, AV_LOG_INFO, "[%d] %s\n", index, name);
         }
         for (AVCaptureDevice *device in devices_muxed) {
-            index = [devices count] + [devices_muxed indexOfObject:device];
-            avf_log_device_entry(ctx, index, device);
+            const char *name = [[device localizedName] UTF8String];
+            index            = [devices count] + [devices_muxed indexOfObject:device];
+            av_log(ctx, AV_LOG_INFO, "[%d] %s\n", index, name);
         }
 #if !TARGET_OS_IPHONE && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         if (num_screens > 0) {
@@ -1129,8 +868,9 @@ static int avf_read_header(AVFormatContext *s)
         av_log(ctx, AV_LOG_INFO, "AVFoundation audio devices:\n");
         devices = getDevicesWithMediaType(AVMediaTypeAudio);
         for (AVCaptureDevice *device in devices) {
-            int index = [devices indexOfObject:device];
-            avf_log_device_entry(ctx, index, device);
+            const char *name = [[device localizedName] UTF8String];
+            int index  = [devices indexOfObject:device];
+            av_log(ctx, AV_LOG_INFO, "[%d] %s\n", index, name);
         }
          goto fail;
     }
@@ -1148,11 +888,7 @@ static int avf_read_header(AVFormatContext *s)
         sscanf(ctx->audio_filename, "%d", &ctx->audio_device_index);
     }
 
-    if (avf_device_from_id(ctx, AVMediaTypeVideo, devices, devices_muxed,
-                           ctx->video_device_id, &video_device, &ctx->video_is_muxed)) {
-        if (!video_device)
-            goto fail;
-    } else if (ctx->video_device_index >= 0) {
+    if (ctx->video_device_index >= 0) {
         if (ctx->video_device_index < ctx->num_video_devices) {
             if (ctx->video_device_index < [devices count]) {
                 video_device = [devices objectAtIndex:ctx->video_device_index];
@@ -1253,23 +989,23 @@ static int avf_read_header(AVFormatContext *s)
     }
 
     // get audio device
-    if (avf_device_from_id(ctx, AVMediaTypeAudio, audio_devices, nil,
-                           ctx->audio_device_id, &audio_device, NULL)) {
-        if (!audio_device)
-            goto fail;
-    } else if (ctx->audio_device_index >= 0) {
-        if (ctx->audio_device_index >= [audio_devices count]) {
+    if (ctx->audio_device_index >= 0) {
+        NSArray *devices = getDevicesWithMediaType(AVMediaTypeAudio);
+
+        if (ctx->audio_device_index >= [devices count]) {
             av_log(ctx, AV_LOG_ERROR, "Invalid audio device index\n");
             goto fail;
         }
 
-        audio_device = [audio_devices objectAtIndex:ctx->audio_device_index];
+        audio_device = [devices objectAtIndex:ctx->audio_device_index];
     } else if (ctx->audio_filename &&
                strncmp(ctx->audio_filename, "none", 4)) {
         if (!strncmp(ctx->audio_filename, "default", 7)) {
             audio_device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeAudio];
         } else {
-        for (AVCaptureDevice *device in audio_devices) {
+        NSArray *devices = getDevicesWithMediaType(AVMediaTypeAudio);
+
+        for (AVCaptureDevice *device in devices) {
             if (!strncmp(ctx->audio_filename, [[device localizedName] UTF8String], strlen(ctx->audio_filename))) {
                 audio_device = device;
                 break;
@@ -1290,7 +1026,7 @@ static int avf_read_header(AVFormatContext *s)
     }
 
     if (video_device) {
-        if (!ctx->video_is_screen) {
+        if (ctx->video_device_index < ctx->num_video_devices) {
             av_log(s, AV_LOG_DEBUG, "'%s' opened\n", [[video_device localizedName] UTF8String]);
         } else {
             av_log(s, AV_LOG_DEBUG, "'%s' opened\n", [[video_device description] UTF8String]);
@@ -1384,10 +1120,10 @@ static int avf_read_packet(AVFormatContext *s, AVPacket *pkt)
 {
     AVFContext* ctx = (AVFContext*)s->priv_data;
 
-    lock_frames(ctx);
     do {
         CVImageBufferRef image_buffer;
         CMBlockBufferRef block_buffer;
+        lock_frames(ctx);
 
         if (ctx->current_frame != nil) {
             int status;
@@ -1517,21 +1253,16 @@ static int avf_read_packet(AVFormatContext *s, AVPacket *pkt)
             ctx->current_audio_frame = nil;
         } else {
             pkt->data = NULL;
+            unlock_frames(ctx);
             if (ctx->observed_quit) {
-                unlock_frames(ctx);
                 return AVERROR_EOF;
+            } else {
+                return AVERROR(EAGAIN);
             }
-            // No frame available yet: wait until a capture callback delivers
-            // one (or until the device is being torn down).
-            pthread_cond_wait(&ctx->frame_wait_cond, &ctx->frame_lock);
         }
-    } while (!pkt->data && !ctx->is_stopping);
 
-    if (ctx->is_stopping) {
         unlock_frames(ctx);
-        return AVERROR_EOF;
-    }
-    unlock_frames(ctx);
+    } while (!pkt->data);
 
     return 0;
 }
@@ -1547,8 +1278,6 @@ static const AVOption options[] = {
     { "list_devices", "list available devices", offsetof(AVFContext, list_devices), AV_OPT_TYPE_BOOL, {.i64=0}, 0, 1, AV_OPT_FLAG_DECODING_PARAM },
     { "video_device_index", "select video device by index for devices with same name (starts at 0)", offsetof(AVFContext, video_device_index), AV_OPT_TYPE_INT, {.i64 = -1}, -1, INT_MAX, AV_OPT_FLAG_DECODING_PARAM },
     { "audio_device_index", "select audio device by index for devices with same name (starts at 0)", offsetof(AVFContext, audio_device_index), AV_OPT_TYPE_INT, {.i64 = -1}, -1, INT_MAX, AV_OPT_FLAG_DECODING_PARAM },
-    { "video_device_id", "select video device by prefixed id (uid:<unique ID> or serial:<USB serial number>)", offsetof(AVFContext, video_device_id), AV_OPT_TYPE_STRING, {.str = NULL}, 0, 0, AV_OPT_FLAG_DECODING_PARAM },
-    { "audio_device_id", "select audio device by prefixed id (uid:<unique ID> or serial:<USB serial number>)", offsetof(AVFContext, audio_device_id), AV_OPT_TYPE_STRING, {.str = NULL}, 0, 0, AV_OPT_FLAG_DECODING_PARAM },
     { "pixel_format", "set pixel format", offsetof(AVFContext, pixel_format), AV_OPT_TYPE_PIXEL_FMT, {.i64 = AV_PIX_FMT_YUV420P}, 0, INT_MAX, AV_OPT_FLAG_DECODING_PARAM},
     { "framerate", "set frame rate", offsetof(AVFContext, framerate), AV_OPT_TYPE_VIDEO_RATE, {.str = "ntsc"}, 0, INT_MAX, AV_OPT_FLAG_DECODING_PARAM },
     { "video_size", "set video size", offsetof(AVFContext, width), AV_OPT_TYPE_IMAGE_SIZE, {.str = NULL}, 0, 0, AV_OPT_FLAG_DECODING_PARAM },

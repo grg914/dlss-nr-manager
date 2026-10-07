@@ -25,68 +25,48 @@
 
 SECTION .text
 
-%macro AVG8 2
-    movq   m2, %2
-    pavgb  %1, m2
-%endmacro
-
-%macro AVG16 2
-    pavgb  %1, %2
-%endmacro
-
-%macro op_avg_8 2
-    movq   m2, %2
-    pavgb  %1, m2
-    movq   %2, %1
-%endmacro
-
-%macro op_avg_16 2
+%macro op_avg 2
     pavgb  %1, %2
     mova   %2, %1
 %endmacro
 
-%macro op_put_8 2
-    movq   %2, %1
-%endmacro
-
-%macro op_put_16 2
+%macro op_put 2
     mova   %2, %1
 %endmacro
 
-%define MOV8  movq
-%define MOV16 movu
-
-%macro PIXELS_L2 3 ; avg vs put, size
-%define OP op_%1_%2
-; void ff_avg/put_pixels8x8_l2_sse2(uint8_t *dst, const uint8_t *src1, const uint8_t *src2,
-;                                   ptrdiff_t dstStride, ptrdiff_t src1Stride)
-cglobal %1_pixels%2x%2_l2, 5,6,%3
+%macro PIXELS_L2 2 ; avg vs put, size
+%define OP op_%1
+; void ff_avg/put_pixels8x8_l2_mmxext(uint8_t *dst, const uint8_t *src1, const uint8_t *src2,
+;                                     ptrdiff_t dstStride, ptrdiff_t src1Stride)
+cglobal %1_pixels%2x%2_l2, 5,6,2
     mov         r5d, %2
 .loop:
-    MOV%2        m0, [r1]
-    MOV%2        m1, [r1+r4]
+    movu         m0, [r1]
+    movu         m1, [r1+r4]
     lea          r1, [r1+2*r4]
-    AVG%2        m0, [r2]
-    AVG%2        m1, [r2+%2]
+    pavgb        m0, [r2]
+    pavgb        m1, [r2+mmsize]
     OP           m0, [r0]
     OP           m1, [r0+r3]
     lea          r0, [r0+2*r3]
-    MOV%2        m0, [r1]
-    MOV%2        m1, [r1+r4]
+    movu         m0, [r1]
+    movu         m1, [r1+r4]
     lea          r1, [r1+2*r4]
-    AVG%2        m0, [r2+2*%2]
-    AVG%2        m1, [r2+3*%2]
+    pavgb        m0, [r2+2*mmsize]
+    pavgb        m1, [r2+3*mmsize]
     OP           m0, [r0]
     OP           m1, [r0+r3]
     lea          r0, [r0+2*r3]
-    add          r2, 4*%2
+    add          r2, 4*mmsize
     sub         r5d, 4
     jne       .loop
     RET
 %endmacro
 
+INIT_MMX mmxext
+PIXELS_L2 put, 8
+PIXELS_L2 avg, 8
+
 INIT_XMM sse2
-PIXELS_L2 put, 8, 3
-PIXELS_L2 avg, 8, 3
-PIXELS_L2 put, 16, 2
-PIXELS_L2 avg, 16, 2
+PIXELS_L2 put, 16
+PIXELS_L2 avg, 16

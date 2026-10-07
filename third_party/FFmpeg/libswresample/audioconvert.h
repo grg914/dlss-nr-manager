@@ -30,10 +30,9 @@
 
 
 #include "swresample_internal.h"
-#include "dsd2pcm.h"
 
 
-typedef void (conv_func_type)(DSDContext *st, uint8_t *po, const uint8_t *pi, int is, int os, uint8_t *end);
+typedef void (conv_func_type)(uint8_t *po, const uint8_t *pi, int is, int os, uint8_t *end);
 typedef void (simd_func_type)(uint8_t **dst, const uint8_t **src, int len);
 
 typedef struct AudioConvert {
@@ -44,7 +43,6 @@ typedef struct AudioConvert {
     simd_func_type *simd_f;
     const int *ch_map;
     uint8_t silence[8]; ///< silence input sample
-    DSDContext dsd_state[SWR_CH_MAX]; ///< per-channel state for DSD input
 }AudioConvert;
 
 /**

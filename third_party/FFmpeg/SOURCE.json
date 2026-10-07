@@ -2,7 +2,7 @@
     "id":  "ffmpeg",
     "group":  "core",
     "url":  "https://github.com/FFmpeg/FFmpeg.git",
-    "ref":  "9008db55d29631ae4ec62d46edea77c840ce0663",
-    "imported_at_utc":  "2026-10-06T21:51:25.2720064Z",
-    "normalized_at_utc":  "2026-10-06T22:16:56.3975924Z"
+    "ref":  "946fcce07b6dcd0331c8cc609192aeff5e1924f8",
+    "tree":  "f314f188666de54687c464fc975e5ee43fae26e1",
+    "imported_at_utc":  "2026-10-07T08:08:48.8190483Z"
 }

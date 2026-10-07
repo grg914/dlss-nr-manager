@@ -22,6 +22,7 @@
  */
 
 #include "libavutil/mem.h"
+#include "libavutil/time.h"
 #include "dnn_backend_common.h"
 
 #define DNN_ASYNC_SUCCESS (void *)0
@@ -89,14 +90,13 @@ int ff_dnn_async_module_cleanup(DNNAsyncExecModule *async_module)
     if (!async_module) {
         return AVERROR(EINVAL);
     }
-    if (async_module->thread_started) {
-        pthread_join(async_module->thread_id, &status);
-        async_module->thread_started = 0;
-        if (status == DNN_ASYNC_FAIL) {
-            av_log(NULL, AV_LOG_ERROR, "Last Inference Failed.\n");
-            return DNN_GENERIC_ERROR;
-        }
+#if HAVE_PTHREAD_CANCEL
+    pthread_join(async_module->thread_id, &status);
+    if (status == DNN_ASYNC_FAIL) {
+        av_log(NULL, AV_LOG_ERROR, "Last Inference Failed.\n");
+        return DNN_GENERIC_ERROR;
     }
+#endif
     async_module->start_inference = NULL;
     async_module->callback = NULL;
     async_module->args = NULL;
@@ -107,8 +107,8 @@ void ff_dnn_wait_requests(SafeQueue *request_queue, int nireq)
 {
     if (!request_queue)
         return;
-
-    ff_safe_queue_wait_for_size(request_queue, nireq);
+    while (ff_safe_queue_size(request_queue) < nireq)
+        av_usleep(10000);
 }
 
 int ff_dnn_start_inference_async(void *ctx, DNNAsyncExecModule *async_module)
@@ -121,21 +121,24 @@ int ff_dnn_start_inference_async(void *ctx, DNNAsyncExecModule *async_module)
         return AVERROR(EINVAL);
     }
 
-    if (async_module->thread_started) {
-        pthread_join(async_module->thread_id, &status);
-        async_module->thread_started = 0;
-        if (status == DNN_ASYNC_FAIL) {
-            av_log(ctx, AV_LOG_ERROR, "Unable to start inference as previous inference failed.\n");
-            return DNN_GENERIC_ERROR;
-        }
+#if HAVE_PTHREAD_CANCEL
+    pthread_join(async_module->thread_id, &status);
+    if (status == DNN_ASYNC_FAIL) {
+        av_log(ctx, AV_LOG_ERROR, "Unable to start inference as previous inference failed.\n");
+        return DNN_GENERIC_ERROR;
     }
     ret = pthread_create(&async_module->thread_id, NULL, async_thread_routine, async_module);
     if (ret != 0) {
         av_log(ctx, AV_LOG_ERROR, "Unable to start async inference.\n");
         return ret;
     }
-    async_module->thread_started = 1;
-
+#else
+    ret = async_module->start_inference(async_module->args);
+    if (ret != 0) {
+        return ret;
+    }
+    async_module->callback(async_module->args);
+#endif
     return 0;
 }
 

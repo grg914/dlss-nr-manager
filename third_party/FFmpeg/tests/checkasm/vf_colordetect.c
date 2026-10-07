@@ -32,7 +32,7 @@ static void check_range_detect(int depth)
     const int mpeg_max = 235 << (depth - 8);
 
     FFColorDetectDSPContext dsp = {0};
-    ff_color_detect_dsp_init(&dsp, depth, 0, AVCOL_RANGE_UNSPECIFIED);
+    ff_color_detect_dsp_init(&dsp, depth, AVCOL_RANGE_UNSPECIFIED);
 
     declare_func(int, const uint8_t *, ptrdiff_t, ptrdiff_t, ptrdiff_t, int, int);
 
@@ -65,27 +65,21 @@ static void check_range_detect(int depth)
 
         /* Test performance of base case without any out-of-range values */
         memset(in, 0x80, HEIGHT * STRIDE);
-        bench_new(in, STRIDE, (w & ~31), HEIGHT, mpeg_min, mpeg_max);
+        bench_new(in, STRIDE, w, HEIGHT, mpeg_min, mpeg_max);
     }
 }
 
-static void check_alpha_detect(int depth, enum AVColorRange range, int offset)
+static void check_alpha_detect(int depth, enum AVColorRange range)
 {
     const int mpeg_min =  16 << (depth - 8);
     const int mpeg_max = 235 << (depth - 8);
     const int alpha_max = (1 << depth) - 1;
     const int mpeg_range = mpeg_max - mpeg_min;
+    const int offset = alpha_max * mpeg_min + (1 << (depth - 1));
     int res_ref, res_new;
 
-    int threshold = checkasm_rand() % FFMIN(HEIGHT, mpeg_min);
-    if (range == AVCOL_RANGE_JPEG) {
-        offset = offset ? FFMAX(threshold, 1) : 0;
-    } else {
-        offset = alpha_max * (mpeg_min + threshold) + (1 << (depth - 1));
-    }
-
     FFColorDetectDSPContext dsp = {0};
-    ff_color_detect_dsp_init(&dsp, depth, offset, range);
+    ff_color_detect_dsp_init(&dsp, depth, range);
 
     declare_func(int, const uint8_t *, ptrdiff_t, const uint8_t *, ptrdiff_t,
                       ptrdiff_t, ptrdiff_t, int p, int q, int k);
@@ -95,19 +89,13 @@ static void check_alpha_detect(int depth, enum AVColorRange range, int offset)
     memset(luma,  0x80, HEIGHT * STRIDE);
     memset(alpha, 0xF0, HEIGHT * STRIDE);
 
-    /* Try and force overflow and edge cases */
+    /* Try and force overflow */
     if (depth > 8 && range == AVCOL_RANGE_MPEG) {
-        for (int i = 0; i < threshold; i++) {
-            uint16_t *line = (uint16_t *) (luma + i * STRIDE);
-            line[0] = (235 << (depth - 8)) + i;
-            line[1] = ( 16 << (depth - 8)) - i;
-        }
+        ((uint16_t *) luma)[0] = 235 << (depth - 8);
+        ((uint16_t *) luma)[1] =  16 << (depth - 8);
     } else {
-        for (int i = 0; i < threshold; i++) {
-            uint8_t *line = luma + i * STRIDE;
-            line[0] = 235 + i;
-            line[1] = 16 - i;
-        }
+        luma[0] = 235;
+        luma[1] = 16;
     }
 
     /* Place an out-of-range value in a random position near the center */
@@ -124,13 +112,7 @@ static void check_alpha_detect(int depth, enum AVColorRange range, int offset)
     if (depth > 8)
         w /= 2;
 
-    const char *name;
-    if (range == AVCOL_RANGE_JPEG)
-        name = offset ? "full_off" : "full";
-    else
-        name = "limited";
-
-    if (check_func(dsp.detect_alpha, "detect_alpha_%d_%s", depth, name)) {
+    if (check_func(dsp.detect_alpha, "detect_alpha_%d_%s", depth, range == AVCOL_RANGE_JPEG ? "full" : "limited")) {
         /* Test increasing height, to ensure we hit the placed 0 eventually */
         for (int h = 1; h <= HEIGHT; h++) {
             res_ref = call_ref(luma, STRIDE, alpha, STRIDE, w, h, alpha_max, mpeg_range, offset);
@@ -146,7 +128,7 @@ static void check_alpha_detect(int depth, enum AVColorRange range, int offset)
         if (res_ref != res_new)
             fail();
 
-        bench_new(luma, STRIDE, alpha, STRIDE, (w & ~31), HEIGHT, alpha_max, mpeg_range, offset);
+        bench_new(luma, STRIDE, alpha, STRIDE, w, HEIGHT, alpha_max, mpeg_range, offset);
     }
 }
 
@@ -156,9 +138,8 @@ void checkasm_check_colordetect(void)
         check_range_detect(depth);
         report("detect_range_%d", depth);
 
-        check_alpha_detect(depth, AVCOL_RANGE_JPEG, 0);
-        check_alpha_detect(depth, AVCOL_RANGE_JPEG, 1);
-        check_alpha_detect(depth, AVCOL_RANGE_MPEG, 1);
+        check_alpha_detect(depth, AVCOL_RANGE_JPEG);
+        check_alpha_detect(depth, AVCOL_RANGE_MPEG);
         report("detect_alpha_%d", depth);
     }
 }

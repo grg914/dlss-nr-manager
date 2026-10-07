@@ -234,9 +234,6 @@ char *av_strireplace(const char *str, const char *from, const char *to)
     size_t tolen = strlen(to), fromlen = strlen(from);
     AVBPrint pbuf;
 
-    if (!fromlen)
-        return av_strdup(str);
-
     av_bprint_init(&pbuf, 1, AV_BPRINT_SIZE_UNLIMITED);
     while ((pstr2 = av_stristr(pstr, from))) {
         av_bprint_append_data(&pbuf, pstr, pstr2 - pstr);
@@ -255,13 +252,18 @@ char *av_strireplace(const char *str, const char *from, const char *to)
 
 const char *av_basename(const char *path)
 {
+    char *p;
+#if HAVE_DOS_PATHS
+    char *q, *d;
+#endif
+
     if (!path || *path == '\0')
         return ".";
 
-    const char *p = strrchr(path, '/');
+    p = strrchr(path, '/');
 #if HAVE_DOS_PATHS
-    const char *q = strrchr(path, '\\');
-    const char *d = strchr(path, ':');
+    q = strrchr(path, '\\');
+    d = strchr(path, ':');
     p = FFMAX3(p, q, d);
 #endif
 

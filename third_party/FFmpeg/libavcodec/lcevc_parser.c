@@ -18,7 +18,6 @@
 
 #include <stdint.h>
 
-#include "libavutil/attributes.h"
 #include "libavutil/mem.h"
 
 #include "avcodec.h"
@@ -189,7 +188,7 @@ static int parse_nal_units(AVCodecParserContext *s, const uint8_t *buf,
         switch (nal->type) {
         case LCEVC_IDR_NUT:
             s->key_frame = 1;
-            av_fallthrough;
+        // fall-through
         case LCEVC_NON_IDR_NUT:
             parse_nal_unit(s, avctx, nal);
             break;

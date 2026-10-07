@@ -356,7 +356,8 @@ void ff_hevc_put_hevc_bi_w_##PEL##_##DIR##WIDTH##_8_msa(uint8_t *dst,          \
                                                           int denom,           \
                                                           int weight0,         \
                                                           int weight1,         \
-                                                          int offset,          \
+                                                          int offset0,         \
+                                                          int offset1,         \
                                                           intptr_t mx,         \
                                                           intptr_t my,         \
                                                           int width)

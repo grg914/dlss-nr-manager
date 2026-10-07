@@ -441,18 +441,14 @@ static int hw_base_encode_send_frame(AVCodecContext *avctx, FFHWBaseEncodeContex
             goto fail;
         }
 
-        if (ctx->recon_frames_ref || ctx->get_recon_frame) {
+        if (ctx->recon_frames_ref) {
             pic->recon_image = av_frame_alloc();
             if (!pic->recon_image) {
                 err = AVERROR(ENOMEM);
                 goto fail;
             }
 
-            if (ctx->get_recon_frame)
-                err = ctx->get_recon_frame(avctx, pic->recon_image);
-            else
-                err = av_hwframe_get_buffer(ctx->recon_frames_ref,
-                                            pic->recon_image, 0);
+            err = av_hwframe_get_buffer(ctx->recon_frames_ref, pic->recon_image, 0);
             if (err < 0) {
                 err = AVERROR(ENOMEM);
                 goto fail;

@@ -25,12 +25,10 @@
  * @author Michael Niedermayer <michaelni@gmx.at>
  */
 
-#include <math.h>
-
 #include "faandct.h"
 #include "libavutil/emms.h"
 #include "libavutil/internal.h"
-#include "libavutil/mathematics.h"
+#include "libavutil/libm.h"
 
 typedef float FLOAT;
 

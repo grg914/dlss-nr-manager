@@ -1,4 +1,3 @@
-/ac3
 /apv
 /av1_levels
 /avcodec
@@ -9,6 +8,7 @@
 /celp_math
 /codec_desc
 /dct
+/encinfo
 /golomb
 /hashtable
 /h264_levels
@@ -18,6 +18,5 @@
 /mathops
 /mjpegenc_huffman
 /mpeg12framerate
-/mpegaudiodecheader
 /rangecoder
 /snowenc

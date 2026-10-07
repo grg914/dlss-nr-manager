@@ -123,12 +123,7 @@ HRESULT STDMETHODCALLTYPE D3D12Device::QueryInterface(REFIID riid, void **ppvObj
 
 #if RESHADE_ADDON >= 2
 	// Hook vkd3d device extension interfaces if they exist, to properly convert descriptor handles
-	if (riid == IID_ID3D12DeviceExt ||
-		riid == IID_ID3D12DeviceExt1 ||
-		riid == IID_ID3D12DeviceExt2 ||
-		riid == IID_ID3D12DeviceExt3 ||
-		riid == IID_ID3D12DeviceExt4 ||
-		riid == IID_ID3D12DeviceExt5)
+	if (riid == IID_ID3D12DeviceExt || riid == IID_ID3D12DeviceExt1 || riid == IID_ID3D12DeviceExt2)
 	{
 		const HRESULT hr = _orig->QueryInterface(riid, ppvObj);
 		if (SUCCEEDED(hr))
@@ -138,7 +133,7 @@ HRESULT STDMETHODCALLTYPE D3D12Device::QueryInterface(REFIID riid, void **ppvObj
 			reshade::hooks::install("ID3D12DeviceExt::GetCudaTextureObject", reshade::hooks::vtable_from_instance(device_ext), 7, &ID3D12DeviceExt_GetCudaTextureObject);
 			reshade::hooks::install("ID3D12DeviceExt::GetCudaSurfaceObject", reshade::hooks::vtable_from_instance(device_ext), 8, &ID3D12DeviceExt_GetCudaSurfaceObject);
 
-			if (riid != IID_ID3D12DeviceExt && riid != IID_ID3D12DeviceExt1)
+			if (riid == IID_ID3D12DeviceExt2)
 			{
 				reshade::hooks::install("ID3D12DeviceExt2::GetCudaTextureObject", reshade::hooks::vtable_from_instance(device_ext), 14, &ID3D12DeviceExt2_GetCudaMergedTextureSamplerObject);
 				reshade::hooks::install("ID3D12DeviceExt2::GetCudaSurfaceObject", reshade::hooks::vtable_from_instance(device_ext), 15, &ID3D12DeviceExt2_GetCudaIndependentDescriptorObject);
@@ -404,6 +399,12 @@ HRESULT STDMETHODCALLTYPE D3D12Device::CreateDescriptorHeap(const D3D12_DESCRIPT
 			// Upgrade to the actual interface version requested here
 			if (descriptor_heap_proxy->check_and_upgrade_interface(riid))
 			{
+				register_descriptor_heap(descriptor_heap_proxy);
+
+				register_destruction_callback_d3dx(descriptor_heap_proxy, [this, descriptor_heap_proxy]() {
+					unregister_descriptor_heap(descriptor_heap_proxy);
+				});
+
 #if RESHADE_VERBOSE_LOG
 				reshade::log::message(reshade::log::level::debug, "Returning ID3D12DescriptorHeap object %p (%p).", descriptor_heap_proxy, descriptor_heap_proxy->_orig);
 #endif
@@ -1132,12 +1133,11 @@ HRESULT STDMETHODCALLTYPE D3D12Device::CreatePipelineLibrary(const void *pLibrar
 	assert(_interface_version >= 1);
 
 	const HRESULT hr = static_cast<ID3D12Device1 *>(_orig)->CreatePipelineLibrary(pLibraryBlob, BlobLength, riid, ppPipelineLibrary);
-	if (SUCCEEDED(hr))
+	if (SUCCEEDED(hr) && ppPipelineLibrary != nullptr)
 	{
 #if RESHADE_ADDON >= 2
-		if (ppPipelineLibrary != nullptr && (
-			reshade::has_addon_event<reshade::addon_event::init_pipeline>() ||
-			reshade::has_addon_event<reshade::addon_event::destroy_pipeline>()))
+		if (reshade::has_addon_event<reshade::addon_event::init_pipeline>() ||
+			reshade::has_addon_event<reshade::addon_event::destroy_pipeline>())
 		{
 			const auto pipeline_library_proxy = new D3D12PipelineLibrary(this, static_cast<ID3D12PipelineLibrary *>(*ppPipelineLibrary));
 

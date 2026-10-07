@@ -25,6 +25,7 @@
 #include "config.h"
 
 #include "libavutil/common.h"
+#include "libavutil/x86/asm.h"
 
 #if HAVE_INLINE_ASM
 
@@ -97,7 +98,7 @@ static inline av_const int mid_pred(int a, int b, int c)
     return i;
 }
 
-#if HAVE_X86_6REGS
+#if HAVE_6REGS
 #define COPY3_IF_LT(x, y, a, b, c, d)\
 __asm__ volatile(\
     "cmpl  %0, %3       \n\t"\
@@ -107,7 +108,7 @@ __asm__ volatile(\
     : "+&r" (x), "+&r" (a), "+r" (c)\
     : "r" (y), "r" (b), "r" (d)\
 );
-#endif /* HAVE_X86_6REGS */
+#endif /* HAVE_6REGS */
 
 #endif /* HAVE_I686 */
 

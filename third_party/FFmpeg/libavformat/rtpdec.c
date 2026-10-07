@@ -584,14 +584,11 @@ void ff_rtp_parse_set_dynamic_protocol(RTPDemuxContext *s, PayloadContext *ctx,
     s->handler                  = handler;
 }
 
-int ff_rtp_parse_set_crypto(RTPDemuxContext *s, const char *suite,
-                            const char *params)
+void ff_rtp_parse_set_crypto(RTPDemuxContext *s, const char *suite,
+                             const char *params)
 {
-    int ret = ff_srtp_set_crypto(&s->srtp, suite, params);
-    if (ret < 0)
-        return ret;
-    s->srtp_enabled = 1;
-    return 0;
+    if (!ff_srtp_set_crypto(&s->srtp, suite, params))
+        s->srtp_enabled = 1;
 }
 
 static int rtp_set_prft(RTPDemuxContext *s, AVPacket *pkt, uint32_t timestamp) {

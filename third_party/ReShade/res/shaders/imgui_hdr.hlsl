@@ -1,7 +1,5 @@
 #ifdef float3x3
-	// GLSL builds matrices column-major, so an HLSL-style "mul(m, v)" (row-major m * v) has to be
-	// expressed as "v * m" here, otherwise the matrix ends up applied transposed
-	#define mul(a, b) (b) * (a)
+	#define mul(a, b) (a) * (b)
 	#define float1 float
 #endif
 

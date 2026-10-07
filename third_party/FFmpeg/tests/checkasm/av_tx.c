@@ -45,8 +45,9 @@ static const int check_lens[] = {
 };
 
 static AVTXContext *tx_refs[AV_TX_NB][2 /* Direction */][FF_ARRAY_ELEMS(check_lens)] = { 0 };
+static int init = 0;
 
-void checkasm_uninit_tx(void)
+static void free_tx_refs(void)
 {
     for (int i = 0; i < FF_ARRAY_ELEMS(tx_refs); i++)
         for (int j = 0; j < FF_ARRAY_ELEMS(*tx_refs); j++)
@@ -120,4 +121,9 @@ void checkasm_check_av_tx(void)
     av_free(in);
     av_free(out_ref);
     av_free(out_new);
+
+    if (!init) {
+        init = 1;
+        atexit(free_tx_refs);
+    }
 }

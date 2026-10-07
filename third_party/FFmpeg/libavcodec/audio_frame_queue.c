@@ -20,7 +20,6 @@
  */
 
 #include "libavutil/attributes.h"
-#include "libavutil/intreadwrite.h"
 #include "libavutil/mem.h"
 #include "audio_frame_queue.h"
 #include "encode.h"
@@ -31,7 +30,6 @@ av_cold void ff_af_queue_init(AVCodecContext *avctx, AudioFrameQueue *afq)
     afq->avctx = avctx;
     afq->remaining_delay   = avctx->initial_padding;
     afq->remaining_samples = avctx->initial_padding;
-    afq->output_delay      = avctx->initial_padding;
     afq->frame_count       = 0;
 }
 
@@ -46,23 +44,13 @@ av_cold void ff_af_queue_close(AudioFrameQueue *afq)
 int ff_af_queue_add(AudioFrameQueue *afq, const AVFrame *f)
 {
     AudioFrame *new = av_fast_realloc(afq->frames, &afq->frame_alloc, sizeof(*afq->frames)*(afq->frame_count+1));
-    const AVFrameSideData *sd;
-    int nb_samples = f->nb_samples;
-
     if(!new)
         return AVERROR(ENOMEM);
     afq->frames = new;
     new += afq->frame_count;
 
-    sd = av_frame_side_data_get(f->side_data, f->nb_side_data, AV_FRAME_DATA_SKIP_SAMPLES);
-    if (sd && sd->size >= 10) {
-        int discard_padding = AV_RL32(sd->data + 4);
-        if (discard_padding > 0 && discard_padding < nb_samples)
-            nb_samples -= discard_padding;
-    }
-
     /* get frame parameters */
-    new->duration = nb_samples;
+    new->duration = f->nb_samples;
     new->duration += afq->remaining_delay;
     if (f->pts != AV_NOPTS_VALUE) {
         new->pts = av_rescale_q(f->pts,
@@ -77,17 +65,17 @@ int ff_af_queue_add(AudioFrameQueue *afq, const AVFrame *f)
     afq->remaining_delay = 0;
 
     /* add frame sample count */
-    afq->remaining_samples += nb_samples;
+    afq->remaining_samples += f->nb_samples;
 
     afq->frame_count++;
 
     return 0;
 }
 
-int ff_af_queue_remove(AudioFrameQueue *afq, int nb_samples, AVPacket *pkt)
+void ff_af_queue_remove(AudioFrameQueue *afq, int nb_samples, int64_t *pts,
+                        int64_t *duration)
 {
     int64_t out_pts = AV_NOPTS_VALUE;
-    int frame_size = nb_samples;
     int removed_samples = 0;
     int i;
 
@@ -97,8 +85,8 @@ int ff_af_queue_remove(AudioFrameQueue *afq, int nb_samples, AVPacket *pkt)
     }
     if(!afq->frame_count)
         av_log(afq->avctx, AV_LOG_WARNING, "Trying to remove %d samples, but the queue is empty\n", nb_samples);
-    if (pkt)
-        pkt->pts = ff_samples_to_time_base(afq->avctx, out_pts);
+    if (pts)
+        *pts = ff_samples_to_time_base(afq->avctx, out_pts);
 
     for(i=0; nb_samples && i<afq->frame_count; i++){
         int n= FFMIN(afq->frames[i].duration, nb_samples);
@@ -120,22 +108,6 @@ int ff_af_queue_remove(AudioFrameQueue *afq, int nb_samples, AVPacket *pkt)
             afq->frames[0].pts += nb_samples;
         av_log(afq->avctx, AV_LOG_DEBUG, "Trying to remove %d more samples than there are in the queue\n", nb_samples);
     }
-    if (pkt) {
-        int discard_padding = frame_size - removed_samples;
-        pkt->duration = ff_samples_to_time_base(afq->avctx, removed_samples);
-        if (afq->output_delay > 0 || discard_padding > 0) {
-            uint8_t *side_data =
-                av_packet_new_side_data(pkt, AV_PKT_DATA_SKIP_SAMPLES, 10);
-            if (!side_data)
-                return AVERROR(ENOMEM);
-            if (afq->output_delay) {
-                AV_WL32(side_data, FFMIN(afq->output_delay, removed_samples));
-                afq->output_delay -= removed_samples;
-                afq->output_delay = FFMAX(afq->output_delay, 0);
-            }
-            AV_WL32(side_data + 4, discard_padding);
-        }
-    }
-
-    return 0;
+    if (duration)
+        *duration = ff_samples_to_time_base(afq->avctx, removed_samples);
 }

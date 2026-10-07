@@ -19,9 +19,7 @@
 #pragma shader_stage(compute)
 #extension GL_GOOGLE_include_directive : require
 
-/* Bitstream prefetch depth in 16-byte lines, set by the host */
-layout (constant_id = 1) const uint smem_lines = 4;
-#define GET_BITS_SMEM smem_lines
+#define GET_BITS_SMEM 4
 #include "common.glsl"
 
 layout (constant_id = 0) const bool interlaced = false;

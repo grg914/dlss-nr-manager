@@ -33,6 +33,11 @@
 #include "codec_par.h"
 #include "packet_internal.h"
 
+static av_always_inline const FFBitStreamFilter *ff_bsf(const AVBitStreamFilter *bsf)
+{
+    return (const FFBitStreamFilter*)bsf;
+}
+
 typedef struct FFBSFContext {
     AVBSFContext pub;
     AVPacket *buffer_pkt;
@@ -101,9 +106,6 @@ int av_bsf_alloc(const AVBitStreamFilter *filter, AVBSFContext **pctx)
     AVBSFContext *ctx;
     FFBSFContext *bsfi;
     int ret;
-
-    if (!ff_bsf(filter)->filter)
-        return AVERROR(ENOTSUP);
 
     bsfi = av_mallocz(sizeof(*bsfi));
     if (!bsfi)

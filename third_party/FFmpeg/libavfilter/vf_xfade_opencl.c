@@ -248,9 +248,8 @@ static int xfade_opencl_config_output(AVFilterLink *outlink)
     outlink->sample_aspect_ratio = inlink0->sample_aspect_ratio;
     ol->frame_rate = il->frame_rate;
 
-    ctx->duration_pts = av_rescale_q(ctx->duration, AV_TIME_BASE_Q, outlink->time_base);
-    if (!ctx->duration_pts)
-        ctx->duration_pts = 1;
+    if (ctx->duration)
+        ctx->duration_pts = av_rescale_q(ctx->duration, AV_TIME_BASE_Q, outlink->time_base);
     if (ctx->offset)
         ctx->offset_pts = av_rescale_q(ctx->offset, AV_TIME_BASE_Q, outlink->time_base);
 

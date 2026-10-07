@@ -66,7 +66,7 @@ static int libshine_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
                                  const AVFrame *frame, int *got_packet_ptr)
 {
     SHINEContext *s = avctx->priv_data;
-    MPADecodeHeader2 hdr;
+    MPADecodeHeader hdr;
     unsigned char *data;
     int written;
     int ret, len;
@@ -92,7 +92,7 @@ static int libshine_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
 
     if (s->buffer_index < 4 || !s->afq.frame_count)
         return 0;
-    if (ff_mpegaudio_decode_header(&hdr, AV_RB32(s->buffer))) {
+    if (avpriv_mpegaudio_decode_header(&hdr, AV_RB32(s->buffer))) {
         av_log(avctx, AV_LOG_ERROR, "free format output not supported\n");
         return -1;
     }
@@ -105,9 +105,8 @@ static int libshine_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
         s->buffer_index -= len;
         memmove(s->buffer, s->buffer + len, s->buffer_index);
 
-        ret = ff_af_queue_remove(&s->afq, avctx->frame_size, avpkt);
-        if (ret < 0)
-            return ret;
+        ff_af_queue_remove(&s->afq, avctx->frame_size, &avpkt->pts,
+                           &avpkt->duration);
 
         *got_packet_ptr = 1;
     }

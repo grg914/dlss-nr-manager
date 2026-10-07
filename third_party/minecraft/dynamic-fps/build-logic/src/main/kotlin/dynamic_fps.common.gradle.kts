@@ -2,19 +2,18 @@ repositories {
 	exclusiveContent {
 		forRepository {
 			maven {
-				name = "LostLuma Mirrors"
-				url = uri("https://maven.lostluma.net/mirrors")
+				name = "Architectury"
+				url = uri("https://maven.architectury.dev")
 			}
 		}
 		filter {
-			includeGroup("com.terraformersmc")
 			includeGroup("me.shedaniel.cloth")
 		}
 	}
 	exclusiveContent {
 		forRepository {
 			maven {
-				name = "LostLuma Releases"
+				name = "LostLuma"
 				url = uri("https://maven.lostluma.net/releases")
 			}
 		}

@@ -35,7 +35,7 @@ typedef struct SceneDetectVulkanContext {
     FFVkExecPool e;
     AVVulkanDeviceQueueFamily *qf;
     FFVulkanShader shd;
-    AVRefStructPool *det_buf_pool;
+    AVBufferPool *det_buf_pool;
 
     double threshold;
     int sc_pass;
@@ -69,7 +69,7 @@ static av_cold int init_filter(AVFilterContext *ctx)
         goto fail;
     }
 
-    RET(ff_vk_exec_pool_init(vkctx, s->qf, &s->e, FF_VK_DEFAULT_EXEC_CONTEXTS, 0, 0, 0, NULL));
+    RET(ff_vk_exec_pool_init(vkctx, s->qf, &s->e, s->qf->num*4, 0, 0, 0, NULL));
 
     SPEC_LIST_CREATE(sl, 2, 2*sizeof(uint32_t))
     SPEC_LIST_ADD(sl, 0, 32, s->nb_planes);
@@ -144,7 +144,8 @@ static int scdet_vulkan_filter_frame(AVFilterLink *link, AVFrame *in)
     FFVulkanContext *vkctx = &s->vkctx;
     FFVulkanFunctions *vk = &vkctx->vkfn;
     FFVkExecContext *exec = NULL;
-    FFVkBuffer *buf_vk = NULL;
+    AVBufferRef *buf = NULL;
+    FFVkBuffer *buf_vk;
 
     SceneDetectBuf *sad;
     double score = 0.0;
@@ -159,7 +160,7 @@ static int scdet_vulkan_filter_frame(AVFilterLink *link, AVFrame *in)
     if (!s->prev)
         goto done;
 
-    RET(ff_vk_get_pooled_buffer(vkctx, &s->det_buf_pool, &buf_vk,
+    RET(ff_vk_get_pooled_buffer(vkctx, &s->det_buf_pool, &buf,
                                 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                                 NULL,
@@ -167,15 +168,11 @@ static int scdet_vulkan_filter_frame(AVFilterLink *link, AVFrame *in)
                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
+    buf_vk = (FFVkBuffer *)buf->data;
     sad = (SceneDetectBuf *) buf_vk->mapped_mem;
 
     exec = ff_vk_exec_get(vkctx, &s->e);
-    err = ff_vk_exec_start(vkctx, exec);
-    if (err < 0) {
-        av_frame_free(&in);
-        av_refstruct_unref(&buf_vk);
-        return err;
-    }
+    ff_vk_exec_start(vkctx, exec);
 
     RET(ff_vk_exec_add_dep_frame(vkctx, exec, s->prev,
                                  VK_PIPELINE_STAGE_2_NONE,
@@ -275,12 +272,7 @@ static int scdet_vulkan_filter_frame(AVFilterLink *link, AVFrame *in)
             .bufferMemoryBarrierCount = 1,
         });
 
-    err = ff_vk_exec_submit(vkctx, exec);
-    if (err < 0) {
-        av_frame_free(&in);
-        av_refstruct_unref(&buf_vk);
-        return err;
-    }
+    RET(ff_vk_exec_submit(vkctx, exec));
     ff_vk_exec_wait(vkctx, exec);
     score = evaluate(ctx, sad);
 
@@ -297,7 +289,7 @@ done:
                score, pts);
     }
 
-    av_refstruct_unref(&buf_vk);
+    av_buffer_unref(&buf);
     if (!s->sc_pass || score >= s->threshold)
         return ff_filter_frame(outlink, in);
     else {
@@ -307,9 +299,9 @@ done:
 
 fail:
     if (exec)
-        ff_vk_exec_discard(&s->vkctx, exec);
+        ff_vk_exec_discard_deps(&s->vkctx, exec);
     av_frame_free(&in);
-    av_refstruct_unref(&buf_vk);
+    av_buffer_unref(&buf);
     return err;
 }
 
@@ -324,7 +316,7 @@ static void scdet_vulkan_uninit(AVFilterContext *avctx)
     ff_vk_exec_pool_free(vkctx, &s->e);
     ff_vk_shader_free(vkctx, &s->shd);
 
-    av_refstruct_pool_uninit(&s->det_buf_pool);
+    av_buffer_pool_uninit(&s->det_buf_pool);
 
     ff_vk_uninit(&s->vkctx);
 

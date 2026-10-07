@@ -240,10 +240,7 @@ static int aptx_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
         aptx_encode_samples(s, samples, avpkt->data + pos);
     }
 
-    ret = ff_af_queue_remove(&s0->afq, frame->nb_samples, avpkt);
-    if (ret < 0)
-        return ret;
-
+    ff_af_queue_remove(&s0->afq, frame->nb_samples, &avpkt->pts, &avpkt->duration);
     *got_packet_ptr = 1;
     return 0;
 }
