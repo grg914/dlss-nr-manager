@@ -8,8 +8,10 @@ on:
       - '.github/workflows/release.yml'
       - 'tools/build-realesrgan.ps1'
       - 'tools/build-optiscaler.ps1'
+      - 'tools/build-reshade.ps1'
       - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
       - 'third_party/OptiScaler/**'
+      - 'third_party/ReShade/**'
       - 'third_party/Real-ESRGAN-model-sources/**'
       - 'third_party/ai-models/**'
   workflow_dispatch:
@@ -125,6 +127,26 @@ jobs:
 
           "asset=$($zip.Name)" >> $env:GITHUB_OUTPUT
           Write-Host "Packaged manager-owned OptiScaler runtime: $($zip.FullName)"
+
+      - name: Build and package vendored ReShade
+        id: reshade
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-reshade.ps1 -OutputDirectory release-assets -Clean
+          if ($LASTEXITCODE -ne 0) {
+            throw "Vendored ReShade build tool failed."
+          }
+
+          $zip = Get-ChildItem "release-assets" -Filter "ReShade-Setup-*-vendored.zip" -File |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+
+          if (-not $zip) {
+            throw "Vendored ReShade release package was not generated."
+          }
+
+          "asset=$($zip.Name)" >> $env:GITHUB_OUTPUT
+          Write-Host "Packaged manager-owned ReShade setup: $($zip.FullName)"
 
       - name: Bundle AI detector runtime models from vendored LFS sources
         shell: pwsh
@@ -330,6 +352,7 @@ jobs:
             (Join-Path "release-assets" "${{ steps.caustica.outputs.asset }}"),
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             (Join-Path "release-assets" "${{ steps.optiscaler.outputs.asset }}"),
+            (Join-Path "release-assets" "${{ steps.reshade.outputs.asset }}"),
             "release-assets/ai-origin-primary-int8.onnx",
             "release-assets/ai-origin-secondary-int8.onnx",
             "release-assets/realesrgan-x4plus.param",
@@ -390,6 +413,7 @@ jobs:
             release-assets/Caustica-RTX-Minecraft-26.2-build-*.jar
             release-assets/realesrgan-ncnn-vulkan-windows-x64.zip
             release-assets/OptiScaler-NR-*-vendored-win-x64.zip
+            release-assets/ReShade-Setup-*-vendored.zip
             release-assets/ai-origin-primary-int8.onnx
             release-assets/ai-origin-secondary-int8.onnx
             release-assets/realesr*.param
