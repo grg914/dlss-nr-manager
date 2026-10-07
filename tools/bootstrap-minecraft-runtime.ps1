@@ -351,6 +351,7 @@ $manifest = [ordered]@{
     SchemaVersion = 1
     MinecraftVersion = $MinecraftVersion
     CreatedAtUtc = [DateTime]::UtcNow.ToString("o")
+    RuntimeLockSha256 = $RuntimeLockSha256
     FabricLoaderVersion = $loaderVersion
     FabricProfileId = $profileId
     FabricProfileRelativePath = "fabric-profile.json"
