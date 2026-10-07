@@ -1,7 +1,6 @@
 param(
     [string]$SourcePath,
     [string]$OutputDirectory,
-    [string]$VulkanSdkVersion = "1.4.363.0",
     [switch]$Clean
 )
 
@@ -40,27 +39,6 @@ if ($Clean -and (Test-Path -LiteralPath $OutputDirectory)) {
 }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 
-$sdkRoot = "C:\VulkanSDK\$VulkanSdkVersion"
-$vulkanLib = Join-Path $sdkRoot "Lib\vulkan-1.lib"
-if (!(Test-Path -LiteralPath $vulkanLib)) {
-    if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
-        throw "winget is required to install the pinned Vulkan SDK $VulkanSdkVersion."
-    }
-
-    Write-Host "Installing Vulkan SDK $VulkanSdkVersion..."
-    winget install --id KhronosGroup.VulkanSDK --exact --version $VulkanSdkVersion --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to install Vulkan SDK $VulkanSdkVersion through winget."
-    }
-}
-
-if (!(Test-Path -LiteralPath $vulkanLib)) {
-    throw "Vulkan SDK $VulkanSdkVersion is missing expected library: $vulkanLib"
-}
-
-$env:VULKAN_SDK = $sdkRoot
-$env:Path = "$sdkRoot\Bin;$env:Path"
-
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 if (!(Test-Path -LiteralPath $vswhere)) {
     throw "vswhere.exe was not found. Install Visual Studio/MSBuild with C++ build tools."
@@ -71,27 +49,34 @@ if ([string]::IsNullOrWhiteSpace($msbuild) -or !(Test-Path -LiteralPath $msbuild
     throw "MSBuild could not be resolved from the installed Visual Studio instance."
 }
 
-$projectVulkanDir = Join-Path $SourcePath "OptiScaler\library\vulkan"
-$projectVulkanLib = Join-Path $projectVulkanDir "vulkan-1.lib"
-$hadProjectVulkanLib = Test-Path -LiteralPath $projectVulkanLib
-
-try {
-    if (-not $hadProjectVulkanLib) {
-        New-Item -ItemType Directory -Force -Path $projectVulkanDir | Out-Null
-        Copy-Item -LiteralPath $vulkanLib -Destination $projectVulkanLib -Force
-        Write-Host "Temporarily staged Vulkan import library: $projectVulkanLib"
-    }
-
-    Write-Host "Building vendored OptiScaler..."
-    & $msbuild $solution /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
-    if ($LASTEXITCODE -ne 0) {
-        throw "Vendored OptiScaler build failed with exit code $LASTEXITCODE."
-    }
+$forceIncludeManifest = Join-Path $SourcePath "VENDORED_FORCE_INCLUDE.txt"
+if (!(Test-Path -LiteralPath $forceIncludeManifest)) {
+    throw "Vendored OptiScaler snapshot is missing VENDORED_FORCE_INCLUDE.txt. Re-import the locked source with tools/vendor-third-party.ps1 -Replace -StageImported."
 }
-finally {
-    if (-not $hadProjectVulkanLib -and (Test-Path -LiteralPath $projectVulkanLib)) {
-        Remove-Item -LiteralPath $projectVulkanLib -Force -ErrorAction SilentlyContinue
-    }
+
+$missingForced = @(
+    Get-Content -LiteralPath $forceIncludeManifest |
+        ForEach-Object {
+            $entry = ([string]$_).Trim()
+            if ([string]::IsNullOrWhiteSpace($entry) -or $entry.StartsWith("#")) {
+                return
+            }
+
+            $required = Join-Path $SourcePath $entry
+            if (!(Test-Path -LiteralPath $required -PathType Leaf)) {
+                $entry
+            }
+        }
+)
+
+if ($missingForced.Count -gt 0) {
+    throw "Vendored OptiScaler snapshot is incomplete. Missing upstream-tracked file(s): $($missingForced -join ', '). Re-import with tools/vendor-third-party.ps1 -Replace -StageImported."
+}
+
+Write-Host "Building vendored OptiScaler using the complete locked upstream snapshot..."
+& $msbuild $solution /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+if ($LASTEXITCODE -ne 0) {
+    throw "Vendored OptiScaler build failed with exit code $LASTEXITCODE."
 }
 
 $packageSource = Join-Path $SourcePath "x64\Release\a"
