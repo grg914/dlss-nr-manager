@@ -4741,3 +4741,46 @@ ACTION 2026-10-08 V4-RECOVERY R003 - CORRECTION BUILD PR #94
 - Diagnostic exact logs job 113422446424: duplication XAML MainWindow.xaml depuis tests/DlssNrManager.Tests/bin/Release/net8.0-windows/ : CS0102 definitions dupliquees et CS0111 InitializeComponent. Origine : fixture XAML copiee vers dossier bin des tests; le projet WPF racine scanne les *.xaml sous tests/bin lors du Publish.
 - Correction: copier fixture sous extension .xml (MainWindow.markup.xml) avec TargetPath explicite dans le projet de tests; adapter la lecture XDocument du test.
 - NE PAS fusionner avant nouveau Build + CodeQL reussis sur commit corrige. Statut: CORRECTION CODE ECRITE / CI REQUISE.
+
+
+ACTION 2026-10-08 V4-RECOVERY R001 - REPRISE APRES COUPURE
+- Etat initial relu depuis main e34dd3040b1674fa5f6262e45ed60b3a73cf4eda et PR #94 (head 7b8a49439b3260ec2d7a9adb890cde1c6e4145e5).
+- PR #93 fusionnee, Build Windows 69/69 tests + CodeQL SUCCESS au commit valide.
+- PR #94 en cours: Build run 37809525052, CodeQL run 37809525065; ne pas fusionner avant SUCCESS exact head.
+- Risque confirme issue #95: DownloadCenterService.RedownloadAsync fait Remove(entry) avant InstallAsync; un echec de telechargement peut supprimer l'ancienne installation.
+- Nouvelle branche isolee fix/v4-download-center-transactional-redownload creee depuis main, sans toucher la PR #94.
+- Prochaine action: implementation du swap transactionnel (staging, preservation ancienne version, rollback et tests), conserver les donnees de l'utilisateur et eviter les doublons de telechargement.
+- Discipline de reprise: toute action durable doit avoir un commit et une entree de journal ; verification des resultats GitHub a chaque point ; jamais de merge si les tests ne sont pas conclusifs.
+- Journal de main non modifie avant merge PR; cette branche conserve ce checkpoint pour recuperation meme en cas de coupure.
+
+
+ACTION 2026-10-08 V4-RECOVERY R002 - FIX TRANSACTIONNEL DOWNLOAD CENTER
+- Modifications sur fix/v4-download-center-transactional-redownload, base main e34dd3040b1674fa5f6262e45ed60b3a73cf4eda.
+- Audit: DownloadCenterService.RedownloadAsync supprimait le composant avant la reception des assets. Les services media, VLC, Real-ESRGAN et detecteur IA necessitent un rollback, et AI Studio possede deja son staging atomique.
+- Nouveau helper ManagedComponentRedownload: deplace les seules directories detenues par le composant vers des backups, lance l'installation, verifie IsReady, restaure l'ancienne version si echec de telechargement, corruption ou annulation.
+- Scope media-engine limite a video2dlssnr et tools; ne pas toucher au sibling realesrgan. Les modeles AI Studio ne sont plus supprimes avant update, preservant les licences et les sorties.
+- Backup garde si la restauration echoue, log diagnostique; 6 tests xUnit couvrent succes, erreurs, verification, annulation, directories multiples et rejet chemins imbriques.
+- Note limite: rollback disque apres crash machine/process hard-kill n'est PAS encore assure par ce helper (pas de journal transactionnel persistant). Ne pas annoncer cette garantie.
+- STATUT: code ecrit, non encore valide par Build/CodeQL. Prochaine action: ouvrir PR, inspecter CI et corriger erreurs avant merge; rebaser sur main apres integration PR #94.
+
+ACTION 2026-10-08 V4-RECOVERY R004 - GARDE SUPPLEMENTAIRE SWAP TRANSACTIONNEL
+- Revue du code ManagedComponentRedownload: une exception lors du deplacement de la 2e directory pouvait declencher le catch avant execution d'install et supprimer une directory jamais deplacee.
+- Ajout garde (started || entry.Moved) avant suppression de la directory courante dans rollback.
+- Rappels: ne pas supprimer dossiers utilisateurs; les sauvegardes sont retenues si rollback echoue.
+- Cette verification est une revue statique, PAS une validation de crash ni de concurrence multi-processus.
+- Etape a suivre: lancer CI et tester rollback. 
+
+ACTION 2026-10-08 V4-RECOVERY R005 - REVUE COMPILATION
+- PR #96 ouverte sur issue #95; les tests d'integration sont encore en attente.
+- Revue preventive: utilisation explicite du type string[] pour le switch C# contenant plusieurs expressions de collection; evite inference fragile d'une collection expression sans type cible.
+- Aucun changement d'API public du gestionnaire de telechargement; aucune modification des boutons.
+- Point de reprise: CI Build + CodeQL requis sur le nouveau head, suivi de synchronisation avec main apres PR #94.
+
+ACTION 2026-10-08 V4-RECOVERY R006 - PR #94 VALIDEE ET FUSIONNEE
+- PR #94 final head 27b608294553cd253e96ab00c7005aad0be26954.
+- Build run 37811058036 SUCCESS, avec 71 tests xUnit passes, 0 failure, 0 skipped; publication Windows x64 et packaging deterministe passes.
+- CodeQL run 37811057957 SUCCESS. 0 review thread ouvert, merge clean.
+- PR #94 fusionnee sur main: 3a8aef8c2b84332a035beef4a3a5a59f63682c87.
+- La branche PR #96 est synchronisee avec ce main et garde tous les checkpoints R001 a R005 + la section PR #94 de main, sans ecrasement du journal.
+- Etape suivante exacte: valider Build et CodeQL sur le head reconcile de PR #96, corriger les erreurs si presentes, ne PAS supprimer l'ancienne version lors d'un echec de redownload.
+- L'issue #95 reste ouverte, faute de crash-recovery persistant et de validation sur le poste reel.
