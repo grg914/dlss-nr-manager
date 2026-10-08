@@ -3206,3 +3206,25 @@ ACTION 2026-10-08 A055
   confirm runtime-refresh dispatch-release now checks out and invokes the local
   helper successfully;
   confirm Build and CodeQL remain green on merged main.
+
+
+ACTION 2026-10-08 A056
+- Post-merge validation started on main commit
+  8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Active runs:
+  Build #868
+  CodeQL #34
+  Runtime Seed Refresh #23
+- Runtime Seed Refresh #23 seed-release completed SUCCESS and its exact log
+  reports: Refresh scope: all.
+- Because the #83 merge includes NuGet packaging/workflow/governance changes,
+  the current coarse scope resolver expands this to a full runtime rebuild:
+  Windows/Streamline/Minecraft, native assets, FFmpeg, Java and NuGet all run.
+- This is not a correctness failure, but it is a confirmed performance/churn
+  optimization target for the next hardening pass: map changed files/dependency
+  ids to only the affected runtime jobs instead of defaulting almost everything
+  to all.
+- Immediate validation priorities remain:
+  new content-addressed NuGet seed generation and publication behavior;
+  dispatch-release checkout/helper execution;
+  Build #868 and CodeQL #34 stability during concurrent seed refresh.
