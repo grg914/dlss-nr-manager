@@ -66,6 +66,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _permanentVideoCts;
     private CancellationTokenSource? _aiOriginCts;
     private CancellationTokenSource? _downloadCenterCts;
+    private MediaUpdateAvailability _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
+    private bool _checkingDownloadCenterUpdates;
 
     private sealed record AdvancedSettingsSnapshot(
         int FpsType,
@@ -4470,11 +4472,55 @@ public partial class MainWindow : Window
         => DownloadCenterList?.SelectedItem
             as DownloadCenterEntry;
 
-    private void RefreshDownloadCenter_Click(
+    private async void RefreshDownloadCenter_Click(
         object sender,
         RoutedEventArgs e)
     {
         RefreshDownloadCenter();
+        if (_downloadCenterCts != null || _checkingDownloadCenterUpdates)
+            return;
+
+        _checkingDownloadCenterUpdates = true;
+        _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
+        RefreshDownloadCenterButtons();
+
+        try
+        {
+            DownloadCenterStatusText.Text = L(
+                "Checking validated media component versions…",
+                "Vérification des versions validées du moteur média…");
+
+            _mediaUpdateStatus = await _components.CheckMediaUpdateAsync(_media);
+            DownloadCenterStatusText.Text = _mediaUpdateStatus switch
+            {
+                MediaUpdateAvailability.UpdateAvailable => L(
+                    "Validated media update available in Téléchargements.",
+                    "Mise à jour média validée disponible dans Téléchargements."),
+                MediaUpdateAvailability.UpToDate => L(
+                    "Media engine is up to date.", "Le moteur média est à jour."),
+                MediaUpdateAvailability.NotInstalled => L(
+                    "Media engine is not installed.", "Le moteur média n'est pas installé."),
+                MediaUpdateAvailability.UnknownLocalVersion => L(
+                    "Installed media version is unknown; no update is offered. Redownload remains available.",
+                    "Version du moteur média inconnue ; aucune mise à jour n'est proposée. Le retéléchargement reste disponible."),
+                _ => L(
+                    "Release manifest could not confirm a newer media version.",
+                    "Le manifeste de release ne confirme pas de nouvelle version média.")
+            };
+        }
+        catch (Exception ex)
+        {
+            _mediaUpdateStatus = MediaUpdateAvailability.UnknownRemoteVersion;
+            AppLogger.Warn("Download Center update check unavailable: " + ex.Message);
+            DownloadCenterStatusText.Text = L(
+                "Update check unavailable. Installed components were not changed.",
+                "Vérification des mises à jour indisponible. Aucun composant installé n'a été modifié.");
+        }
+        finally
+        {
+            _checkingDownloadCenterUpdates = false;
+            RefreshDownloadCenterButtons();
+        }
     }
 
     private void RefreshDownloadCenter()
@@ -4568,7 +4614,15 @@ public partial class MainWindow : Window
         }
 
         var busy =
-            _downloadCenterCts != null;
+            _downloadCenterCts != null || _checkingDownloadCenterUpdates;
+
+        DownloadCenterRedownloadButton.Content =
+            entry.Kind == DownloadCenterKind.MediaEngine &&
+            _mediaUpdateStatus == MediaUpdateAvailability.UpdateAvailable
+                ? L("Update", "Mettre à jour")
+                : entry.RequiresLicenseAcceptance
+                    ? L("Reimport", "Réimporter")
+                    : L("Redownload", "Retélécharger");
 
         DownloadCenterInstallButton.IsEnabled =
             !busy &&
@@ -4612,18 +4666,28 @@ public partial class MainWindow : Window
         if (entry == null)
             return;
 
+        var isMediaUpdate =
+            entry.Kind == DownloadCenterKind.MediaEngine &&
+            _mediaUpdateStatus == MediaUpdateAvailability.UpdateAvailable;
+
         var answer = MessageBox.Show(
             this,
             entry.RequiresLicenseAcceptance
                 ? L(
                     $"Reimport {entry.DisplayName}?\n\nThe current local copy will be replaced by the official files you select.",
                     $"Réimporter {entry.DisplayName} ?\n\nLa copie locale actuelle sera remplacée par les fichiers officiels que vous sélectionnerez.")
-                : L(
-                    $"Redownload {entry.DisplayName}?\n\nThe installed copy is backed up and restored if the replacement fails.",
-                    $"Retélécharger {entry.DisplayName} ?\n\nLa copie installée est sauvegardée et restaurée si le remplacement échoue."),
+                : isMediaUpdate
+                    ? L(
+                        $"Update {entry.DisplayName}?\n\nThe installed copy is backed up and restored if the update fails.",
+                        $"Mettre à jour {entry.DisplayName} ?\n\nLa copie installée est sauvegardée et restaurée si la mise à jour échoue.")
+                    : L(
+                        $"Redownload {entry.DisplayName}?\n\nThe installed copy is backed up and restored if the replacement fails.",
+                        $"Retélécharger {entry.DisplayName} ?\n\nLa copie installée est sauvegardée et restaurée si le remplacement échoue."),
             entry.RequiresLicenseAcceptance
                 ? L("Reimport", "Réimporter")
-                : L("Redownload", "Retélécharger"),
+                : isMediaUpdate
+                    ? L("Update", "Mettre à jour")
+                    : L("Redownload", "Retélécharger"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Question,
             MessageBoxResult.No);
@@ -4675,10 +4739,24 @@ public partial class MainWindow : Window
 
             if (redownload)
             {
-                await _downloadCenter.RedownloadAsync(
-                    entry,
-                    progress,
-                    _downloadCenterCts.Token);
+                if (entry.Kind == DownloadCenterKind.MediaEngine &&
+                    _mediaUpdateStatus == MediaUpdateAvailability.UpdateAvailable)
+                {
+                    // Uses MediaService's transactional updater and stores the
+                    // validated release fingerprint only after success.
+                    await _components.EnsureMediaToolsLatestAsync(
+                        _media,
+                        progress,
+                        _downloadCenterCts.Token,
+                        forceRefresh: true);
+                }
+                else
+                {
+                    await _downloadCenter.RedownloadAsync(
+                        entry,
+                        progress,
+                        _downloadCenterCts.Token);
+                }
             }
             else
             {
@@ -4705,6 +4783,8 @@ public partial class MainWindow : Window
         {
             _downloadCenterCts.Dispose();
             _downloadCenterCts = null;
+            if (entry.Kind == DownloadCenterKind.MediaEngine)
+                _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
             DownloadCenterCancelButton.Visibility =
                 Visibility.Collapsed;
 
