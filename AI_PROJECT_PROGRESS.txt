@@ -2852,3 +2852,26 @@ ACTION 2026-10-08 A022
   FFmpeg
   Real-ESRGAN/OptiScaler/ReShade
   while NuGet and restricted-runtime preservation already succeeded.
+
+
+ACTION 2026-10-08 A035
+- Runtime Seed Refresh #22 completed its nuget-runtime job successfully and
+  replaced runtime-seed-v1/nuget-offline.zip while Build #865 and CodeQL #31
+  were independently preparing their offline feeds.
+- Previous nuget-offline.zip:
+  size 263,046,731 bytes
+  sha256 38ab02f61cdea1734ee80697ab81b340648a1a4413db568ebff5280b1c79a4bf
+- Refreshed nuget-offline.zip:
+  size 263,046,731 bytes
+  sha256 48c05a01cd74788d8bfb4a873fd8d60b205454e2f034cf91721c4f17e7b7160c
+- Read-only audit found build-nuget-offline-seed.ps1 embeds
+  generated_at_utc=[DateTime]::UtcNow and uses Compress-Archive.
+- This makes the seed archive non-reproducible even when the package set and
+  bytes are unchanged, causing unnecessary release-asset replacement, network
+  transfer, and snapshot-race exposure.
+- Follow-up hardening/optimization selected after current post-merge validation:
+  make nuget-offline.zip deterministic (stable manifest metadata, fixed order
+  and normalized ZIP timestamps) and skip release upload/clobber when SHA-256
+  is already identical.
+- No code change made yet because Build #865 / CodeQL #31 / refresh #22 /
+  upstream sync #15 are still validating main.
