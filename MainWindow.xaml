@@ -348,7 +348,7 @@
                             Content="Scan all fixed drives (slower)"
                             Margin="0,8,0,0"
                             Checked="ScanAllDrivesCheck_Changed"
-                            Unchecked="ScanAllDrivesCheck_Changed"/>
+                            Unchecked="ScanAllDrivesCheck_Changed" ToolTip="Search every fixed local drive for supported game installations. This can take longer."/>
                 </StackPanel>
               </Grid>
             </Border>
@@ -505,25 +505,25 @@
                   <CheckBox x:Name="AutoNvidiaRuntimeCheck"
                             Content="Automatically resolve Neural Rendering from the manager-owned Streamline bundle"
                             IsChecked="True"
-                            Margin="0,0,0,10"/>
+                            Margin="0,0,0,10" ToolTip="Automatically locate the validated manager-owned Neural Rendering runtime when compatible."/>
 
                   <WrapPanel Margin="0,0,0,10">
                     <CheckBox x:Name="GameDlssSrCheck"
                               Content="DLSS Super Resolution"
                               IsChecked="True"
-                              Margin="0,0,18,6"/>
+                              Margin="0,0,18,6" ToolTip="Enable DLSS Super Resolution for the selected game when the integration supports it."/>
                     <CheckBox x:Name="GameDlssFgCheck"
                               Content="Frame Generation"
                               IsChecked="True"
-                              Margin="0,0,18,6"/>
+                              Margin="0,0,18,6" ToolTip="Request Frame Generation only on compatible RTX hardware and supported games."/>
                     <CheckBox x:Name="GameDlssReflexCheck"
                               Content="Reflex"
                               IsChecked="True"
-                              Margin="0,0,18,6"/>
+                              Margin="0,0,18,6" ToolTip="Enable NVIDIA Reflex latency reduction where supported by the selected game."/>
                     <CheckBox x:Name="GameDlssNrCheck"
                               Content="Neural Rendering"
                               IsChecked="True"
-                              Margin="0,0,18,6"/>
+                              Margin="0,0,18,6" ToolTip="Request Neural Rendering only when the GPU, runtime and game integration support it."/>
                   </WrapPanel>
 
                   <Grid>
@@ -565,7 +565,7 @@
                                  FontWeight="SemiBold"/>
                       <ComboBox x:Name="ChannelBox"
                                 Margin="0,5,0,5"
-                                SelectionChanged="ChannelBox_SelectionChanged">
+                                SelectionChanged="ChannelBox_SelectionChanged" ToolTip="Choose whether to install stable or prerelease builds from the selected channel.">
                         <ComboBoxItem Content="Stable" IsSelected="True"/>
                         <ComboBoxItem Content="Prerelease"/>
                       </ComboBox>
@@ -577,7 +577,7 @@
                       <ComboBox x:Name="OptiScalerBuildBox"
                                 Margin="0,5,0,5"
                                 DisplayMemberPath="Name"
-                                SelectionChanged="OptiScalerBuildBox_SelectionChanged"/>
+                                SelectionChanged="OptiScalerBuildBox_SelectionChanged" ToolTip="Select the OptiScaler build to install in the selected game."/>
                       <TextBlock x:Name="AvailableVersionText"
                                  Foreground="{StaticResource Muted}"
                                  FontSize="11"
@@ -589,7 +589,7 @@
                                  Foreground="{StaticResource Muted}"
                                  FontSize="11"
                                  FontWeight="SemiBold"/>
-                      <ComboBox x:Name="PresetBox" Margin="0,5,0,5">
+                      <ComboBox x:Name="PresetBox" Margin="0,5,0,5" ToolTip="Choose the Neural Rendering internal rendering scale; lower values can affect image quality.">
                         <ComboBoxItem Content="Quality — 100%" IsSelected="True"/>
                         <ComboBoxItem Content="Balanced — 75%"/>
                         <ComboBoxItem Content="Performance — 50%"/>
@@ -707,7 +707,7 @@
 
                 <ComboBox x:Name="MinecraftInstanceBox"
                           DisplayMemberPath="DisplayName"
-                          SelectionChanged="MinecraftInstanceBox_SelectionChanged"/>
+                          SelectionChanged="MinecraftInstanceBox_SelectionChanged" ToolTip="Choose the detected Minecraft installation that will receive the RTX components."/>
 
                 <Button Grid.Column="2"
                         Content="Scan"
@@ -784,22 +784,22 @@
                                 Content="Fabric API (required)"
                                 IsChecked="True"
                                 IsEnabled="False"
-                                Margin="0,0,18,0"/>
+                                Margin="0,0,18,0" ToolTip="Install Fabric API, required by the selected Minecraft RTX mod set."/>
                       <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
                                 Content="Latest tested Caustica RTX 26.2 build"
                                 IsChecked="True"
-                                IsEnabled="False"/>
+                                IsEnabled="False" ToolTip="Select the latest tested Caustica RTX build supported by the Minecraft integration."/>
                     </StackPanel>
 
                     <WrapPanel Margin="0,8,0,0">
                       <CheckBox x:Name="MinecraftPerformancePackCheck"
                                 Content="Performance pack without renderer replacement (Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS)"
                                 IsChecked="True"
-                                Margin="0,0,18,6"/>
+                                Margin="0,0,18,6" ToolTip="Include compatible Minecraft performance mods without replacing the Caustica renderer."/>
                       <CheckBox x:Name="MinecraftSpbrCheck"
                                 Content="SPBRScandi resource pack"
                                 IsChecked="True"
-                                Margin="0,0,18,6"/>
+                                Margin="0,0,18,6" ToolTip="Install the SPBRScandi resource pack with the managed Minecraft RTX profile."/>
                     </WrapPanel>
 
                     <TextBlock Text="Sodium and Iris are not installed in RTX mode: they replace/modify the rendering pipeline and can conflict with Caustica, which owns the Vulkan/path-traced renderer. The optional performance pack avoids renderer replacement; Caustica is experimental, so mod compatibility is still validated at launch. The default SPBRScandi pack keeps the compatible SPBR LabPBR terrain/material base and adds the validated Scandi sky, End, GUI and visual assets without the terrain textures that caused RT artifacts."
@@ -896,7 +896,7 @@
                            FontWeight="SemiBold"/>
                 <ComboBox x:Name="MediaModeBox"
                           Margin="0,5,0,10"
-                          SelectionChanged="MediaModeBox_SelectionChanged">
+                          SelectionChanged="MediaModeBox_SelectionChanged" ToolTip="Choose Neural Rendering, AI upscale or combined media processing.">
                   <ComboBoxItem Content="Neural Rendering" IsSelected="True"/>
                   <ComboBoxItem Content="AI Upscale"/>
                   <ComboBoxItem Content="Neural Rendering + AI Upscale"/>
@@ -953,7 +953,7 @@
                                Foreground="{StaticResource Muted}"
                                FontSize="11"
                                FontWeight="SemiBold"/>
-                    <ComboBox x:Name="MediaScaleBox" Margin="0,5,0,10">
+                    <ComboBox x:Name="MediaScaleBox" Margin="0,5,0,10" ToolTip="Set the desired output size for the image or video processing task.">
                       <ComboBoxItem Content="Native" IsSelected="True"/>
                       <ComboBoxItem Content="2x"/>
                       <ComboBoxItem Content="4K"/>
@@ -965,7 +965,7 @@
                                Foreground="{StaticResource Muted}"
                                FontSize="11"
                                FontWeight="SemiBold"/>
-                    <ComboBox x:Name="MediaStyleBox" Margin="0,5,0,10">
+                    <ComboBox x:Name="MediaStyleBox" Margin="0,5,0,10" ToolTip="Select a visual processing style; results depend on the input.">
                       <ComboBoxItem Content="Default" IsSelected="True"/>
                       <ComboBoxItem Content="Natural"/>
                       <ComboBoxItem Content="Cinematic"/>
@@ -989,7 +989,7 @@
                           TickFrequency="0.1"
                           IsSnapToTickEnabled="False"
                           ValueChanged="MediaIntensitySlider_ValueChanged"
-                          VerticalAlignment="Center"/>
+                          VerticalAlignment="Center" ToolTip="Adjust the strength of the media enhancement effect."/>
                   <TextBlock Grid.Column="1"
                              x:Name="MediaIntensityText"
                              Text="1.00"
@@ -1027,7 +1027,7 @@
                                    Foreground="{StaticResource Muted}"
                                    FontSize="11"
                                    FontWeight="SemiBold"/>
-                        <ComboBox x:Name="AiScaleBox" Margin="0,5,0,0">
+                        <ComboBox x:Name="AiScaleBox" Margin="0,5,0,0" ToolTip="Choose the enlargement multiplier for Real-ESRGAN.">
                           <ComboBoxItem Content="2×" IsSelected="True"/>
                           <ComboBoxItem Content="3×"/>
                           <ComboBoxItem Content="4×"/>
@@ -1039,7 +1039,7 @@
                                    Foreground="{StaticResource Muted}"
                                    FontSize="11"
                                    FontWeight="SemiBold"/>
-                        <ComboBox x:Name="AiModelBox" Margin="0,5,0,0">
+                        <ComboBox x:Name="AiModelBox" Margin="0,5,0,0" ToolTip="Choose an AI model suited to photographs, illustrations or video frames.">
                           <ComboBoxItem Content="General / Photo" IsSelected="True"/>
                           <ComboBoxItem Content="General / Conservative"/>
                           <ComboBoxItem Content="Illustration / Anime"/>
@@ -1060,7 +1060,7 @@
                                    Foreground="{StaticResource Muted}"
                                    FontSize="11"
                                    FontWeight="SemiBold"/>
-                        <ComboBox x:Name="AiTileBox" Margin="0,5,0,0">
+                        <ComboBox x:Name="AiTileBox" Margin="0,5,0,0" ToolTip="Choose AI tile size based on available GPU memory; AUTO is recommended.">
                           <ComboBoxItem Content="Auto" IsSelected="True"/>
                           <ComboBoxItem Content="256"/>
                           <ComboBoxItem Content="384"/>
@@ -1072,7 +1072,7 @@
                                 x:Name="AiTtaCheck"
                                 Content="TTA quality mode (slower)"
                                 VerticalAlignment="Bottom"
-                                Margin="0,0,0,8"/>
+                                Margin="0,0,0,8" ToolTip="Test-time augmentation can improve some AI upscales but increases processing time."/>
                     </Grid>
 
                     <Button Style="{StaticResource CyanButton}"
@@ -1202,7 +1202,7 @@
                             Content="Super Resolution / NVIDIA VSR"
                             Checked="VlcRealtimeOption_Changed"
                             Unchecked="VlcRealtimeOption_Changed"
-                            Margin="0,0,0,4"/>
+                            Margin="0,0,0,4" ToolTip="Apply NVIDIA Video Super Resolution during VLC playback without changing the source video."/>
                   <TextBlock Text="Uses VLC Direct3D11 Super Resolution for real-time upscaling when supported by the NVIDIA driver."
                              Foreground="{StaticResource Muted}"
                              FontSize="11"
@@ -1214,7 +1214,7 @@
                             Content="Réduction des artefacts vidéo"
                             Checked="VlcRealtimeOption_Changed"
                             Unchecked="VlcRealtimeOption_Changed"
-                            Margin="0,0,0,4"/>
+                            Margin="0,0,0,4" ToolTip="Reduce visible compression artifacts during supported VLC playback."/>
                   <TextBlock Text="RTX VSR cleanup for compression/blocking artifacts. VLC exposes this through the same NVIDIA D3D11 VSR extension, so this option uses the VSR path."
                              Foreground="{StaticResource Muted}"
                              FontSize="11"
@@ -1234,10 +1234,10 @@
                                 Content="Échelle de rendu"
                                 FontWeight="SemiBold"
                                 Checked="VlcRealtimeOption_Changed"
-                                Unchecked="VlcRealtimeOption_Changed"/>
+                                Unchecked="VlcRealtimeOption_Changed" ToolTip="Enable a selected playback scaling factor in VLC windowed mode."/>
                       <ComboBox x:Name="VlcScaleBox"
                                 Margin="24,5,0,0"
-                                SelectedIndex="0">
+                                SelectedIndex="0" ToolTip="Choose the VLC windowed playback scaling multiplier.">
                         <ComboBoxItem Content="x1 — fenêtre native"/>
                         <ComboBoxItem Content="x2 — fenêtre 2×"/>
                         <ComboBoxItem Content="x4 — fenêtre 4×"/>
@@ -1253,14 +1253,14 @@
                                 Content="Plein écran"
                                 Margin="0,10,0,0"
                                 Checked="VlcRealtimeOption_Changed"
-                                Unchecked="VlcRealtimeOption_Changed"/>
+                                Unchecked="VlcRealtimeOption_Changed" ToolTip="Play the video in fullscreen; scaling follows the monitor resolution."/>
 
                       <CheckBox x:Name="VlcStatusOverlayCheck"
                                 IsChecked="True"
                                 Content="Indicateur VSR/HDR en haut à droite"
                                 Margin="0,8,0,0"
                                 Checked="VlcRealtimeOption_Changed"
-                                Unchecked="VlcRealtimeOption_Changed"/>
+                                Unchecked="VlcRealtimeOption_Changed" ToolTip="Show a small VSR and HDR status indicator during VLC playback."/>
                     </StackPanel>
                   </Grid>
 
@@ -1275,10 +1275,10 @@
                             Content="HDR / RTX Video HDR"
                             FontWeight="SemiBold"
                             Checked="VlcRealtimeOption_Changed"
-                            Unchecked="VlcRealtimeOption_Changed"/>
+                            Unchecked="VlcRealtimeOption_Changed" ToolTip="Request NVIDIA RTX Video HDR only if the system and display support HDR."/>
                   <ComboBox x:Name="VlcHdrModeBox"
                             Margin="24,5,0,10"
-                            SelectedIndex="1">
+                            SelectedIndex="1" ToolTip="Choose whether to preserve, request or disable HDR during VLC playback.">
                     <ComboBoxItem Content="Auto — conserver la source"/>
                     <ComboBoxItem Content="SDR → HDR — NVIDIA TrueHDR"/>
                     <ComboBoxItem Content="Toujours sortir en HDR"/>
@@ -1368,7 +1368,7 @@
                             Content="AI Upscale / Real-ESRGAN"
                             Checked="PermanentVideoOption_Changed"
                             Unchecked="PermanentVideoOption_Changed"
-                            Margin="0,0,0,8"/>
+                            Margin="0,0,0,8" ToolTip="Use local Real-ESRGAN to upscale the output video; processing takes time."/>
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="*"/>
@@ -1382,10 +1382,10 @@
                                 Content="Échelle de sortie"
                                 FontWeight="SemiBold"
                                 Checked="PermanentVideoOption_Changed"
-                                Unchecked="PermanentVideoOption_Changed"/>
+                                Unchecked="PermanentVideoOption_Changed" ToolTip="Enable manual output resolution scaling for the processed video."/>
                       <ComboBox x:Name="PermanentVideoScaleBox"
                                 Margin="24,5,0,10"
-                                SelectedIndex="1">
+                                SelectedIndex="1" ToolTip="Choose the video export scaling factor; higher values take longer.">
                         <ComboBoxItem Content="x1 — résolution native"/>
                         <ComboBoxItem Content="x2 — upscale IA 2×"/>
                         <ComboBoxItem Content="x4 — upscale IA 4×"/>
@@ -1399,7 +1399,7 @@
                                  FontWeight="SemiBold"/>
                       <ComboBox x:Name="PermanentVideoModelBox"
                                 Margin="0,5,0,10"
-                                SelectedIndex="0">
+                                SelectedIndex="0" ToolTip="Choose the local AI model used for permanently exported video enhancement.">
                         <ComboBoxItem Content="General / Photo"/>
                         <ComboBoxItem Content="General / Conservative"/>
                         <ComboBoxItem Content="Anime / Illustration"/>
@@ -1413,14 +1413,14 @@
                             Content="Neural Rendering"
                             Checked="PermanentVideoOption_Changed"
                             Unchecked="PermanentVideoOption_Changed"
-                            Margin="0,0,0,4"/>
+                            Margin="0,0,0,4" ToolTip="Apply the available Neural Rendering processing stage to the exported video."/>
 
                   <CheckBox x:Name="PermanentArtifactReductionCheck"
                             IsChecked="True"
                             Content="Réduction des artefacts / nettoyage"
                             Checked="PermanentVideoOption_Changed"
                             Unchecked="PermanentVideoOption_Changed"
-                            Margin="0,4,0,4"/>
+                            Margin="0,4,0,4" ToolTip="Run conservative artifact cleanup before writing the processed output."/>
 
                   <TextBlock Text="Neural Rendering, artifact cleanup and AI upscale can be enabled independently. Artifact cleanup uses a conservative local neural pre-pass; x2/x4 AI upscale uses Real-ESRGAN. Processing is local and may be slow."
                              Foreground="{StaticResource Muted}"
@@ -1529,7 +1529,7 @@
                                    Foreground="{StaticResource Muted}"
                                    FontSize="11"
                                    Margin="0,0,0,5"/>
-                        <ComboBox x:Name="AiOriginModeBox">
+                        <ComboBox x:Name="AiOriginModeBox" ToolTip="Choose the duration and thoroughness of AI-origin analysis.">
                           <ComboBoxItem Content="Quick — model-native view / short videos"/>
                           <ComboBoxItem Content="Balanced — full-frame + spatial crops" IsSelected="True"/>
                           <ComboBoxItem Content="Thorough — multi-scale + scene-aware video"/>
@@ -1624,7 +1624,7 @@
                             <ComboBox x:Name="AiStudioTaskBox"
                                       DisplayMemberPath="Label"
                                       Margin="0,5,0,0"
-                                      SelectionChanged="AiStudioTaskBox_SelectionChanged"/>
+                                      SelectionChanged="AiStudioTaskBox_SelectionChanged" ToolTip="Choose which image or video generation task AI Studio should run."/>
                           </StackPanel>
 
                           <StackPanel Grid.Column="2">
@@ -1634,7 +1634,7 @@
                                        FontWeight="SemiBold"/>
                             <ComboBox x:Name="AiStudioBackendBox"
                                       Margin="0,5,0,0"
-                                      SelectedIndex="0">
+                                      SelectedIndex="0" ToolTip="Choose the local processing backend or leave automatic selection enabled.">
                               <ComboBoxItem Content="Auto — meilleur backend disponible"/>
                               <ComboBoxItem Content="ComfyUI — workflows / nodes"/>
                               <ComboBoxItem Content="Diffusers — pipeline direct"/>
@@ -1649,7 +1649,7 @@
                         <ComboBox x:Name="AiStudioModelBox"
                                   DisplayMemberPath="DisplayName"
                                   Margin="0,5,0,5"
-                                  SelectionChanged="AiStudioModelBox_SelectionChanged"/>
+                                  SelectionChanged="AiStudioModelBox_SelectionChanged" ToolTip="Choose the installed AI Studio model suitable for the current task."/>
                         <TextBlock x:Name="AiStudioModelDetailsText"
                                    Text="Choisissez une tâche pour voir les meilleurs modèles compatibles."
                                    Foreground="{StaticResource Muted}"
@@ -2159,6 +2159,7 @@
                           </Grid.ColumnDefinitions>
 
                           <CheckBox Grid.Column="0"
+                                    ToolTip="{Binding Details}"
                                     IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                     VerticalAlignment="Center"/>
 
@@ -2303,7 +2304,7 @@
                              Foreground="{StaticResource Muted}"
                              FontSize="11"
                              FontWeight="SemiBold"/>
-                  <ComboBox x:Name="ProxyBox" Margin="0,5,0,12">
+                  <ComboBox x:Name="ProxyBox" Margin="0,5,0,12" ToolTip="Choose the loader DLL name appropriate for the selected game's graphics API.">
                     <ComboBoxItem Content="dbghelp.dll"/>
                     <ComboBoxItem Content="dxgi.dll" IsSelected="True"/>
                     <ComboBoxItem Content="d3d12.dll"/>
@@ -2311,14 +2312,14 @@
 
                   <CheckBox x:Name="ShowFpsCheck"
                             Content="Enable OptiScaler FPS overlay"
-                            IsChecked="True"/>
+                            IsChecked="True" ToolTip="Show OptiScaler's in-game FPS overlay when its hook is active."/>
 
                   <TextBlock Text="Overlay detail"
                              Foreground="{StaticResource Muted}"
                              FontSize="11"
                              FontWeight="SemiBold"
                              Margin="0,8,0,0"/>
-                  <ComboBox x:Name="FpsTypeBox" Margin="0,5,0,12">
+                  <ComboBox x:Name="FpsTypeBox" Margin="0,5,0,12" ToolTip="Choose which performance metrics appear in the OptiScaler overlay.">
                     <ComboBoxItem Content="FPS only"/>
                     <ComboBoxItem Content="Simple — avg FPS + upscaler" IsSelected="True"/>
                     <ComboBoxItem Content="Detailed"/>
@@ -2332,7 +2333,7 @@
                              Foreground="{StaticResource Muted}"
                              FontSize="11"
                              FontWeight="SemiBold"/>
-                  <ComboBox x:Name="FpsPositionBox" Margin="0,5,0,0">
+                  <ComboBox x:Name="FpsPositionBox" Margin="0,5,0,0" ToolTip="Choose the on-screen location of the OptiScaler performance overlay.">
                     <ComboBoxItem Content="Top left" IsSelected="True"/>
                     <ComboBoxItem Content="Top right"/>
                     <ComboBoxItem Content="Bottom left"/>
@@ -2350,16 +2351,16 @@
                            ToolTip="Leave empty to keep TargetProcessName=auto"/>
 
                   <CheckBox x:Name="LoadReShadeCheck"
-                            Content="Ask OptiScaler to load ReShade64.dll"/>
+                            Content="Ask OptiScaler to load ReShade64.dll" ToolTip="Ask the OptiScaler loader to start ReShade64.dll if it is installed."/>
 
                   <CheckBox x:Name="InstallReShadeAddonCheck"
                             Content="Install latest ReShade with full add-on support after install/update"
-                            Margin="0,8,0,0"/>
+                            Margin="0,8,0,0" ToolTip="Offer ReShade installation with add-on support after the game update."/>
 
                   <CheckBox x:Name="AutoUpdateComponentsCheck"
                             Content="Automatically keep GitHub components up to date"
                             IsChecked="True"
-                            Margin="0,8,0,0"/>
+                            Margin="0,8,0,0" ToolTip="Allow supported manager-owned components to be refreshed on app startup."/>
 
                   <Grid Margin="0,14,0,0">
                     <Grid.ColumnDefinitions>
@@ -2512,7 +2513,7 @@
                           Width="170"
                           HorizontalAlignment="Stretch"
                           Margin="0,0,0,12"
-                          SelectionChanged="LanguageSelector_SelectionChanged">
+                          SelectionChanged="LanguageSelector_SelectionChanged" ToolTip="Change the application interface language between French and English.">
                   <ComboBoxItem Content="Français" Tag="fr"/>
                   <ComboBoxItem Content="English" Tag="en"/>
                 </ComboBox>
