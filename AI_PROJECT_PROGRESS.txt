@@ -4328,3 +4328,18 @@ ACTION 2026-10-08 A098
   Build #885 (run 37727423504)
   CodeQL #51 (run 37727423502).
 - Branch is frozen unless exact-head CI exposes a defect.
+
+
+ACTION 2026-10-08 A099
+- PR #89 exact-head CodeQL #51 passed:
+  manager-owned offline NuGet feed preparation;
+  restore from manager-owned feed;
+  instrumented C# application build.
+- This is the first CI compile proof for the expanded PC Clean implementation,
+  including MainWindow XAML/code-behind, WindowsRepairService and the new cleanup
+  pattern/reparse-root logic.
+- CodeQL #51 is now in Analyze with no failed step.
+- Build #885 has passed every pre-NuGet repository/runtime/governance gate and is
+  still preparing its independent manager-owned offline feed before regression tests.
+- PR #89 head remains frozen at
+  6f9e656b020bdee22721c80be7344183582e8776.
