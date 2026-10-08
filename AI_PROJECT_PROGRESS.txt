@@ -4719,3 +4719,13 @@ ACTION 2026-10-08 V4-STEP-2: IMPLEMENTATION MATERIELS ET PROFILS EN VALIDATION
 - FR/EN + info-bulles pour les nouvelles options; tests xUnit de choix/fallback et architecture.
 - STATUT: CODE COMMITTE, BUILD/CODEQL EN ATTENTE. PAS encore valide en execution sur Windows et PAS encore fusionne.
 - NE PAS annoncer version 4.0 disponible.
+
+ACTION 2026-10-08 V4-RECOVERY L001 - AUDIT LIFECYCLE ET VLC
+- Branche fix/v4-vlc-owned-process-lifecycle creee depuis main e34dd3040b1674fa5f6262e45ed60b3a73cf4eda. Aucun changement sur PR #94 ou PR #96.
+- Audit Process.Start/ExternalProcessTracker sur VlcVideoEnhancementService, MediaService, AiUpscale, AiOrigin, AppUpdate, Minecraft, WindowsRepair, PcUpdate, GpuDetection et MainWindow.
+- Ecart confirme: VlcVideoEnhancementService.Launch appelait Process.Start (non suivi), VLC Direct pouvait rester actif apres fermeture manager.
+- Correction: ExternalProcessTracker.Start(startInfo), suivi Windows Job Object KILL_ON_JOB_CLOSE, identique aux helpers media deja geres.
+- Exceptions intentionnelles hors ownership: demarrage de jeu Minecraft/jeu utilisateur, Explorateur, installeur elevé DISM/SFC, processus d'auto-update et helper de suppression des donnees apres fermeture. Leur cycle de vie doit rester independant pour ne pas tuer des actions demandees par l'utilisateur.
+- Garde anti-regression: ne pas affecter Caustica, SPBR ou shaders.
+- ETAT: correction ecrite et journalisee; Build/CodeQL sur head exact obligatoires, aucun test VLC physique realise ici.
+- Point de reprise: relire PR lifecycle correspondante, log CI, puis fusion uniquement si tous les checks requis sont verts et la base est current.
