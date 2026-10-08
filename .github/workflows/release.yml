@@ -58,6 +58,12 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-self-contained.ps1 -Strict -AllowLfsPointers
           if ($LASTEXITCODE -ne 0) { throw "Strict self-contained dependency audit failed." }
 
+      - name: Enforce repository governance and release policy
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-repository-policy.ps1 -Strict
+          if ($LASTEXITCODE -ne 0) { throw "Repository governance/security policy audit failed." }
+
       - name: Resolve release version
         id: version
         shell: pwsh
@@ -275,6 +281,43 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-components-manifest.ps1 -AssetsDirectory release-assets -OutputPath release-assets/components-manifest.json
           if ($LASTEXITCODE -ne 0) { throw "Component manifest generation failed." }
 
+      - name: Generate release provenance manifest
+        shell: pwsh
+        run: |
+          $files = @(
+            "publish/DlssNrManager.exe",
+            "DlssNrManager-win-x64.zip",
+            (Join-Path "release-assets" "${{ steps.optional.outputs.caustica }}"),
+            "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
+            "release-assets/ffmpeg-dlssnr-win-x64.zip",
+            "release-assets/video2dlssnr_release.zip",
+            "release-assets/minecraft-runtime-26.2.zip",
+            (Join-Path "release-assets" "${{ steps.seed.outputs.streamline }}"),
+            (Join-Path "release-assets" "${{ steps.seed.outputs.optiscaler }}"),
+            (Join-Path "release-assets" "${{ steps.seed.outputs.reshade }}"),
+            "release-assets/temurin-25-jre-win-x64.zip",
+            "release-assets/temurin-25-jre.json",
+            "release-assets/ai-origin-primary-int8.onnx",
+            "release-assets/ai-origin-secondary-int8.onnx",
+            "release-assets/realesrgan-x4plus.param",
+            "release-assets/realesrgan-x4plus.bin",
+            "release-assets/realesrnet-x4plus.param",
+            "release-assets/realesrnet-x4plus.bin",
+            "release-assets/realesrgan-x4plus-anime.param",
+            "release-assets/realesrgan-x4plus-anime.bin",
+            "release-assets/realesr-animevideov3-x2.param",
+            "release-assets/realesr-animevideov3-x2.bin",
+            "release-assets/realesr-animevideov3-x3.param",
+            "release-assets/realesr-animevideov3-x3.bin",
+            "release-assets/realesr-animevideov3-x4.param",
+            "release-assets/realesr-animevideov3-x4.bin",
+            "release-assets/SPBRScandi.zip",
+            "release-assets/components-manifest.json",
+            "release-assets/release-provenance.json"
+          )
+
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-provenance.ps1 -Repository "${{ github.repository }}" -CommitSha "${{ github.sha }}" -Version "${{ steps.version.outputs.version }}" -OutputPath "release-assets/release-provenance.json" -Files $files
+          if ($LASTEXITCODE -ne 0) { throw "Release provenance generation failed." }
       - name: Generate final SHA-256 checksums
         shell: pwsh
         run: |
@@ -336,6 +379,7 @@ jobs:
             "DlssNrManager-win-x64.zip",
             "SHA256SUMS.txt",
             "release-assets/components-manifest.json",
+            "release-assets/release-provenance.json",
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
             "release-assets/video2dlssnr_release.zip",
