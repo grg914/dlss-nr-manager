@@ -4514,3 +4514,24 @@ ACTION 2026-10-08 A106
 - PR #75 is the only remaining open pull request.
 - Next action: sync this journal-only update into #75, validate that final exact
   head, then squash-merge #75 and confirm zero open PRs + post-merge workflows.
+
+
+ACTION 2026-10-08 A107
+- Open-issue cleanup performed while final PR #75 docs-only checks run.
+- Issue #90 "[upstream] manual review update: ai-studio-comfyui" was confirmed to
+  duplicate the more detailed issue #87 and was closed with state_reason=duplicate.
+- Remaining meaningful open issues audited:
+  #76 temporal restoration research: keep open;
+  #79 Real-ESRGAN OpenMP/vcomp140 redistribution provenance: keep open;
+  #87 ComfyUI notify-only manual review: keep open;
+  #51 continuity checkpoint: intentionally keep open as recovery navigation state.
+- Issue #82 CodeQL required-check hardening was verified against live repository
+  ruleset 24538398 "Protect main". The ruleset is active and currently requires
+  only status context "build" with strict up-to-date policy; CodeQL is NOT yet a
+  required status check. Therefore #82 remains valid and must not be closed.
+- Available GitHub connector exposes ruleset reads but no ruleset administration
+  mutation, so #82 cannot be completed safely from this session by pretending a
+  settings change occurred.
+- PR #75 final journal-synchronized head is
+  6ab356fdf669448530665b8224173933cf2b818d; Build #890 and CodeQL #56 are the
+  required exact-head checks currently running.
