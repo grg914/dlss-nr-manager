@@ -2324,3 +2324,29 @@ ACTION 2026-10-08 A006
 - Corrective action selected:
   harden download-runtime-seed.ps1 with bounded retry/backoff around the
   release-asset download so Build/CodeQL/Release use the same resilient path.
+
+
+ACTION 2026-10-08 A007
+- Inspected tools/download-runtime-seed.ps1 after CodeQL #27 transport failure.
+- Found the script already had ConsistencyRetries=4 around the complete seed
+  snapshot, but the catch block immediately rethrew every exception.
+- Consequence: HTTP/transport exceptions never reached retry attempts 2-4.
+- Also found a partial-download cleanup gap: the temporary path was not added
+  to attemptFiles until after successful download/hash, so a transport failure
+  could leave a .download.* temporary file.
+
+ACTION 2026-10-08 A008
+- Patched hardening/repository-governance:
+  commit 0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599
+  file tools/download-runtime-seed.ps1
+- Changes:
+  track every temporary download path immediately;
+  clean all attempt temporary files on consistency retry and exception;
+  retry the complete runtime-seed snapshot after transient/API/transport
+  exceptions while attempts remain;
+  retain final failure after the configured ConsistencyRetries limit;
+  reuse the existing bounded retry delay.
+- This resiliency applies to every caller of download-runtime-seed.ps1,
+  including Build, CodeQL offline NuGet preparation and Release/runtime paths.
+- The fix intentionally preserves SHA-256 validation and post-download seed
+  identity/digest consistency checks.
