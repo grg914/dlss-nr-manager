@@ -2604,3 +2604,13 @@ ACTION 2026-10-08 A022
 - Both pipelines are now exercising the runtime-seed/offline dependency path
   independently on the same exact head.
 - No code change made.
+
+
+ACTION 2026-10-08 A023
+- Attempted to fetch live job logs for Build #864 and CodeQL #30 while both
+  jobs were still active.
+- GitHub returned BlobNotFound/404 for the temporary log blob on both jobs.
+- This is a log-materialization limitation while the jobs are active, not a
+  Build/CodeQL failure.
+- Authoritative status remains the workflow/job step API.
+- No code change made.
