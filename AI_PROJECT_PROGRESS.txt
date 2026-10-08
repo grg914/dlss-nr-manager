@@ -1,3 +1,11 @@
+CHECKPOINT R034 (2026-10-08) - PROTECTION DES SUPPRESSIONS DOWNLOAD CENTER
+- Audit: DownloadCenterService.Remove invoque MediaService.ResetTools, VlcRuntimeService.Reset, AiUpscaleService.Reset, AiOriginDetectionService.Reset et LocalAiStudioService.RemoveModel, qui supprimaient directement des dossiers sans controle complet des liens NTFS parents.
+- Branche security/v4-safe-component-removal depuis main post PR #112: ManagedPathSafety.EnsureSafeForRemoval refuse toute operation de suppression si le chemin ou un parent est une jonction / un lien symbolique. Garde appelee avant tout effacement pour les cinq familles Media, VLC, Real-ESRGAN, AI Origin et AI Studio.
+- Trois tests ManagedPathSafetyRemovalTests: dossier normal intact, dossier sous parent symlink refuse, cible symlink directe refuse. Les tests symlink sont conditionnels aux privileges de l'hote Windows; Build/CodeQL et validation Windows necessaires.
+- Les controles preflight ne resolvent PAS le risque TOCTOU en cas de substitution concurrente d'un chemin: issue #95 reste ouverte et des tests de contention/handle-based sont requis avant garantie complete.
+- PR a ouvrir et valider sur commit exact. PR #114 detect updates / R031-R032 en cours, PR #115 test crash / R033 en cours. Les branches sont paralleles et devront etre reconciliees avant merge si main avance.
+PROCHAINE ACTION: verifier CI, fermer la faille de compilation eventuelle, fusionner uniquement après Build/CodeQL verts; assurer checkpoint R034 sur main apres fusion. V4 NON PUBLIEE.
+
 CHECKPOINT R023 (2026-10-08) - TEST WINDOWS PROCESS LIFECYCLE
 - Ajout tests/DlssNrManager.Tests/ExternalProcessTrackerTests.cs: lance le binaire Windows system32 ping.exe puis ExternalProcessTracker.Kill et exige WaitForExit, finally Kill meme si test echoue. Test d'arret normal, PAS preuve d'arret brutal de l'application ni GPU.
 - PR #110 contient aussi protections de liens/jonctions et checkpoints R021/R022. Nouveau head et Build/CodeQL requis avant fusion.
