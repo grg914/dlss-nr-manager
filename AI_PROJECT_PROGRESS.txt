@@ -1,3 +1,11 @@
+CHECKPOINT R039 (2026-10-08) - TEST D'ACCEPTATION WINDOWS REEL, NON DESTRUCTIF
+- PR #117 fusionnee dans main commit 3e8c9487c46ca163f545bc28b8567f83796c781d apres Build 37837120315 et CodeQL 37837120163 SUCCESS; 124 tests, aucun echec/ignore; R031-R036 relus sur main; PR #115/#116 fermees obsoletes.
+- Branche test/v4-windows-acceptance-audit: nouveau tools/verify-v4-windows-process-cleanup.ps1: demarre une instance du manager, photographie les PID des utilitaires, attend sa fermeture, et identifie apres delai les nouveaux PID encore actifs; sauvegarde rapport JSON temporaire. Option explicite -ForceTerminateAfterSeconds tue UNIQUEMENT l'instance lancee (pas l'arbre), avertissement de perte de donnees; jamais de suppression processus auxiliaire ni fichier utilisateur.
+- docs/V4_WINDOWS_PROCESS_ACCEPTANCE.md: mode normal/force, codes retour 0/2/3, interpretation prudente des faux positifs, absence de validation GPU/VRAM, procedure de verification terrain et conservation rapport dans issue #95.
+- Script cree sur GitHub mais PAS EXECUTE sur PC utilisateur; ce n'est PAS une validation materielle reussie. CI PowerShell/Windows Build+CodeQL requise pour cette branche.
+- PR #118 recherche OpenMP remplacee dans PR #119 pour conserver journal R031-R038, en attente validations. Issues #95 et #79 ouvertes, pas de release v4.
+PROCHAINE ACTION: PR du test terrain, CI sur head exact puis merge/reconciliation; executer tests sur vrai PC Nvidia Windows et verifier logs, interruptions, rollback et VRAM avant v4.0.
+
 CHECKPOINT R036 (2026-10-08) - FIX CONFLIT ASSEMBLY CRASH PROBE
 - CodeQL #117 sur head eff8b95a85107fe238f30bc7d60ad8f18621952b: SUCCESS run 37835835029.
 - Build #117 run 37835835222 FAILURE pendant Run regression tests: erreurs CS0433 dans ExternalProcessTrackerTests (l'assembly de test et l'assembly CrashProbe exposent toutes deux ExternalProcessTracker apres inclusion source). L'echec est de COMPILATION; le test d'arret brutal n'a PAS ete execute et ne doit pas etre declare valide.
