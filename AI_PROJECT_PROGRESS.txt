@@ -4897,3 +4897,38 @@ ACTION 2026-10-08 V4-RECOVERY R014 - PR #100 CI INITIALE ET SYNCHRONISATION
 - Branche fix/v4-media-update-recovery reconciliee avec main 86f04accae20050cc030771bdc057b05d5137599, en conservant R012/R013 et les derniers checkpoints S002/S003.
 - Prochaine action: valider nouveau head de PR #100 (Build et CodeQL); ne pas fusionner avant controles verts du commit exact.
 - Issue #95 reste OUVERTE (AI Studio rollback et test d'extinction brutale a faire).
+
+
+ACTION 2026-10-08 V4-AISTUDIO A001 - AUDIT MODELES ET CRASH ROLLBACK
+- Branche security/v4-ai-studio-model-install-rollback creee depuis main 86f04accae20050cc030771bdc057b05d5137599, independante de PR #100.
+- AiStudioPackageService.InstallAsync refuse deja les modeles ManagerOwnedRedistributionAllowed=false et valide SHA-256 archive, mais ResolveInstallPath n'impose que le workspace Root (une release pourrait cibler jobs/outputs/runtime ou un modele manuel).
+- ReplaceDirectoryAtomically catch appelle TryDeleteDirectory(target) meme si Directory.Move(target, backup) a echoue avant movedExisting=true: risque de perte des anciens fichiers.
+- Objectif: imposer le dossier exact GetModelDirectory(model), utiliser ManagedComponentRedownload.ReplaceAsync pour restauration en cas d'erreur/annulation et rendre les modeles manager-owned eligibles au recovery conservatif au demarrage.
+- Ne pas toucher aux fichiers des modeles a licence manuelle ou aux sorties/utilisateurs.
+- Tests xUnit du confinement des chemins, du catalogage des modeles autorises, et invariants rollback.
+- Note: anciens backups .backup-GUID d'AI Studio restent a traiter separement; ne pas declarer l'issue #95 fermee.
+- ETAT: checkpoint avant implementation. CI et test Windows REQUIS.
+
+
+ACTION 2026-10-08 V4-AISTUDIO A002 - CONFINEMENT DU MODELE ET ROLLBACK
+- AiStudioPackageService.InstallAsync exige maintenant que ResolveInstallPath(manifest.install_relative_path) corresponde EXACTEMENT a GetModelDirectory(model) ; bloque modeles manuels, autres modeles, runtime, jobs, outputs et workflows.
+- Remplacement du helper ancien ReplaceDirectoryAtomically (qui pouvait effacer target si move initial echouait) par ManagedComponentRedownload.ReplaceAsync; rollback version existante et validation dossier non vide; nettoyage staging en finally.
+- Installation refusee en cas d'ancien dossier de backup legacy target.backup-* non resolu, pour ne pas empiler des transactions.
+- La recovery startup ajoute par liste blanche seulement les dossiers des models LocalAiStudioService.Models ou ManagerOwnedRedistributionAllowed=true. Les poids sous licence manuelle sont exclus de tout restore automatique.
+- 8 cas xUnit: cible permise, 6 destinations interdites, liste blanche de recovery vs catalogage license et exclusion outputs.
+- LIMITES: anciens backups target.backup-GUID restent intacts/revue manuelle, lien symbolique dans ModelsRoot non audite ici; tests Windows et CodeQL obligatoires.
+- STATUT: code ecrit et checkpoint durable; attend CI avant fusion.
+
+ACTION 2026-10-08 V4-RECOVERY R015 - PR #100 VALIDEE ET FUSIONNEE
+- PR #100 head 84aa0ad83021fdcd4afc8f0e204a9c30d493729e: Build run 37818923247 SUCCESS, CodeQL run 37818923292 SUCCESS.
+- CI Windows: 90 tests xUnit passes, 0 fail, 0 skipped, publication x64 et packaging reproductible SUCCESS.
+- Merge squash dans main: f74fc789202a92520b1ea0f232ef47c2b42901f5.
+- Backup media _update-backup-GUID et MediaService.UpdateToolsAsync utilisent maintenant l'architecture de recovery commune.
+- Issue #95 reste ouverte pour verification crash physique Windows et anciens packages AI Studio.
+
+ACTION 2026-10-08 V4-AISTUDIO A003 - RECONCILIATION PR #101 AVEC MAIN
+- PR #101 ancien head e17852cff7c6d5d2c04c49b0a4fc6b8c1d394478, CodeQL run 37819460519 SUCCESS sur ancien head, Build run 37819460652 en cours au moment de la reconciliation.
+- Nouvelle base main f74fc789202a92520b1ea0f232ef47c2b42901f5 ; conserver R012-R015 et A001-A002 dans le journal.
+- Fusion de Services/ManagedComponentRedownload.cs faite MANUELLEMENT: RecoverOwnedBackups(owned) inclut a la fois Media/Real-ESRGAN/VLC/AiOrigin et seulement les modeles AI Studio redistribuables, ET RecoverLegacyMediaUpdateBackups(media) pour la compatibilite automatique.
+- Les modeles manuels, dossiers jobs/outputs et licences sont exclus. AiStudioPackageService et tests de securite preservees tels quels.
+- ETAT: CI Build + CodeQL du nouveau head OBLIGATOIRES avant fusion; pas de release 4.0.
