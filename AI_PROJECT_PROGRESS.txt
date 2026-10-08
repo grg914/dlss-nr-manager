@@ -3058,3 +3058,26 @@ ACTION 2026-10-08 A044
   dispatch-release job before the helper call, then revalidate PR #83 exact head.
 - Because #83 already modifies runtime-refresh.yml, the hotfix will be added to
   that PR; its current CI head c2300164 will intentionally be superseded.
+
+
+ACTION 2026-10-08 A045
+- Patched PR #83 after Runtime Seed Refresh #22 exposed a deterministic
+  dispatch-release wiring failure.
+- .github/workflows/runtime-refresh.yml now checks out the repository before
+  invoking ./tools/dispatch-release-if-needed.sh using pinned actions/checkout
+  fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 with credentials/LFS disabled.
+- Hotfix commit:
+  3aa652b281669a73c9955ae354290af36ffb8bc3
+- Added repository-governance regression protection:
+  verify-repository-governance.ps1 extracts the dispatch-release job and
+  requires a full-SHA-pinned actions/checkout, requires the local helper call,
+  and requires checkout to appear before that helper invocation.
+- Governance regression commit:
+  56e9d5784fd9a855e12263e9db3ac427cf7ad6ef
+- PR #83 new exact head:
+  56e9d5784fd9a855e12263e9db3ac427cf7ad6ef
+- Previous PR checks were intentionally superseded by the hotfix.
+- New exact-head checks:
+  Build #867 pending
+  CodeQL #33 pending
+- Branch is frozen again until these checks complete.
