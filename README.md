@@ -480,6 +480,9 @@ Repository policy and audit references:
 - [Release artifact policy](docs/RELEASE_ARTIFACT_POLICY.md)
 - [AI runtime security](docs/AI_RUNTIME_SECURITY.md)
 - [Binary signing and authenticity](docs/CODE_SIGNING_POLICY.md)
+- [PC maintenance safety](docs/PC_MAINTENANCE_SAFETY.md)
+- [Feature security/policy matrix](docs/FEATURE_POLICY_MATRIX.md)
+- [Machine-readable feature policy](manifests/feature-policy.json)
 - [Upstream/dependency sync](docs/UPSTREAM-SYNC.md)
 - [Machine-readable component policy](manifests/component-policy.json)
 
