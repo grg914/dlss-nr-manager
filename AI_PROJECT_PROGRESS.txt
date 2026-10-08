@@ -2236,3 +2236,42 @@ DONC:
 10. Re-mettre a jour AI_PROJECT_PROGRESS.txt apres les resultats reels.
 
 FIN CHECKPOINT 0H
+
+
+================================================================================
+LIVE ACTION LOG - CONTINUITY AFTER CONNECTION INTERRUPTION (2026-10-08)
+================================================================================
+
+User instruction:
+- Record every significant action in AI_PROJECT_PROGRESS.txt to make future
+  continuation reliable after connection interruptions.
+
+Logging strategy:
+- Live progress is written on branch docs/live-ai-project-progress.
+- Reason: Build workflow runs on main pushes and pull requests only. Keeping
+  this live log on a no-PR documentation branch avoids cancelling/restarting
+  PR #81 Build/CodeQL on every journal update.
+- Before final merge of hardening/features, this live log must be reconciled
+  back into the canonical AI_PROJECT_PROGRESS.txt that reaches main.
+
+ACTION 2026-10-08 A001
+- Resumed from Build #860 / CodeQL #26 validation point after connection loss.
+- Checked .github/workflows/build.yml trigger.
+- Confirmed Build runs on:
+  push main
+  pull_request
+  workflow_dispatch
+- Conclusion: a no-PR progress branch can receive log commits without
+  restarting the active PR #81 Build.
+
+ACTION 2026-10-08 A002
+- Read PR #81 current state through GitHub.
+- Current PR #81 head at this checkpoint:
+  4382348ca0ed9e46eedf384ae6770225b398ea36
+- mergeable: true
+- mergeable_state: blocked (checks/rules pending, not a merge conflict).
+
+ACTION 2026-10-08 A003
+- Created branch docs/live-ai-project-progress from exact PR #81 head
+  4382348ca0ed9e46eedf384ae6770225b398ea36.
+- Purpose: persistent live action journal without invalidating PR #81 CI.
