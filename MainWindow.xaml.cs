@@ -4619,8 +4619,8 @@ public partial class MainWindow : Window
                     $"Reimport {entry.DisplayName}?\n\nThe current local copy will be replaced by the official files you select.",
                     $"Réimporter {entry.DisplayName} ?\n\nLa copie locale actuelle sera remplacée par les fichiers officiels que vous sélectionnerez.")
                 : L(
-                    $"Redownload {entry.DisplayName}?\n\nThe current local copy will be deleted and downloaded again.",
-                    $"Retélécharger {entry.DisplayName} ?\n\nLa copie locale actuelle sera supprimée puis téléchargée à nouveau."),
+                    $"Redownload {entry.DisplayName}?\n\nThe installed copy is backed up and restored if the replacement fails.",
+                    $"Retélécharger {entry.DisplayName} ?\n\nLa copie installée est sauvegardée et restaurée si le remplacement échoue."),
             entry.RequiresLicenseAcceptance
                 ? L("Reimport", "Réimporter")
                 : L("Redownload", "Retélécharger"),
