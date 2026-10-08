@@ -139,9 +139,14 @@ public static class ManagedComponentRedownload
             Path.Combine(root, "vlc"),
             Path.Combine(root, "ai-origin-detector")
         };
-
         owned.AddRange(GetManagerOwnedAiStudioRecoveryPaths());
-        return RecoverOwnedBackups(owned);
+
+        var transactional = RecoverOwnedBackups(owned);
+
+        var legacy = RecoverLegacyMediaUpdateBackups(media);
+        return new ComponentRecoveryReport(
+            transactional.Restored + legacy.Restored,
+            transactional.Failed + legacy.Failed);
     }
 
     /// <summary>
@@ -261,6 +266,123 @@ public static class ManagedComponentRedownload
         }
 
         return new ComponentRecoveryReport(restored, failed);
+    }
+
+    /// <summary>
+    /// Migrates pre-v4 MediaService _update-backup-GUID folders into the same
+    /// per-component transaction scheme as Redownload. Directory.Move is
+    /// atomic on the volume; if power is lost mid-migration, the next
+    /// startup can resume from either the converted or the legacy folder.
+    /// Unknown entries and ambiguous backups are never deleted.
+    /// </summary>
+    public static ComponentRecoveryReport RecoverLegacyMediaUpdateBackups(string mediaRoot)
+    {
+        mediaRoot = Path.GetFullPath(mediaRoot);
+        if (!Directory.Exists(mediaRoot))
+            return new ComponentRecoveryReport(0, 0);
+
+        var rootPrefix = "_update-backup-";
+        var legacy = Directory
+            .EnumerateDirectories(mediaRoot, rootPrefix + "*", SearchOption.TopDirectoryOnly)
+            .Where(path =>
+            {
+                var name = Path.GetFileName(path);
+                var suffix = name[rootPrefix.Length..];
+                return suffix.Length == 32 && suffix.All(c =>
+                    c is >= '0' and <= '9' or >= 'a' and <= 'f');
+            })
+            .ToArray();
+
+        if (legacy.Length == 0)
+            return new ComponentRecoveryReport(0, 0);
+
+        // Do not guess between multiple generations or silently overwrite the
+        // last known working component.
+        if (legacy.Length > 1)
+        {
+            AppLogger.Warn($"Multiple legacy media update backups found in {mediaRoot}; manual review required.");
+            return new ComponentRecoveryReport(0, 1);
+        }
+
+        var legacyRoot = legacy[0];
+        if (IsReparsePoint(legacyRoot))
+        {
+            AppLogger.Warn($"Refused to follow symlink or junction media backup {legacyRoot}.");
+            return new ComponentRecoveryReport(0, 1);
+        }
+
+        var targetPaths = new[]
+        {
+            Path.Combine(mediaRoot, "video2dlssnr"),
+            Path.Combine(mediaRoot, "tools")
+        };
+
+        var migrationFailed = 0;
+        foreach (var target in targetPaths)
+        {
+            var source = Path.Combine(legacyRoot, Path.GetFileName(target));
+            if (!Directory.Exists(source))
+                continue;
+
+            var movedName = Path.GetFileName(legacyRoot)[rootPrefix.Length..];
+            var converted = target + ".dlssnr-redownload-backup-" + movedName;
+
+            try
+            {
+                if (IsReparsePoint(source) ||
+                    (Directory.Exists(target) && IsReparsePoint(target)) ||
+                    Directory.Exists(converted))
+                {
+                    throw new IOException("An unsafe or conflicting media backup path exists.");
+                }
+
+                // If a different backup already exists, defer to manual
+                // recovery rather than introducing two possible originals.
+                if (Directory.EnumerateDirectories(
+                        mediaRoot,
+                        Path.GetFileName(target) + ".dlssnr-redownload-backup-*",
+                        SearchOption.TopDirectoryOnly).Any())
+                {
+                    throw new IOException("Another transactional backup exists.");
+                }
+
+                Directory.Move(source, converted);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                migrationFailed++;
+                AppLogger.Error($"Unable to migrate legacy media backup {source}; left intact.", ex);
+            }
+        }
+
+        // Reuse the existing conservative recovery and the same tests for
+        // component swap/verification semantics.
+        var recovered = RecoverOwnedBackups(targetPaths);
+
+        // Clean up an empty legacy container only; never recursively remove
+        // unknown files or an incomplete component backup.
+        try
+        {
+            if (Directory.Exists(legacyRoot))
+            {
+                if (!Directory.EnumerateFileSystemEntries(legacyRoot).Any())
+                    Directory.Delete(legacyRoot, recursive: false);
+                else
+                {
+                    migrationFailed++;
+                    AppLogger.Warn($"Legacy media backup is not empty; manual review required: {legacyRoot}");
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            migrationFailed++;
+            AppLogger.Error($"Could not clean empty legacy backup container {legacyRoot}.", ex);
+        }
+
+        return new ComponentRecoveryReport(
+            recovered.Restored,
+            recovered.Failed + migrationFailed);
     }
 
     private static bool IsReparsePoint(string path) =>

@@ -4865,6 +4865,40 @@ ACTION 2026-10-08 V4-SECURITY S002 - DIAGNOSTIC CI PR #99 ET SYNCHRONISATION
 - ETAT: attendu nouveaux Build/CodeQL sur le nouveau head PR #99. Ne pas fusionner avant tous controles verts. Aucun test NVIDIA-SMI sur GPU reel effectue.
 
 
+ACTION 2026-10-08 V4-RECOVERY R012 - AUDIT MISES A JOUR AUTOMATIQUES MEDIA
+- Branche fix/v4-media-update-recovery creee depuis main 7c7bdc26b70e1409c8d9f324f75f3bf87491a98a. Ne modifie pas PR #99 en cours.
+- Defaut nouveau confirme: MediaService.UpdateToolsAsync cree et deplace les dossiers tools et video2dlssnr dans media-engine/_update-backup-<GUID>, format different du backup transactionnel utilise par Download Center.
+- Si Windows/app plante durant cette mise a jour, la recovery v4 depuis PR #98 ne traite pas _update-backup-*.
+- La branche implementera l'utilisation de ManagedComponentRedownload.ReplaceAsync pour les futures mises a jour media et un recuperateur conservateur pour les backups legacy _update-backup-* deja presents.
+- Teste rollback echec/annulation et protection de realesrgan, sorties utilisateur et sauvegardes ambigues; ne jamais effacer un backup dont le retour est incertain.
+- Statut: AUDIT/PLAN sauvegardes dans GitHub; implementation et validations restent a faire.
+
+
+ACTION 2026-10-08 V4-RECOVERY R013 - UNIFIER MEDIA UPDATER ET RECOVERY LEGACY
+- MediaService.UpdateToolsAsync utilise desormais ManagedComponentRedownload.ReplaceAsync pour les deux seuls repertoires geres video2dlssnr et tools, avec IsReady comme validation du remplacement; ne touche pas au sibling realesrgan.
+- Blocage d'une nouvelle mise a jour s'il subsiste un dossier _update-backup-* non resolu dans media-engine.
+- RecoverKnownManagedComponentBackups invoque egalement RecoverLegacyMediaUpdateBackups, convertissant par Directory.Move les backups historiques _update-backup-<GUID> en sauvegardes per-component avec restoration via RecoverOwnedBackups.
+- Protections: ambiguites >1, junction/symlink, backup concurrent, fichiers inconnus conserves; aucune suppression recursive de dossier legacy contenant des fichiers inconnus.
+- Recovery apres crash pendant migration: sous-repertoire deja deplace laisse en nouveau format et recupere au prochain demarrage.
+- 5 tests de regression: video2dlssnr + tools, migration partielle, plusieurs backups ambigus, fichier inconnu, dossier vide sans impact utilisateur.
+- LIMITES: crash apres recovery partielle ou pendant nettoyage peut exiger revue manuelle. CI et CodeQL a faire sur ce commit, aucun test d'arret brutal physique.
+
+ACTION 2026-10-08 V4-SECURITY S003 - PR #99 VALIDATION ET FUSION
+- PR #99 head 05166b055e0b1786a341be8b4bdb57d1ec42452e.
+- Build run 37817272682 SUCCESS, CodeQL run 37817272721 SUCCESS; 85 tests xUnit passes, 0 fail, 0 skipped; publication Windows x64 et packaging deterministe passes.
+- Merge squash main: 86f04accae20050cc030771bdc057b05d5137599.
+- GpuDetectionService utilise NVIDIA-SMI uniquement depuis chemins trustes, et suivi par ExternalProcessTracker.
+- Verif PC NVIDIA reel reste non faite par l'environnement de CI.
+
+ACTION 2026-10-08 V4-RECOVERY R014 - PR #100 CI INITIALE ET SYNCHRONISATION
+- PR #100 ancien head 1736bc403c72a25147a07f4ffe492890a4a89839.
+- Build run 37817751392 SUCCESS; CodeQL run 37817751390 SUCCESS; tests xUnit 88/88 passes sur ce head (nombre a revérifier si log differe).
+- Correction automatique media + ancien format _update-backup-* preserves, sibling Real-ESRGAN non touche.
+- Branche fix/v4-media-update-recovery reconciliee avec main 86f04accae20050cc030771bdc057b05d5137599, en conservant R012/R013 et les derniers checkpoints S002/S003.
+- Prochaine action: valider nouveau head de PR #100 (Build et CodeQL); ne pas fusionner avant controles verts du commit exact.
+- Issue #95 reste OUVERTE (AI Studio rollback et test d'extinction brutale a faire).
+
+
 ACTION 2026-10-08 V4-AISTUDIO A001 - AUDIT MODELES ET CRASH ROLLBACK
 - Branche security/v4-ai-studio-model-install-rollback creee depuis main 86f04accae20050cc030771bdc057b05d5137599, independante de PR #100.
 - AiStudioPackageService.InstallAsync refuse deja les modeles ManagerOwnedRedistributionAllowed=false et valide SHA-256 archive, mais ResolveInstallPath n'impose que le workspace Root (une release pourrait cibler jobs/outputs/runtime ou un modele manuel).
@@ -4884,3 +4918,17 @@ ACTION 2026-10-08 V4-AISTUDIO A002 - CONFINEMENT DU MODELE ET ROLLBACK
 - 8 cas xUnit: cible permise, 6 destinations interdites, liste blanche de recovery vs catalogage license et exclusion outputs.
 - LIMITES: anciens backups target.backup-GUID restent intacts/revue manuelle, lien symbolique dans ModelsRoot non audite ici; tests Windows et CodeQL obligatoires.
 - STATUT: code ecrit et checkpoint durable; attend CI avant fusion.
+
+ACTION 2026-10-08 V4-RECOVERY R015 - PR #100 VALIDEE ET FUSIONNEE
+- PR #100 head 84aa0ad83021fdcd4afc8f0e204a9c30d493729e: Build run 37818923247 SUCCESS, CodeQL run 37818923292 SUCCESS.
+- CI Windows: 90 tests xUnit passes, 0 fail, 0 skipped, publication x64 et packaging reproductible SUCCESS.
+- Merge squash dans main: f74fc789202a92520b1ea0f232ef47c2b42901f5.
+- Backup media _update-backup-GUID et MediaService.UpdateToolsAsync utilisent maintenant l'architecture de recovery commune.
+- Issue #95 reste ouverte pour verification crash physique Windows et anciens packages AI Studio.
+
+ACTION 2026-10-08 V4-AISTUDIO A003 - RECONCILIATION PR #101 AVEC MAIN
+- PR #101 ancien head e17852cff7c6d5d2c04c49b0a4fc6b8c1d394478, CodeQL run 37819460519 SUCCESS sur ancien head, Build run 37819460652 en cours au moment de la reconciliation.
+- Nouvelle base main f74fc789202a92520b1ea0f232ef47c2b42901f5 ; conserver R012-R015 et A001-A002 dans le journal.
+- Fusion de Services/ManagedComponentRedownload.cs faite MANUELLEMENT: RecoverOwnedBackups(owned) inclut a la fois Media/Real-ESRGAN/VLC/AiOrigin et seulement les modeles AI Studio redistribuables, ET RecoverLegacyMediaUpdateBackups(media) pour la compatibilite automatique.
+- Les modeles manuels, dossiers jobs/outputs et licences sont exclus. AiStudioPackageService et tests de securite preservees tels quels.
+- ETAT: CI Build + CodeQL du nouveau head OBLIGATOIRES avant fusion; pas de release 4.0.

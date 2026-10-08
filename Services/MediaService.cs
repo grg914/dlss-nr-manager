@@ -71,53 +71,23 @@ public sealed class MediaService
     {
         Directory.CreateDirectory(RootDirectory);
 
-        var backupRoot = Path.Combine(
-            RootDirectory,
-            "_update-backup-" + Guid.NewGuid().ToString("N"));
-        var processorBackup = Path.Combine(backupRoot, "video2dlssnr");
-        var toolsBackup = Path.Combine(backupRoot, "tools");
-        var processorMoved = false;
-        var toolsMoved = false;
-
-        try
+        // The old update path used a separate _update-backup-<GUID> scheme.
+        // Startup recovery migrates those backups before this service runs;
+        // never install over unresolved legacy backups.
+        if (Directory.EnumerateDirectories(
+                RootDirectory, "_update-backup-*", SearchOption.TopDirectoryOnly).Any())
         {
-            Directory.CreateDirectory(backupRoot);
-
-            if (Directory.Exists(ProcessorDirectory))
-            {
-                Directory.Move(ProcessorDirectory, processorBackup);
-                processorMoved = true;
-            }
-
-            if (Directory.Exists(ToolsDirectory))
-            {
-                Directory.Move(ToolsDirectory, toolsBackup);
-                toolsMoved = true;
-            }
-
-            await SetupAsync(progress, cancellationToken);
-            TryDeleteDirectory(backupRoot);
+            throw new InvalidOperationException(
+                "An interrupted media update requires recovery. Restart DLSS NR Manager and review diagnostics.");
         }
-        catch
-        {
-            // Delete only replacement directories whose originals were
-            // successfully moved away. If a move itself failed, leave the
-            // original directory untouched.
-            if (processorMoved)
-                TryDeleteDirectory(ProcessorDirectory);
 
-            if (toolsMoved)
-                TryDeleteDirectory(ToolsDirectory);
-
-            if (processorMoved && Directory.Exists(processorBackup))
-                Directory.Move(processorBackup, ProcessorDirectory);
-
-            if (toolsMoved && Directory.Exists(toolsBackup))
-                Directory.Move(toolsBackup, ToolsDirectory);
-
-            TryDeleteDirectory(backupRoot);
-            throw;
-        }
+        // Reuse the exact backup, validation, rollback and crash-recovery
+        // protocol employed by the central Download Manager.
+        await ManagedComponentRedownload.ReplaceAsync(
+            [ProcessorDirectory, ToolsDirectory],
+            token => SetupAsync(progress, token),
+            () => IsReady,
+            cancellationToken);
     }
 
     public async Task SetupAsync(
