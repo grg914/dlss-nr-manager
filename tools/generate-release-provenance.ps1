@@ -39,6 +39,7 @@ if ($duplicateNames.Count -gt 0) {
 $dependencyLockPath = Join-Path $Root "third_party/DEPENDENCIES.lock.json"
 $upstreamPolicyPath = Join-Path $Root "third_party/UPSTREAMS.json"
 $minecraftLockPath = Join-Path $Root "third_party/minecraft/RUNTIME.lock.json"
+$componentPolicyPath = Join-Path $Root "manifests/component-policy.json"
 
 $dependencyLock = Get-Content -LiteralPath $dependencyLockPath -Raw | ConvertFrom-Json
 $dependencies = @(
@@ -64,6 +65,7 @@ $document = [ordered]@{
         minecraft_runtime_lock_sha256 = if (Test-Path -LiteralPath $minecraftLockPath) {
             (Get-FileHash -LiteralPath $minecraftLockPath -Algorithm SHA256).Hash.ToLowerInvariant()
         } else { $null }
+        component_policy_sha256 = (Get-FileHash -LiteralPath $componentPolicyPath -Algorithm SHA256).Hash.ToLowerInvariant()
     }
     dependencies = $dependencies | Sort-Object id
     assets = $assets | Sort-Object name
