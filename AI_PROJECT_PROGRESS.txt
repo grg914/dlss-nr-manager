@@ -2670,3 +2670,17 @@ ACTION 2026-10-08 A027
 - The final 3d6365a8 head has therefore passed the previously fragile
   manager-owned seed download/validation path in both Build and CodeQL.
 - No code change made.
+
+
+ACTION 2026-10-08 A018
+- Rechecked PR #81 head 3d6365a8 CI after package-root fix.
+- Build #864:
+  manager-owned offline NuGet feed: SUCCESS
+  offline restore: SUCCESS
+  regression tests: in_progress
+- CodeQL #30:
+  manager-owned offline NuGet feed: SUCCESS
+  offline restore: SUCCESS
+  C# build: in_progress
+- Confirms the runtime-seed transport hardening continues to work on the new
+  exact head after the packaging fix.
