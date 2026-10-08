@@ -135,9 +135,10 @@ public sealed class VlcVideoEnhancementService
         foreach (var argument in BuildArguments(mediaPath, options))
             startInfo.ArgumentList.Add(argument);
 
-        return Process.Start(startInfo)
-            ?? throw new InvalidOperationException(
-                "VLC could not be started.");
+        // Playback was previously launched outside the manager's lifecycle,
+        // allowing a manager-owned VLC subprocess to linger after shutdown.
+        // The Windows Job Object now closes it with other owned helpers.
+        return ExternalProcessTracker.Start(startInfo);
     }
 
     public static IReadOnlyList<string> BuildArguments(

@@ -4784,3 +4784,24 @@ ACTION 2026-10-08 V4-RECOVERY R006 - PR #94 VALIDEE ET FUSIONNEE
 - La branche PR #96 est synchronisee avec ce main et garde tous les checkpoints R001 a R005 + la section PR #94 de main, sans ecrasement du journal.
 - Etape suivante exacte: valider Build et CodeQL sur le head reconcile de PR #96, corriger les erreurs si presentes, ne PAS supprimer l'ancienne version lors d'un echec de redownload.
 - L'issue #95 reste ouverte, faute de crash-recovery persistant et de validation sur le poste reel.
+
+
+ACTION 2026-10-08 V4-RECOVERY L001 - AUDIT LIFECYCLE ET VLC
+- Branche fix/v4-vlc-owned-process-lifecycle creee depuis main e34dd3040b1674fa5f6262e45ed60b3a73cf4eda. Aucun changement sur PR #94 ou PR #96.
+- Audit Process.Start/ExternalProcessTracker sur VlcVideoEnhancementService, MediaService, AiUpscale, AiOrigin, AppUpdate, Minecraft, WindowsRepair, PcUpdate, GpuDetection et MainWindow.
+- Ecart confirme: VlcVideoEnhancementService.Launch appelait Process.Start (non suivi), VLC Direct pouvait rester actif apres fermeture manager.
+- Correction: ExternalProcessTracker.Start(startInfo), suivi Windows Job Object KILL_ON_JOB_CLOSE, identique aux helpers media deja geres.
+- Exceptions intentionnelles hors ownership: demarrage de jeu Minecraft/jeu utilisateur, Explorateur, installeur elevé DISM/SFC, processus d'auto-update et helper de suppression des donnees apres fermeture. Leur cycle de vie doit rester independant pour ne pas tuer des actions demandees par l'utilisateur.
+- Garde anti-regression: ne pas affecter Caustica, SPBR ou shaders.
+- ETAT: correction ecrite et journalisee; Build/CodeQL sur head exact obligatoires, aucun test VLC physique realise ici.
+- Point de reprise: relire PR lifecycle correspondante, log CI, puis fusion uniquement si tous les checks requis sont verts et la base est current.
+
+
+ACTION 2026-10-08 V4-RECOVERY L002 - PR #96 TESTEE, FUSIONNEE ET RESYNCHRONISATION
+- PR #96 (head b93a2fda50f8ccf4f0b0e2f40232e2002594a2a4): Build #37812423352 SUCCESS, CodeQL #37812423179 SUCCESS.
+- xUnit 77 tests passes, 0 failed, 0 skipped ; packaging deterministe et publication Windows x64 verifies.
+- PR #96 fusionnee sur main avec squash commit 97eacd2269340af71099f09c96e4d773b778fb65.
+- PR #97 reconciliee depuis main en conservant R001-R006 + L001, sans perdre les nouvelles traductions FR/EN ni le fix Download Center.
+- PR #97 ancien head b51bde9082e1214d03f0fda5cbe4b563975cab9c: Build #37811579029 SUCCESS, CodeQL #37811579075 SUCCESS, mais CI du nouveau head fusionne requise.
+- L'issue #95 RESTE OUVERTE (recuperation automatique apres hard-kill/plantage et tests sur machine physique a faire).
+- Prochaine action: verifier Build + CodeQL du nouveau head PR #97 puis fusionner seulement si tout est vert; consigner l'operation dans un nouveau checkpoint.
