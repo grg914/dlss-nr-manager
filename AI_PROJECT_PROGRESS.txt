@@ -1,3 +1,11 @@
+CHECKPOINT R037 (2026-10-08) - REALESRGAN OPENMP EVALUATION NON PROMUE
+- Issue #79 encore OUVERTE: runtime-refresh.yml copie aujourd'hui vcomp140.dll depuis Windows System32 sans provenance/licence de redistribution suffisante.
+- Audit CMake du code vendored: find_package(OpenMP) dans src/CMakeLists.txt ET NCNN_OPENMP ON dans ncnn/CMakeLists.txt. Desactiver seulement NCNN_OPENMP ne suffit PAS; test propose avec -DNCNN_OPENMP=OFF et -DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=TRUE dans tools/build-realesrgan.ps1 quand switch explicite -DisableOpenMp.
+- Ajout tools/audit-realesrgan-openmp.ps1: inspecte les imports PE DIRECTS via dumpbin.exe, refuse absence de dumpbin/analyse impossible, bloque import vcomp/libomp/libgomp/libiomp. Ne couvre PAS dependances transitives, signature ni performance. Guide docs/REALESRGAN_OPENMP_FREE_EVALUATION.md.
+- Changement uniquement EXPERIMENTAL, mode par defaut inchangé, aucun asset/runtime de production ou licence ne doit etre promu sur cette base. Aucune performance Vulkan/test long/VRAM sur PC reel effectuee, et PR non fusionnee.
+- PR #117 correctifs process crash + safe deletion encore en CI au moment de ce checkpoint. Pour eviter conflits journal, cette branche documentaire doit etre reconciliee avec main apres merge #117 si necessaire; Build + CodeQL requis.
+PROCHAINE ACTION: lancer evaluation offline sur vrai Windows GPU, mesurer/perf comparer + audit transitive/provenance, puis proposition de retrait System32 seulement si resultat valide; issue #79 reste ouverte, v4.0 non publiee.
+
 CHECKPOINT R030 (2026-10-08) - RECONCILIATION PR #112 / CENTRE TELECHARGEMENTS
 - PR #112 fusionnee dans main commit 07c85195502e26365b8df8fdc2834404537bbe25: Build 37830461516 SUCCESS avec 108 tests (0 fails / 0 skipped), CodeQL 37830461642 SUCCESS.
 - CHANGELOG.md, ManagedPathSafety, protections rollback Media et import AI Studio manuel, tests Windows STOP et symlink/junction presents sur main. PR #109 et #110 fermees comme remplacees.
