@@ -22,7 +22,7 @@ public sealed class MediaUpdateAvailabilityTests
     {
         Assert.Equal(MediaUpdateAvailability.UpdateAvailable,
             ComponentUpdateService.EvaluateMediaUpdate(
-                State(OldFingerprint), State(NewFingerprint), true));
+                State(OldFingerprint, "v3.1.1"), State(NewFingerprint, "v3.2.0"), true));
     }
 
     [Fact]
@@ -52,6 +52,38 @@ public sealed class MediaUpdateAvailabilityTests
                 State(OldFingerprint), State(null), true));
     }
 
-    private static ComponentState State(string? fingerprint) =>
-        new("manager:123", 456, DateTimeOffset.UtcNow, fingerprint);
+    [Fact]
+    public void Different_hash_from_older_release_must_not_offer_downgrade()
+    {
+        Assert.Equal(MediaUpdateAvailability.UpToDate,
+            ComponentUpdateService.EvaluateMediaUpdate(
+                State(OldFingerprint, "v3.2.0"), State(NewFingerprint, "v3.1.1"), true));
+    }
+
+    [Fact]
+    public void Same_release_tag_different_hash_is_not_called_new_version()
+    {
+        Assert.Equal(MediaUpdateAvailability.UpToDate,
+            ComponentUpdateService.EvaluateMediaUpdate(
+                State(OldFingerprint, "v3.2.0"), State(NewFingerprint, "v3.2.0"), true));
+    }
+
+    [Fact]
+    public void Non_semantic_release_tag_is_not_a_valid_update()
+    {
+        Assert.Equal(MediaUpdateAvailability.UnknownRemoteVersion,
+            ComponentUpdateService.EvaluateMediaUpdate(
+                State(OldFingerprint), State(NewFingerprint, "v3.3.0-rc1"), true));
+    }
+
+    [Fact]
+    public void Legacy_state_without_release_tag_is_unknown()
+    {
+        Assert.Equal(MediaUpdateAvailability.UnknownLocalVersion,
+            ComponentUpdateService.EvaluateMediaUpdate(
+                State(OldFingerprint, null), State(NewFingerprint), true));
+    }
+
+    private static ComponentState State(string? fingerprint, string? releaseTag = "v3.1.1") =>
+        new("manager:123", 456, DateTimeOffset.UtcNow, fingerprint, releaseTag);
 }
