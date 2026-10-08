@@ -300,6 +300,44 @@ jobs:
       - name: Dispatch production release after seed promotion
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          gh workflow run release.yml --repo "${{ github.repository }}" --ref main
-          if [ $? -ne 0 ]; then exit 1; fi
+          set -euo pipefail
+          repo="${{ github.repository }}"
+          source_sha="${{ github.sha }}"
+
+          project="$(gh api -H "Accept: application/vnd.github.raw+json" "repos/$repo/contents/DlssNrManager.csproj?ref=$source_sha")"
+          version="$(printf '%s\n' "$project" | sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' | head -n 1)"
+          if [ -z "$version" ]; then
+            echo "Unable to resolve application version from DlssNrManager.csproj." >&2
+            exit 1
+          fi
+
+          tag="v$version"
+          exact_ref="$(gh api "repos/$repo/git/matching-refs/tags/$tag" --jq '.[] | select(.ref == "refs/tags/'"$tag"'") | [.object.type, .object.sha] | @tsv')"
+
+          if [ -n "$exact_ref" ]; then
+            tag_type="${exact_ref%%
+\t'*}"
+            tag_sha="${exact_ref#*
+\t'}"
+
+            if [ "$tag_type" = "tag" ]; then
+              tag_object="$(gh api "repos/$repo/git/tags/$tag_sha")"
+              tag_type="$(printf '%s' "$tag_object" | jq -r '.object.type')"
+              tag_sha="$(printf '%s' "$tag_object" | jq -r '.object.sha')"
+            fi
+
+            if [ "$tag_type" != "commit" ]; then
+              echo "Stable tag $tag does not resolve to a commit." >&2
+              exit 1
+            fi
+
+            if [ "$tag_sha" != "$source_sha" ]; then
+              echo "Stable $tag already belongs to $tag_sha; current main is $source_sha."
+              echo "Runtime seed was refreshed, but production release dispatch is intentionally skipped until the application version is bumped."
+              exit 0
+            fi
+          fi
+
+          gh workflow run release.yml --repo "$repo" --ref main
