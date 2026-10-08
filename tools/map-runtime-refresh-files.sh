@@ -69,6 +69,10 @@ for file in "$@"; do
       # Release metadata only.
       ;;
 
+    tools/verify-repository-governance.ps1)
+      # Repository policy validation only; never changes runtime bytes.
+      ;;
+
     tools/map-runtime-refresh-files.sh)
       # Scope-routing implementation only.
       ;;
