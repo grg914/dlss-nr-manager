@@ -4863,3 +4863,37 @@ ACTION 2026-10-08 V4-SECURITY S002 - DIAGNOSTIC CI PR #99 ET SYNCHRONISATION
 - Correction test: Assert.EndsWith("nvidia-smi.exe", path, StringComparison.OrdinalIgnoreCase), sans modifier politique des executables autorises.
 - Synchronisation branche security/v4-trusted-gpu-probing depuis main 7c7bdc26b70e1409c8d9f324f75f3bf87491a98a par commit de reconciliation a deux parents, conserve tout R001-R011/L001-L002/S001 et les changements GPU.
 - ETAT: attendu nouveaux Build/CodeQL sur le nouveau head PR #99. Ne pas fusionner avant tous controles verts. Aucun test NVIDIA-SMI sur GPU reel effectue.
+
+
+ACTION 2026-10-08 V4-RECOVERY R012 - AUDIT MISES A JOUR AUTOMATIQUES MEDIA
+- Branche fix/v4-media-update-recovery creee depuis main 7c7bdc26b70e1409c8d9f324f75f3bf87491a98a. Ne modifie pas PR #99 en cours.
+- Defaut nouveau confirme: MediaService.UpdateToolsAsync cree et deplace les dossiers tools et video2dlssnr dans media-engine/_update-backup-<GUID>, format different du backup transactionnel utilise par Download Center.
+- Si Windows/app plante durant cette mise a jour, la recovery v4 depuis PR #98 ne traite pas _update-backup-*.
+- La branche implementera l'utilisation de ManagedComponentRedownload.ReplaceAsync pour les futures mises a jour media et un recuperateur conservateur pour les backups legacy _update-backup-* deja presents.
+- Teste rollback echec/annulation et protection de realesrgan, sorties utilisateur et sauvegardes ambigues; ne jamais effacer un backup dont le retour est incertain.
+- Statut: AUDIT/PLAN sauvegardes dans GitHub; implementation et validations restent a faire.
+
+
+ACTION 2026-10-08 V4-RECOVERY R013 - UNIFIER MEDIA UPDATER ET RECOVERY LEGACY
+- MediaService.UpdateToolsAsync utilise desormais ManagedComponentRedownload.ReplaceAsync pour les deux seuls repertoires geres video2dlssnr et tools, avec IsReady comme validation du remplacement; ne touche pas au sibling realesrgan.
+- Blocage d'une nouvelle mise a jour s'il subsiste un dossier _update-backup-* non resolu dans media-engine.
+- RecoverKnownManagedComponentBackups invoque egalement RecoverLegacyMediaUpdateBackups, convertissant par Directory.Move les backups historiques _update-backup-<GUID> en sauvegardes per-component avec restoration via RecoverOwnedBackups.
+- Protections: ambiguites >1, junction/symlink, backup concurrent, fichiers inconnus conserves; aucune suppression recursive de dossier legacy contenant des fichiers inconnus.
+- Recovery apres crash pendant migration: sous-repertoire deja deplace laisse en nouveau format et recupere au prochain demarrage.
+- 5 tests de regression: video2dlssnr + tools, migration partielle, plusieurs backups ambigus, fichier inconnu, dossier vide sans impact utilisateur.
+- LIMITES: crash apres recovery partielle ou pendant nettoyage peut exiger revue manuelle. CI et CodeQL a faire sur ce commit, aucun test d'arret brutal physique.
+
+ACTION 2026-10-08 V4-SECURITY S003 - PR #99 VALIDATION ET FUSION
+- PR #99 head 05166b055e0b1786a341be8b4bdb57d1ec42452e.
+- Build run 37817272682 SUCCESS, CodeQL run 37817272721 SUCCESS; 85 tests xUnit passes, 0 fail, 0 skipped; publication Windows x64 et packaging deterministe passes.
+- Merge squash main: 86f04accae20050cc030771bdc057b05d5137599.
+- GpuDetectionService utilise NVIDIA-SMI uniquement depuis chemins trustes, et suivi par ExternalProcessTracker.
+- Verif PC NVIDIA reel reste non faite par l'environnement de CI.
+
+ACTION 2026-10-08 V4-RECOVERY R014 - PR #100 CI INITIALE ET SYNCHRONISATION
+- PR #100 ancien head 1736bc403c72a25147a07f4ffe492890a4a89839.
+- Build run 37817751392 SUCCESS; CodeQL run 37817751390 SUCCESS; tests xUnit 88/88 passes sur ce head (nombre a revérifier si log differe).
+- Correction automatique media + ancien format _update-backup-* preserves, sibling Real-ESRGAN non touche.
+- Branche fix/v4-media-update-recovery reconciliee avec main 86f04accae20050cc030771bdc057b05d5137599, en conservant R012/R013 et les derniers checkpoints S002/S003.
+- Prochaine action: valider nouveau head de PR #100 (Build et CodeQL); ne pas fusionner avant controles verts du commit exact.
+- Issue #95 reste OUVERTE (AI Studio rollback et test d'extinction brutale a faire).
