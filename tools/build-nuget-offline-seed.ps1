@@ -1,8 +1,7 @@
 param(
     [string]$OutputZip = "build-local/nuget-offline.zip",
     [string]$PackagesDirectory = "build-local/nuget-global",
-    [string]$FeedDirectory = "build-local/nuget-feed",
-    [string]$TimestampUtc = ""
+    [string]$FeedDirectory = "build-local/nuget-feed"
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,20 +15,10 @@ Remove-Item -LiteralPath $feed -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $packages, $feed, (Split-Path -Parent $zip) | Out-Null
 
-if ([string]::IsNullOrWhiteSpace($TimestampUtc)) {
-    Push-Location $Root
-    try {
-        $TimestampUtc = (git show -s --format=%cI HEAD).Trim()
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($TimestampUtc)) {
-            throw "Unable to resolve source commit timestamp for deterministic NuGet seed packaging."
-        }
-    }
-    finally {
-        Pop-Location
-    }
-}
+# The seed is content-addressed: archive metadata must not vary with wall-clock
+# time or source commit when the package set and bytes are unchanged.
+$deterministicArchiveTimestamp = "1980-01-01T00:00:00Z"
 
-$sourceTimestamp = ([DateTimeOffset]::Parse($TimestampUtc)).ToUniversalTime()
 
 Push-Location $Root
 try {
@@ -94,7 +83,6 @@ foreach ($package in $wanted.Values) {
 
 $manifest = [ordered]@{
     schema = 2
-    generated_at_utc = $sourceTimestamp.ToString("o")
     runtime_identifier = "win-x64"
     packages = @(
         Get-ChildItem -LiteralPath $feed -Filter "*.nupkg" -File | Sort-Object Name | ForEach-Object {
@@ -116,7 +104,7 @@ $manifestJson = ($manifest | ConvertTo-Json -Depth 8) -replace "`r`n", "`n"
 & (Join-Path $PSScriptRoot "create-deterministic-flat-zip.ps1") `
     -InputDirectory $feed `
     -OutputPath $zip `
-    -TimestampUtc ($sourceTimestamp.ToString("o")) `
+    -TimestampUtc $deterministicArchiveTimestamp `
     -Compression Store
 
 if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1MB) {
