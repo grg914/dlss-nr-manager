@@ -1,3 +1,12 @@
+CHECKPOINT R061 (2026-10-09) - PR128 FUSIONNEE / AUDIT R058 RECONCILIE
+- PR #125 historique et audit R046-R056 fusionnee a main 51ee9cd42461b09500b370592c8663380862d8be apres Build et CodeQL verts.
+- PR #128 fix/v4-owned-helper-isolation: nouveau HEAD 4ed14d7ab8652b942822ce8ee8fc571b2c0c4b31, Windows Build SUCCESS, 127 tests passes, 0 fails, 0 skipped (run 37854677953), CodeQL SUCCESS (run 37854677854). PR sortie de draft puis fusionnee par squash a main 1ee66e6cdbdcb38a9966d2ef61810e4d6e385d27.
+- Correctif : ExternalProcessTracker.KillAll ne tue plus globalement les processus nommes ffmpeg, ffprobe, video2dlssnr ou realesrgan-ncnn-vulkan sous le dossier partage LocalAppData; seul le suivi propre a chaque instance sert a l'arret. Job Object conserve pour la terminaison brutale; fenetre Start -> assign et echec d'attachement restent a traiter dans issue #95.
+- Audit GitHub R058: 45 branches au snapshot post-PR129, 44 comparees individuellement a main; 5 ancetres exactes sans commits uniques, 4 branches de release, plusieurs branches divergentes/pr closes non fusionnees a conserver. Liste exhaustive docs/BRANCH_AUDIT_R058_2026-10-09.md; commentaires issue #124 R058-R060 avec controles semantiques.
+- PR #130 (audit R058 + journal racine) recalee sur main APRES #128 par merge a deux parents sans perte de code; CI sur HEAD final a verifier avant fusion. Ne pas declarer PR #130 fusionnee a ce stade.
+- Version production source et derniere release publique 3.2.0; v4.0 toujours bloquee sur #79 #82 #95 #111 #123 et revue #124. Aucune qualification GPU Windows reelle declaree.
+PROCHAINE ACTION: verifier Build et CodeQL sur HEAD final PR #130; fusionner seulement si verts, reconfirmer journal et branches sur main, puis reprendre les blocages de v4.
+ 
 CHECKPOINT R058 (2026-10-09) - AUDIT EXHAUSTIF DES 45 BRANCHES APRES NETTOYAGE / SUITE V4
 - Main de reference audite: d5221deb14e774723e1cde408d182146597d1770, apres fusion PR #129; 84 refs confirmees supprimees, 45 branches restantes au relevé initial.
 - Compare GitHub main...branch lance et examine pour CHAQUE 44 branche non-main; 5 refs ancetres exactes (zero commit propre); 2 branches PR ouvertes au releve (#125 et #128); 4 refs de releases a conserver; branche refactor/phase4-zero-upstream-production referencee par nuget-seed.yml, donc conserver.
