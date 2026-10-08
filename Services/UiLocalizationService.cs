@@ -11,6 +11,18 @@ public static class UiLocalizationService
     private static readonly Entry[] Entries =
     [
         new("Navigation", "Navigation"),
+        new("Hardware & Profiles", "Matériels et Profils"),
+        new("Read-only hardware detection and capability-safe preferences", "Détection matérielle en lecture seule et préférences compatibles"),
+        new("Hardware profile", "Profil matériel"),
+        new("Compatible mode", "Mode Compatible"),
+        new("Uncheck Compatible mode to use Normal mode.", "Décochez Mode Compatible pour utiliser le mode Normal."),
+        new("Refresh hardware detection", "Actualiser la détection matérielle"),
+        new("Hardware detection pending.", "Détection matérielle en attente."),
+        new("No hardware scan completed yet.", "Aucune analyse matérielle effectuée."),
+        new("DirectX and Vulkan loader detection does not guarantee feature support. Game, driver and runtime compatibility are checked separately.", "La détection des chargeurs DirectX et Vulkan ne garantit pas les fonctions disponibles. La compatibilité du jeu, du pilote et du runtime est vérifiée séparément."),
+        new("AUTO detects your actual GPU and CPU. A manual preset never unlocks unsupported hardware features.", "AUTO détecte le GPU et le CPU réels. Un profil manuel ne débloque jamais de fonctions matérielles incompatibles."),
+        new("Compatible mode conservatively disables optional Frame Generation and Neural Rendering while retaining supported Super Resolution.", "Le mode Compatible désactive prudemment Frame Generation et Neural Rendering tout en conservant Super Resolution si compatible."),
+        new("Recheck your GPU, CPU, memory, NVIDIA driver and graphics API loaders without modifying drivers.", "Revérifie GPU, CPU, mémoire, pilote NVIDIA et chargeurs graphiques sans modifier les pilotes."),
         new("Games & DLSS", "Jeux & DLSS"),
         new("Minecraft RTX", "Minecraft RTX"),
         new("Media Neural", "Média neuronal"),

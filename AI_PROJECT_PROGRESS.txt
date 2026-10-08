@@ -4689,3 +4689,33 @@ mettre à jour AI_PROJECT_PROGRESS.txt
 
 générer un résumé complet de l'application
 --- FIN DU PROMPT UTILISATEUR ORIGINAL ---
+
+
+ACTION 2026-10-08 V4-STEP-1: AUDIT INITIAL ET VERIFICATION DU DEPOT
+- Etape 0 TERMINEE: PR #92 fusionnee vers main apres Build et CodeQL SUCCESS.
+- Le prompt original du 2026-10-08 est present dans AI_PROJECT_PROGRESS.txt sur main; historique precedent conserve.
+- Main: v3.2.0 est la derniere release stable; aucune release v4.0 n'a ete creee.
+- Inventaire: Services/ 52 fichiers lors de l'audit; tests/DlssNrManager.Tests contient le csproj et 7 suites de tests preexistantes.
+- Menu production existant: 13 entrees; l'onglet Materiels et Profils est absent de main et fait l'objet de PR #93.
+- GPU existant: detection par registre NVIDIA / NVIDIA-SMI et garde des capacites RTX 20/30/40/50; manque dans main: VRAM, CPU, RAM, architecture, pilote, API et profils materiels complets.
+- Localisation existante: langues FR/EN dans Application et table de traduction; audit heuristique de MainWindow.xaml: 332 valeurs uniques texte/contenu/info-bulle, ~15 potentiellement non traduites. Plusieurs controles n'ont pas de ToolTip; exhaustivite a prouver en etape 3.
+- Download Center existant: install/remove/redownload, modal licence manuelle, VLC centralise, SHA-256 et gouvernance manager-owned; l'exhaustivite des mises a jour externes/fonctions est encore a verifier.
+- Lifecycle existant: ExternalProcessTracker + Windows Job Object KILL_ON_JOB_CLOSE, arret depuis App.OnExit et MainWindow.Closed. Une verification exhaustive des processus workers/AI Studio/VLC/FFmpeg reste a faire.
+- Politique upstream: manifeste de composants, depends lock, upstream-monitor quotidien, revisions pinnees, regles de licences et rollback documentees. Absence de verification de chaque URL/update en direct a ce stade.
+- 95 branches retournees par la premiere page du listing avant creation des branches de la demande; ne pas fusionner/supprimer sans comparer leur contenu.
+- Issues ouvertes lors de l'audit: #87, #82, #79, #76, #51.
+- Version pilote 617.42 WHQL: publication officielle NVIDIA le 2026-10-06; NVIDIA documente une anomalie possible du mode d'alimentation Prefer Maximum Performance. Ne pas confondre validation du numero officiel et detection locale.
+- Etape 1: audit initial documente, mais verification de toutes les branches, dependances, performances et tests de fin encore A FAIRE.
+
+ACTION 2026-10-08 V4-STEP-2: IMPLEMENTATION MATERIELS ET PROFILS EN VALIDATION
+- PR #93 sur branche feature/v4-hardware-profiles-20261008.
+- Nouvel onglet en FIN de menu (index 13), conservant les indices fixes VLC et Telechargements.
+- AUTO et preset RTX 5060 Ti 16GB + Ryzen 7 9700X; Mode Normal/Compatible via bascule; preferences locales persistantes.
+- Detection read-only GPU, generation/architecture RTX, VRAM, CPU, RAM, pilote NVIDIA, D3D12 runtime et Vulkan loader/ICD.
+- Pilote 617.42: information officielle WHQL, probleme connu, sans pretendre que ce pilote est installe sans sonde NVIDIA-SMI.
+- Acces NVIDIA-SMI par chemin Windows de confiance seulement; processus enfant supervise.
+- Refus de debloquer une capacite par preset manuel sur hardware non compatible.
+- Recalcul a la selection de l'onglet et au retour dans la fenetre; fingerprint du materiel/pilote.
+- FR/EN + info-bulles pour les nouvelles options; tests xUnit de choix/fallback et architecture.
+- STATUT: CODE COMMITTE, BUILD/CODEQL EN ATTENTE. PAS encore valide en execution sur Windows et PAS encore fusionne.
+- NE PAS annoncer version 4.0 disponible.
