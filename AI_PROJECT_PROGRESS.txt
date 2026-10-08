@@ -3640,3 +3640,232 @@ ACTION 2026-10-08 A065
   files.
 - Next action: synchronize live AI_PROJECT_PROGRESS.txt into the branch, open the
   release-source-pinning PR, and freeze its exact head for Build/CodeQL.
+
+
+ACTION 2026-10-08 A066
+- Synchronized AI_PROJECT_PROGRESS.txt through A065 into
+  hardening/release-source-pinning.
+- Journal-sync commit:
+  0bf7d6631200ee692801bb2f16f31574cfd9694e
+- Opened PR #85:
+  hardening: pin production release to exact validated source
+  https://github.com/grg914/dlss-nr-manager/pull/85
+- Exact PR head frozen for validation:
+  0bf7d6631200ee692801bb2f16f31574cfd9694e
+- GitHub REST reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head checks started:
+  Build #870 (run 37719093394)
+  CodeQL #36 (run 37719093466)
+- No further change will be made to PR #85 head unless CI exposes a defect.
+
+
+ACTION 2026-10-08 A066
+- PR #84 Build #869 exposed one branch-local defect.
+- Validate shell helper syntax: SUCCESS.
+- Validate runtime refresh scope mapping: SUCCESS.
+- Failure occurred later in Validate self-contained tooling because
+  tools/verify-repository-governance.ps1 contained invalid PowerShell quote
+  escaping in the newly added required-trigger regex:
+  Unexpected token ']' in expression or statement.
+- Root cause: backslash-escaped double quote (\") was used inside a PowerShell
+  double-quoted string; PowerShell requires different quoting rules.
+- Replaced the fragile regex with a literal YAML-entry Contains check for the
+  three required runtime-refresh push triggers.
+- Fix commit:
+  5e23418cb0ceff1a0a013f1e8724a189046a131d
+- PR #84 new exact head:
+  5e23418cb0ceff1a0a013f1e8724a189046a131d
+- New exact-head checks started:
+  Build #871 (run 37719145060)
+  CodeQL #37 (run 37719145059)
+- Branch is frozen again until these checks complete or expose another defect.
+
+
+ACTION 2026-10-08 A067
+- PR #85 exact-head Build #870 progressed on frozen head
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Newly relevant gates already SUCCESS:
+  Validate release dispatch helper syntax;
+  Validate self-contained tooling;
+  Verify deterministic flat ZIP helper;
+  Validate repository governance.
+- This is the first CI proof that the release source-pinning/fail-closed
+  governance contract is accepted on Windows Build CI.
+- Build #870 also passed SBOM, Minecraft native policy and Caustica/Scandi audit
+  and is now auditing the manager-owned Streamline runtime seed.
+- CodeQL #36 completed checkout and is initializing CodeQL.
+- No PR #85 code change made; exact head remains frozen.
+
+
+ACTION 2026-10-08 A067
+- PR #84 exact-head Build #871 validated the A066 fix and the routing hardening:
+  Validate shell helper syntax: SUCCESS
+  Validate runtime refresh scope mapping: SUCCESS
+  Validate self-contained tooling: SUCCESS
+  Verify deterministic flat ZIP helper: SUCCESS
+  Validate repository governance: SUCCESS
+- Build #871 then passed SBOM, Minecraft Vulkan/NGX and Caustica/Scandi audits
+  and entered the Streamline runtime audit.
+- No failed Build step is reported.
+- CodeQL #37 is still awaiting/obtaining its runner at this checkpoint.
+- No further branch change made; exact head 5e23418 remains frozen.
+
+
+ACTION 2026-10-08 A068
+- Reconciled concurrent open PRs #84 and #85 after connection recovery.
+- PR #85 (security/correctness priority):
+  hardening/release-source-pinning
+  exact head 0bf7d6631200ee692801bb2f16f31574cfd9694e
+  Build #870 / CodeQL #36 in_progress, both currently in manager-owned offline
+  NuGet feed preparation; all earlier Build gates including repository governance
+  are SUCCESS.
+- PR #84 (performance follow-up):
+  hardening/runtime-refresh-scoping
+  exact head 5e23418cb0ceff1a0a013f1e8724a189046a131d
+  Build #871 / CodeQL #37 in_progress, both currently in manager-owned offline
+  NuGet feed preparation; the A066 PowerShell quoting fix and all new scope
+  mapping/governance tests are SUCCESS.
+- Both branches are based on main 8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Both modify AI_PROJECT_PROGRESS.txt and tools/verify-repository-governance.ps1,
+  so merge order matters even though their core implementation files differ.
+- Selected merge order: #85 first because it closes a production release TOCTOU
+  correctness/security gap; after #85 merges, #84 must be refreshed/reconciled
+  onto the new main before it can be merged under strict up-to-date rules.
+- Neither PR head was changed during this reconciliation.
+
+
+ACTION 2026-10-08 A069
+- Read-only audit of PR #84 runtime scope IDs found a real branch-local routing defect.
+- tools/map-runtime-refresh-files.sh mapped third_party/FFmpeg-Builds/** to
+  ffmpeg-builds, but runtime-refresh.yml has no job condition consuming
+  ffmpeg-builds.
+- Verified from third_party/README.md and tools/build-ffmpeg-windows.sh that
+  FFmpeg-Builds is historical/reference build-recipe material only; the manager
+  runtime is built from third_party/FFmpeg + third_party/nv-codec-headers.
+- Correct routing is therefore release-only for FFmpeg-Builds-only changes.
+- Patched PR #84:
+  a6f284e6354fe2a73643ad43eee696df952159d7
+    mapper no longer emits ffmpeg-builds for third_party/FFmpeg-Builds/**;
+  6ed0c434a18b6427633b44a4c00601dc29dce4a8
+    Build tests now require FFmpeg-Builds alone => release-only and
+    FFmpeg-Builds + nv-codec-headers => nv-codec-headers.
+- PR #84 new exact head:
+  6ed0c434a18b6427633b44a4c00601dc29dce4a8
+- Previous #84 Build #871 / CodeQL #37 were intentionally superseded.
+- New exact-head checks:
+  Build #872 in_progress
+  CodeQL #38 pending.
+- PR #85 remains unchanged on exact head 0bf7d663 and stays first in merge order.
+
+
+ACTION 2026-10-08 A070
+- PR #85 exact-head validation advanced on frozen head
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Build #870:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: SUCCESS
+  regression tests: in_progress.
+- CodeQL #36:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore from manager-owned feed: SUCCESS
+  Build application for CodeQL: in_progress.
+- Both exact-head checks have passed the manager-owned seed/restore architecture
+  after the release source-pinning changes.
+- PR #84 replacement checks #872/#38 have only just started on corrected head
+  6ed0c434 and do not affect #85 merge priority.
+- No PR #85 code change made.
+
+
+ACTION 2026-10-08 A071
+- PR #85 exact-head Build #870 completed SUCCESS on
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Build log evidence:
+  deterministic flat ZIP helper A/B SHA-256
+  a7ce391196f2be574815d20b454ab8734baa1a08fd003e6ab11cd9e7af292b8b;
+  regression tests: 37 passed, 0 failed, 0 skipped;
+  deterministic application package A/B SHA-256
+  c0b2c055068ee0118b7cfd961238eec62fa33bc7aa41d3d6ac41ec09ed7ad64f.
+- All release-source-pinning governance gates and normal Build gates are green.
+- CodeQL #36 remains in Analyze on the same exact head.
+- PR #84 corrected head 6ed0c434 is independently revalidating under #872/#38
+  and remains second in merge order.
+
+
+ACTION 2026-10-08 A072
+- PR #85 exact-head CodeQL #36 security Analyze completed SUCCESS on
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Offline feed, restore, instrumented C# build, Analyze and post-analysis steps
+  are all SUCCESS; only final checkout cleanup remained at this checkpoint.
+- Build #870 is already fully SUCCESS on the same exact head.
+- No code change made; next action is final CodeQL completion + PR merge-state check.
+
+
+ACTION 2026-10-08 A073
+- PR #85 exact-head CodeQL #36 completed SUCCESS on
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Build #870 and CodeQL #36 are now both fully green on the same exact head.
+- GitHub REST reports PR #85:
+  mergeable=true
+  mergeable_state=clean.
+- Next action: squash-merge #85 with expected-head protection on 0bf7d663.
+
+
+ACTION 2026-10-08 A074
+- PR #85 was squash-merged with expected-head protection on
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- New main commit:
+  dca84beeed06fb46ae78524dc420ab8cf46b80f1
+- GitHub result: Pull Request successfully merged.
+- Production release source-pinning / fail-closed main revalidation is now part
+  of official main, together with journal history through A065 and the CodeQL
+  repository-settings baseline update.
+- Next actions:
+  validate post-merge Build/CodeQL/Runtime Seed Refresh on dca84bee;
+  verify the NuGet content-addressed seed now reports SKIP unchanged on the next
+  refresh when package content is identical;
+  reconcile PR #84 onto dca84bee so its scope-routing governance is additive to
+  the newly merged release-source-pinning governance rather than overwriting it.
+
+
+ACTION 2026-10-08 A075
+- Reconciled PR #84 hardening/runtime-refresh-scoping onto official main after PR #85.
+- Linear branch reconstruction completed successfully with force-with-lease:
+  previous head 6ed0c434a18b6427633b44a4c00601dc29dce4a8;
+  new parent main dca84beeed06fb46ae78524dc420ab8cf46b80f1;
+  new PR #84 head bf3bba89c6771ef6bd0819a69e9239a53cd1b7de.
+- Reconstructed tree preserves #84 runtime scope implementation/tests and the
+  corrected FFmpeg-Builds release-only routing.
+- tools/verify-repository-governance.ps1 was reconciled additively:
+  #85 exact release source-pinning / fail-closed checks retained;
+  #84 seed-release checkout, scope mapper and required-trigger checks retained.
+- PR #84 is again mergeable=true and blocked only by fresh exact-head checks:
+  Build #874 in_progress
+  CodeQL #40 pending at first observation.
+- No #85 production hardening was dropped.
+
+
+ACTION 2026-10-08 A076
+- Runtime Seed Refresh #24 on merged main dca84bee provided the pending A057
+  production proof for content-addressed NuGet publication.
+- seed-release resolved scope=all because #24 started before PR #84 scope routing
+  was available on main.
+- nuget-runtime completed SUCCESS and generated nuget-offline.zip twice with the
+  exact same SHA-256:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e.
+- Exact publication result:
+  SKIP unchanged manager-owned nuget-offline.zip
+  (c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e).
+- This closes the A057 follow-up: unchanged deterministic NuGet seed bytes are
+  now proven not to be replaced/re-uploaded during a subsequent real refresh.
+- Other #24 runtime jobs continue only because the old coarse main scope resolver
+  returned all; PR #84 is intended to eliminate this unnecessary full rebuild.
+
+
+ACTION 2026-10-08 A077
+- Synchronized the authoritative live AI_PROJECT_PROGRESS.txt through A076 into
+  PR #84 after its linear reconciliation onto main.
+- This journal sync is intentionally performed before exact-head CI completes so
+  the final validated PR head already contains the continuity record that should
+  land on main.
+- PR #84 is frozen after this sync; no further branch change should occur unless
+  Build/CodeQL exposes a defect.

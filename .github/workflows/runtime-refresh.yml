@@ -14,6 +14,8 @@ on:
       - 'tools/build-reshade.ps1'
       - 'tools/generate-components-manifest.ps1'
       - 'tools/build-nuget-offline-seed.ps1'
+      - 'tools/create-deterministic-flat-zip.ps1'
+      - 'tools/map-runtime-refresh-files.sh'
       - 'tools/publish-streamline-runtime.ps1'
       - 'tools/publish-temurin25-runtime.ps1'
       - 'tools/bootstrap-minecraft-runtime.ps1'
@@ -46,6 +48,12 @@ jobs:
     outputs:
       changed_ids: ${{ steps.ids.outputs.value }}
     steps:
+      - name: Checkout repository for scope mapper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          lfs: false
+
       - name: Resolve refresh scope
         id: ids
         shell: bash
@@ -66,34 +74,37 @@ jobs:
               gh api "$compare" --paginate --jq '.files[].filename'
             )
 
-            # A pure application-version bump or a change to this orchestration
-            # workflow does not invalidate manager-owned runtime binaries.
-            # In that case, publish the application from the already validated
-            # seed instead of rebuilding FFmpeg/OptiScaler/ReShade/etc.
-            value="release-only"
+            scope_files=()
             for file in "${files[@]}"; do
-              case "$file" in
-                .github/workflows/runtime-refresh.yml|.github/workflows/release.yml)
-                  ;;
-                DlssNrManager.csproj)
-                  patch="$(gh api "$compare" --jq '.files[] | select(.filename == "DlssNrManager.csproj") | .patch // ""')"
-                  non_version_changes="$(
-                    printf '%s\n' "$patch" |
-                    grep -E '^[+-]' |
-                    grep -Ev '^---|^\+\+\+' |
-                    grep -Ev '<(Version|AssemblyVersion|FileVersion|InformationalVersion)>' || true
-                  )"
-                  if [ -n "$non_version_changes" ]; then
-                    value="all"
-                  fi
-                  ;;
-                *)
-                  value="all"
-                  ;;
-              esac
+              if [ "$file" = "DlssNrManager.csproj" ]; then
+                patch="$(gh api "$compare" --jq '.files[] | select(.filename == "DlssNrManager.csproj") | .patch // ""')"
+                non_version_changes="$(
+                  printf '%s\n' "$patch" |
+                  grep -E '^[+-]' |
+                  grep -Ev '^---|^\+\+\+' |
+                  grep -Ev '<(Version|AssemblyVersion|FileVersion|InformationalVersion)>' || true
+                )"
+
+                # A pure application-version bump should publish from the
+                # already validated seed. Any other project-file change can
+                # alter the exact NuGet closure and therefore refreshes only
+                # the manager-owned offline NuGet feed.
+                if [ -n "$non_version_changes" ]; then
+                  scope_files+=("$file")
+                fi
+              else
+                scope_files+=("$file")
+              fi
             done
+
+            value="$(bash ./tools/map-runtime-refresh-files.sh "${scope_files[@]}")"
           else
             value="all"
+          fi
+
+          if [[ ! "$value" =~ ^(all|release-only|[A-Za-z0-9._-]+(,[A-Za-z0-9._-]+)*)$ ]]; then
+            echo "Invalid runtime refresh scope: $value" >&2
+            exit 1
           fi
 
           echo "value=$value" >> "$GITHUB_OUTPUT"

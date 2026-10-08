@@ -191,6 +191,44 @@ if ($dispatchHelper -notmatch 'git/ref/heads/main' -or
     throw "dispatch-release-if-needed.sh must reject stale main state and pass the validated source_sha into release.yml."
 }
 
+$seedReleaseJob = [regex]::Match(
+    $runtimeRefresh,
+    "(?ms)^  seed-release:\s*.*?(?=^  [A-Za-z0-9_-]+:\s*$|\z)"
+).Value
+
+if ([string]::IsNullOrWhiteSpace($seedReleaseJob)) {
+    throw "runtime-refresh.yml has no seed-release job."
+}
+
+$scopeCheckout = [regex]::Match(
+    $seedReleaseJob,
+    "uses:\s*actions/checkout@[0-9a-fA-F]{40}"
+)
+$scopeHelper = [regex]::Match(
+    $seedReleaseJob,
+    "bash\s+\.\/tools\/map-runtime-refresh-files\.sh"
+)
+if (-not $scopeCheckout.Success) {
+    throw "runtime-refresh seed-release must checkout the repository before invoking the local scope mapper."
+}
+if (-not $scopeHelper.Success) {
+    throw "runtime-refresh seed-release does not invoke tools/map-runtime-refresh-files.sh."
+}
+if ($scopeCheckout.Index -gt $scopeHelper.Index) {
+    throw "runtime-refresh seed-release checkout must occur before the local scope mapper is invoked."
+}
+
+foreach ($requiredTrigger in @(
+    "tools/build-nuget-offline-seed.ps1",
+    "tools/create-deterministic-flat-zip.ps1",
+    "tools/map-runtime-refresh-files.sh"
+)) {
+    $yamlEntry = "      - '$requiredTrigger'"
+    if (-not $runtimeRefresh.Contains($yamlEntry)) {
+        throw "runtime-refresh push paths do not include required trigger: $requiredTrigger"
+    }
+}
+
 Write-Host "Repository governance validation passed."
 Write-Host "Required policy files: $($required.Count)"
 Write-Host "Component policy entries: $($components.Count)"

@@ -50,9 +50,43 @@ jobs:
           }
           dotnet --info
 
-      - name: Validate release dispatch helper syntax
+      - name: Validate shell helper syntax
         shell: bash
-        run: bash -n ./tools/dispatch-release-if-needed.sh
+        run: |
+          bash -n ./tools/dispatch-release-if-needed.sh
+          bash -n ./tools/map-runtime-refresh-files.sh
+
+      - name: Validate runtime refresh scope mapping
+        shell: bash
+        run: |
+          assert_scope() {
+            expected="$1"
+            shift
+            actual="$(bash ./tools/map-runtime-refresh-files.sh "$@")"
+            if [ "$actual" != "$expected" ]; then
+              echo "Runtime refresh scope mismatch. Expected '$expected', got '$actual' for: $*" >&2
+              exit 1
+            fi
+          }
+
+          assert_scope "onnxruntime"             tools/build-nuget-offline-seed.ps1             tools/create-deterministic-flat-zip.ps1
+
+          assert_scope "reshade,streamline"             third_party/ReShade/SOURCE.json             third_party/ScoopInstaller-Versions/bucket/reshade.json             third_party/NVIDIA-Streamline/SOURCE.json
+
+          assert_scope "nv-codec-headers"             third_party/FFmpeg-Builds/SOURCE.json             third_party/nv-codec-headers/SOURCE.json
+
+          assert_scope "release-only"             third_party/FFmpeg-Builds/SOURCE.json
+
+          assert_scope "minecraft-fabric-installer"             third_party/minecraft/runtime-lock.json
+
+          assert_scope "release-only"             .github/workflows/runtime-refresh.yml             .github/workflows/release.yml             .github/workflows/build.yml             AI_PROJECT_PROGRESS.txt             docs/architecture.md             third_party/UPSTREAMS.json             third_party/ai-models/model.onnx
+
+          assert_scope "onnxruntime" DlssNrManager.csproj
+          assert_scope "all" third_party/DEPENDENCIES.lock.json
+          assert_scope "all" tools/unknown-runtime-helper.ps1
+
+          grep -Fq "tools/create-deterministic-flat-zip.ps1" .github/workflows/runtime-refresh.yml
+          grep -Fq "tools/map-runtime-refresh-files.sh" .github/workflows/runtime-refresh.yml
 
       - name: Validate self-contained tooling
         shell: pwsh
