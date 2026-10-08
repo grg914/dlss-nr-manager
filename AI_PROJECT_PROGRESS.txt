@@ -2381,3 +2381,34 @@ ACTION 2026-10-08 A010
 - CodeQL #28 is currently re-testing manager-owned offline NuGet preparation
   with the new runtime-seed retry logic.
 - No new error observed at this checkpoint.
+
+
+ACTION 2026-10-08 A005
+- Inspected failed CodeQL #27 logs.
+- Root cause was NOT CodeQL and NOT C# compilation.
+- Failure occurred in tools/download-runtime-seed.ps1 during
+  Prepare manager-owned offline NuGet feed.
+- Exact transport error:
+  Invoke-WebRequest IOException:
+  "Unable to read data from the transport connection:
+   An existing connection was forcibly closed by the remote host."
+- Build #861 was cancelled at the same offline-feed stage, so no application
+  regression was established by that run.
+
+ACTION 2026-10-08 A006
+- Re-read PR #81 after the transport failure.
+- PR head had advanced to:
+  0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599
+- Commit:
+  fix: retry transient runtime-seed transport failures
+- Audited its diff in tools/download-runtime-seed.ps1.
+- Change behavior:
+  * tracks every attempt temporary path;
+  * cleans temporary downloads on retry/failure;
+  * retries a complete runtime-seed snapshot after a transient exception;
+  * preserves the existing consistency-retry limit;
+  * throws after the final allowed attempt.
+- New exact-head checks:
+  Build #862: in_progress
+  CodeQL #28: in_progress
+- PR #81 remains mergeable=true and blocked only pending checks/rules.
