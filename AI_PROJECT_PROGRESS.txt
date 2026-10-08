@@ -4448,3 +4448,22 @@ ACTION 2026-10-08 A103
   Restore HD Video.
 - Next: sync this journal to PR #75, freeze final head, run exact-head Build +
   CodeQL and merge only if both are green and GitHub reports clean/mergeable.
+
+
+ACTION 2026-10-08 A104
+- PR #75 exact-head Build #887 exposed one real regression-test compile defect after
+  the VSR/VLC reconstruction; all pre-test governance/runtime/zero-upstream gates
+  had already passed.
+- Exact failure:
+  DownloadManagerTests.cs had two fixtures still constructing DownloadCenterService
+  with the pre-VLC four-argument constructor, causing CS7036 because vlcRuntime is
+  now a required dependency.
+- Production application code itself compiled far enough for the test project to
+  reference the new DownloadCenterService signature; the failure was isolated to
+  stale test fixtures.
+- Fixed both fixtures by injecting a fresh VlcRuntimeService and strengthened the
+  download-center inventory test to assert that vlc-runtime is present.
+- Commit carrying the test correction before final journal sync:
+  84aa4be916defd29137b92310651b1a274377dba.
+- Old Build #887 is intentionally superseded; a fresh exact-head Build + CodeQL
+  must validate the final journal-synchronized head before merge.
