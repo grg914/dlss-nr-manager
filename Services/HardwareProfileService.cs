@@ -156,15 +156,9 @@ public sealed class HardwareProfileService
     {
         try
         {
-            // Never resolve an executable from the current directory or PATH.
-            // Only trusted Windows NVIDIA installation locations are probed.
-            var candidates = new[]
-            {
-                Path.Combine(Environment.SystemDirectory, "nvidia-smi.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                    "NVIDIA Corporation", "NVSMI", "nvidia-smi.exe")
-            };
-            var executable = candidates.FirstOrDefault(File.Exists);
+            // Share the same non-PATH executable resolution policy as the
+            // legacy GPU detector; both probes remain read-only.
+            var executable = NvidiaSmiLocator.FindInstalled();
             if (executable == null)
                 return ("Unknown", null);
 

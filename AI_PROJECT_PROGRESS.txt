@@ -4840,6 +4840,31 @@ ACTION 2026-10-08 V4-RECOVERY R010 - VALIDATION ET FUSION VLC (#97), RECONCILIAT
 - Prochaine action: CI Build et CodeQL sur nouveau head PR #98; verifier logs 0 error; fusion seulement si checks verts.
 
 
+ACTION 2026-10-08 V4-SECURITY S001 - GPU NVIDIA-SMI EXECUTION TRUST
+- Branche security/v4-trusted-gpu-probing base main 97eacd2269340af71099f09c96e4d773b778fb65 creee sans modifier PR #97 ou PR #98.
+- Ancien GpuDetectionService lancait Process.Start("nvidia-smi.exe") avec resolution PATH; risque de charger un executable homonyme non approuve et de laisser un enfant non suivi.
+- Correction: NvidiaSmiLocator.FindInstalled depuis System32 NVIDIA-SMI ou ProgramFiles/NVIDIA Corporation/NVSMI seulement (aucun PATH); GpuDetectionService passe par ExternalProcessTracker.Start et Kill pour nettoyage enfant.
+- HardwareProfileService deja hardened est refactorise pour partager exactement la meme politique de chemins et eviter divergence.
+- Deux tests unitaires: chemin absolu NVIDIA attendu et resolver retourne seulement un chemin allowlist existant.
+- Pas de changement de capacites RTX ni des réglages utilisateur; si NVIDIA-SMI introuvable dans les emplacements approuves, registre GPU demeure un fallback et la sonde ne lance aucun binaire inconnu.
+- A FAIRE: ouvrir PR, Build/CodeQL Windows, fusion apres synchronisation avec main et autres PR; journal d'action mis a jour ici.
+
+ACTION 2026-10-08 V4-RECOVERY R011 - PR #98 VALIDATION ET FUSION
+- PR #98 head 5a8fbb1b8fcbd69e76a6485e661a1abcff329907: Build run 37815657092 SUCCESS, CodeQL run 37815657342 SUCCESS.
+- xUnit 83 tests passes, 0 echec, 0 ignore ; publication Windows x64 et packaging deterministe verifies.
+- Fusion squash dans main: 7c7bdc26b70e1409c8d9f324f75f3bf87491a98a.
+- Fonction recovery backup GUID au demarrage disponible dans main, MAIS tests de panne Windows reelle et scenarios MediaService.UpdateToolsAsync, AI Studio toujours ouverts.
+- Issue #95 maintenue OUVERTE et etat partial detaille dans son corps; ne pas clore automatiquement.
+
+ACTION 2026-10-08 V4-SECURITY S002 - DIAGNOSTIC CI PR #99 ET SYNCHRONISATION
+- PR #99 ancien head c9bbd43c310c8433390cb6130fd32b9efbeb4568.
+- CodeQL run 37815501461 SUCCESS; Build run 37815501455 FAILURE pendant Run regression tests.
+- Cause exacte logs Windows: tests/NvidiaSmiLocatorTests.cs line 22, erreur xUnit2009 car Assert.True(path.EndsWith(...)) ; l'analyseur exige Assert.EndsWith().
+- Correction test: Assert.EndsWith("nvidia-smi.exe", path, StringComparison.OrdinalIgnoreCase), sans modifier politique des executables autorises.
+- Synchronisation branche security/v4-trusted-gpu-probing depuis main 7c7bdc26b70e1409c8d9f324f75f3bf87491a98a par commit de reconciliation a deux parents, conserve tout R001-R011/L001-L002/S001 et les changements GPU.
+- ETAT: attendu nouveaux Build/CodeQL sur le nouveau head PR #99. Ne pas fusionner avant tous controles verts. Aucun test NVIDIA-SMI sur GPU reel effectue.
+
+
 ACTION 2026-10-08 V4-RECOVERY R012 - AUDIT MISES A JOUR AUTOMATIQUES MEDIA
 - Branche fix/v4-media-update-recovery creee depuis main 7c7bdc26b70e1409c8d9f324f75f3bf87491a98a. Ne modifie pas PR #99 en cours.
 - Defaut nouveau confirme: MediaService.UpdateToolsAsync cree et deplace les dossiers tools et video2dlssnr dans media-engine/_update-backup-<GUID>, format different du backup transactionnel utilise par Download Center.
@@ -4857,3 +4882,18 @@ ACTION 2026-10-08 V4-RECOVERY R013 - UNIFIER MEDIA UPDATER ET RECOVERY LEGACY
 - Recovery apres crash pendant migration: sous-repertoire deja deplace laisse en nouveau format et recupere au prochain demarrage.
 - 5 tests de regression: video2dlssnr + tools, migration partielle, plusieurs backups ambigus, fichier inconnu, dossier vide sans impact utilisateur.
 - LIMITES: crash apres recovery partielle ou pendant nettoyage peut exiger revue manuelle. CI et CodeQL a faire sur ce commit, aucun test d'arret brutal physique.
+
+ACTION 2026-10-08 V4-SECURITY S003 - PR #99 VALIDATION ET FUSION
+- PR #99 head 05166b055e0b1786a341be8b4bdb57d1ec42452e.
+- Build run 37817272682 SUCCESS, CodeQL run 37817272721 SUCCESS; 85 tests xUnit passes, 0 fail, 0 skipped; publication Windows x64 et packaging deterministe passes.
+- Merge squash main: 86f04accae20050cc030771bdc057b05d5137599.
+- GpuDetectionService utilise NVIDIA-SMI uniquement depuis chemins trustes, et suivi par ExternalProcessTracker.
+- Verif PC NVIDIA reel reste non faite par l'environnement de CI.
+
+ACTION 2026-10-08 V4-RECOVERY R014 - PR #100 CI INITIALE ET SYNCHRONISATION
+- PR #100 ancien head 1736bc403c72a25147a07f4ffe492890a4a89839.
+- Build run 37817751392 SUCCESS; CodeQL run 37817751390 SUCCESS; tests xUnit 88/88 passes sur ce head (nombre a revérifier si log differe).
+- Correction automatique media + ancien format _update-backup-* preserves, sibling Real-ESRGAN non touche.
+- Branche fix/v4-media-update-recovery reconciliee avec main 86f04accae20050cc030771bdc057b05d5137599, en conservant R012/R013 et les derniers checkpoints S002/S003.
+- Prochaine action: valider nouveau head de PR #100 (Build et CodeQL); ne pas fusionner avant controles verts du commit exact.
+- Issue #95 reste OUVERTE (AI Studio rollback et test d'extinction brutale a faire).
