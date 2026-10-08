@@ -312,8 +312,7 @@ jobs:
             "release-assets/realesr-animevideov3-x4.param",
             "release-assets/realesr-animevideov3-x4.bin",
             "release-assets/SPBRScandi.zip",
-            "release-assets/components-manifest.json",
-            "release-assets/release-provenance.json"
+            "release-assets/components-manifest.json"
           )
 
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-provenance.ps1 -Repository "${{ github.repository }}" -CommitSha "${{ github.sha }}" -Version "${{ steps.version.outputs.version }}" -OutputPath "release-assets/release-provenance.json" -Files $files
@@ -349,7 +348,8 @@ jobs:
             "release-assets/realesr-animevideov3-x4.param",
             "release-assets/realesr-animevideov3-x4.bin",
             "release-assets/SPBRScandi.zip",
-            "release-assets/components-manifest.json"
+            "release-assets/components-manifest.json",
+            "release-assets/release-provenance.json"
           )
 
           $lines = foreach ($file in $files) {
