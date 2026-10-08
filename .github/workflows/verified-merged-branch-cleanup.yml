@@ -13,6 +13,10 @@ on:
       - .github/workflows/verified-merged-branch-cleanup.yml
       - docs/BRANCH_CLEANUP_CANDIDATES_2026-10-08.json
 
+permissions:
+  contents: read
+  pull-requests: read
+
 concurrency:
   group: verified-merged-branch-cleanup-${{ github.event_name }}
   cancel-in-progress: false
