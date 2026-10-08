@@ -34,6 +34,11 @@ public partial class MainWindow : Window
     private readonly NvidiaDlssNrDiscoveryService _nvidiaNrDiscovery = new();
     private readonly PcCleanupService _pcCleanup = new();
     private readonly WindowsRepairService _windowsRepair = new();
+    private readonly HardwareProfileService _hardwareProfiles = new();
+    private HardwareSnapshot? _hardwareSnapshot;
+    private bool _hardwareProfileControlsReady;
+    private bool _hardwareProbeBusy;
+    private DateTimeOffset _lastHardwareProbe = DateTimeOffset.MinValue;
 
     private UiLocalizationController? _localization;
     private string _uiLanguage = "en";
@@ -110,6 +115,13 @@ public partial class MainWindow : Window
             _uiLanguage.Equals("fr", StringComparison.OrdinalIgnoreCase)
                 ? 0
                 : 1;
+
+        var hardwarePreferences = HardwareProfileService.LoadPreferences();
+        HardwareProfileBox.SelectedIndex = (int)hardwarePreferences.Profile;
+        HardwareCompatibleCheck.IsChecked =
+            hardwarePreferences.Mode == HardwareOperatingMode.Compatible;
+        _hardwareProfileControlsReady = true;
+
         _localization = new UiLocalizationController(
             this,
             () => _uiLanguage);
@@ -123,9 +135,24 @@ public partial class MainWindow : Window
         {
             ResetPointerState();
             await InitializeAsync();
+            await RefreshHardwareProfileAsync();
         };
 
-        Activated += (_, _) => ResetPointerState();
+        Activated += (_, _) =>
+        {
+            ResetPointerState();
+            if (IsLoaded && DateTimeOffset.UtcNow - _lastHardwareProbe >
+                TimeSpan.FromMinutes(5))
+                _ = RefreshHardwareProfileAsync();
+        };
+
+        MainMenuList.SelectionChanged += (_, _) =>
+        {
+            // This appended page never changes the historical indices of
+            // Downloads (6), VLC (3), or the other production pages.
+            if (IsLoaded && MainMenuList.SelectedIndex == 13)
+                _ = RefreshHardwareProfileAsync();
+        };
 
         MediaStatusText.Text = _media.IsReady
             ? "Media engine ready."
@@ -4845,6 +4872,148 @@ public partial class MainWindow : Window
         _downloadCenterCts?.Cancel();
         DownloadCenterStatusText.Text =
             L("Cancelling download…", "Annulation du téléchargement…");
+    }
+
+    private HardwareProfilePreferences CurrentHardwarePreferences()
+        => new(
+            HardwareProfileBox.SelectedIndex == 1
+                ? HardwareProfileChoice.Rtx5060Ti9700X
+                : HardwareProfileChoice.Auto,
+            HardwareCompatibleCheck.IsChecked == true
+                ? HardwareOperatingMode.Compatible
+                : HardwareOperatingMode.Normal);
+
+    private void HardwareProfile_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_hardwareProfileControlsReady)
+            return;
+
+        try
+        {
+            HardwareProfileService.SavePreferences(CurrentHardwarePreferences());
+            ApplyCurrentHardwareProfile();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Unable to persist hardware profile.", ex);
+            HardwareProfileStatusText.Text =
+                L("Unable to save hardware profile.", "Impossible d'enregistrer le profil matériel.");
+        }
+    }
+
+    private async void RefreshHardwareProfile_Click(object sender, RoutedEventArgs e)
+        => await RefreshHardwareProfileAsync();
+
+    private async Task RefreshHardwareProfileAsync()
+    {
+        if (!_hardwareProfileControlsReady || _hardwareProbeBusy || !IsLoaded)
+            return;
+
+        _hardwareProbeBusy = true;
+        HardwareProfileStatusText.Text = L(
+            "Reading hardware and graphics APIs…",
+            "Lecture du matériel et des API graphiques…");
+        try
+        {
+            var snapshot = await Task.Run(_hardwareProfiles.Detect);
+            if (!IsLoaded)
+                return;
+
+            var changed = _hardwareSnapshot?.Fingerprint != snapshot.Fingerprint;
+            _hardwareSnapshot = snapshot;
+            _lastHardwareProbe = DateTimeOffset.UtcNow;
+
+            // Never rely on a manually selected preset to unlock RTX features.
+            _gpu = snapshot.Gpu;
+            _gpuCapabilities = GpuCapabilityService.Evaluate(_gpu);
+            GpuText.Text = $"{_gpu.Name}  •  {_gpu.Generation}";
+            GpuCompatibilityText.Text = _gpuCapabilities.Summary;
+            ApplyCurrentHardwareProfile();
+
+            if (changed)
+                AppLogger.Info("GPU/driver/hardware fingerprint changed; profile recomputed.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Hardware profile probe failed.", ex);
+            HardwareProfileStatusText.Text = L(
+                "Unable to read hardware. No compatibility claims were made.",
+                "Lecture du matériel impossible. Aucune compatibilité n'a été présumée.");
+        }
+        finally
+        {
+            _hardwareProbeBusy = false;
+        }
+    }
+
+    private void ApplyCurrentHardwareProfile()
+    {
+        if (_hardwareSnapshot == null)
+            return;
+
+        var snapshot = _hardwareSnapshot;
+        var decision = HardwareProfileService.Evaluate(
+            snapshot, CurrentHardwarePreferences());
+
+        PresetBox.IsEnabled = decision.AllowsNeuralRendering;
+        AutoNvidiaRuntimeCheck.IsEnabled = decision.AllowsNeuralRendering;
+        SelectRuntimeButton.IsEnabled = decision.AllowsNeuralRendering;
+        GameDlssSrCheck.IsEnabled = decision.Capabilities.SuperResolution;
+        GameDlssReflexCheck.IsEnabled = decision.Capabilities.IsSupportedRtx;
+        GameDlssFgCheck.IsEnabled = decision.AllowsFrameGeneration;
+        GameDlssNrCheck.IsEnabled = decision.AllowsNeuralRendering;
+
+        if (!decision.AllowsFrameGeneration)
+            GameDlssFgCheck.IsChecked = false;
+        if (!decision.AllowsNeuralRendering)
+        {
+            GameDlssNrCheck.IsChecked = false;
+            AutoNvidiaRuntimeCheck.IsChecked = false;
+        }
+
+        var mode = HardwareCompatibleCheck.IsChecked == true
+            ? L("Compatible", "Compatible")
+            : L("Normal", "Normal");
+        HardwareProfileStatusText.Text = decision.UsesAutomaticFallback
+            ? L(
+                "Requested RTX 5060 Ti / Ryzen 9700X profile was not confirmed. Using actual detected hardware.",
+                "Profil RTX 5060 Ti / Ryzen 9700X non confirmé. Utilisation du matériel réellement détecté.")
+            : L(
+                $"Hardware profile active • {mode}",
+                $"Profil matériel actif • {mode}");
+
+        var dx = snapshot.DirectX12RuntimePresent
+            ? L("D3D12 runtime detected", "Runtime D3D12 détecté")
+            : L("D3D12 runtime not detected", "Runtime D3D12 non détecté");
+        var vk = snapshot.VulkanLoaderPresent
+            ? L("Vulkan loader and ICD registry entry detected", "Chargeur Vulkan et entrée de pilote ICD détectés")
+            : L("Vulkan loader/ICD not confirmed", "Chargeur Vulkan/ICD non confirmé");
+        var ram = snapshot.InstalledRamBytes > 0
+            ? $"{snapshot.InstalledRamBytes / 1024d / 1024d / 1024d:0.0} GiB"
+            : L("Unknown", "Inconnue");
+        var vram = snapshot.GpuVramMiB is long mib
+            ? $"{mib / 1024d:0.0} GiB"
+            : L("Unknown", "Inconnue");
+        var driverNote = snapshot.NvidiaDriverVersion == "617.42"
+            ? L("Driver 617.42 detected; WHQL status not verified by this scan.",
+                "Pilote 617.42 détecté ; statut WHQL non vérifié par cette analyse.")
+            : L("Driver information is read from NVIDIA-SMI when available.",
+                "La version du pilote provient de NVIDIA-SMI lorsqu'il est disponible.");
+
+        HardwareDetailsText.Text = string.Join(Environment.NewLine, new[]
+        {
+            $"{L("GPU", "GPU")}: {snapshot.Gpu.Name} ({snapshot.Gpu.Generation})",
+            $"{L("VRAM", "VRAM")}: {vram}",
+            $"{L("CPU", "CPU")}: {snapshot.CpuName} ({snapshot.CpuArchitecture})",
+            $"{L("RAM", "RAM")}: {ram}",
+            $"{L("NVIDIA driver", "Pilote NVIDIA")}: {snapshot.NvidiaDriverVersion}",
+            $"DirectX: {dx}",
+            $"Vulkan: {vk}",
+            $"{L("DLSS Super Resolution", "DLSS Super Resolution")}: {decision.Capabilities.SuperResolution}",
+            $"Frame Generation: {decision.AllowsFrameGeneration}",
+            $"Neural Rendering: {decision.AllowsNeuralRendering}",
+            driverNote
+        });
     }
 
     private string L(
