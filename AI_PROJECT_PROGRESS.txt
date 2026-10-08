@@ -2961,3 +2961,24 @@ ACTION 2026-10-08 A039
 - Main Build #865 and CodeQL #31 are therefore both green after PR #81 merge.
 - Upstream Dependency Sync #15 also completed without an update to promote.
 - Runtime Seed Refresh #22 remains the only active post-merge workflow.
+
+
+ACTION 2026-10-08 A040
+- Tightened the follow-up NuGet seed design from per-commit reproducibility to
+  content-addressed reproducibility.
+- Follow-up branch hardening/deterministic-nuget-seed now removes volatile
+  generated_at_utc metadata from manifest.json and no longer derives archive
+  metadata from git commit time.
+- The outer seed ZIP uses the fixed ZIP epoch 1980-01-01T00:00:00Z.
+- Consequence: identical package names/bytes/hash manifest now produce identical
+  nuget-offline.zip bytes across scheduled runs and unrelated repository commits.
+- Runtime refresh no longer passes a source timestamp to seed generation.
+- Build validation now rejects DateTime::UtcNow, Compress-Archive,
+  generated_at_utc and git-show based metadata in the seed builder, and requires
+  the fixed content-addressed ZIP epoch plus deterministic helper usage.
+- Follow-up commits:
+  4c7fc25b7b051159a7c92a125755e4d9ae7923ae
+  62685a1d7716b66f0e3652f331300cf54befd167
+  dee722c3f5210da6bf268af6287f55cef4996489
+- Runtime Seed Refresh #22 on current main remains active only in Windows
+  Streamline refresh and native ReShade build; no failed job is reported.
