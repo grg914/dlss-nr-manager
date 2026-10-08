@@ -3640,3 +3640,20 @@ ACTION 2026-10-08 A065
   files.
 - Next action: synchronize live AI_PROJECT_PROGRESS.txt into the branch, open the
   release-source-pinning PR, and freeze its exact head for Build/CodeQL.
+
+
+ACTION 2026-10-08 A066
+- Synchronized AI_PROJECT_PROGRESS.txt through A065 into
+  hardening/release-source-pinning.
+- Journal-sync commit:
+  0bf7d6631200ee692801bb2f16f31574cfd9694e
+- Opened PR #85:
+  hardening: pin production release to exact validated source
+  https://github.com/grg914/dlss-nr-manager/pull/85
+- Exact PR head frozen for validation:
+  0bf7d6631200ee692801bb2f16f31574cfd9694e
+- GitHub REST reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head checks started:
+  Build #870 (run 37719093394)
+  CodeQL #36 (run 37719093466)
+- No further change will be made to PR #85 head unless CI exposes a defect.
