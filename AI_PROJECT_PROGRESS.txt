@@ -2490,3 +2490,12 @@ ACTION 2026-10-08 A013
 - Build #862 is now running regression tests.
 - Combined with CodeQL #28 SUCCESS, the runtime-seed transport retry fix is now
   validated independently in both Build and CodeQL pipelines.
+
+
+ACTION 2026-10-08 A014
+- Build #862 regression tests: SUCCESS.
+- Build #862 moved to Publish Windows x64 single-file.
+- Remaining checks on this exact head:
+  verify executable/icon
+  verify deterministic application packaging
+  final Build conclusion.
