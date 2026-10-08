@@ -4733,3 +4733,11 @@ ACTION 2026-10-08 V4-STEP-3: INFOBULLES OPTIONS FR/EN (PR EN PREPARATION)
 - Ajout de 48 descriptions anglais/francais a UiLocalizationService ; les trois infobulles preexistantes sont conservees.
 - Un test de regression inspecte le XAML reel et verifie l'aller-retour FR/EN des infobulles nommees.
 - STATUT: attend Build/CodeQL et revue avant fusion. Les autres etiquettes, boutons et valeurs dynamiques de l'application ne sont pas encore garantis totalement bilingues ; audit a poursuivre.
+
+ACTION 2026-10-08 V4-RECOVERY R003 - CORRECTION BUILD PR #94
+- PR #94 head original 7b8a49439b3260ec2d7a9adb890cde1c6e4145e5.
+- Run CodeQL 37809525065: SUCCESS.
+- Run Build 37809525052: FAILURE dans Publish Windows x64 single-file.
+- Diagnostic exact logs job 113422446424: duplication XAML MainWindow.xaml depuis tests/DlssNrManager.Tests/bin/Release/net8.0-windows/ : CS0102 definitions dupliquees et CS0111 InitializeComponent. Origine : fixture XAML copiee vers dossier bin des tests; le projet WPF racine scanne les *.xaml sous tests/bin lors du Publish.
+- Correction: copier fixture sous extension .xml (MainWindow.markup.xml) avec TargetPath explicite dans le projet de tests; adapter la lecture XDocument du test.
+- NE PAS fusionner avant nouveau Build + CodeQL reussis sur commit corrige. Statut: CORRECTION CODE ECRITE / CI REQUISE.
