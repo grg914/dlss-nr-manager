@@ -3247,3 +3247,27 @@ ACTION 2026-10-08 A057
 - After Runtime Seed Refresh #23 fully completes, run a NuGet-only refresh to
   prove the second identical build emits SKIP unchanged and does not replace the
   asset again.
+
+
+ACTION 2026-10-08 A058
+- Resumed from the user-linked AI_PROJECT_PROGRESS.txt on main.
+- Main commit remains 8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Important journal reconciliation:
+  main AI_PROJECT_PROGRESS.txt currently ends at A042 because the later live
+  journal was not yet resynchronized after PR #83;
+  docs/live-ai-project-progress contains the authoritative continuation through
+  A057 and is being used only to avoid losing post-A042 checkpoints.
+- runtime-seed-v1 currently exposes the new-format nuget-offline.zip at:
+  size 264,155,302 bytes
+  SHA-256 c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e
+  updated_at 2026-10-08T02:21:56Z.
+- Build #868 and CodeQL #34 are both concurrently preparing their independent
+  manager-owned offline NuGet feeds against this refreshed release; no failure
+  is reported.
+- Runtime Seed Refresh #23 status:
+  seed-release SUCCESS
+  preserve-restricted-runtime SUCCESS
+  java-runtime SUCCESS
+  nuget-runtime SUCCESS
+  windows-runtime / native-runtime / ffmpeg-runtime still in_progress.
+- No code change made; post-merge validation continues.
