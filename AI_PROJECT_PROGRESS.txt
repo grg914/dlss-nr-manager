@@ -3000,3 +3000,23 @@ ACTION 2026-10-08 A041
   and replacement races similar to the NuGet issue being fixed separately.
 - Active Streamline job logs are still unavailable while the job is running;
   workflow step status remains authoritative and reports no failure.
+
+
+ACTION 2026-10-08 A042
+- Follow-up hardening/deterministic-nuget-seed is ready for PR validation.
+- Current design guarantees content-addressed NuGet seed packaging:
+  stable manifest content;
+  fixed ZIP epoch;
+  stable entry ordering;
+  no outer recompression of .nupkg files;
+  full archive generated twice with SHA-256 equality required;
+  unchanged release asset upload skipped by digest;
+  changed upload digest verified after publication.
+- Build workflow contains an independent synthetic reproducibility test and
+  static guards against reintroducing wall-clock/commit-time metadata.
+- Static read-only audit found no additional blocking issue in the four changed
+  implementation/workflow files.
+- Runtime Seed Refresh #22 on existing main still has only windows-runtime /
+  Refresh Streamline bundle active; all other jobs are SUCCESS.
+- Next: synchronize this live journal into the follow-up branch once, then open
+  the PR and freeze its exact head for Build/CodeQL validation.
