@@ -4794,3 +4794,12 @@ ACTION 2026-10-08 V4-RECOVERY R007 - REPRISE CRASH RECOVERY PERSISTANT
 - Plan: recovery conservatif au lancement, exclusivement sur listes de directories manager-owned; sauvegardes multiples ambiguës ne sont pas supprimees; pas de suppression des sorties utilisateur, de la configuration ou des licences.
 - Tests de regression simulation d'un arret brutal (backup subsistant, copie partielle, dossier manquant), sans impliquer de crash reel.
 - NE PAS annoncer la recuperation crash verifiee sans tests de redemarrage Windows. Etat: implementation A FAIRE sur cette branche.
+
+ACTION 2026-10-08 V4-RECOVERY R008 - RECUPERATION BACKUPS APRES CRASH
+- Implémentation RecoverKnownManagedComponentBackups au demarrage App.OnStartup APRES mutex mono-instance, AVANT initialization MainWindow.
+- Liste blanche fixe: media-engine/video2dlssnr, media-engine/tools, media-engine/realesrgan, vlc, ai-origin-detector. Aucun repertoire user output, AI Studio licenses, Minecraft ou jeux.
+- Si backup GUID unique, restauration ancienne version depuis .dlssnr-redownload-backup-GUID ; isolation de la copie partielle par quarantine, puis nettoyage apres restauration reussie.
+- Backups multiples ambiguës laisses intacts avec avertissement ; symlink/reparse point bloque ; erreurs de restore journalisees ; affiche warning si des backups n'ont pas pu etre restaures.
+- 5 tests unitaires: installation partielle, source absente, ambiguité, fichier utilisateur voisin, nom de dossier invalide.
+- Limites: ne couvre pas panne disque, fermeture brutale pendant une operation de recovery elle-meme, rollback AI Studio (gere separement), ni validation materielle réelle; l'exigence d'un test de crash Windows reste ouverte.
+- Etat: CODE COMMITTE, CI Windows/CodeQL A VALIDER. Ne pas fermer #95 avant test complet et revue des limitations.

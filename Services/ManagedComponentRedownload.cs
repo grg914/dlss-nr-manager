@@ -1,5 +1,7 @@
 namespace DlssNrManager.Services;
 
+public sealed record ComponentRecoveryReport(int Restored, int Failed);
+
 /// <summary>
 /// Stashes only explicitly owned component directories, then restores them if
 /// the replacement fails. User files, adjacent media engines and license
@@ -100,6 +102,137 @@ public static class ManagedComponentRedownload
             }
         }
     }
+
+
+    /// <summary>
+    /// Restores a pre-update component directory after a crash or forced exit.
+    /// May roll back an update that actually succeeded but whose backup cleanup
+    /// was interrupted; safety of the previous working version takes priority.
+    /// Never scans user output, model licenses, or arbitrary folders.
+    /// </summary>
+    public static ComponentRecoveryReport RecoverKnownManagedComponentBackups()
+    {
+        var root = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DlssNrManager");
+        var media = Path.Combine(root, "media-engine");
+        return RecoverOwnedBackups([
+            Path.Combine(media, "video2dlssnr"),
+            Path.Combine(media, "tools"),
+            Path.Combine(media, "realesrgan"),
+            Path.Combine(root, "vlc"),
+            Path.Combine(root, "ai-origin-detector")
+        ]);
+    }
+
+    /// <summary>
+    /// Used at process startup, after the single-instance lock is acquired.
+    /// Never run while a component install is in progress.
+    /// </summary>
+    public static ComponentRecoveryReport RecoverOwnedBackups(
+        IReadOnlyList<string> ownedDirectories)
+    {
+        ArgumentNullException.ThrowIfNull(ownedDirectories);
+        var restored = 0;
+        var failed = 0;
+
+        foreach (var rawPath in ownedDirectories)
+        {
+            var path = Path.GetFullPath(rawPath);
+            var parent = Path.GetDirectoryName(path);
+            if (string.IsNullOrWhiteSpace(parent) || !Directory.Exists(parent))
+                continue;
+
+            var prefix = Path.GetFileName(path) + ".dlssnr-redownload-backup-";
+            try
+            {
+                var backups = Directory.EnumerateDirectories(
+                        parent, prefix + "*", SearchOption.TopDirectoryOnly)
+                    .Where(candidate =>
+                    {
+                        var name = Path.GetFileName(candidate);
+                        if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            return false;
+                        var suffix = name[prefix.Length..];
+                        return suffix.Length == 32 &&
+                               suffix.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
+                    })
+                    .ToArray();
+
+                if (backups.Length == 0)
+                    continue;
+
+                if (backups.Length != 1)
+                {
+                    failed++;
+                    AppLogger.Warn(
+                        $"Ambiguous recovery backups for {path}: {backups.Length}. Manual review required.");
+                    continue;
+                }
+
+                var backup = backups[0];
+                if (IsReparsePoint(backup) ||
+                    (Directory.Exists(path) && IsReparsePoint(path)))
+                {
+                    failed++;
+                    AppLogger.Warn($"Skipped junction or symlink while recovering {path}.");
+                    continue;
+                }
+
+                var quarantine = path + ".dlssnr-recovery-quarantine-" +
+                                 Guid.NewGuid().ToString("N");
+                var quarantined = false;
+                try
+                {
+                    if (Directory.Exists(path))
+                    {
+                        Directory.Move(path, quarantine);
+                        quarantined = true;
+                    }
+
+                    Directory.Move(backup, path);
+                    restored++;
+                    AppLogger.Warn($"Restored previous manager-owned component after interrupted update: {path}.");
+
+                    if (quarantined)
+                    {
+                        try { Directory.Delete(quarantine, recursive: true); }
+                        catch (Exception cleanup)
+                        {
+                            AppLogger.Warn(
+                                $"Restored component but left partial replacement for manual cleanup: {quarantine}. {cleanup.Message}");
+                        }
+                    }
+                }
+                catch (Exception restoreError)
+                {
+                    failed++;
+                    AppLogger.Error($"Interrupted component recovery failed for {path}; backup preserved.", restoreError);
+                    if (quarantined && !Directory.Exists(path) && Directory.Exists(quarantine))
+                    {
+                        try { Directory.Move(quarantine, path); }
+                        catch (Exception rollbackError)
+                        {
+                            AppLogger.Error($"Could not return unfinished component directory {quarantine}.",
+                                rollbackError);
+                        }
+                    }
+                }
+            }
+            catch (Exception error) when (error is IOException or
+                                          UnauthorizedAccessException or
+                                          ArgumentException)
+            {
+                failed++;
+                AppLogger.Error($"Unable to inspect interrupted component backup for {path}.", error);
+            }
+        }
+
+        return new ComponentRecoveryReport(restored, failed);
+    }
+
+    private static bool IsReparsePoint(string path) =>
+        (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 
     private sealed class Entry(string path, string backup, bool existed)
     {
