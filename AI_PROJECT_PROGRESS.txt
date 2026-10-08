@@ -1,3 +1,10 @@
+CHECKPOINT R065 (2026-10-09) - OPENMP REAL-ESRGAN DISTRIBUTION FAIL-CLOSED
+- PR #79: suppression copie vcomp140.dll depuis Windows System32 dans runtime-refresh.yml. Nouveau script tools/package-approved-openmp.ps1 exige source Visual Studio VC/Redist/MSVC/x64, signature Authenticode Microsoft valide, SHA256 et version + provenance JSON.
+- Par defaut publication Real-ESRGAN BLOQUEE tant que DLSSNR_OPENMP_REDIST_APPROVED=1 non defini par un operateur titulaire d'une licence valide. Cette variable est une attestation, pas une preuve juridique; verifier la licence avant distribution.
+- Tests statiques de securite + THIRD_PARTY_NOTICES, documentation R065. N'affirmer ni licence acquise ni succes GPU/Real-ESRGAN physique. Issue #79 reste ouverte avant validation.
+- PR #132 #123 en parallele: groupe concurrence partage + verifies NuGet SHA; ne rend pas publication mutable atomique.
+PROCHAINE ACTION: Build/CodeQL PR OpenMP, puis acceptance physique et licence externe; audit branches divergentes et Download Center #111.
+ 
 CHECKPOINT R062 (2026-10-09) - PR130 FUSIONNEE ET 5 ANCETRES EXACTS EN COURS DE NETTOYAGE
 - PR #130 fusionnee dans main SHA 968414ec8597384ac34b1c099e18c68ffadb487d apres Build 37855886717 SUCCESS et CodeQL 37855886704 SUCCESS. Journal principal et audit R058 presents dans main sans troncature.
 - 46 refs presentes juste apres PR #130; aucune PR ouverte. Les 5 refs figees dans docs/BRANCH_CLEANUP_EXACT_ANCESTORS_R062.json ont 0 commits propres, 0 fichiers differents, SHA exact et pas de protection; aucun des 11 workflows courants ne les cite.
