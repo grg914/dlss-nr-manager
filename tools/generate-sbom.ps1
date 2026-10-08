@@ -2,7 +2,8 @@ param(
     [string]$OutputPath = "SBOM.spdx.json",
     [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [string]$SourceCommit = "",
-    [string]$CreatedAtUtc = ""
+    [string]$CreatedAtUtc = "",
+    [string]$ComponentManifestPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -118,6 +119,62 @@ foreach ($source in $locked) {
         relationshipType = "DEPENDS_ON"
         relatedSpdxElement = $spdxId
     })
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ComponentManifestPath)) {
+    $manifestPath = if ([System.IO.Path]::IsPathRooted($ComponentManifestPath)) {
+        $ComponentManifestPath
+    } else {
+        Join-Path $Root $ComponentManifestPath
+    }
+
+    if (!(Test-Path -LiteralPath $manifestPath)) {
+        throw "Component manifest was requested but is missing: $manifestPath"
+    }
+
+    $componentManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+
+    foreach ($component in @($componentManifest.components)) {
+        $id = [string]$component.id
+        if ([string]::IsNullOrWhiteSpace($id)) { continue }
+
+        $sha = [string]$component.sha256
+        if ($sha -notmatch "^[0-9a-fA-F]{64}$") {
+            throw "Component '$id' has no valid SHA-256 in component manifest."
+        }
+
+        $spdxId = New-SpdxId ("runtime-" + $id)
+
+        [void]$packages.Add([ordered]@{
+            SPDXID = $spdxId
+            name = [string]$component.name
+            versionInfo = [string]$component.version
+            downloadLocation = "NOASSERTION"
+            filesAnalyzed = $false
+            licenseConcluded = "NOASSERTION"
+            licenseDeclared = "NOASSERTION"
+            copyrightText = "NOASSERTION"
+            checksums = @(
+                [ordered]@{
+                    algorithm = "SHA256"
+                    checksumValue = $sha.ToLowerInvariant()
+                }
+            )
+            externalRefs = @(
+                [ordered]@{
+                    referenceCategory = "OTHER"
+                    referenceType = "dlss-nr-manager:release-asset"
+                    referenceLocator = [string]$component.asset
+                }
+            )
+        })
+
+        [void]$relationships.Add([ordered]@{
+            spdxElementId = $appSpdxId
+            relationshipType = "DEPENDS_ON"
+            relatedSpdxElement = $spdxId
+        })
+    }
 }
 
 $minecraftLockPath = Join-Path $Root "third_party\minecraft\RUNTIME.lock.json"
