@@ -292,8 +292,11 @@ public sealed class AiStudioPackageService
         if (string.IsNullOrWhiteSpace(value))
             return false;
         var text = value.Trim().TrimStart('v', 'V');
-        return text.All(ch => char.IsAsciiDigit(ch) || ch == '.') &&
-               Version.TryParse(text, out parsed);
+        if (!text.All(ch => char.IsAsciiDigit(ch) || ch == '.') ||
+            !Version.TryParse(text, out var candidate) || candidate is null)
+            return false;
+        parsed = candidate;
+        return true;
     }
 
     public async Task InstallAsync(
