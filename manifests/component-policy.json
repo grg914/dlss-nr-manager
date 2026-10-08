@@ -59,11 +59,12 @@
       "category": "media-ai",
       "distribution": "runtime-seed+release",
       "source_policy": "vendored source/models",
-      "license": "per-upstream component/model",
+      "license": "per-upstream component/model; Microsoft Visual C++/OpenMP redistribution terms if vcomp runtime is bundled",
       "integrity": [
         "source lock",
         "model fingerprints",
-        "release digest"
+        "release digest",
+        "Microsoft runtime provenance review tracked by issue #79"
       ],
       "runtime_source": "manager-owned release"
     },
