@@ -1,3 +1,10 @@
+CHECKPOINT R073 (2026-10-09) - PROTECTION DES MODELES AI STUDIO CONTRE JONCTIONS PARENTS (#95)
+- Audit source: AI Studio ValidateModelInstallTarget verifiait l'egalite des chemins mais pas les points de reparse AVANT SafeZip.Extract. Cleanup TryDeleteDirectory recursif non garde.
+- Branche security/v4-ai-studio-staging-parent-junction: garde fail-closed du workspace et des chemins staging avant ecriture, verification junction sur cible modele, EnsureSafeForRemoval avant cleanup, 2 tests avec fichiers sentinelles Windows et parent symlink.
+- Ne pas confondre avec robustesse TOCTOU totale, necessite primitives handles. Aucun essai physique Windows/NVIDIA effectue ici.
+- PR134 en cours: integrer PR134 en premier puis reconciler cette branche, conserver l'historique R073 et R071/R069 sans perte; Build/CodeQL requis. Issue #95 reste ouverte.
+PROCHAINE ACTION: valider PR134 puis PR staging avec CI, et tests physiques avant v4.
+ 
 CHECKPOINT R064B (2026-10-09) - REAL-ESRGAN SKIP SECURISE SANS ATTESTATION
 - Apres fusion PR #133, la publication Real-ESRGAN est refusee sans licence OpenMP. PR #132 evite de faire echouer les autres packages natifs: variable repo DLSSNR_OPENMP_REDIST_APPROVED par defaut 0, etape Real-ESRGAN ignoree avec avertissement explicite sans suppression de l'ancien asset. Si approbation=1, les gardes de signature/REDIST/SHA de #133 restent obligatoires. Tests ajoutes; #79 reste ouverte. Ne pas confondre attestation et licence.
 PROCHAINE ACTION: CI de #132, ensuite reevaluation #111 et audit branches.
