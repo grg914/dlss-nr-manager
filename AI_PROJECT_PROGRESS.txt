@@ -1,3 +1,7 @@
+CHECKPOINT R064B (2026-10-09) - REAL-ESRGAN SKIP SECURISE SANS ATTESTATION
+- Apres fusion PR #133, la publication Real-ESRGAN est refusee sans licence OpenMP. PR #132 evite de faire echouer les autres packages natifs: variable repo DLSSNR_OPENMP_REDIST_APPROVED par defaut 0, etape Real-ESRGAN ignoree avec avertissement explicite sans suppression de l'ancien asset. Si approbation=1, les gardes de signature/REDIST/SHA de #133 restent obligatoires. Tests ajoutes; #79 reste ouverte. Ne pas confondre attestation et licence.
+PROCHAINE ACTION: CI de #132, ensuite reevaluation #111 et audit branches.
+ 
 CHECKPOINT R064 (2026-10-09) - SERIALISATION DES ECRITURES RUNTIME SEED #123
 - Constat: runtime-refresh.yml et nuget-seed.yml publient tous deux nuget-offline.zip sur runtime-seed-v1 avec --clobber mais des groupes concurrency differents; runtime-refresh pouvait annuler un writer en cours.
 - Branche fix/v4-runtime-seed-writer-serialization: groupe unique runtime-seed-v1-writers, cancel-in-progress false, skip fichier identique en comparant size + SHA256 GitHub; refuse publication sur digest existant absent; valide digest/taille apres upload. Tests de politique ajoutes.
