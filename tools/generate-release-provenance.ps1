@@ -53,9 +53,18 @@ $dependencies = @(
     }
 )
 
+$sourceTimestamp = ""
+try {
+    $sourceTimestamp = (git -C $Root show -s --format=%cI $CommitSha).Trim()
+    if ($LASTEXITCODE -ne 0) { $sourceTimestamp = "" }
+}
+catch {
+    $sourceTimestamp = ""
+}
+
 $document = [ordered]@{
     schema = 1
-    generated_at_utc = [DateTime]::UtcNow.ToString("o")
+    source_timestamp = if ($sourceTimestamp) { $sourceTimestamp } else { $null }
     repository = $Repository
     source_commit = $CommitSha.ToLowerInvariant()
     version = $Version
