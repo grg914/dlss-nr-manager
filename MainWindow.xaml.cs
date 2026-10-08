@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private HardwareSnapshot? _hardwareSnapshot;
     private bool _hardwareProfileControlsReady;
     private bool _hardwareProbeBusy;
+    private bool _initialStartupComplete;
     private DateTimeOffset _lastHardwareProbe = DateTimeOffset.MinValue;
 
     private UiLocalizationController? _localization;
@@ -135,13 +136,15 @@ public partial class MainWindow : Window
         {
             ResetPointerState();
             await InitializeAsync();
+            _initialStartupComplete = true;
             await RefreshHardwareProfileAsync();
         };
 
         Activated += (_, _) =>
         {
             ResetPointerState();
-            if (IsLoaded && DateTimeOffset.UtcNow - _lastHardwareProbe >
+            if (_initialStartupComplete && IsLoaded &&
+                DateTimeOffset.UtcNow - _lastHardwareProbe >
                 TimeSpan.FromMinutes(5))
                 _ = RefreshHardwareProfileAsync();
         };
@@ -150,7 +153,8 @@ public partial class MainWindow : Window
         {
             // This appended page never changes the historical indices of
             // Downloads (6), VLC (3), or the other production pages.
-            if (IsLoaded && MainMenuList.SelectedIndex == 13)
+            if (_initialStartupComplete && IsLoaded &&
+                MainMenuList.SelectedIndex == 13)
                 _ = RefreshHardwareProfileAsync();
         };
 
