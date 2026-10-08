@@ -4,6 +4,11 @@ on:
   push:
     tags: [ 'v*' ]
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: 'Exact validated main commit SHA to release; leave blank for manual current-main release'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -24,19 +29,63 @@ jobs:
         shell: pwsh
         run: throw "Manual release runs must be started from main."
 
-      - name: Checkout this repository without external actions
+      - name: Resolve exact release source
+        id: source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE_SHA: ${{ github.event.inputs.source_sha }}
+        run: |
+          $requested = [string]$env:REQUESTED_SOURCE_SHA
+          $source = "$env:GITHUB_SHA".ToLowerInvariant()
+
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            if (-not [string]::IsNullOrWhiteSpace($requested)) {
+              if ($requested -notmatch "^[0-9a-fA-F]{40}$") {
+                throw "source_sha must be a full 40-character Git commit SHA."
+              }
+
+              $commit = gh api "repos/${{ github.repository }}/commits/$requested" | ConvertFrom-Json
+              if ($LASTEXITCODE -ne 0 -or -not $commit.sha) {
+                throw "Unable to resolve requested source commit $requested."
+              }
+              $source = ([string]$commit.sha).ToLowerInvariant()
+              if ($source -ne $requested.ToLowerInvariant()) {
+                throw "Requested source SHA resolved unexpectedly. Requested=$requested Resolved=$source"
+              }
+            }
+
+            $mainRef = gh api "repos/${{ github.repository }}/git/ref/heads/main" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or -not $mainRef.object.sha) {
+              throw "Unable to resolve current main SHA."
+            }
+            $mainSha = ([string]$mainRef.object.sha).ToLowerInvariant()
+            if ($mainSha -ne $source) {
+              throw "Release source $source is stale; current main is $mainSha. Refusing to release a superseded commit."
+            }
+          }
+
+          if ($source -notmatch "^[0-9a-f]{40}$") {
+            throw "Resolved release source is not a full Git commit SHA: $source"
+          }
+
+          "sha=$source" >> $env:GITHUB_OUTPUT
+          Write-Host "Exact release source: $source"
+
+      - name: Checkout exact release source without external actions
         shell: pwsh
         run: |
+          $target = "${{ steps.source.outputs.sha }}"
           $env:GIT_LFS_SKIP_SMUDGE = "1"
           git init .
           git remote add origin "https://github.com/${{ github.repository }}.git"
-          git fetch --no-tags --prune --depth=1 origin "$env:GITHUB_REF"
-          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch release revision." }
+          git fetch --no-tags --prune --depth=1 origin "$target"
+          if ($LASTEXITCODE -ne 0) { throw "Unable to fetch exact release revision $target." }
           git checkout --detach FETCH_HEAD
-          if ($LASTEXITCODE -ne 0) { throw "Unable to checkout release revision." }
-          $actual = (git rev-parse HEAD).Trim()
-          if ($actual -ne "$env:GITHUB_SHA") {
-            throw "Checkout mismatch. Expected $env:GITHUB_SHA, got $actual."
+          if ($LASTEXITCODE -ne 0) { throw "Unable to checkout exact release revision." }
+          $actual = (git rev-parse HEAD).Trim().ToLowerInvariant()
+          if ($actual -ne $target.ToLowerInvariant()) {
+            throw "Checkout mismatch. Expected $target, got $actual."
           }
 
       - name: Require preinstalled .NET 8 toolchain
@@ -98,8 +147,8 @@ jobs:
               throw "Stable tag $tag does not resolve to a commit."
             }
 
-            if ($tagCommit -ne "$env:GITHUB_SHA") {
-              throw "Stable tag $tag already belongs to commit $tagCommit. Current source is $env:GITHUB_SHA. Stable releases are immutable; bump the application version."
+            if ($tagCommit -ne "${{ steps.source.outputs.sha }}") {
+              throw "Stable tag $tag already belongs to commit $tagCommit. Current source is ${{ steps.source.outputs.sha }}. Stable releases are immutable; bump the application version."
             }
           }
 
@@ -143,7 +192,7 @@ jobs:
       - name: Create deterministic application ZIP
         shell: pwsh
         run: |
-          $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
+          $createdAt = (git show -s --format=%cI "${{ steps.source.outputs.sha }}").Trim()
           if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\create-application-package.ps1 -ExecutablePath "publish/DlssNrManager.exe" -OutputPath "DlssNrManager-win-x64.zip" -TimestampUtc "$createdAt"
           if ($LASTEXITCODE -ne 0) { throw "Application ZIP generation failed." }
@@ -308,7 +357,7 @@ jobs:
       - name: Generate trusted component manifest
         shell: pwsh
         run: |
-          $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
+          $createdAt = (git show -s --format=%cI "${{ steps.source.outputs.sha }}").Trim()
           if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-components-manifest.ps1 -AssetsDirectory release-assets -OutputPath release-assets/components-manifest.json -GeneratedAtUtc "$createdAt"
           if ($LASTEXITCODE -ne 0) { throw "Component manifest generation failed." }
@@ -316,11 +365,11 @@ jobs:
       - name: Generate SPDX SBOM and release provenance
         shell: pwsh
         run: |
-          $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
+          $createdAt = (git show -s --format=%cI "${{ steps.source.outputs.sha }}").Trim()
           if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-sbom.ps1 -OutputPath release-assets/SBOM.spdx.json -SourceCommit "${{ github.sha }}" -CreatedAtUtc "$createdAt" -ComponentManifestPath "release-assets/components-manifest.json"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-sbom.ps1 -OutputPath release-assets/SBOM.spdx.json -SourceCommit "${{ steps.source.outputs.sha }}" -CreatedAtUtc "$createdAt" -ComponentManifestPath "release-assets/components-manifest.json"
           if ($LASTEXITCODE -ne 0) { throw "SBOM generation failed." }
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-provenance.ps1 -Repository "${{ github.repository }}" -CommitSha "${{ github.sha }}" -Version "${{ steps.version.outputs.version }}" -ComponentManifestPath "release-assets/components-manifest.json" -GeneratedAtUtc "$createdAt" -OutputPath "release-assets/release-provenance.json"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-provenance.ps1 -Repository "${{ github.repository }}" -CommitSha "${{ steps.source.outputs.sha }}" -Version "${{ steps.version.outputs.version }}" -ComponentManifestPath "release-assets/components-manifest.json" -GeneratedAtUtc "$createdAt" -OutputPath "release-assets/release-provenance.json"
           if ($LASTEXITCODE -ne 0) { throw "Release provenance generation failed." }
 
       - name: Generate final SHA-256 checksums
@@ -367,6 +416,23 @@ jobs:
           [System.IO.File]::WriteAllLines((Join-Path $PWD "SHA256SUMS.txt"), $lines, [System.Text.UTF8Encoding]::new($false))
           Get-Content SHA256SUMS.txt
 
+      - name: Reconfirm release source before publication
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $expected = "${{ steps.source.outputs.sha }}".ToLowerInvariant()
+          $mainRef = gh api "repos/${{ github.repository }}/git/ref/heads/main" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not $mainRef.object.sha) {
+            throw "Unable to resolve current main SHA before publication."
+          }
+          $actual = ([string]$mainRef.object.sha).ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Main advanced from release source $expected to $actual during the release build. Refusing publication."
+          }
+          Write-Host "Release source is still current main: $expected"
+
       - name: Create or update GitHub release
         shell: pwsh
         env:
@@ -377,7 +443,7 @@ jobs:
 
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --repo "${{ github.repository }}" --target "$env:GITHUB_SHA" --title "DLSS NR Manager v$version" --generate-notes
+            gh release create $tag --repo "${{ github.repository }}" --target "${{ steps.source.outputs.sha }}" --title "DLSS NR Manager v$version" --generate-notes
             if ($LASTEXITCODE -ne 0) { throw "Unable to create release $tag." }
           }
 

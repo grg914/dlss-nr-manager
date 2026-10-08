@@ -34,16 +34,19 @@ For a single-maintainer repository this is intentional unless another trusted re
 
 ## CodeQL
 
-The repository hardening branch adds a pinned GitHub CodeQL C# workflow.
+The repository has a pinned GitHub CodeQL C# workflow.
 
-Target policy after the workflow is confirmed stable on `main`:
+CodeQL is now confirmed stable on `main` with the manager-owned/offline restore architecture, including successful post-merge runs #31 and #34.
 
-- add the CodeQL analysis check to required status checks;
+Current repository-setting gap:
+
+- the active `Protect main` ruleset still requires only `build`;
+- CodeQL should now be added as an additional required status check;
 - keep `build` required;
 - keep strict/up-to-date required checks;
 - do not remove the normal Build check in favor of CodeQL.
 
-Do not make CodeQL required before its workflow is known to run successfully on the repository's manager-owned/offline restore architecture.
+The connected GitHub integration used for this hardening work can read the ruleset but does not expose ruleset mutation, so this remains a GitHub repository-settings action rather than a repository-file change.
 
 ## Security features not verifiable through current integration
 

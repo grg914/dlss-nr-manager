@@ -3020,3 +3020,623 @@ ACTION 2026-10-08 A042
   Refresh Streamline bundle active; all other jobs are SUCCESS.
 - Next: synchronize this live journal into the follow-up branch once, then open
   the PR and freeze its exact head for Build/CodeQL validation.
+
+
+ACTION 2026-10-08 A043
+- Synchronized AI_PROJECT_PROGRESS.txt through A042 into
+  hardening/deterministic-nuget-seed exactly once before CI validation.
+- Follow-up branch journal-sync commit:
+  c2300164d481502785894e429370a327edf81ff1
+- Opened PR #83:
+  hardening: make NuGet runtime seed reproducible
+  https://github.com/grg914/dlss-nr-manager/pull/83
+- Exact PR head frozen for validation:
+  c2300164d481502785894e429370a327edf81ff1
+- GitHub REST now reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head checks started:
+  Build #866 (run 37716330015)
+  CodeQL #32 (run 37716329811)
+- Both jobs obtained runners and entered checkout.
+- Runtime Seed Refresh #22 on current main still has only windows-runtime /
+  Refresh Streamline bundle active; all other refresh jobs remain SUCCESS.
+- No further change will be made to PR #83 head unless CI exposes a defect.
+
+
+ACTION 2026-10-08 A044
+- Runtime Seed Refresh #22 completed all seed-generation jobs SUCCESS, including
+  windows-runtime, native-runtime, FFmpeg, NuGet, Java and restricted-runtime
+  preservation, but the overall workflow concluded FAILURE in dispatch-release.
+- Exact failed job: dispatch-release / Dispatch production release after seed promotion.
+- Exact log error:
+  bash: ./tools/dispatch-release-if-needed.sh: No such file or directory
+  exit code 127.
+- Root cause: dispatch-release job runs on a fresh ubuntu-latest runner but has
+  no repository checkout step before invoking the repository-local helper.
+- This is deterministic workflow wiring failure, not GitHub permissions or a
+  release-helper logic failure.
+- Corrective action: add the already-pinned actions/checkout commit to the
+  dispatch-release job before the helper call, then revalidate PR #83 exact head.
+- Because #83 already modifies runtime-refresh.yml, the hotfix will be added to
+  that PR; its current CI head c2300164 will intentionally be superseded.
+
+
+ACTION 2026-10-08 A045
+- Patched PR #83 after Runtime Seed Refresh #22 exposed a deterministic
+  dispatch-release wiring failure.
+- .github/workflows/runtime-refresh.yml now checks out the repository before
+  invoking ./tools/dispatch-release-if-needed.sh using pinned actions/checkout
+  fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 with credentials/LFS disabled.
+- Hotfix commit:
+  3aa652b281669a73c9955ae354290af36ffb8bc3
+- Added repository-governance regression protection:
+  verify-repository-governance.ps1 extracts the dispatch-release job and
+  requires a full-SHA-pinned actions/checkout, requires the local helper call,
+  and requires checkout to appear before that helper invocation.
+- Governance regression commit:
+  56e9d5784fd9a855e12263e9db3ac427cf7ad6ef
+- PR #83 new exact head:
+  56e9d5784fd9a855e12263e9db3ac427cf7ad6ef
+- Previous PR checks were intentionally superseded by the hotfix.
+- New exact-head checks:
+  Build #867 pending
+  CodeQL #33 pending
+- Branch is frozen again until these checks complete.
+
+
+ACTION 2026-10-08 A046
+- PR #83 exact-head Build #867 validated both newly added regression gates:
+  Verify deterministic flat ZIP helper: SUCCESS
+  Validate repository governance: SUCCESS
+- This proves on Windows PowerShell 5.1 that the deterministic helper generates
+  byte-identical archives despite changed source mtimes and that the updated
+  dispatch-release checkout ordering passes the repository-governance policy.
+- Build #867 then passed SBOM, Minecraft Vulkan/NGX, Caustica/Scandi and
+  Streamline audits and entered the zero-upstream production audit.
+- CodeQL #33 entered manager-owned offline NuGet feed preparation.
+- Additional read-only Runtime Seed Refresh audit identified follow-up churn
+  candidates outside PR #83: Streamline, Minecraft, Real-ESRGAN, OptiScaler,
+  ReShade and FFmpeg still use unconditional archive/upload paths; Temurin
+  computes changed state but still uploads ZIP + refreshed metadata every run.
+- These are recorded as a separate post-#83 hardening scope; no additional
+  change is being added to the frozen #83 head.
+
+
+ACTION 2026-10-08 A047
+- Resume after connection interruption verified against GitHub authoritative state.
+- PR #83 remains open and mergeable=true on exact frozen head
+  56e9d5784fd9a855e12263e9db3ac427cf7ad6ef.
+- Build #867 remains healthy through step 12; the new deterministic ZIP helper
+  and dispatch-release governance regression gates are still SUCCESS.
+- Build #867 is in Prepare manager-owned offline NuGet feed.
+- CodeQL #33 is in Prepare manager-owned offline NuGet feed after successful
+  checkout, CodeQL initialization and .NET 8 validation.
+- No failed step is reported and no code change has been made after A045.
+- PR #83 head remains frozen while exact-head CI continues.
+
+
+ACTION 2026-10-08 A048
+- PR #83 exact-head CodeQL #33 progressed:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore from manager-owned feed: SUCCESS
+  Build application for CodeQL: in_progress
+- Build #867 remains in its independent manager-owned offline NuGet feed
+  preparation step with all prior validation gates successful.
+- No code change made; exact head 56e9d578 remains frozen.
+
+
+ACTION 2026-10-08 A049
+- PR #83 exact-head CodeQL #33 progressed:
+  Build application for CodeQL: SUCCESS
+  Analyze: in_progress
+- Build #867 remains in its independent offline NuGet preparation with all
+  preceding validation gates successful.
+- Re-read active main ruleset Protect main (id 24538398):
+  PR required; review threads must resolve; squash/rebase only; strict required
+  status checks enabled; required status check currently only build;
+  linear history required; no bypass actors.
+- CodeQL is not yet a required status check despite successful #30/#31 and the
+  current #33 run. The connected GitHub integration exposes ruleset reads only,
+  not ruleset mutation, so adding CodeQL must remain a repository-settings
+  follow-up once #33 is confirmed stable.
+- No PR #83 code change made; exact head remains frozen.
+
+
+ACTION 2026-10-08 A050
+- PR #83 exact-head CodeQL #33 Analyze completed SUCCESS.
+- CodeQL #33 is only in post-initialization / checkout cleanup now; all security
+  analysis prerequisites and the analysis itself are green.
+- Build #867 remains in manager-owned offline NuGet feed preparation with no
+  failed step reported.
+- No code change made; exact head 56e9d578 remains frozen.
+
+
+ACTION 2026-10-08 A051
+- PR #83 exact-head CodeQL #33 completed SUCCESS on
+  56e9d5784fd9a855e12263e9db3ac427cf7ad6ef.
+- Successful stages include manager-owned offline feed preparation, offline
+  restore, instrumented C# build, security analysis and all post steps.
+- Build #867 remains the only PR #83 gate still active, currently in
+  Prepare manager-owned offline NuGet feed with all prior steps SUCCESS.
+- No code change made; exact head remains frozen.
+
+
+ACTION 2026-10-08 A052
+- PR #83 exact-head Build #867 progressed:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: SUCCESS
+  Run regression tests: in_progress
+- CodeQL #33 is already fully SUCCESS on the same exact head.
+- Both exact-head checks have therefore passed the manager-owned offline feed
+  download/validation and restore paths.
+- No code change made; head 56e9d578 remains frozen.
+
+
+ACTION 2026-10-08 A053
+- PR #83 exact-head Build #867 regression tests: SUCCESS.
+- Build #867 entered Publish Windows x64 single-file.
+- Remaining Build gates are executable/icon validation and deterministic
+  application packaging; CodeQL #33 is already fully SUCCESS.
+- No code change made; exact head remains frozen.
+
+
+ACTION 2026-10-08 A054
+- PR #83 exact-head Build #867 completed SUCCESS on
+  56e9d5784fd9a855e12263e9db3ac427cf7ad6ef.
+- Build log evidence:
+  deterministic flat ZIP helper built two identical archives with SHA-256
+  a7ce391196f2be574815d20b454ab8734baa1a08fd003e6ab11cd9e7af292b8b;
+  regression tests: 37 passed, 0 failed, 0 skipped;
+  deterministic application package A/B SHA-256:
+  78ae1c542785ac2411230e9ea7438ba0fb5039a1c42a08bfe4e7d01ba2189f09.
+- CodeQL #33 is also fully SUCCESS on the same exact head.
+- Next action: recheck PR #83 merge state and squash-merge with expected-head
+  protection if GitHub reports no remaining gate.
+
+
+ACTION 2026-10-08 A055
+- PR #83 reached mergeable_state=clean after exact-head Build #867 and
+  CodeQL #33 both completed SUCCESS.
+- PR #83 was squash-merged with expected-head protection on
+  56e9d5784fd9a855e12263e9db3ac427cf7ad6ef.
+- New main commit:
+  8dd45bf71a3aacea34696be9fd067409abfc13dd
+- GitHub result: Pull Request successfully merged.
+- Post-merge validation priorities:
+  confirm content-addressed nuget-offline.zip generation/publication behavior;
+  confirm runtime-refresh dispatch-release now checks out and invokes the local
+  helper successfully;
+  confirm Build and CodeQL remain green on merged main.
+
+
+ACTION 2026-10-08 A056
+- Post-merge validation started on main commit
+  8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Active runs:
+  Build #868
+  CodeQL #34
+  Runtime Seed Refresh #23
+- Runtime Seed Refresh #23 seed-release completed SUCCESS and its exact log
+  reports: Refresh scope: all.
+- Because the #83 merge includes NuGet packaging/workflow/governance changes,
+  the current coarse scope resolver expands this to a full runtime rebuild:
+  Windows/Streamline/Minecraft, native assets, FFmpeg, Java and NuGet all run.
+- This is not a correctness failure, but it is a confirmed performance/churn
+  optimization target for the next hardening pass: map changed files/dependency
+  ids to only the affected runtime jobs instead of defaulting almost everything
+  to all.
+- Immediate validation priorities remain:
+  new content-addressed NuGet seed generation and publication behavior;
+  dispatch-release checkout/helper execution;
+  Build #868 and CodeQL #34 stability during concurrent seed refresh.
+
+
+ACTION 2026-10-08 A057
+- Runtime Seed Refresh #23 nuget-runtime completed SUCCESS using the new
+  content-addressed seed implementation on merged main.
+- Full feed contained 22 packages.
+- The complete nuget-offline.zip was generated twice independently and both
+  archives produced the identical SHA-256:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e
+- The workflow explicitly reported:
+  Deterministic seed SHA-256 verified twice.
+- The previous pre-#83 seed used the older non-content-addressed format, so this
+  first new-format run correctly published the changed manager-owned asset.
+- GitHub publication digest verification succeeded and the workflow reported:
+  Published manager-owned nuget-offline.zip
+  (c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e).
+- After Runtime Seed Refresh #23 fully completes, run a NuGet-only refresh to
+  prove the second identical build emits SKIP unchanged and does not replace the
+  asset again.
+
+
+ACTION 2026-10-08 A058
+- Resumed from the user-linked AI_PROJECT_PROGRESS.txt on main.
+- Main commit remains 8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Important journal reconciliation:
+  main AI_PROJECT_PROGRESS.txt currently ends at A042 because the later live
+  journal was not yet resynchronized after PR #83;
+  docs/live-ai-project-progress contains the authoritative continuation through
+  A057 and is being used only to avoid losing post-A042 checkpoints.
+- runtime-seed-v1 currently exposes the new-format nuget-offline.zip at:
+  size 264,155,302 bytes
+  SHA-256 c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e
+  updated_at 2026-10-08T02:21:56Z.
+- Build #868 and CodeQL #34 are both concurrently preparing their independent
+  manager-owned offline NuGet feeds against this refreshed release; no failure
+  is reported.
+- Runtime Seed Refresh #23 status:
+  seed-release SUCCESS
+  preserve-restricted-runtime SUCCESS
+  java-runtime SUCCESS
+  nuget-runtime SUCCESS
+  windows-runtime / native-runtime / ffmpeg-runtime still in_progress.
+- No code change made; post-merge validation continues.
+
+
+ACTION 2026-10-08 A059
+- Read-only release dispatch audit identified a TOCTOU (time-of-check/time-of-use)
+  race in the automated production release handoff.
+- tools/dispatch-release-if-needed.sh validates the requested source_sha and its
+  version/tag state, but then dispatches:
+  gh workflow run release.yml --ref main
+  without passing source_sha to release.yml.
+- release.yml manual dispatch currently checks out GITHUB_REF / GITHUB_SHA and
+  later uses github.sha / GITHUB_SHA for deterministic timestamps, SBOM,
+  provenance and release target creation.
+- Therefore, if main advances after runtime refresh validates source_sha but
+  before GitHub materializes the release workflow dispatch, release.yml can
+  build/publish a newer main commit rather than the exact validated source_sha.
+- Existing stable-tag immutability prevents some bad outcomes when a tag already
+  exists, but a new version with no existing tag remains vulnerable to releasing
+  the wrong newer commit.
+- Selected follow-up hardening after current post-merge validation:
+  add a workflow_dispatch source_sha input;
+  pass exact source_sha from dispatch helper;
+  have release.yml validate and checkout that exact SHA;
+  use the resolved release SHA consistently for package timestamps, SBOM,
+  provenance and gh release --target;
+  preserve manual main-only behavior when source_sha is omitted;
+  add regression validation so helper/workflow cannot drift apart.
+- No code change made while Build #868 / CodeQL #34 / Runtime Seed Refresh #23
+  are still validating merged main.
+
+
+ACTION 2026-10-08 A058
+- Read-only audit for the next runtime-refresh efficiency hardening found a
+  trigger gap introduced by the new deterministic packaging architecture:
+  tools/create-deterministic-flat-zip.ps1 is used by
+  build-nuget-offline-seed.ps1 but is not listed in runtime-refresh.yml
+  on.push.paths.
+- Therefore a future change to the ZIP helper alone would run normal Build/CodeQL
+  but would not trigger Runtime Seed Refresh to rebuild nuget-offline.zip.
+- Next hardening scope must add the helper to push paths and route changed files
+  to affected runtime ids instead of defaulting unrelated changes to all.
+- Confirmed dependency routing vocabulary from DEPENDENCIES.lock.json includes:
+  streamline, optiscaler, ffmpeg, ffmpeg-builds, nv-codec-headers, realesrgan,
+  reshade, onnxruntime and minecraft-* ids.
+- No main or active workflow branch was modified during this audit.
+
+
+ACTION 2026-10-08 A060
+- Post-merge CodeQL #34 completed SUCCESS on main commit 8dd45bf71a3a.
+- Build #868 successfully consumed the new content-addressed NuGet seed:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: SUCCESS
+  regression tests: in_progress.
+- Runtime Seed Refresh #23 progressed:
+  FFmpeg SUCCESS
+  Real-ESRGAN SUCCESS
+  OptiScaler in_progress
+  Streamline still in_progress
+  Java/NuGet/restricted-runtime already SUCCESS.
+- Created follow-up branch hardening/release-source-pinning from main 8dd45bf7.
+- Follow-up release-source pinning commits currently include:
+  c90643c32d5221ea361ea051f4c5d1d84d29bb0a
+    release.yml adds workflow_dispatch source_sha, validates exact commit exists
+    and is an ancestor of main, checks out that exact SHA, and uses it for stable
+    tag immutability, deterministic timestamps, SBOM, provenance and release target.
+  14ae3d1e74af976831e445389905ccbb5c012f0d
+    dispatch-release-if-needed.sh now passes -f source_sha=$source_sha.
+  0cb353fb12c63cdaa1829ebe9c6719e58129fa2a
+    repository governance adds static source-pinning contract checks.
+  df1ddc070b94a6a697a70b5548c3be17fa829e04
+    fixes the PowerShell governance regex so literal $source is not interpolated.
+- GitHub compare API semantics were verified:
+  source==main => status identical, behind_by=0;
+  older main ancestor => status ahead, behind_by=0.
+  Therefore release.yml behind_by != 0 is a valid rejection test for a source
+  that is not on current main ancestry.
+- Follow-up branch is not yet opened as a PR; current post-merge validation stays
+  authoritative and undisturbed.
+
+
+ACTION 2026-10-08 A059
+- Created follow-up branch hardening/runtime-refresh-scoping from merged main
+  commit 8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Added tools/map-runtime-refresh-files.sh.
+- Mapper routes known changed paths to minimal runtime scopes instead of all:
+  NuGet -> onnxruntime;
+  Streamline -> streamline;
+  FFmpeg/FFmpeg-Builds/nv-codec-headers -> matching FFmpeg ids;
+  Real-ESRGAN -> realesrgan;
+  OptiScaler -> optiscaler;
+  ReShade -> reshade;
+  Minecraft -> minecraft-fabric-installer;
+  Temurin -> java25;
+  workflow/release-only policy/model-source paths -> release-only.
+- Unknown paths and third_party/DEPENDENCIES.lock.json retain conservative all.
+- Mapper commit:
+  96e5f9c392c898e3d667b307368f901472d73c33
+- runtime-refresh.yml now:
+  includes create-deterministic-flat-zip.ps1 and the mapper itself in push paths;
+  checks out the repository in seed-release;
+  preserves pure version-only csproj changes as release-only;
+  maps non-version csproj changes to onnxruntime only;
+  validates generated scope syntax.
+- Workflow commit:
+  f2a6ac1213f3b2ee91ce010793b65ae58df8d882
+- Build workflow now syntax-checks both Bash helpers and unit-tests representative
+  scope mappings including release-only, multi-runtime, Minecraft, lock fallback
+  and unknown fallback.
+- Build test commit:
+  916a740c3ac4b7cbbdc500af681fbe17b0e7153c
+- Repository governance now requires seed-release checkout before the local scope
+  mapper and requires all NuGet packaging/scope helper push triggers.
+- Governance commit:
+  c7019ee9065abb5bc8b5b43aa643087c802b4ee3
+- Branch is not yet opened as a PR; current main post-merge workflows continue
+  independently.
+
+
+ACTION 2026-10-08 A060
+- Post-merge main Build #868 and CodeQL #34 both completed SUCCESS on
+  8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Both ultimately consumed the new content-addressed manager-owned NuGet seed:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e
+- CodeQL #34 exercised the snapshot-race protection during first-format
+  replacement in production CI:
+  expected old release digest
+  48c05a01cd74788d8bfb4a873fd8d60b205454e2f034cf91721c4f17e7b7160c;
+  download observed replacement bytes during the race;
+  the helper detected 'changed while downloading' and retried the complete
+  snapshot (2/4), then validated the final c0e7... seed and completed SUCCESS.
+- Build #868 validated the final c0e7... seed directly, passed 37/37 tests, and
+  deterministic application packaging passed with SHA-256
+  b1f3efc45e1a5182aa81382ef6f800d6812ebd1a5690dc108b131c79d7de8257.
+- This reconfirms snapshot consistency protection under a real asset replacement
+  while also validating the new deterministic NuGet format on merged main.
+
+
+ACTION 2026-10-08 A061
+- Post-merge Build #868 completed SUCCESS on main commit 8dd45bf71a3a.
+- Completed Build #868 log confirms it consumed the newly published
+  content-addressed NuGet seed SHA-256:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e.
+- Build #868 evidence:
+  deterministic flat ZIP helper A/B SHA-256
+  a7ce391196f2be574815d20b454ab8734baa1a08fd003e6ab11cd9e7af292b8b;
+  regression tests: 37 passed, 0 failed, 0 skipped;
+  deterministic application package A/B SHA-256
+  b1f3efc45e1a5182aa81382ef6f800d6812ebd1a5690dc108b131c79d7de8257.
+- CodeQL #34 is also fully SUCCESS on the same merged main SHA.
+- Runtime Seed Refresh #23 is now the only active post-merge workflow:
+  FFmpeg / Java / NuGet / restricted runtime SUCCESS;
+  Real-ESRGAN and OptiScaler SUCCESS;
+  ReShade in_progress;
+  Streamline still in_progress.
+- No main code change made; waiting for Runtime Seed Refresh #23 finalization
+  and dispatch-release validation before opening the release-source-pinning PR.
+
+
+ACTION 2026-10-08 A061
+- Runtime Seed Refresh #23 windows-runtime completed SUCCESS; only native-runtime
+  ReShade remained before dispatch-release at this checkpoint.
+- Captured manager-owned release digests after the second consecutive full
+  refresh to quantify unnecessary asset churn:
+  Streamline same size 171,509,289 bytes but digest changed again to
+  788e198501af89a8659fcc71883b1e48a853fe516db726f565ef9e2150632860;
+  Minecraft same size 28,699,844 bytes but digest changed again to
+  fb5a69d25a296bd9063d58a313f3dc1ff19082c19648564dc1bdf0991614e83f;
+  Real-ESRGAN same size 2,240,981 bytes but digest changed again to
+  2e271f6ba230d4eabbe8984ee3ee0856e8e7c52d5ef84861b94cb0b5b5a6637f;
+  FFmpeg digest changed to
+  9fed986b98e92ec84d94d89e7a1db4a94af653cc7c0f955ca5ccf9e5af1ad7d1;
+  OptiScaler digest changed to
+  aae0afb59e04123f959cab4d2e51d7b9489ce7d3efff940399825ae34a9443bf.
+- Temurin JRE ZIP retained the exact same upstream SHA-256
+  4c95451cea98556def2c54f7782933f52a26d4a36bd85e1d59f0364464828b07
+  but its release updated_at changed again, proving an unchanged binary was
+  re-uploaded; temurin-25-jre.json changed again due refreshed_at_utc.
+- This is production evidence for a separate runtime-asset reproducibility / skip
+  unchanged hardening after the scope-routing PR.
+- The new NuGet seed remains stable at c0e7e334... and is the first asset already
+  converted to content-addressed packaging + digest-aware publication.
+
+
+ACTION 2026-10-08 A062
+- Strengthened hardening/release-source-pinning from ancestor acceptance to
+  fail-closed current-main pinning.
+- release.yml workflow_dispatch behavior now:
+  resolves optional source_sha exactly;
+  requires source_sha/current event SHA to equal current main HEAD;
+  checks out the exact SHA;
+  uses that SHA for tag immutability, deterministic timestamps, SBOM,
+  provenance and GitHub release target;
+  immediately before publication, resolves main again and aborts if main
+  advanced during the release build.
+- dispatch-release-if-needed.sh now resolves current main before dispatch and
+  skips stale source_sha dispatches so the newer main refresh owns publication.
+- Repository governance regression checks were updated to require this
+  fail-closed contract and the exact source_sha workflow input handoff.
+- Follow-up commits added:
+  4a8dc4453b84f6cf1a408bdf2baa7d8712971a24
+  8bdd3dfa4cbce3a4b695b58bdd9b799e2a7277f7
+  ab19be87f275613a9b8379bbedcab3de255bc86b
+- Runtime Seed Refresh #23 progressed:
+  windows-runtime is now SUCCESS, including Streamline and Minecraft;
+  native-runtime remains active only in ReShade;
+  all other runtime jobs are SUCCESS.
+- The release-source-pinning branch remains un-opened while #23 final dispatch
+  behavior is still being validated on current main.
+
+
+ACTION 2026-10-08 A062
+- Continued static audit of hardening/runtime-refresh-scoping before opening a PR.
+- Confirmed from third_party/README.md that ScoopInstaller-Versions is the
+  pinned manifest source used for ReShade metadata.
+- Updated the scope mapper so third_party/ScoopInstaller-Versions/** routes to
+  reshade instead of the conservative all fallback.
+- Mapper refinement commit:
+  5d4eed8f4952fc2eb88ff24966bd030a214e5613
+- Updated Build scope-routing test to include Scoop ReShade metadata alongside
+  the ReShade + Streamline multi-runtime case.
+- Build test refinement commit:
+  b3a3504706599c5ce14f67e96e1df5766eaf63fb
+- Cross-check of runtime build scripts confirmed:
+  ReShade build consumes third_party/ReShade + dependency lock;
+  OptiScaler build consumes third_party/OptiScaler;
+  Real-ESRGAN binary build consumes third_party/Real-ESRGAN-ncnn-vulkan;
+  FFmpeg build consumes third_party/FFmpeg + third_party/nv-codec-headers.
+- Real-ESRGAN model-source and ai-model directories remain release payload/source
+  inputs rather than runtime binary build inputs and therefore remain release-only.
+- Runtime Seed Refresh #23 is still active only in native-runtime/ReShade at this
+  checkpoint; all other refresh jobs are SUCCESS.
+
+
+ACTION 2026-10-08 A063
+- Added documentation for exact release-source pinning on
+  hardening/release-source-pinning.
+- docs/RELEASE_ARTIFACT_POLICY.md now specifies:
+  runtime refresh must pass exact source_sha;
+  stale dispatches are skipped if main advanced;
+  Release checks out the exact SHA;
+  workflow_dispatch source must still be current main at start;
+  main is rechecked immediately before publication;
+  package timestamps, SBOM, provenance and GitHub release target use the same
+  exact source SHA;
+  superseded commits fail closed instead of being promoted.
+- Documentation commit:
+  d47d1b892087a15d8f04d03122b26ba8c81f2329
+- Runtime Seed Refresh #23 still has only native-runtime/ReShade active;
+  all other runtime producer jobs are SUCCESS.
+- No PR opened yet for release-source pinning.
+
+
+ACTION 2026-10-08 A063
+- Refined hardening/runtime-refresh-scoping after auditing GitHub compare behavior.
+- Important finding: the compare API returns every file in the merge commit, not
+  only files that matched runtime-refresh.yml on.push.paths. A blanket unknown
+  -> all fallback would therefore let unrelated files such as build.yml,
+  AI_PROJECT_PROGRESS.txt or docs force a full runtime rebuild.
+- Updated mapper fallback policy:
+  unknown paths under tools/** or third_party/** remain conservative all;
+  unrelated paths outside runtime-sensitive trees are ignored/release-only.
+- Mapper commit:
+  622b0e446b5c3431cdb2bb0164bc2590905e2894
+- Extended Build mapping tests with build workflow, progress journal and docs
+  mixed into a release-only change set, while keeping unknown tools/** as all.
+- Build test commit:
+  4f0f1c2fd089a0cb8b54e1a5e05f4d53037a291f
+- This ensures a merge that changes NuGet packaging plus unrelated docs/routes
+  resolves to onnxruntime instead of all, while genuinely unknown runtime-tree
+  inputs still fail safe to a full refresh.
+
+
+ACTION 2026-10-08 A064
+- Runtime Seed Refresh #23 completed overall SUCCESS on merged main
+  8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- All seed-generation jobs completed SUCCESS:
+  seed-release, windows-runtime, preserve-restricted-runtime, native-runtime,
+  ffmpeg-runtime, nuget-runtime and java-runtime.
+- The previously broken dispatch-release path is now production-validated:
+  Checkout repository for local dispatch helper: SUCCESS
+  Dispatch production release after seed promotion: SUCCESS
+- Exact helper result was correct for unchanged application version:
+  stable v3.2.0 belongs to
+  e5927e1d718dfff19540964ba46ee4edaa933c6b;
+  requested runtime-refresh source was
+  8dd45bf71a3aacea34696be9fd067409abfc13dd;
+  therefore production release dispatch was intentionally skipped until the
+  application version is bumped.
+- This confirms the #22 exit-127 defect is fixed without accidentally creating
+  a duplicate/mis-tagged production release.
+- Post-merge Build #868, CodeQL #34 and Runtime Seed Refresh #23 are all green.
+
+
+ACTION 2026-10-08 A064
+- Runtime Seed Refresh #23 completed SUCCESS end-to-end on main commit 8dd45bf7.
+- All producer jobs are SUCCESS:
+  seed-release;
+  windows-runtime (Streamline + Minecraft);
+  native-runtime (Real-ESRGAN + OptiScaler + ReShade);
+  FFmpeg;
+  Java 25;
+  NuGet;
+  restricted video runtime preservation.
+- dispatch-release also completed SUCCESS with the checkout fix from PR #83.
+- Exact dispatch log evidence:
+  repository checkout fetched main commit 8dd45bf71a3aacea34696be9fd067409abfc13dd;
+  tools/dispatch-release-if-needed.sh was found and executed;
+  stable v3.2.0 was detected at immutable commit
+  e5927e1d718dfff19540964ba46ee4edaa933c6b;
+  requested source was 8dd45bf71a3aacea34696be9fd067409abfc13dd;
+  production Release dispatch was intentionally skipped until application
+  version is bumped.
+- This validates the missing-checkout bug from Runtime Seed Refresh #22 is fixed.
+- A057 follow-up proof for NuGet SKIP unchanged still needs one subsequent
+  refresh. The available GitHub integration does not expose workflow_dispatch;
+  the next normal main push will exercise this automatically.
+- ReShade timing was audited from #22:
+  Vulkan SDK winget bootstrap ~8m35s;
+  ReShade 32-bit ~2m21s;
+  ReShade 64-bit ~2m24s;
+  Setup ~15s.
+  The long native job is therefore explained primarily by Vulkan SDK bootstrap,
+  not a visible loop/hang.
+- hardening/release-source-pinning also updated
+  docs/GITHUB_REPOSITORY_SETTINGS.md:
+  CodeQL is confirmed stable on main (including #31 and #34), while Protect main
+  still requires only build; adding CodeQL as a required status check is now a
+  documented pending GitHub settings action because the connected integration
+  can read but not mutate rulesets.
+- Documentation commit:
+  1084c3509f2cf0412b090cccc503345aab5d774e.
+
+
+ACTION 2026-10-08 A065
+- Synchronized AI_PROJECT_PROGRESS.txt through A064 into
+  hardening/runtime-refresh-scoping exactly once before CI validation.
+- Journal-sync / frozen PR head commit:
+  dcfb4795b8b5e7a5ddc3cf4c44a1bd33c1e89a5b
+- Opened PR #84:
+  perf: route runtime refresh by affected component
+  https://github.com/grg914/dlss-nr-manager/pull/84
+- GitHub REST reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head checks started:
+  Build #869 (run 37718995528)
+  CodeQL #35 (run 37718995486)
+- Branch is frozen until these exact-head checks complete or expose a defect.
+
+
+ACTION 2026-10-08 A065
+- Final static audit of hardening/release-source-pinning completed before PR.
+- release.yml critical-source audit:
+  workflow_dispatch exposes source_sha;
+  the event GITHUB_SHA is used only to initialize the exact source when no
+  explicit workflow_dispatch source_sha is supplied;
+  exact checkout uses steps.source.outputs.sha;
+  stable tag ownership compares against steps.source.outputs.sha;
+  package/component/SBOM/provenance timestamps and source metadata use the exact
+  resolved SHA;
+  gh release create --target uses the exact resolved SHA;
+  workflow_dispatch rechecks current main immediately before publication.
+- dispatch-release-if-needed.sh audit:
+  validates full source SHA;
+  preserves stable-tag immutability;
+  resolves current main and skips stale source dispatch;
+  passes source_sha explicitly into release.yml.
+- verify-repository-governance.ps1 now statically enforces the above contract.
+- No additional blocking defect found in the five follow-up implementation/docs
+  files.
+- Next action: synchronize live AI_PROJECT_PROGRESS.txt into the branch, open the
+  release-source-pinning PR, and freeze its exact head for Build/CodeQL.
