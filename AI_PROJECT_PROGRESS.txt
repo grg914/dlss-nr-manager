@@ -4003,3 +4003,18 @@ ACTION 2026-10-08 A083
   must first be reconciled with the manager-owned offline seed/update path.
 - This branch is intended to supersede stale governance PRs #78 and #80 after
   validation; Local AI Studio PR #77 remains a real feature to rebase/fix separately.
+
+
+ACTION 2026-10-08 A084
+- Closed-PR audit found a second genuinely lost fix in #55/#57.
+- Current main still contained the old continuity-checkpoint heredoc rendering:
+  Markdown backticks surrounded $main_sha, the GitHub event name, and recovery
+  paths inside an unquoted Bash heredoc.
+- In Bash this can be interpreted as command substitution after interpolation,
+  making the generated continuity issue body unreliable and potentially causing
+  command-not-found failures.
+- Recovered the safe #57 rendering fix into cleanup PR #86:
+  dynamic main/trigger values are emitted without command-substitution backticks;
+  recovery paths are emitted as plain text.
+- The historical progress rewrites from #55/#57 were intentionally not restored;
+  only the still-relevant workflow bug fix was recovered.
