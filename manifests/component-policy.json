@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "repository": "grg914/dlss-nr-manager",
+  "policy_version": "2026-10-08",
+  "components": [
+    {
+      "id": "application",
+      "category": "app",
+      "distribution": "release",
+      "source_policy": "project-owned",
+      "license": "MIT",
+      "integrity": [
+        "GitHub release digest",
+        "SHA256SUMS.txt",
+        "file version metadata"
+      ],
+      "runtime_source": "local"
+    },
+    {
+      "id": "nuget-offline-seed",
+      "category": "build-runtime",
+      "distribution": "runtime-seed",
+      "source_policy": "manager-owned offline feed",
+      "license": "per-package",
+      "integrity": [
+        "package lock/feed provenance",
+        "release digest"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "video2dlssnr",
+      "category": "media",
+      "distribution": "runtime-seed+release",
+      "source_policy": "vendored source + local-only NVIDIA SDK input",
+      "license": "mixed; preserve source/vendor notices",
+      "integrity": [
+        "tests",
+        "SHA-256",
+        "NVIDIA Authenticode for NVIDIA DLLs"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "ffmpeg",
+      "category": "media",
+      "distribution": "runtime-seed+release",
+      "source_policy": "vendored FFmpeg source",
+      "license": "LGPL-compatible project build",
+      "integrity": [
+        "reproducible build",
+        "release digest",
+        "SHA-256"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "realesrgan",
+      "category": "media-ai",
+      "distribution": "runtime-seed+release",
+      "source_policy": "vendored source/models",
+      "license": "per-upstream component/model",
+      "integrity": [
+        "source lock",
+        "model fingerprints",
+        "release digest"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "ai-origin-models",
+      "category": "ai-detection",
+      "distribution": "release",
+      "source_policy": "vendored model repositories",
+      "license": "Apache-2.0 / MIT model repositories",
+      "integrity": [
+        "pinned SHA-256",
+        "release digest"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "optiscaler",
+      "category": "graphics",
+      "distribution": "runtime-seed+release",
+      "source_policy": "vendored source",
+      "license": "GPL-covered component",
+      "integrity": [
+        "pinned source ref",
+        "build validation",
+        "release digest"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "reshade",
+      "category": "graphics",
+      "distribution": "runtime-seed+release",
+      "source_policy": "vendored/upstream source+metadata",
+      "license": "upstream license",
+      "integrity": [
+        "source lock",
+        "package validation",
+        "release digest"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "streamline",
+      "category": "nvidia-runtime",
+      "distribution": "runtime-seed+release",
+      "source_policy": "pinned NVIDIA Streamline source/package",
+      "license": "MIT root + separate NVIDIA/third-party terms",
+      "integrity": [
+        "official package hash",
+        "SHA-256",
+        "Authenticode where applicable"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "nvidia-dlss-sdk",
+      "category": "nvidia-build-input",
+      "distribution": "not-public",
+      "source_policy": "local-only restricted SDK",
+      "license": "NVIDIA proprietary SDK terms",
+      "integrity": [
+        "immutable upstream tag/commit lock",
+        "local path only"
+      ],
+      "runtime_source": "local-only build input"
+    },
+    {
+      "id": "minecraft-runtime-26.2",
+      "category": "minecraft",
+      "distribution": "runtime-seed+release",
+      "source_policy": "locked Fabric/mod/runtime bundle",
+      "license": "per-component",
+      "integrity": [
+        "RUNTIME.lock.json",
+        "SHA-512/SHA-1/SHA-256",
+        "release digest"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "caustica-rtx",
+      "category": "minecraft-renderer",
+      "distribution": "release",
+      "source_policy": "project-owned source tree",
+      "license": "GPL-covered component",
+      "integrity": [
+        "build validation",
+        "release digest"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "spbrscandi",
+      "category": "minecraft-resource-pack",
+      "distribution": "release",
+      "source_policy": "project-controlled validated pack",
+      "license": "preserve constituent asset licenses",
+      "integrity": [
+        "pinned SHA-256",
+        "asset audit"
+      ],
+      "runtime_source": "manager-owned release"
+    },
+    {
+      "id": "temurin25",
+      "category": "java-runtime",
+      "distribution": "runtime-seed+release",
+      "source_policy": "manager-owned packaged JRE metadata/runtime",
+      "license": "Eclipse Temurin / OpenJDK terms",
+      "integrity": [
+        "metadata/hash validation",
+        "release digest"
+      ],
+      "runtime_source": "manager-owned release"
+    }
+  ]
+}
