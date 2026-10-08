@@ -4742,3 +4742,24 @@ ACTION 2026-10-08 A114
 - Runtime Refresh #29 is the production proof for the #91 fix: seed-release must
   resolve this governance/mapper/build-only merge to release-only and must not
   start expensive runtime producer jobs.
+
+
+ACTION 2026-10-08 A115
+- Production validation of PR #91 completed for Runtime Seed Refresh #29 on
+  main 2e1be8a20ea4efe0daabd6e0e06af1e591f253a3.
+- Exact seed-release log:
+  Refresh scope: release-only.
+- All runtime producer jobs were correctly skipped:
+  native-runtime, windows-runtime, ffmpeg-runtime, vlc-runtime, java-runtime,
+  nuget-runtime and preserve-restricted-runtime.
+- dispatch-release completed SUCCESS and preserved stable-release immutability:
+  stable v3.2.0 belongs to e5927e1d718dfff19540964ba46ee4edaa933c6b;
+  requested source was 2e1be8a20ea4efe0daabd6e0e06af1e591f253a3;
+  production release dispatch was skipped until the application version is bumped.
+- This confirms the repository-governance mapper fix eliminates the accidental
+  full runtime rebuild discovered after PR #75.
+- Open pull requests remain ZERO.
+- Post-merge Build #893 and CodeQL #59 remain active only in their manager-owned
+  offline NuGet feed/restore path with no failed step; all early Build gates,
+  including Minecraft native Vulkan/NGX policy, Caustica/Scandi, Streamline,
+  repository governance and zero-upstream, are SUCCESS.
