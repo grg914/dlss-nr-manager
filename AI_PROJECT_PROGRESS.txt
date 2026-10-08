@@ -1,3 +1,26 @@
+CHECKPOINT R041 (2026-10-08) - RECONCILIATION PC CLEAN + TEST WINDOWS ET VERIFICATION SYNTAXE
+- PR #119 fusionnee sur main commit 52dacd47f8966b516419d6ada627e55270115c64: Build 37838790919 SUCCESS, 124 tests passes (0 echec/ignore), CodeQL 37838790887 SUCCESS. Journal R037/R038 et etude no-OpenMP deja presents sur main; PR #118 fermee comme remplacee.
+- Branche security/v4-cleanup-acceptance-reconciled creee depuis main apres PR119, reprenant les deux corrections de branches #120 et #121 (script PC acceptance non destructif, doc FR, garde PC Clean contre liens/jonctions parents et 2 tests).
+- Verification de .github/workflows/build.yml: ancienne liste de scripts PowerShell parses ne couvrait PAS tools/audit-realesrgan-openmp.ps1 ni tools/verify-v4-windows-process-cleanup.ps1. Ajout des deux a la validation syntaxique CI sans changer les releases et scripts de production. Verification CI complete necessaire; ne pas annoncer scripts executes tant que tests terrain absents.
+- R039 et R040 recuperes in extenso des branches d'origine et prependes avec R041 au journal existant R031-R038. Les PR #120/#121 devront etre fermees APRES merge du remplacement. Aucune modification de GPU/user machine, pas de preuve de suppression hors chemin en concurrence TOCTOU.
+PROCHAINE ACTION: ouvrir PR de reconciliation, attendre Build/CodeQL SUCCESS sur son head, corriger echec eventuel, puis fusionner et lire le fichier journal main pour R038-R041. Issues #79 #82 #95 #111 restent ouvertes; v4.0 NON PUBLIEE.
+
+CHECKPOINT R040 (2026-10-08) - SECURITY PC CLEAN PARENT JUNCTION GUARD
+- Analyse Services/PcCleanupService.cs: IsSafeDirectoryRoot verifiait seulement les attributs de la racine; un chemin APPDATA sous parent jonction/symlink pouvait en realite cibler des fichiers hors de la zone attendue, car IsAllowedRoot fait une comparaison lexicale de chemin. Risque deletion hors cible.
+- Branche security/v4-pc-clean-parent-reparse depuis main post-PR117. Correction: IsSafeDirectoryRoot refuse reparse point sur chaque parent via ManagedPathSafety.HasReparsePointOnPath; EnumerateFilesSafe recontrole chaque sous-dossier avant enumeration; ScanRoot et CleanRoot refusent un fichier dont un parent ou lui-meme est un reparse point; DeleteEmptyDirectories refuse la suppression des dossiers a chemin redirige. Toujours limites TOCTOU de substitutions concurrentes; aucune garantie absolue, fichiers en cours d'utilisation ignores.
+- Ajout tests/DlssNrManager.Tests/PcCleanupParentJunctionTests.cs: setup local APPDATA avec lien symbolique parent vers dossier de test hors chemin, exige absence de scan et suppression, sentinelle preservee; test normal verifie que selection *.tmp efface uniquement ancien cache et preserve important.txt. Test symlink conditionnel aux privileges Windows.
+- Code non valide tant que Build/CodeQL CI ne sont pas verts sur HEAD. Aucune operation de nettoyage executee sur le PC utilisateur.
+- PR #119 recherche OpenMP et PR #120 outil acceptance Windows en parallele, avec R037-R039 sur leurs branches; conserver tous checkpoints lors des fusions subsequentes.
+PROCHAINE ACTION: ouvrir PR avec Build/CodeQL requis, verifier tests, fusion/reconciliation avec latest main seulement si vert. V4 non publiee.
+
+CHECKPOINT R039 (2026-10-08) - TEST D'ACCEPTATION WINDOWS REEL, NON DESTRUCTIF
+- PR #117 fusionnee dans main commit 3e8c9487c46ca163f545bc28b8567f83796c781d apres Build 37837120315 et CodeQL 37837120163 SUCCESS; 124 tests, aucun echec/ignore; R031-R036 relus sur main; PR #115/#116 fermees obsoletes.
+- Branche test/v4-windows-acceptance-audit: nouveau tools/verify-v4-windows-process-cleanup.ps1: demarre une instance du manager, photographie les PID des utilitaires, attend sa fermeture, et identifie apres delai les nouveaux PID encore actifs; sauvegarde rapport JSON temporaire. Option explicite -ForceTerminateAfterSeconds tue UNIQUEMENT l'instance lancee (pas l'arbre), avertissement de perte de donnees; jamais de suppression processus auxiliaire ni fichier utilisateur.
+- docs/V4_WINDOWS_PROCESS_ACCEPTANCE.md: mode normal/force, codes retour 0/2/3, interpretation prudente des faux positifs, absence de validation GPU/VRAM, procedure de verification terrain et conservation rapport dans issue #95.
+- Script cree sur GitHub mais PAS EXECUTE sur PC utilisateur; ce n'est PAS une validation materielle reussie. CI PowerShell/Windows Build+CodeQL requise pour cette branche.
+- PR #118 recherche OpenMP remplacee dans PR #119 pour conserver journal R031-R038, en attente validations. Issues #95 et #79 ouvertes, pas de release v4.
+PROCHAINE ACTION: PR du test terrain, CI sur head exact puis merge/reconciliation; executer tests sur vrai PC Nvidia Windows et verifier logs, interruptions, rollback et VRAM avant v4.0.
+
 CHECKPOINT R038 (2026-10-08) - PR117 MERGEE; EVALUATION REALESRGAN REBASEE
 - PR #117 fusionnee sur main 3e8c9487c46ca163f545bc28b8567f83796c781d. Build 37837120315 et CodeQL 37837120163: SUCCESS. Build 124 tests passed, 0 failed, 0 skipped. PR #115 et #116 fermees obsolete; journal R031-R036 verifie sur main.
 - Nouvelle branche research/v4-realesrgan-openmp-free-reconciled depuis main post PR117: reporte strictement le mode experimental -DisableOpenMp, le script audit imports PE et la documentation de l'ancienne PR #118; garde R037 et tout historique R031-R036.
