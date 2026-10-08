@@ -284,9 +284,11 @@ jobs:
       - name: Generate SPDX SBOM and release provenance
         shell: pwsh
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-sbom.ps1 -OutputPath release-assets/SBOM.spdx.json
+          $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
+          if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-sbom.ps1 -OutputPath release-assets/SBOM.spdx.json -SourceCommit "${{ github.sha }}" -CreatedAtUtc "$createdAt"
           if ($LASTEXITCODE -ne 0) { throw "SBOM generation failed." }
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-provenance.ps1 -Repository "${{ github.repository }}" -CommitSha "${{ github.sha }}" -Version "${{ steps.version.outputs.version }}" -ComponentManifestPath "release-assets/components-manifest.json" -RunId "${{ github.run_id }}" -RunAttempt "${{ github.run_attempt }}" -WorkflowRef "${{ github.workflow_ref }}" -OutputPath "release-assets/release-provenance.json"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-provenance.ps1 -Repository "${{ github.repository }}" -CommitSha "${{ github.sha }}" -Version "${{ steps.version.outputs.version }}" -ComponentManifestPath "release-assets/components-manifest.json" -GeneratedAtUtc "$createdAt" -OutputPath "release-assets/release-provenance.json"
           if ($LASTEXITCODE -ne 0) { throw "Release provenance generation failed." }
 
       - name: Generate final SHA-256 checksums
