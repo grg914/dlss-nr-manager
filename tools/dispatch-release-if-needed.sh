@@ -51,6 +51,18 @@ if [[ -n "$exact_ref" ]]; then
   fi
 fi
 
+main_sha="$(gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha')"
+if [[ -z "$main_sha" ]]; then
+  echo "Unable to resolve current main SHA." >&2
+  exit 1
+fi
+
+if [[ "$main_sha" != "$source_sha" ]]; then
+  echo "Main advanced to $main_sha after runtime seed validation for $source_sha."
+  echo "Skipping stale release dispatch; the newer main refresh must own publication."
+  exit 0
+fi
+
 if [[ "$dry_run" == "true" ]]; then
   echo "DRY RUN: release.yml would be dispatched for $tag at $source_sha."
   exit 0
