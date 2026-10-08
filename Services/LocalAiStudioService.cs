@@ -339,6 +339,7 @@ public sealed class LocalAiStudioService
         AiStudioModelDescriptor model)
     {
         var path = GetModelDirectory(model);
+        ManagedPathSafety.EnsureSafeForRemoval(path);
 
         if (Directory.Exists(path))
             Directory.Delete(path, true);
