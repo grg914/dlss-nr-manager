@@ -4409,3 +4409,42 @@ ACTION 2026-10-08 A102
 - Selected resolution: reconstruct feat/vlc-video-enhancement linearly on current
   main 1a38c60980cf7f5774e1d1356200c5f8efaa8ccf, then run exact-head Build +
   CodeQL and merge only if clean.
+
+
+ACTION 2026-10-08 A103
+- Reconstructed PR #75 feat/vlc-video-enhancement on current hardened main
+  1a38c60980cf7f5774e1d1356200c5f8efaa8ccf instead of merging the obsolete
+  pre-hardening history.
+- Preserved the useful feature scope:
+  VSR-HDR VLC Direct playback;
+  NVIDIA VSR / artifact-reduction request / RTX Video HDR controls;
+  x1/x2/x4 window targets and fullscreen;
+  VLC-native VSR/HDR OSD indicator;
+  Restore HD Video permanent local pipeline;
+  Neural Rendering + conservative cleanup + Real-ESRGAN integration;
+  VLC source/provenance/offline distribution documentation and tests.
+- Product consistency improvement versus old #75:
+  removed the duplicate Set up portable VLC action from the VSR-HDR page;
+  VLC is now a first-class Téléchargements component supporting install,
+  remove and redownload through DownloadCenterService;
+  the VSR-HDR page only navigates to that centralized component.
+- VlcRuntimeService resolution order is now:
+  local installed runtime -> bundled offline asset -> latest stable manager-owned
+  release -> manager-owned runtime-seed-v1.
+  Application runtime never downloads VLC directly from VideoLAN.
+- Runtime/release reconciliation with post-#84 hardening:
+  tools/publish-vlc-runtime.ps1 maps to scope id vlc;
+  Build validates that scope;
+  repository governance requires the VLC runtime-refresh trigger;
+  runtime-refresh contains a scoped vlc-runtime producer and dispatch dependency;
+  release keeps exact source-SHA pinning and creates the VLC offline bundle with
+  create-deterministic-flat-zip.ps1 instead of Compress-Archive.
+- VLC publisher now compares GitHub SHA-256 digests for runtime/source/provenance,
+  emits SKIP unchanged for identical assets and verifies the remote digest after
+  every actual replacement.
+- Current AI Studio, Download Manager, PC Clean, release governance and FR/EN
+  changes were preserved rather than replaced by the old #75 versions.
+- MediaService gained the missing native Neural Rendering 4x scale required by
+  Restore HD Video.
+- Next: sync this journal to PR #75, freeze final head, run exact-head Build +
+  CodeQL and merge only if both are green and GitHub reports clean/mergeable.
