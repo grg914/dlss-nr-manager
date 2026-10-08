@@ -30,15 +30,6 @@ if ([string]::IsNullOrWhiteSpace($TimestampUtc)) {
 }
 
 $sourceTimestamp = ([DateTimeOffset]::Parse($TimestampUtc)).ToUniversalTime()
-$zipSecond = $sourceTimestamp.Second - ($sourceTimestamp.Second % 2)
-$archiveTimestamp = [DateTimeOffset]::new(
-    $sourceTimestamp.Year,
-    $sourceTimestamp.Month,
-    $sourceTimestamp.Day,
-    $sourceTimestamp.Hour,
-    $sourceTimestamp.Minute,
-    $zipSecond,
-    [TimeSpan]::Zero)
 
 Push-Location $Root
 try {
@@ -119,88 +110,17 @@ $manifestPath = Join-Path $feed "manifest.json"
 $manifestJson = ($manifest | ConvertTo-Json -Depth 8) -replace "`r`n", "`n"
 [IO.File]::WriteAllText($manifestPath, $manifestJson + "`n", [Text.UTF8Encoding]::new($false))
 
-# NuGet packages are ZIP containers already. Store them without an additional
-# deflate pass so the manager-owned outer archive is faster to build/extract and
-# independent of compression-library implementation details.
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-$archiveInputs = @(Get-ChildItem -LiteralPath $feed -File | Sort-Object Name)
-if ($archiveInputs.Count -eq 0) { throw "Offline NuGet feed is empty." }
-
-$fileStream = [IO.File]::Open(
-    $zip,
-    [IO.FileMode]::CreateNew,
-    [IO.FileAccess]::ReadWrite,
-    [IO.FileShare]::None)
-
-try {
-    $archive = [IO.Compression.ZipArchive]::new(
-        $fileStream,
-        [IO.Compression.ZipArchiveMode]::Create,
-        $false)
-
-    try {
-        foreach ($inputFile in $archiveInputs) {
-            $entry = $archive.CreateEntry(
-                $inputFile.Name,
-                [IO.Compression.CompressionLevel]::NoCompression)
-            $entry.LastWriteTime = $archiveTimestamp
-
-            $input = [IO.File]::OpenRead($inputFile.FullName)
-            try {
-                $output = $entry.Open()
-                try {
-                    $input.CopyTo($output)
-                }
-                finally {
-                    $output.Dispose()
-                }
-            }
-            finally {
-                $input.Dispose()
-            }
-        }
-    }
-    finally {
-        $archive.Dispose()
-    }
-}
-finally {
-    $fileStream.Dispose()
-}
+# NuGet packages are ZIP containers already. The deterministic flat ZIP helper
+# stores them without another deflate pass, fixes entry ordering/timestamps, and
+# verifies the resulting entry set before the seed can be published.
+& (Join-Path $PSScriptRoot "create-deterministic-flat-zip.ps1") `
+    -InputDirectory $feed `
+    -OutputPath $zip `
+    -TimestampUtc ($sourceTimestamp.ToString("o")) `
+    -Compression Store
 
 if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1MB) {
     throw "Offline NuGet seed ZIP was not generated correctly."
-}
-
-# Verify exact entry set and normalized timestamps before publishing.
-$verifyStream = [IO.File]::OpenRead($zip)
-try {
-    $verifyArchive = [IO.Compression.ZipArchive]::new(
-        $verifyStream,
-        [IO.Compression.ZipArchiveMode]::Read,
-        $false)
-    try {
-        $actualNames = @($verifyArchive.Entries | ForEach-Object FullName | Sort-Object)
-        $expectedNames = @($archiveInputs | ForEach-Object Name | Sort-Object)
-
-        if (($actualNames -join "|") -ne ($expectedNames -join "|")) {
-            throw "Offline NuGet ZIP entry set mismatch."
-        }
-
-        foreach ($entry in $verifyArchive.Entries) {
-            if ($entry.LastWriteTime.UtcDateTime -ne $archiveTimestamp.UtcDateTime) {
-                throw "Offline NuGet ZIP timestamp mismatch for $($entry.FullName)."
-            }
-        }
-    }
-    finally {
-        $verifyArchive.Dispose()
-    }
-}
-finally {
-    $verifyStream.Dispose()
 }
 
 $sha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
