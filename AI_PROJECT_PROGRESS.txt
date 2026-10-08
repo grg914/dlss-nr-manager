@@ -2412,3 +2412,13 @@ ACTION 2026-10-08 A006
   Build #862: in_progress
   CodeQL #28: in_progress
 - PR #81 remains mergeable=true and blocked only pending checks/rules.
+
+
+ACTION 2026-10-08 A007
+- Rechecked exact-head CI after runtime-seed retry fix.
+- CodeQL #28:
+  Prepare manager-owned offline NuGet feed = SUCCESS.
+- This directly validates that the retry fix resolved the transport failure
+  observed in CodeQL #27.
+- CodeQL #28 continued into Restore from manager-owned feed.
+- Build #862 remained in Prepare manager-owned offline NuGet feed at this point.
