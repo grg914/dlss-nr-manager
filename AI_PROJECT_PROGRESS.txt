@@ -2735,3 +2735,16 @@ ACTION 2026-10-08 A031
   d41926d3696bda129bd6e511ee51e72f964a57faf76e6c0a5addf7e322e22485
 - Byte-for-byte reproducibility is therefore validated for this exact head.
 - Remaining merge gate: CodeQL #30 final Analyze/post steps.
+
+
+ACTION 2026-10-08 A032
+- CodeQL #30 completed SUCCESS on exact PR #81 head
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Successful stages include:
+  manager-owned offline NuGet feed preparation;
+  offline restore;
+  instrumented C# build;
+  security-extended Analyze;
+  post-analysis cleanup/upload.
+- Build #864 and CodeQL #30 are now both green on the same exact head.
+- Next action: recheck PR merge state and merge #81 if GitHub reports no remaining gate.
