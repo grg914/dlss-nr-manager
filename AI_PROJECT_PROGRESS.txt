@@ -3798,3 +3798,13 @@ ACTION 2026-10-08 A072
   are all SUCCESS; only final checkout cleanup remained at this checkpoint.
 - Build #870 is already fully SUCCESS on the same exact head.
 - No code change made; next action is final CodeQL completion + PR merge-state check.
+
+
+ACTION 2026-10-08 A073
+- PR #85 exact-head CodeQL #36 completed SUCCESS on
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Build #870 and CodeQL #36 are now both fully green on the same exact head.
+- GitHub REST reports PR #85:
+  mergeable=true
+  mergeable_state=clean.
+- Next action: squash-merge #85 with expected-head protection on 0bf7d663.
