@@ -60,7 +60,8 @@ public sealed class ComponentUpdateService
             return MediaUpdateAvailability.NotInstalled;
 
         var local = LoadState();
-        if (string.IsNullOrWhiteSpace(local?.MediaFingerprint))
+        if (string.IsNullOrWhiteSpace(local?.MediaFingerprint) ||
+            string.IsNullOrWhiteSpace(local?.ManagerReleaseTag))
             return MediaUpdateAvailability.UnknownLocalVersion;
 
         var remote = await GetRemoteStateAsync(cancellationToken);
@@ -77,7 +78,7 @@ public sealed class ComponentUpdateService
         if (!installed)
             return MediaUpdateAvailability.NotInstalled;
         if (string.IsNullOrWhiteSpace(local?.MediaFingerprint) ||
-            !TryParseStableManagerVersion(local.ManagerReleaseTag, out var localVersion))
+            !TryParseStableManagerVersion(local?.ManagerReleaseTag, out var localVersion))
             return MediaUpdateAvailability.UnknownLocalVersion;
         if (string.IsNullOrWhiteSpace(remote.MediaFingerprint) ||
             !TryParseStableManagerVersion(remote.ManagerReleaseTag, out var remoteVersion))
