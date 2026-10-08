@@ -166,7 +166,7 @@ if ($releaseWorkflow -notmatch "id:\s*source" -or
     throw "release.yml must resolve and consume an exact source SHA."
 }
 
-if ($releaseWorkflow -notmatch "compare/\$source\.\.\.main") {
+if ($releaseWorkflow -notmatch 'compare/\$source\.\.\.main') {
     throw "release.yml must verify that automated source_sha belongs to main history."
 }
 
