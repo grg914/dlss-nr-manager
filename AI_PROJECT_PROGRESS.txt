@@ -2590,3 +2590,17 @@ ACTION 2026-10-08 A021
   checkout SUCCESS
   CodeQL initialization currently in progress
 - No failure detected; no branch modification made.
+
+
+ACTION 2026-10-08 A022
+- Rechecked exact-head CI on PR #81 after A021.
+- Build #864:
+  zero-upstream production audit: SUCCESS
+  manager-owned offline NuGet feed preparation: in_progress
+- CodeQL #30:
+  CodeQL initialization: SUCCESS
+  .NET 8 validation: SUCCESS
+  manager-owned offline NuGet feed preparation: in_progress
+- Both pipelines are now exercising the runtime-seed/offline dependency path
+  independently on the same exact head.
+- No code change made.
