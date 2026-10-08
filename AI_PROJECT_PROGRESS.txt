@@ -3825,3 +3825,37 @@ ACTION 2026-10-08 A074
   refresh when package content is identical;
   reconcile PR #84 onto dca84bee so its scope-routing governance is additive to
   the newly merged release-source-pinning governance rather than overwriting it.
+
+
+ACTION 2026-10-08 A075
+- Reconciled PR #84 hardening/runtime-refresh-scoping onto official main after PR #85.
+- Linear branch reconstruction completed successfully with force-with-lease:
+  previous head 6ed0c434a18b6427633b44a4c00601dc29dce4a8;
+  new parent main dca84beeed06fb46ae78524dc420ab8cf46b80f1;
+  new PR #84 head bf3bba89c6771ef6bd0819a69e9239a53cd1b7de.
+- Reconstructed tree preserves #84 runtime scope implementation/tests and the
+  corrected FFmpeg-Builds release-only routing.
+- tools/verify-repository-governance.ps1 was reconciled additively:
+  #85 exact release source-pinning / fail-closed checks retained;
+  #84 seed-release checkout, scope mapper and required-trigger checks retained.
+- PR #84 is again mergeable=true and blocked only by fresh exact-head checks:
+  Build #874 in_progress
+  CodeQL #40 pending at first observation.
+- No #85 production hardening was dropped.
+
+
+ACTION 2026-10-08 A076
+- Runtime Seed Refresh #24 on merged main dca84bee provided the pending A057
+  production proof for content-addressed NuGet publication.
+- seed-release resolved scope=all because #24 started before PR #84 scope routing
+  was available on main.
+- nuget-runtime completed SUCCESS and generated nuget-offline.zip twice with the
+  exact same SHA-256:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e.
+- Exact publication result:
+  SKIP unchanged manager-owned nuget-offline.zip
+  (c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e).
+- This closes the A057 follow-up: unchanged deterministic NuGet seed bytes are
+  now proven not to be replaced/re-uploaded during a subsequent real refresh.
+- Other #24 runtime jobs continue only because the old coarse main scope resolver
+  returned all; PR #84 is intended to eliminate this unnecessary full rebuild.
