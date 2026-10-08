@@ -2781,3 +2781,18 @@ ACTION 2026-10-08 A033
 - GitHub result: Pull Request successfully merged.
 - Next action: copy this live journal onto a fresh branch based on the new main,
   then merge that documentation-only synchronization through the protected PR path.
+
+
+ACTION 2026-10-08 A020
+- Merged PR #81 using squash after exact-head Build + CodeQL success.
+- Merge result:
+  merged: true
+  main commit: d1da778d9af9ccaa5bb0eb0a3d5cced4f5ea02cc
+- Merge title:
+  hardening: repository governance, SBOM and immutable releases (#81)
+- Next mandatory validation:
+  Build on main
+  CodeQL on main
+  Runtime Seed Refresh on main
+  verify runtime seed may refresh but stable v3.2.0 is NOT republished from
+  the newer main commit without an application version bump.
