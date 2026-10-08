@@ -268,7 +268,7 @@ jobs:
       - name: Verify deterministic application packaging
         shell: pwsh
         run: |
-          $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
+          $createdAt = (git show -s --format=%cI HEAD).Trim()
           if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
 
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\create-application-package.ps1 -ExecutablePath "publish/DlssNrManager.exe" -OutputPath "build-local/package-a.zip" -TimestampUtc "$createdAt"
