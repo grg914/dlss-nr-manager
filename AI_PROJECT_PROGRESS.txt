@@ -2950,3 +2950,14 @@ ACTION 2026-10-08 A038
   bc08991942b441599f15fd8dd7b4fff8326531c4796520b8f1dfab3722d9c779.
 - This is direct production-CI evidence that the bounded full-snapshot retry
   protects consumers during manager-owned seed asset replacement.
+
+
+ACTION 2026-10-08 A039
+- Post-merge CodeQL #31 completed SUCCESS on main commit d1da778d9af9.
+- CodeQL #31 validated the refreshed manager-owned nuget-offline.zip directly
+  with SHA-256
+  48c05a01cd74788d8bfb4a873fd8d60b205454e2f034cf91721c4f17e7b7160c,
+  then completed offline restore, C# build and security-extended analysis.
+- Main Build #865 and CodeQL #31 are therefore both green after PR #81 merge.
+- Upstream Dependency Sync #15 also completed without an update to promote.
+- Runtime Seed Refresh #22 remains the only active post-merge workflow.
