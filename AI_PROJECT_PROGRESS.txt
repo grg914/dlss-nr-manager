@@ -3501,3 +3501,22 @@ ACTION 2026-10-08 A062
   inputs rather than runtime binary build inputs and therefore remain release-only.
 - Runtime Seed Refresh #23 is still active only in native-runtime/ReShade at this
   checkpoint; all other refresh jobs are SUCCESS.
+
+
+ACTION 2026-10-08 A063
+- Added documentation for exact release-source pinning on
+  hardening/release-source-pinning.
+- docs/RELEASE_ARTIFACT_POLICY.md now specifies:
+  runtime refresh must pass exact source_sha;
+  stale dispatches are skipped if main advanced;
+  Release checks out the exact SHA;
+  workflow_dispatch source must still be current main at start;
+  main is rechecked immediately before publication;
+  package timestamps, SBOM, provenance and GitHub release target use the same
+  exact source SHA;
+  superseded commits fail closed instead of being promoted.
+- Documentation commit:
+  d47d1b892087a15d8f04d03122b26ba8c81f2329
+- Runtime Seed Refresh #23 still has only native-runtime/ReShade active;
+  all other runtime producer jobs are SUCCESS.
+- No PR opened yet for release-source pinning.
