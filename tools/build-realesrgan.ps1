@@ -102,5 +102,17 @@ if (Test-Path -LiteralPath $readme) {
     Copy-Item -LiteralPath $readme -Destination (Join-Path $packageDir "README-Real-ESRGAN.md") -Force
 }
 
+$ncnnLicense = Join-Path $SourcePath "ncnn\LICENSE.txt"
+$webpLicense = Join-Path $SourcePath "libwebp\COPYING"
+foreach ($entry in @(
+    @{ Source = $ncnnLicense; Destination = "LICENSE-ncnn.txt" },
+    @{ Source = $webpLicense; Destination = "LICENSE-libwebp.txt" }
+)) {
+    if (!(Test-Path -LiteralPath $entry.Source)) {
+        throw "Real-ESRGAN transitive license file is missing: $($entry.Source)"
+    }
+    Copy-Item -LiteralPath $entry.Source -Destination (Join-Path $packageDir $entry.Destination) -Force
+}
+
 Write-Host "Vendored Real-ESRGAN build verified: $exe ($size bytes)"
 Write-Output $exe
