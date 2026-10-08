@@ -3774,3 +3774,18 @@ ACTION 2026-10-08 A070
 - PR #84 replacement checks #872/#38 have only just started on corrected head
   6ed0c434 and do not affect #85 merge priority.
 - No PR #85 code change made.
+
+
+ACTION 2026-10-08 A071
+- PR #85 exact-head Build #870 completed SUCCESS on
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Build log evidence:
+  deterministic flat ZIP helper A/B SHA-256
+  a7ce391196f2be574815d20b454ab8734baa1a08fd003e6ab11cd9e7af292b8b;
+  regression tests: 37 passed, 0 failed, 0 skipped;
+  deterministic application package A/B SHA-256
+  c0b2c055068ee0118b7cfd961238eec62fa33bc7aa41d3d6ac41ec09ed7ad64f.
+- All release-source-pinning governance gates and normal Build gates are green.
+- CodeQL #36 remains in Analyze on the same exact head.
+- PR #84 corrected head 6ed0c434 is independently revalidating under #872/#38
+  and remains second in merge order.
