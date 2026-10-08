@@ -2626,3 +2626,23 @@ ACTION 2026-10-08 A024
 - No failed/cancelled step is reported by the authoritative workflow step API.
 - No code change made; hardening/repository-governance remains frozen while
   exact-head validation continues.
+
+
+ACTION 2026-10-08 A025
+- Performed read-only audit while exact-head CI remains frozen.
+- Reviewed Build/CodeQL workflows plus tools/create-application-package.ps1,
+  tools/prepare-offline-dotnet.ps1 and tools/download-runtime-seed.ps1.
+- Deterministic package Root fix is structurally correct: Root is resolved only
+  after param binding, fixed entry order/timestamps are preserved, and Build
+  still performs a two-ZIP SHA-256 reproducibility check.
+- Runtime seed release runtime-seed-v1 currently contains nuget-offline.zip at
+  263,046,731 bytes (~251 MiB), SHA-256
+  38ab02f61cdea1734ee80697ab81b340648a1a4413db568ebff5280b1c79a4bf.
+- prepare-offline-dotnet downloads that full manager-owned ZIP, validates the
+  release digest/snapshot, expands it, then hashes every package from its
+  manifest. Build and CodeQL perform this independently.
+- Therefore the long offline-feed stage is currently plausible from workload
+  size; no hang/failure signal has been observed through the workflow API.
+- Potential future optimization: reduce/partition the offline seed or introduce
+  a trusted manager-owned reuse strategy, but do not alter this exact head
+  before #864/#30 complete.
