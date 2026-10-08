@@ -84,6 +84,7 @@ Add-Asset $components "minecraft-runtime" "Minecraft Runtime" "minecraft-runtime
 Add-Asset $components "realesrgan" "Real-ESRGAN" "realesrgan-ncnn-vulkan-windows-x64.zip" "realesrgan"
 Add-Asset $components "optiscaler" "OptiScaler" "OptiScaler-NR-*-vendored-win-x64.zip" "optiscaler"
 Add-Asset $components "reshade" "ReShade" "ReShade-Setup-*-vendored.zip" "reshade"
+Add-Asset $components "vlc" "VLC Media Player" "vlc-3.0.24-win64.zip" "" "3.0.24"
 Add-Asset $components "caustica" "Caustica RTX" "Caustica-RTX-Minecraft-26.2-build-*.jar" "caustica"
 Add-Asset $components "ai-origin-primary" "AI Origin Detector Primary" "ai-origin-primary-int8.onnx" "ai-primary"
 Add-Asset $components "ai-origin-secondary" "AI Origin Detector Secondary" "ai-origin-secondary-int8.onnx" "ai-secondary"
