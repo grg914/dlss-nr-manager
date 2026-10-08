@@ -1,3 +1,11 @@
+CHECKPOINT R040 (2026-10-08) - SECURITY PC CLEAN PARENT JUNCTION GUARD
+- Analyse Services/PcCleanupService.cs: IsSafeDirectoryRoot verifiait seulement les attributs de la racine; un chemin APPDATA sous parent jonction/symlink pouvait en realite cibler des fichiers hors de la zone attendue, car IsAllowedRoot fait une comparaison lexicale de chemin. Risque deletion hors cible.
+- Branche security/v4-pc-clean-parent-reparse depuis main post-PR117. Correction: IsSafeDirectoryRoot refuse reparse point sur chaque parent via ManagedPathSafety.HasReparsePointOnPath; EnumerateFilesSafe recontrole chaque sous-dossier avant enumeration; ScanRoot et CleanRoot refusent un fichier dont un parent ou lui-meme est un reparse point; DeleteEmptyDirectories refuse la suppression des dossiers a chemin redirige. Toujours limites TOCTOU de substitutions concurrentes; aucune garantie absolue, fichiers en cours d'utilisation ignores.
+- Ajout tests/DlssNrManager.Tests/PcCleanupParentJunctionTests.cs: setup local APPDATA avec lien symbolique parent vers dossier de test hors chemin, exige absence de scan et suppression, sentinelle preservee; test normal verifie que selection *.tmp efface uniquement ancien cache et preserve important.txt. Test symlink conditionnel aux privileges Windows.
+- Code non valide tant que Build/CodeQL CI ne sont pas verts sur HEAD. Aucune operation de nettoyage executee sur le PC utilisateur.
+- PR #119 recherche OpenMP et PR #120 outil acceptance Windows en parallele, avec R037-R039 sur leurs branches; conserver tous checkpoints lors des fusions subsequentes.
+PROCHAINE ACTION: ouvrir PR avec Build/CodeQL requis, verifier tests, fusion/reconciliation avec latest main seulement si vert. V4 non publiee.
+
 CHECKPOINT R036 (2026-10-08) - FIX CONFLIT ASSEMBLY CRASH PROBE
 - CodeQL #117 sur head eff8b95a85107fe238f30bc7d60ad8f18621952b: SUCCESS run 37835835029.
 - Build #117 run 37835835222 FAILURE pendant Run regression tests: erreurs CS0433 dans ExternalProcessTrackerTests (l'assembly de test et l'assembly CrashProbe exposent toutes deux ExternalProcessTracker apres inclusion source). L'echec est de COMPILATION; le test d'arret brutal n'a PAS ete execute et ne doit pas etre declare valide.
