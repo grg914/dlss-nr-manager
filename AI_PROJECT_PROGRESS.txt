@@ -3869,3 +3869,156 @@ ACTION 2026-10-08 A077
   land on main.
 - PR #84 is frozen after this sync; no further branch change should occur unless
   Build/CodeQL exposes a defect.
+
+
+ACTION 2026-10-08 A078
+- PR #84 final frozen head after journal synchronization:
+  e39886fe11518b799570d6501ec5e511fd18a82f.
+- GitHub REST reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head validation runs:
+  Build #875 (run 37720622494)
+  CodeQL #41 (run 37720622503).
+- Previous #874/#40 are superseded by the final journal-sync head and are no
+  longer authoritative for merge.
+- Post-merge main validation from PR #85 is still active:
+  Build #873 in_progress;
+  CodeQL #39 in_progress;
+  Runtime Seed Refresh #24 partially complete, with NuGet and Java already
+  SUCCESS and NuGet SKIP-unchanged proof captured in A076.
+
+
+ACTION 2026-10-08 A079
+- Began read-only audit for the next runtime-asset reproducibility / skip-unchanged
+  hardening pass while PR #84 exact-head CI runs.
+- Confirmed current churn sources on main dca84bee:
+  Streamline uses Compress-Archive and unconditional gh release upload --clobber;
+  Minecraft runtime uses Compress-Archive and unconditional --clobber;
+  Real-ESRGAN runtime ZIP is assembled inline with Compress-Archive and uploaded
+  unconditionally;
+  OptiScaler and ReShade build scripts package with Compress-Archive and
+  runtime-refresh uploads them unconditionally;
+  FFmpeg packages with plain zip -9, inheriting source/output mtimes, then
+  runtime-refresh uploads unconditionally;
+  Temurin already computes changed from the upstream ZIP digest but still always
+  uploads both ZIP and metadata, while metadata contains refreshed_at_utc, so
+  an unchanged JRE still causes release churn.
+- This matches the digest/update evidence captured after #23/#24 and identifies
+  the next hardening direction after #84:
+  deterministic packaging where project-built archives are involved;
+  digest-aware SKIP unchanged publication for every mutable runtime-seed asset;
+  deterministic/stable Temurin metadata when upstream bytes/version are unchanged;
+  remote digest verification after any actual replacement.
+- No implementation change made while PR #84 is frozen on e39886fe.
+
+
+ACTION 2026-10-08 A080
+- Post-merge validation for PR #85 progressed to:
+  Build #873 SUCCESS on main dca84beeed06fb46ae78524dc420ab8cf46b80f1;
+  CodeQL #39 SUCCESS on the same main SHA.
+- Runtime Seed Refresh #24 remains active only in the long Windows/native
+  producer jobs; FFmpeg, NuGet, Java and restricted-runtime preservation are
+  already SUCCESS.
+- PR #84 final exact-head Build #875 has passed shell syntax, runtime scope
+  mapping, self-contained tooling, deterministic ZIP, repository governance,
+  SBOM, Minecraft native policy, Caustica/Scandi, Streamline and zero-upstream
+  gates and is in manager-owned NuGet feed preparation.
+- PR #84 CodeQL #41 completed checkout/initialization and is also preparing the
+  manager-owned NuGet feed.
+- No failed exact-head step is reported and PR #84 remains frozen on
+  e39886fe11518b799570d6501ec5e511fd18a82f.
+
+
+ACTION 2026-10-08 A081
+- Continued read-only design audit for the next runtime seed hardening while PR #84
+  remains frozen in exact-head CI.
+- tools/create-deterministic-flat-zip.ps1 is intentionally flat-only and rejects
+  nested directories. It can be reused for simple flat bundles but is not a safe
+  drop-in for Minecraft/OptiScaler/ReShade package trees.
+- A future deterministic recursive ZIP helper should therefore normalize:
+  recursive relative paths;
+  ordinal entry ordering;
+  case-insensitive duplicate paths;
+  one explicit stable timestamp;
+  compression mode;
+  post-write entry/timestamp verification and SHA-256 reporting.
+- Repository audit found no existing generic release-asset publish-if-changed
+  helper. publish-video2dlssnr.ps1 already demonstrates post-upload size/digest
+  verification but still uploads unconditionally.
+- Preferred next architecture after PR #84:
+  one reusable digest-aware publication helper that inspects the existing GitHub
+  asset digest, emits SKIP unchanged when identical, otherwise replaces it and
+  re-reads/verifies the remote SHA-256;
+  use deterministic packaging before that helper wherever the project owns the
+  archive construction;
+  migrate Temurin to skip unchanged ZIP + stable metadata rather than always
+  regenerating refreshed_at_utc.
+- No implementation branch opened yet because the next pass will touch
+  runtime-refresh.yml and should start only after PR #84 lands.
+- Current authoritative PR #84 head remains
+  e39886fe11518b799570d6501ec5e511fd18a82f with Build #875 and CodeQL #41
+  still in manager-owned offline NuGet feed preparation and no failed steps.
+
+
+ACTION 2026-10-08 A082
+- Audited closed PRs and current open PR status for duplicate/conflict cleanup.
+- Confirmed PR #84 exact-head Build #875 and CodeQL #41 both SUCCESS and
+  mergeable_state=clean on e39886fe11518b799570d6501ec5e511fd18a82f.
+- Runtime Seed Refresh #24 also completed all jobs SUCCESS on prior main,
+  including the NuGet SKIP-unchanged proof captured in A076.
+- Squash-merged PR #84 with expected-head protection.
+- New main commit:
+  778bd9ca3972355435284687a3b4be7eb462de5d.
+- Closed-unmerged PR audit found one real lost change:
+  PR #69 contained one FR/EN localization entry for the visible Minecraft
+  performance-pack option; current main still lacks that entry and it must be
+  restored in the cleanup follow-up.
+- PR #31 manager-owned FFmpeg cutover/build fixes are already present on current
+  main and therefore contain no lost functional change requiring recovery.
+- The two currently red/conflicted open PRs are #77 and #78 (dirty merge state),
+  not failing latest Build runs. #77 is a real Local AI Studio feature to keep;
+  #78 is stale governance work that overlaps #81 but still contains some unique
+  auxiliary policy/config files, so it must not be closed until useful unique
+  content is selectively consolidated.
+
+
+ACTION 2026-10-08 A083
+- Created cleanup/stale-pr-consolidation from main 778bd9ca3972355435284687a3b4be7eb462de5d to recover useful
+  closed/stale PR content without resurrecting obsolete workflow implementations.
+- Recovered the real lost change from closed PR #69:
+  FR/EN localization for the visible Minecraft non-renderer performance-pack label.
+- Selectively consolidated still-useful governance/support content from stale open
+  PRs #78/#80:
+  root .gitattributes;
+  GitHub bug/feature/security issue forms without hard dependency on repository labels;
+  SUPPORT.md;
+  SOURCE_AVAILABILITY.md;
+  dependency update policy;
+  repository threat model;
+  release checklist aligned to current #81/#83/#85/#84 architecture.
+- README policy links are extended to the consolidated documents.
+- Intentionally NOT copied from #78/#80 because obsolete, duplicative, or unsafe to
+  reintroduce blindly:
+  old build/release/runtime-refresh workflow edits;
+  old repository-policy verifier superseded by verify-repository-governance.ps1;
+  old release metadata generator superseded by current SBOM/provenance pipeline;
+  old FFmpeg source packaging path;
+  duplicate root THIRD_PARTY_NOTICES naming;
+  Dependabot configuration, because automatic NuGet/runtime updates must first be
+  reconciled with the manager-owned offline seed/update architecture.
+- This cleanup PR will supersede #78 and #80 after CI validation; #77 Local AI Studio
+  remains a real feature and will be rebased/fixed separately rather than closed.
+
+
+ACTION 2026-10-08 A084
+- Closed-PR audit found a second genuinely lost fix in #55/#57.
+- Current main still contained the old continuity-checkpoint heredoc rendering:
+  Markdown backticks surrounded $main_sha, the GitHub event name, and recovery
+  paths inside an unquoted Bash heredoc.
+- In Bash this can be interpreted as command substitution after interpolation,
+  making the generated continuity issue body unreliable and potentially causing
+  command-not-found failures.
+- Recovered the safe #57 rendering fix into cleanup PR #86:
+  dynamic main/trigger values are emitted without command-substitution backticks;
+  recovery paths are emitted as plain text.
+- The historical progress rewrites from #55/#57 were intentionally not restored;
+  only the still-relevant workflow bug fix was recovered.
