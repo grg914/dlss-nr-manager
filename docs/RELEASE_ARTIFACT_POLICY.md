@@ -97,7 +97,7 @@ Feature pages may show status and navigate to the canonical manager, but should 
 A stable application release should include, as applicable:
 
 - `DlssNrManager.exe`;
-- application ZIP;
+- deterministic application ZIP containing the executable plus `README.md`, the project `LICENSE`, third-party notices and the data/privacy notice;
 - `SHA256SUMS.txt`;
 - `components-manifest.json`;
 - release SBOM;
@@ -106,10 +106,39 @@ A stable application release should include, as applicable:
 
 Not every large AI model must be attached to every application release; dedicated model/runtime releases are allowed.
 
+## Reproducibility
+
+Release metadata and packaging must be reproducible for the same source commit.
+
+The release workflow therefore uses the source commit timestamp for:
+
+- application ZIP entry timestamps;
+- `components-manifest.json`;
+- the SPDX SBOM creation timestamp;
+- release provenance metadata.
+
+The application ZIP is generated through `tools/create-application-package.ps1`. Build CI creates it twice from the same published executable and requires the two SHA-256 values to match.
+
+The release SBOM must ingest `components-manifest.json` so it describes the manager-owned runtime assets actually promoted, not only source dependencies.
+
 ## Immutability
 
-Stable application releases should be treated as immutable.
+Stable application releases are immutable.
 
-If a published artifact must change, prefer a new release/version rather than silently replacing bytes under the same stable version.
+Rules:
 
-Runtime-seed/prerelease channels may use controlled replacement only where the workflow explicitly validates the new digest and provenance.
+- a stable tag/version belongs to one exact source commit;
+- a manual/tag release refuses to reuse that version from another commit;
+- an existing release asset with identical SHA-256 is skipped;
+- an existing release asset with different bytes causes the release to fail;
+- changing stable bytes requires a new application version.
+
+`runtime-seed-v1` remains a mutable prerelease/staging channel because it is not the stable application release.
+
+Runtime Seed Refresh may refresh that seed independently. Before automatically dispatching the stable Release workflow, it resolves the current application version and stable tag:
+
+- tag absent: release dispatch is allowed;
+- tag already points to the same source commit: an idempotent rerun is allowed;
+- tag points to another commit: stable release dispatch is skipped until the application version is bumped.
+
+This prevents a runtime/tooling refresh from silently rewriting an already published stable version.
