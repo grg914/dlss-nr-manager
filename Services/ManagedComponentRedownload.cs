@@ -392,6 +392,31 @@ public static class ManagedComponentRedownload
             recovered.Failed + migrationFailed);
     }
 
+    // A parent junction can redirect an apparently managed path outside the
+    // application's owned directories; inspect all existing ancestors.
+    private static bool HasReparsePointOnPath(string path)
+    {
+        var current = Path.GetFullPath(path);
+        while (!string.IsNullOrEmpty(current))
+        {
+            try
+            {
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    return true;
+            }
+            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
+
+            var parent = Path.GetDirectoryName(current);
+            if (string.IsNullOrEmpty(parent) ||
+                string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
+                break;
+            current = parent;
+        }
+
+        return false;
+    }
+
     private static bool IsReparsePoint(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 
