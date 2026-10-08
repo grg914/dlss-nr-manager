@@ -4838,3 +4838,12 @@ ACTION 2026-10-08 V4-RECOVERY R010 - VALIDATION ET FUSION VLC (#97), RECONCILIAT
 - PR #98 reconciliee depuis main en conservant tous les checkpoints R001-R009, L001-L002, et sans retirer le patch VLC.
 - Backup recovery au lancement encore en cours de validation; ne pas fermer l'issue #95 avant tests exhaustifs.
 - Prochaine action: CI Build et CodeQL sur nouveau head PR #98; verifier logs 0 error; fusion seulement si checks verts.
+
+
+ACTION 2026-10-08 V4-RECOVERY R012 - AUDIT MISES A JOUR AUTOMATIQUES MEDIA
+- Branche fix/v4-media-update-recovery creee depuis main 7c7bdc26b70e1409c8d9f324f75f3bf87491a98a. Ne modifie pas PR #99 en cours.
+- Defaut nouveau confirme: MediaService.UpdateToolsAsync cree et deplace les dossiers tools et video2dlssnr dans media-engine/_update-backup-<GUID>, format different du backup transactionnel utilise par Download Center.
+- Si Windows/app plante durant cette mise a jour, la recovery v4 depuis PR #98 ne traite pas _update-backup-*.
+- La branche implementera l'utilisation de ManagedComponentRedownload.ReplaceAsync pour les futures mises a jour media et un recuperateur conservateur pour les backups legacy _update-backup-* deja presents.
+- Teste rollback echec/annulation et protection de realesrgan, sorties utilisateur et sauvegardes ambigues; ne jamais effacer un backup dont le retour est incertain.
+- Statut: AUDIT/PLAN sauvegardes dans GitHub; implementation et validations restent a faire.
