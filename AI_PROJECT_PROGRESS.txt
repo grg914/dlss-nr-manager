@@ -3540,3 +3540,24 @@ ACTION 2026-10-08 A063
 - This ensures a merge that changes NuGet packaging plus unrelated docs/routes
   resolves to onnxruntime instead of all, while genuinely unknown runtime-tree
   inputs still fail safe to a full refresh.
+
+
+ACTION 2026-10-08 A064
+- Runtime Seed Refresh #23 completed overall SUCCESS on merged main
+  8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- All seed-generation jobs completed SUCCESS:
+  seed-release, windows-runtime, preserve-restricted-runtime, native-runtime,
+  ffmpeg-runtime, nuget-runtime and java-runtime.
+- The previously broken dispatch-release path is now production-validated:
+  Checkout repository for local dispatch helper: SUCCESS
+  Dispatch production release after seed promotion: SUCCESS
+- Exact helper result was correct for unchanged application version:
+  stable v3.2.0 belongs to
+  e5927e1d718dfff19540964ba46ee4edaa933c6b;
+  requested runtime-refresh source was
+  8dd45bf71a3aacea34696be9fd067409abfc13dd;
+  therefore production release dispatch was intentionally skipped until the
+  application version is bumped.
+- This confirms the #22 exit-127 defect is fixed without accidentally creating
+  a duplicate/mis-tagged production release.
+- Post-merge Build #868, CodeQL #34 and Runtime Seed Refresh #23 are all green.
