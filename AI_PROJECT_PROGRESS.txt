@@ -3348,3 +3348,41 @@ ACTION 2026-10-08 A060
   that is not on current main ancestry.
 - Follow-up branch is not yet opened as a PR; current post-merge validation stays
   authoritative and undisturbed.
+
+
+ACTION 2026-10-08 A059
+- Created follow-up branch hardening/runtime-refresh-scoping from merged main
+  commit 8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Added tools/map-runtime-refresh-files.sh.
+- Mapper routes known changed paths to minimal runtime scopes instead of all:
+  NuGet -> onnxruntime;
+  Streamline -> streamline;
+  FFmpeg/FFmpeg-Builds/nv-codec-headers -> matching FFmpeg ids;
+  Real-ESRGAN -> realesrgan;
+  OptiScaler -> optiscaler;
+  ReShade -> reshade;
+  Minecraft -> minecraft-fabric-installer;
+  Temurin -> java25;
+  workflow/release-only policy/model-source paths -> release-only.
+- Unknown paths and third_party/DEPENDENCIES.lock.json retain conservative all.
+- Mapper commit:
+  96e5f9c392c898e3d667b307368f901472d73c33
+- runtime-refresh.yml now:
+  includes create-deterministic-flat-zip.ps1 and the mapper itself in push paths;
+  checks out the repository in seed-release;
+  preserves pure version-only csproj changes as release-only;
+  maps non-version csproj changes to onnxruntime only;
+  validates generated scope syntax.
+- Workflow commit:
+  f2a6ac1213f3b2ee91ce010793b65ae58df8d882
+- Build workflow now syntax-checks both Bash helpers and unit-tests representative
+  scope mappings including release-only, multi-runtime, Minecraft, lock fallback
+  and unknown fallback.
+- Build test commit:
+  916a740c3ac4b7cbbdc500af681fbe17b0e7153c
+- Repository governance now requires seed-release checkout before the local scope
+  mapper and requires all NuGet packaging/scope helper push triggers.
+- Governance commit:
+  c7019ee9065abb5bc8b5b43aa643087c802b4ee3
+- Branch is not yet opened as a PR; current main post-merge workflows continue
+  independently.
