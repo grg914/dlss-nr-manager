@@ -4907,3 +4907,13 @@ ACTION 2026-10-08 V4-AISTUDIO A004 - AUDIT IMPORT MANUEL ET PROTECTION DE DONNEE
 - Aucun recovery AUTOMATIQUE des modeles manuels/licences au demarrage. Les sorties/jobs/workflows restent intacts.
 - Tests de non suppression du target sur faute initiale et sauvegardes existantes, de succes sans doublon backup et de non-deletion d'un fichier utilisateur.
 - Etat: point de reprise AVANT implementation; Build + CodeQL sur head final obligatoires, pas de fusion prematuree.
+
+
+ACTION 2026-10-08 V4-AISTUDIO A005 - SECURISER IMPORT MANUEL DES MODELES
+- LocalAiStudioService.ImportModelDirectoryAsync conserve la copie streaming vers staging; le remplacement final utilise maintenant ManualModelDirectorySwap.ReplaceStaged au lieu de suppression directe target dans catch.
+- Une erreur lors du premier Directory.Move(target,backup) n'efface JAMAIS l'original; une erreur pendant le move staging restaure le backup si cree.
+- Les erreurs de suppression du backup APRES installation reussie ne declenchent pas de rollback et laissent un diagnostic pour nettoyage manuel.
+- Refuse tout nouveau remplacement en presence d'ancien target.backup-* non resolu; rejette staging en dehors du dossier sibling model.staging-*, et dossier cible/staging reparse.
+- Ne touche ni aux licences accepted.json, ni aux sorties/jobs/workflows. Les modeles manuels ne sont toujours pas recuperes automatiquement au demarrage.
+- 6 tests xUnit: succes, echec premier move, echec deuxieme move, backup existant, staging manquant/incorrect, preservation des sorties/licences.
+- STATUT: code committe; validation Build+CodeQL Windows sur head final obligatoire, pas encore fusionne. Prochaine action: creer PR, lire CI, corriger avant merge.
