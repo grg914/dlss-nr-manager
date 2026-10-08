@@ -39,6 +39,9 @@ public sealed class ForcedManagerTerminationTests
                 WorkingDirectory = AppContext.BaseDirectory
             };
             dotnet.ArgumentList.Add("exec");
+            dotnet.ArgumentList.Add("--depsfile");
+            dotnet.ArgumentList.Add(Path.Combine(
+                AppContext.BaseDirectory, "DlssNrManager.Tests.deps.json"));
             dotnet.ArgumentList.Add("--runtimeconfig");
             dotnet.ArgumentList.Add(runtimeconfig);
             dotnet.ArgumentList.Add(assembly);
