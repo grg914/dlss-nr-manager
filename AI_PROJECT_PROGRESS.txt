@@ -1,3 +1,5 @@
+CHECKPOINT R017 (2026-10-08) - PR #102 merged as 0c8692fc0d056da712646aa1002e1eb255917a1b after Build 37822109071 and CodeQL 37822109057 succeeded. PR #103 had Build 37822384191 and CodeQL 37822384235 succeeded on original head, but was blocked by merge conflicts with main. Replacement branch fix/v4-ai-studio-staging-cleanup-rebased based on main after #102 preserves the corrected manual model import and reproduces PR #103's SafeZip.Extract staging cleanup and FR/EN rollback confirmation. Must revalidate Build + CodeQL on replacement commit, close old PR #103 only once replacement is merged. No Windows crash test or v4 release validated.
+
 CHECKPOINT 0E - SOLUTION A VALIDEE / DURCISSEMENT MINECRAFT NATIVE NGX (2026-10-07)
 
 Decision utilisateur:
