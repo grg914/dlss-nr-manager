@@ -3,9 +3,7 @@ param(
     [Parameter(Mandatory=$true)][string]$CommitSha,
     [Parameter(Mandatory=$true)][string]$Version,
     [Parameter(Mandatory=$true)][string]$ComponentManifestPath,
-    [string]$RunId = "",
-    [string]$RunAttempt = "",
-    [string]$WorkflowRef = "",
+    [string]$GeneratedAtUtc = "",
     [string]$OutputPath = "release-provenance.json"
 )
 
@@ -29,9 +27,8 @@ $record = [ordered]@{
     version = $Version
     source_commit = $CommitSha.ToLowerInvariant()
     build = [ordered]@{
-        github_actions_run_id = $RunId
-        github_actions_run_attempt = $RunAttempt
-        workflow_ref = $WorkflowRef
+        system = "GitHub Actions"
+        workflow = ".github/workflows/release.yml"
     }
     production_policy = [ordered]@{
         zero_upstream = $true
@@ -43,7 +40,11 @@ $record = [ordered]@{
         file = [System.IO.Path]::GetFileName($ComponentManifestPath)
         sha256 = $manifestSha256
     }
-    generated_at_utc = [DateTime]::UtcNow.ToString("o")
+    generated_at_utc = if ([string]::IsNullOrWhiteSpace($GeneratedAtUtc)) {
+        [DateTime]::UtcNow.ToString("o")
+    } else {
+        ([DateTimeOffset]::Parse($GeneratedAtUtc)).UtcDateTime.ToString("o")
+    }
 }
 
 $destination = if ([System.IO.Path]::IsPathRooted($OutputPath)) {
