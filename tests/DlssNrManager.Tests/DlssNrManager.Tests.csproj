@@ -15,5 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\DlssNrManager.csproj" />
+    <None Include="..\..\MainWindow.xaml" Link="Fixtures/MainWindow.markup.xml" TargetPath="MainWindow.markup.xml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
