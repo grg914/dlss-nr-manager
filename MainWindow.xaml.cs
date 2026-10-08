@@ -90,6 +90,9 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
+        // Restore the user's opt-in; never silently enable startup updates.
+        AutoUpdateComponentsCheck.IsChecked = appPreferences.AutoUpdateComponents;
+
         DownloadProgressHub.Changed += OnDownloadProgressChanged;
         LargeDownloadApprovalHub.ApprovalRequested =
             ConfirmLargeDownloadAsync;
@@ -3737,6 +3740,29 @@ public partial class MainWindow : Window
         }
     }
 
+    private void AutoUpdateComponents_Changed(object sender, RoutedEventArgs e)
+    {
+        // Checked/Unchecked can fire while InitializeComponent is constructing
+        // the UI; only user changes after initialization persist preferences.
+        if (!_languageSelectorReady || AutoUpdateComponentsCheck == null)
+            return;
+
+        try
+        {
+            var current = AppPreferencesService.Load();
+            AppPreferencesService.Save(
+                current with
+                {
+                    AutoUpdateComponents =
+                        AutoUpdateComponentsCheck.IsChecked == true
+                });
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Unable to save component auto-update preference.", ex);
+        }
+    }
+
     private void LanguageSelector_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
@@ -3758,7 +3784,8 @@ public partial class MainWindow : Window
         AppPreferencesService.Save(
             new AppPreferences(
                 software,
-                _uiLanguage));
+                _uiLanguage,
+                AutoUpdateComponentsCheck.IsChecked == true));
 
         _localization?.Apply();
 
@@ -3782,7 +3809,8 @@ public partial class MainWindow : Window
         AppPreferencesService.Save(
             new AppPreferences(
                 software,
-                _uiLanguage));
+                _uiLanguage,
+                AutoUpdateComponentsCheck.IsChecked == true));
 
         SoftwareRenderingButton.Content = software
             ? "Use hardware UI rendering"
