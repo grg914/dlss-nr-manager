@@ -3315,3 +3315,36 @@ ACTION 2026-10-08 A058
   streamline, optiscaler, ffmpeg, ffmpeg-builds, nv-codec-headers, realesrgan,
   reshade, onnxruntime and minecraft-* ids.
 - No main or active workflow branch was modified during this audit.
+
+
+ACTION 2026-10-08 A060
+- Post-merge CodeQL #34 completed SUCCESS on main commit 8dd45bf71a3a.
+- Build #868 successfully consumed the new content-addressed NuGet seed:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: SUCCESS
+  regression tests: in_progress.
+- Runtime Seed Refresh #23 progressed:
+  FFmpeg SUCCESS
+  Real-ESRGAN SUCCESS
+  OptiScaler in_progress
+  Streamline still in_progress
+  Java/NuGet/restricted-runtime already SUCCESS.
+- Created follow-up branch hardening/release-source-pinning from main 8dd45bf7.
+- Follow-up release-source pinning commits currently include:
+  c90643c32d5221ea361ea051f4c5d1d84d29bb0a
+    release.yml adds workflow_dispatch source_sha, validates exact commit exists
+    and is an ancestor of main, checks out that exact SHA, and uses it for stable
+    tag immutability, deterministic timestamps, SBOM, provenance and release target.
+  14ae3d1e74af976831e445389905ccbb5c012f0d
+    dispatch-release-if-needed.sh now passes -f source_sha=$source_sha.
+  0cb353fb12c63cdaa1829ebe9c6719e58129fa2a
+    repository governance adds static source-pinning contract checks.
+  df1ddc070b94a6a697a70b5548c3be17fa829e04
+    fixes the PowerShell governance regex so literal $source is not interpolated.
+- GitHub compare API semantics were verified:
+  source==main => status identical, behind_by=0;
+  older main ancestor => status ahead, behind_by=0.
+  Therefore release.yml behind_by != 0 is a valid rejection test for a source
+  that is not on current main ancestry.
+- Follow-up branch is not yet opened as a PR; current post-merge validation stays
+  authoritative and undisturbed.
