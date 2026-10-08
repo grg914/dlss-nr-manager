@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v3.1.0**.
+Current application source version: **v3.2.0** (as declared in `DlssNrManager.csproj`). This is not a claim that v4.0 is released.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, manager-owned validated NVIDIA runtime bundles, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
