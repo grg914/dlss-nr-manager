@@ -116,7 +116,13 @@ jobs:
 
       - name: Create application ZIP
         shell: pwsh
-        run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
+        run: |
+          $package = Join-Path $PWD "app-package"
+          New-Item -ItemType Directory -Path $package -Force | Out-Null
+          Copy-Item -LiteralPath "publish/DlssNrManager.exe" -Destination $package -Force
+          Copy-Item -LiteralPath "LICENSE" -Destination $package -Force
+          Copy-Item -LiteralPath "THIRD_PARTY_NOTICES.md" -Destination $package -Force
+          Compress-Archive -Path (Join-Path $package "*") -DestinationPath DlssNrManager-win-x64.zip -Force
 
       - name: Download validated manager-owned runtime seed
         id: seed
@@ -312,6 +318,9 @@ jobs:
             "release-assets/realesr-animevideov3-x4.param",
             "release-assets/realesr-animevideov3-x4.bin",
             "release-assets/SPBRScandi.zip",
+            "LICENSE",
+            "THIRD_PARTY_NOTICES.md",
+            "manifests/component-policy.json",
             "release-assets/components-manifest.json"
           )
 
@@ -348,6 +357,9 @@ jobs:
             "release-assets/realesr-animevideov3-x4.param",
             "release-assets/realesr-animevideov3-x4.bin",
             "release-assets/SPBRScandi.zip",
+            "LICENSE",
+            "THIRD_PARTY_NOTICES.md",
+            "manifests/component-policy.json",
             "release-assets/components-manifest.json",
             "release-assets/release-provenance.json"
           )
@@ -378,6 +390,9 @@ jobs:
             "publish/DlssNrManager.exe",
             "DlssNrManager-win-x64.zip",
             "SHA256SUMS.txt",
+            "LICENSE",
+            "THIRD_PARTY_NOTICES.md",
+            "manifests/component-policy.json",
             "release-assets/components-manifest.json",
             "release-assets/release-provenance.json",
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
