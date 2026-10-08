@@ -4211,3 +4211,36 @@ ACTION 2026-10-08 A094
 - Next cleanup action: recompute #75 merge state against the new main and, if it
   is conflicted/dirty, reconcile it without overwriting #81/#83/#85/#84/#86/#77
   governance, runtime routing, localization or Download Manager changes.
+
+
+ACTION 2026-10-08 A095
+- Rechecked the two closed pull requests showing historical red crosses and
+  cleaned their visible metadata:
+  PR #60 title now starts [SUPERSEDED / RESOLVED]; its body explicitly records
+  that Build #671 failed because of mutable PR-ref checkout and that merged #61
+  fixed it with immutable PR-head SHA checkout and green Build #679.
+  PR #65 title now starts [SUPERSEDED / RESOLVED]; its body explicitly records
+  that Build #687 failed from a false-positive native NGX policy verifier and
+  that merged #66 corrected it with green Build #689.
+- These red checks are immutable historical CI evidence on obsolete commits;
+  current main does not contain either defect, so rewriting/re-running those old
+  broken commits would be incorrect cleanup.
+- Open-issue audit:
+  #51 continuity checkpoint is intentionally open/auto-managed;
+  #82 remains valid because Protect main still requires only build, not CodeQL;
+  #79 remains valid because runtime-refresh still copies vcomp140.dll directly
+  from Windows System32 into the Real-ESRGAN package;
+  #76 remains valid research for temporal video restoration and is not a
+  production defect/duplicate;
+  #87 contained incorrect wording: ai-studio-comfyui is GPL-3.0 notify-only for
+  manual Python/PyTorch/CUDA/workflow compatibility validation, not itself a
+  license-restricted dependency.
+- Corrected issue #87 title/body to [upstream] manual review update:
+  ai-studio-comfyui and left it open for the actual upstream review.
+- Created branch fix/notify-only-upstream-issues and PR #88 to correct the
+  upstream-monitor workflow so future notify-only issues use generic manual-review
+  wording instead of falsely labelling every notify-only dependency restricted.
+- PR #88 exact head:
+  5aa69a271d3ca849321245bf64080fe7b1cd748a
+  Build #883 and CodeQL #49 are in_progress with no failed step reported.
+- Added current-state comments to #82 and #79; both remain deliberately open.
