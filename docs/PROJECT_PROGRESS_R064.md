@@ -15,3 +15,6 @@ These measures eliminate one known parallel writer/cancellation hazard and avoid
 
 ## Coordination
 Do not merge before Build and CodeQL success on exact PR head. Root AI_PROJECT_PROGRESS.txt checkpoint R064 is prepended without overwriting prior entries.
+
+## R064B — Controlled Real-ESRGAN skip
+After merging the OpenMP fail-closed gate from PR #133, Real-ESRGAN publishing would cause the whole native-runtime job to fail without license attestation, incidentally blocking independent OptiScaler and ReShade refreshes. The workflow now skips **only** the Real-ESRGAN step with an explicit warning unless an authorized release operator sets `DLSSNR_OPENMP_REDIST_APPROVED=1` as a repository variable. Existing Real-ESRGAN release assets are left untouched. Attestation alone does not prove legal rights; issue #79 remains open.
