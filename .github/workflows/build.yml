@@ -77,6 +77,8 @@ jobs:
 
           assert_scope "release-only"             third_party/FFmpeg-Builds/SOURCE.json
 
+          assert_scope "vlc" tools/publish-vlc-runtime.ps1
+
           assert_scope "minecraft-fabric-installer"             third_party/minecraft/runtime-lock.json
 
           assert_scope "release-only"             .github/workflows/runtime-refresh.yml             .github/workflows/release.yml             .github/workflows/build.yml             AI_PROJECT_PROGRESS.txt             docs/architecture.md             third_party/UPSTREAMS.json             third_party/ai-models/model.onnx
@@ -87,6 +89,7 @@ jobs:
 
           grep -Fq "tools/create-deterministic-flat-zip.ps1" .github/workflows/runtime-refresh.yml
           grep -Fq "tools/map-runtime-refresh-files.sh" .github/workflows/runtime-refresh.yml
+          grep -Fq "tools/publish-vlc-runtime.ps1" .github/workflows/runtime-refresh.yml
 
       - name: Validate self-contained tooling
         shell: pwsh
