@@ -84,5 +84,23 @@ if ($size -lt 256KB) {
     throw "Real-ESRGAN executable is unexpectedly small: $size bytes."
 }
 
+$sourceRoot = Split-Path -Parent $SourcePath
+$license = Join-Path $sourceRoot "LICENSE"
+$sourceMetadata = Join-Path $sourceRoot "SOURCE.json"
+$readme = Join-Path $sourceRoot "README.md"
+
+foreach ($required in @($license, $sourceMetadata)) {
+    if (!(Test-Path -LiteralPath $required)) {
+        throw "Real-ESRGAN package provenance file is missing: $required"
+    }
+}
+
+$packageDir = Split-Path -Parent $exe
+Copy-Item -LiteralPath $license -Destination (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
+Copy-Item -LiteralPath $sourceMetadata -Destination (Join-Path $packageDir "SOURCE-Real-ESRGAN.json") -Force
+if (Test-Path -LiteralPath $readme) {
+    Copy-Item -LiteralPath $readme -Destination (Join-Path $packageDir "README-Real-ESRGAN.md") -Force
+}
+
 Write-Host "Vendored Real-ESRGAN build verified: $exe ($size bytes)"
 Write-Output $exe
