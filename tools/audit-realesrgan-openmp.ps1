@@ -35,13 +35,7 @@ if ($dependencies.Count -eq 0) {
 Write-Host "Direct PE imports for ${exe}:"
 $dependencies | ForEach-Object { Write-Host "  $_" }
 
-$openMp = @($dependencies | Where-Object { $_ -match '(?i)^(vcomp[0-9a-z_-]*|libomp[0-9a-z_.-]*|libgomp[0-9a-z_.-]*|libiomp[0-9a-z_.-]*)\.dll })
-if ($openMp.Count -gt 0) {
-    throw "OpenMP runtime import remains: $($openMp -join ', '). Do not ship the experimental binary without a licensed runtime."
-}
-
-Write-Host "PASS: no direct OpenMP runtime DLL import found. This does not audit transitive dependencies, GPU performance, or licensing."
- })
+$openMp = @($dependencies | Where-Object { $_ -match '(?i)^(vcomp[0-9a-z_-]*|libomp[0-9a-z_.-]*|libgomp[0-9a-z_.-]*|libiomp[0-9a-z_.-]*)\.dll$' })
 if ($openMp.Count -gt 0) {
     throw "OpenMP runtime import remains: $($openMp -join ', '). Do not ship the experimental binary without a licensed runtime."
 }
