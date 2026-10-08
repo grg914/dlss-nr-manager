@@ -2,6 +2,7 @@ param(
     [string]$SourcePath,
     [string]$BuildPath,
     [string]$VulkanSdkVersion = "1.4.363.0",
+    [switch]$DisableOpenMp,
     [switch]$Clean
 )
 
@@ -63,7 +64,14 @@ if (!(Test-Path -LiteralPath $webpCmake)) {
 }
 
 Write-Host "Configuring vendored Real-ESRGAN..."
-& cmake -S $SourcePath -B $BuildPath -A x64 "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+$cmakeArgs = @("-S", $SourcePath, "-B", $BuildPath, "-A", "x64", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
+if ($DisableOpenMp) {
+    # Root Real-ESRGAN and ncnn independently enable OpenMP.
+    $cmakeArgs += "-DNCNN_OPENMP=OFF"
+    $cmakeArgs += "-DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=TRUE"
+    Write-Host "Experimental no-OpenMP build; audit PE imports and benchmark before promotion."
+}
+& cmake @cmakeArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Real-ESRGAN CMake configure failed."
 }
