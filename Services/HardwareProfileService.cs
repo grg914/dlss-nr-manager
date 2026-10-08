@@ -29,6 +29,15 @@ public sealed record HardwareSnapshot(
     bool VulkanLoaderPresent,
     string CpuArchitecture)
 {
+    public string GpuArchitecture => Gpu.Generation switch
+    {
+        "RTX 50" => "Blackwell",
+        "RTX 40" => "Ada Lovelace",
+        "RTX 30" => "Ampere",
+        "RTX 20" => "Turing",
+        _ => "Unknown"
+    };
+
     // A driver or hardware change invalidates the previous profile assessment.
     public string Fingerprint => string.Join("|",
         Gpu.Name, Gpu.Generation, CpuName, InstalledRamBytes,
@@ -147,9 +156,21 @@ public sealed class HardwareProfileService
     {
         try
         {
+            // Never resolve an executable from the current directory or PATH.
+            // Only trusted Windows NVIDIA installation locations are probed.
+            var candidates = new[]
+            {
+                Path.Combine(Environment.SystemDirectory, "nvidia-smi.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    "NVIDIA Corporation", "NVSMI", "nvidia-smi.exe")
+            };
+            var executable = candidates.FirstOrDefault(File.Exists);
+            if (executable == null)
+                return ("Unknown", null);
+
             using var process = ExternalProcessTracker.Start(new ProcessStartInfo
             {
-                FileName = "nvidia-smi.exe",
+                FileName = executable,
                 Arguments = "--query-gpu=name,driver_version,memory.total --format=csv,noheader,nounits",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
