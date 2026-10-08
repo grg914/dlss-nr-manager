@@ -9,7 +9,7 @@ public sealed class LocalizedOptionTooltipTests
     [Fact]
     public void Every_named_option_has_a_short_bilingual_tooltip()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "MainWindow.xaml");
+        var path = Path.Combine(AppContext.BaseDirectory, "MainWindow.markup.xml");
         Assert.True(File.Exists(path), "WPF XAML fixture must be copied to the test output.");
 
         var document = XDocument.Load(path);
