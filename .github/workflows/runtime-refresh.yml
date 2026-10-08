@@ -42,6 +42,8 @@ concurrency:
 
 env:
   RUNTIME_SEED_TAG: runtime-seed-v1
+  # Only an authorized operator may opt in after validating Visual Studio rights.
+  DLSSNR_OPENMP_REDIST_APPROVED: ${{ vars.DLSSNR_OPENMP_REDIST_APPROVED || '0' }}
 
 jobs:
   seed-release:
@@ -176,8 +178,14 @@ jobs:
         with:
           lfs: true
 
+      - name: Explain withheld Real-ESRGAN publication
+        if: (needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')) && env.DLSSNR_OPENMP_REDIST_APPROVED != '1'
+        shell: pwsh
+        run: |
+          Write-Warning "Skipping Real-ESRGAN publication: Microsoft OpenMP REDIST rights are not attested (issue #79). Existing asset preserved."
+
       - name: Build and package Real-ESRGAN
-        if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')
+        if: (needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')) && env.DLSSNR_OPENMP_REDIST_APPROVED == '1'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
