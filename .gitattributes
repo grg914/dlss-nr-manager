@@ -1,0 +1,33 @@
+# Repository-wide text/binary normalization.
+# LFS patterns for vendored model repositories remain in their nested
+# .gitattributes files so adding this policy does not migrate existing objects.
+
+* text=auto
+
+*.cs text
+*.csproj text
+*.props text
+*.targets text
+*.json text
+*.md text
+*.txt text
+*.ps1 text
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.xml text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.dll binary
+*.exe binary
+*.jar binary
+*.zip binary
+*.7z binary
+*.onnx binary
+*.bin binary
+*.param binary
+*.pdb binary
