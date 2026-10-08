@@ -18,6 +18,7 @@ function Require-File([string]$RelativePath) {
 
 $requiredFiles = @(
     "LICENSE",
+    ".gitattributes",
     "global.json",
     "SECURITY.md",
     "CONTRIBUTING.md",
