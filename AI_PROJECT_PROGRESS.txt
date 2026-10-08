@@ -3228,3 +3228,22 @@ ACTION 2026-10-08 A056
   new content-addressed NuGet seed generation and publication behavior;
   dispatch-release checkout/helper execution;
   Build #868 and CodeQL #34 stability during concurrent seed refresh.
+
+
+ACTION 2026-10-08 A057
+- Runtime Seed Refresh #23 nuget-runtime completed SUCCESS using the new
+  content-addressed seed implementation on merged main.
+- Full feed contained 22 packages.
+- The complete nuget-offline.zip was generated twice independently and both
+  archives produced the identical SHA-256:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e
+- The workflow explicitly reported:
+  Deterministic seed SHA-256 verified twice.
+- The previous pre-#83 seed used the older non-content-addressed format, so this
+  first new-format run correctly published the changed manager-owned asset.
+- GitHub publication digest verification succeeded and the workflow reported:
+  Published manager-owned nuget-offline.zip
+  (c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e).
+- After Runtime Seed Refresh #23 fully completes, run a NuGet-only refresh to
+  prove the second identical build emits SKIP unchanged and does not replace the
+  asset again.
