@@ -391,7 +391,7 @@ public sealed class DownloadCenterService
             return;
         }
 
-        var ownedDirectories = entry.Kind switch
+        string[] ownedDirectories = entry.Kind switch
         {
             DownloadCenterKind.MediaEngine => new[]
             {
