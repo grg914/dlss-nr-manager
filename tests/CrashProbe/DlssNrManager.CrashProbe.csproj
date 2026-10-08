@@ -6,6 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\DlssNrManager.csproj" />
+    <Compile Include="..\..\Services\ExternalProcessTracker.cs" Link="ExternalProcessTracker.cs" />
   </ItemGroup>
 </Project>
