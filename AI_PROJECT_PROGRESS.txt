@@ -2721,3 +2721,17 @@ ACTION 2026-10-08 A030
   create-application-package.ps1 Root fix.
 - CodeQL #30 remains in Analyze with all prerequisite stages successful.
 - No code change made.
+
+
+ACTION 2026-10-08 A031
+- Build #864 completed SUCCESS on exact PR #81 head
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Regression result from completed job log:
+  37 passed, 0 failed, 0 skipped.
+- The previously failing deterministic packaging gate now passes.
+- package-a.zip SHA-256:
+  d41926d3696bda129bd6e511ee51e72f964a57faf76e6c0a5addf7e322e22485
+- package-b.zip SHA-256:
+  d41926d3696bda129bd6e511ee51e72f964a57faf76e6c0a5addf7e322e22485
+- Byte-for-byte reproducibility is therefore validated for this exact head.
+- Remaining merge gate: CodeQL #30 final Analyze/post steps.
