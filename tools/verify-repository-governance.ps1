@@ -12,6 +12,8 @@ $required = @(
     "docs/THIRD_PARTY_NOTICES.md",
     "docs/DATA_PRIVACY.md",
     "docs/RELEASE_ARTIFACT_POLICY.md",
+    "docs/AI_RUNTIME_SECURITY.md",
+    "docs/CODE_SIGNING_POLICY.md",
     "third_party/README.md",
     "third_party/DEPENDENCIES.lock.json",
     "third_party/UPSTREAMS.json",
