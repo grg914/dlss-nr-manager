@@ -3520,3 +3520,23 @@ ACTION 2026-10-08 A063
 - Runtime Seed Refresh #23 still has only native-runtime/ReShade active;
   all other runtime producer jobs are SUCCESS.
 - No PR opened yet for release-source pinning.
+
+
+ACTION 2026-10-08 A063
+- Refined hardening/runtime-refresh-scoping after auditing GitHub compare behavior.
+- Important finding: the compare API returns every file in the merge commit, not
+  only files that matched runtime-refresh.yml on.push.paths. A blanket unknown
+  -> all fallback would therefore let unrelated files such as build.yml,
+  AI_PROJECT_PROGRESS.txt or docs force a full runtime rebuild.
+- Updated mapper fallback policy:
+  unknown paths under tools/** or third_party/** remain conservative all;
+  unrelated paths outside runtime-sensitive trees are ignored/release-only.
+- Mapper commit:
+  622b0e446b5c3431cdb2bb0164bc2590905e2894
+- Extended Build mapping tests with build workflow, progress journal and docs
+  mixed into a release-only change set, while keeping unknown tools/** as all.
+- Build test commit:
+  4f0f1c2fd089a0cb8b54e1a5e05f4d53037a291f
+- This ensures a merge that changes NuGet packaging plus unrelated docs/routes
+  resolves to onnxruntime instead of all, while genuinely unknown runtime-tree
+  inputs still fail safe to a full refresh.
