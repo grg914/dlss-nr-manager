@@ -2422,3 +2422,16 @@ ACTION 2026-10-08 A007
   observed in CodeQL #27.
 - CodeQL #28 continued into Restore from manager-owned feed.
 - Build #862 remained in Prepare manager-owned offline NuGet feed at this point.
+
+
+ACTION 2026-10-08 A011
+- Rechecked PR #81 CI after the runtime-seed retry patch.
+- CodeQL #28 now confirms the retry fix works:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore from manager-owned feed: SUCCESS
+  Build application for CodeQL: SUCCESS
+  Analyze: in_progress
+- This proves the prior #27 failure was a transient transport weakness and the
+  new retry behavior allows the pipeline to recover.
+- Build #862 remains in offline NuGet feed preparation at this checkpoint.
+- No additional code change required.
