@@ -4620,3 +4620,28 @@ ACTION 2026-10-08 A111
   confirming centralized Téléchargements metadata is wired into release manifests.
 - No runtime-seed asset timestamp changed during post-merge #28 VLC validation,
   consistent with the SKIP unchanged digest-aware publication contract.
+
+
+ACTION 2026-10-08 A109
+- Post-merge Runtime Seed Refresh #28 correctly started after PR #75, but the
+  seed-release scope resolved to "all" instead of the intended narrow "vlc".
+- Root cause isolated in tools/map-runtime-refresh-files.sh:
+  tools/verify-repository-governance.ps1 changed in PR #75 and matched the
+  conservative fallback tools/* -> force_all=true, even though that script only
+  validates repository policy and cannot alter runtime bytes.
+- VLC runtime job itself completed SUCCESS and publisher digest checks confirmed:
+  SKIP unchanged vlc-3.0.24-win64.zip
+  SHA-256 fcf30850371ad10c9373cc4f0f4501e7dee49e3e9ae9f20c72fb2661a1ca6323;
+  SKIP unchanged vlc-3.0.24.tar.xz
+  SHA-256 e7cab503d1d7d5849b89d2cf0e1ee60d0ef6d012407791b644b9cfc0cc225fdf;
+  SKIP unchanged vlc-3.0.24-provenance.json
+  SHA-256 ce229db08c2c9d68b228903f8184619dd1a2742cc116552d15739e35c7a3b078.
+- Created branch fix/runtime-refresh-governance-scope from main 4bbe034a.
+- Added explicit release-only mapping for tools/verify-repository-governance.ps1
+  and extended Build scope-regression coverage so future governance-only changes
+  cannot force all runtime rebuilds.
+- Branch commits:
+  982e606a947ca7c6d8ac7d0632222a7372eee1c3 mapper fix;
+  c4ddd472a61c00dcf70d72866f2ac92f606d8930 build regression assertion.
+- Next: open/validate/merge the small scope-fix PR, then confirm final zero open PRs
+  and clean post-merge runtime/release behavior.
