@@ -260,3 +260,20 @@ jobs:
             if ($sizes -notcontains $size) { throw "Missing exact icon frame: ${size}x${size}." }
           }
           Write-Host "Production build validated without external actions or package feeds."
+
+      - name: Verify deterministic application packaging
+        shell: pwsh
+        run: |
+          $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
+          if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
+
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\create-application-package.ps1 -ExecutablePath "publish/DlssNrManager.exe" -OutputPath "build-local/package-a.zip" -TimestampUtc "$createdAt"
+          if ($LASTEXITCODE -ne 0) { throw "First deterministic package build failed." }
+
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\create-application-package.ps1 -ExecutablePath "publish/DlssNrManager.exe" -OutputPath "build-local/package-b.zip" -TimestampUtc "$createdAt"
+          if ($LASTEXITCODE -ne 0) { throw "Second deterministic package build failed." }
+
+          $a = (Get-FileHash -LiteralPath "build-local/package-a.zip" -Algorithm SHA256).Hash
+          $b = (Get-FileHash -LiteralPath "build-local/package-b.zip" -Algorithm SHA256).Hash
+          if ($a -ne $b) { throw "Application ZIP is not reproducible. First SHA-256: $a; second SHA-256: $b" }
+          Write-Host "Deterministic application packaging verified: $($a.ToLowerInvariant())"
