@@ -3657,3 +3657,25 @@ ACTION 2026-10-08 A066
   Build #870 (run 37719093394)
   CodeQL #36 (run 37719093466)
 - No further change will be made to PR #85 head unless CI exposes a defect.
+
+
+ACTION 2026-10-08 A066
+- PR #84 Build #869 exposed one branch-local defect.
+- Validate shell helper syntax: SUCCESS.
+- Validate runtime refresh scope mapping: SUCCESS.
+- Failure occurred later in Validate self-contained tooling because
+  tools/verify-repository-governance.ps1 contained invalid PowerShell quote
+  escaping in the newly added required-trigger regex:
+  Unexpected token ']' in expression or statement.
+- Root cause: backslash-escaped double quote (\") was used inside a PowerShell
+  double-quoted string; PowerShell requires different quoting rules.
+- Replaced the fragile regex with a literal YAML-entry Contains check for the
+  three required runtime-refresh push triggers.
+- Fix commit:
+  5e23418cb0ceff1a0a013f1e8724a189046a131d
+- PR #84 new exact head:
+  5e23418cb0ceff1a0a013f1e8724a189046a131d
+- New exact-head checks started:
+  Build #871 (run 37719145060)
+  CodeQL #37 (run 37719145059)
+- Branch is frozen again until these checks complete or expose another defect.
