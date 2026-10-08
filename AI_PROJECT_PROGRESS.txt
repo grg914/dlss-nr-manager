@@ -2537,3 +2537,17 @@ ACTION 2026-10-08 A017
 - Build #864: pending
 - CodeQL #30: pending
 - Branch frozen for exact-head validation.
+
+
+ACTION 2026-10-08 A018
+- Verified AI_PROJECT_PROGRESS.txt after connection interruption.
+- main still contains the historical project log through the v3.2.0 release checkpoint.
+- hardening/repository-governance contains checkpoints 0G and 0H.
+- docs/live-ai-project-progress contains checkpoints 0G/0H plus the live action journal through A017.
+- Re-read PR #81 exact state from GitHub:
+  head 3d6365a8fafc6bd773ec29585bcc8bee996f62e9
+  mergeable: true
+  mergeable_state: blocked only by pending checks
+  Build #864: in_progress
+  CodeQL #30: queued
+- Resume point confirmed: validate the deterministic application-package root fix on this exact head before any merge.
