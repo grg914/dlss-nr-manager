@@ -4081,3 +4081,26 @@ ACTION 2026-10-08 A087
   #18 remaining hardening was integrated by merged #20.
 - The only red/conflicted PR still requiring a real code correction is #77
   Local AI Studio; #78's red state is obsolete because #78 is now closed.
+
+
+ACTION 2026-10-08 A088
+- Added explicit cleanup comments to ambiguous closed-unmerged PRs so historical
+  branches/red states are not mistaken for unresolved regressions:
+  #64 superseded by merged #66;
+  #69 missing localization recovered by merged #86;
+  #55/#57 only relevant continuity rendering fix recovered by merged #86;
+  #18 remaining v1.5.1 hardening integrated by merged #20;
+  #31 manager-owned FFmpeg cutover already present in current main.
+- #60 and #65 were already annotated in A085 with their historical red-Build
+  failure causes and merged corrective PRs (#61 and #66).
+- Re-audited PR #77 Local AI Studio conflict against current main d0caf982:
+  26 changed files total, but only two overlap files changed on main since the
+  feature base: AI_PROJECT_PROGRESS.txt and Services/UiLocalizationService.cs.
+- PR #77 already contains the recovered #69 performance-pack localization.
+- Its intentional translation of generic Download Manager action Remove as
+  Supprimer is retained instead of old main Retirer because the action deletes
+  an installed local component.
+- Selected fix: linearly reconstruct feat/local-ai-studio directly on current
+  main, preserve all 25 feature implementation files from #77, replace stale
+  progress with authoritative live journal, then force-with-lease the branch and
+  validate a new exact head with Build + CodeQL.
