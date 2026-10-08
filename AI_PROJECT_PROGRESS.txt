@@ -4932,3 +4932,32 @@ ACTION 2026-10-08 V4-AISTUDIO A003 - RECONCILIATION PR #101 AVEC MAIN
 - Fusion de Services/ManagedComponentRedownload.cs faite MANUELLEMENT: RecoverOwnedBackups(owned) inclut a la fois Media/Real-ESRGAN/VLC/AiOrigin et seulement les modeles AI Studio redistribuables, ET RecoverLegacyMediaUpdateBackups(media) pour la compatibilite automatique.
 - Les modeles manuels, dossiers jobs/outputs et licences sont exclus. AiStudioPackageService et tests de securite preservees tels quels.
 - ETAT: CI Build + CodeQL du nouveau head OBLIGATOIRES avant fusion; pas de release 4.0.
+
+
+ACTION 2026-10-08 V4-AISTUDIO A004 - AUDIT IMPORT MANUEL ET PROTECTION DE DONNEES
+- Nouvelle branche fix/v4-ai-studio-manual-import-safety depuis main f74fc789202a92520b1ea0f232ef47c2b42901f5, sans modifier PR #101 en cours.
+- Defaut audite: LocalAiStudioService.ImportModelDirectoryAsync deplace target vers target.backup-GUID, puis un catch supprime target meme si le premier Directory.Move(target,backup) echoue. Une deletion du backup apres installation peut aussi activer ce rollback alors que l'installation est valide.
+- Contraintes: le modele manuel sous licence doit pouvoir etre importe UNIQUEMENT depuis un dossier choisi par l'utilisateur apres acceptation licence; ne jamais remplacer des poids sans preuve d'une sauvegarde reussie.
+- Correction prevue: helper de remplacement de dossier staging avec sauvegarde, rollback prudent conditionnel a l'operation reussie, et gestion separee d'une erreur de nettoyage backup ; bloquer en cas de .backup-* non resolu.
+- Aucun recovery AUTOMATIQUE des modeles manuels/licences au demarrage. Les sorties/jobs/workflows restent intacts.
+- Tests de non suppression du target sur faute initiale et sauvegardes existantes, de succes sans doublon backup et de non-deletion d'un fichier utilisateur.
+- Etat: point de reprise AVANT implementation; Build + CodeQL sur head final obligatoires, pas de fusion prematuree.
+
+
+ACTION 2026-10-08 V4-AISTUDIO A005 - SECURISER IMPORT MANUEL DES MODELES
+- LocalAiStudioService.ImportModelDirectoryAsync conserve la copie streaming vers staging; le remplacement final utilise maintenant ManualModelDirectorySwap.ReplaceStaged au lieu de suppression directe target dans catch.
+- Une erreur lors du premier Directory.Move(target,backup) n'efface JAMAIS l'original; une erreur pendant le move staging restaure le backup si cree.
+- Les erreurs de suppression du backup APRES installation reussie ne declenchent pas de rollback et laissent un diagnostic pour nettoyage manuel.
+- Refuse tout nouveau remplacement en presence d'ancien target.backup-* non resolu; rejette staging en dehors du dossier sibling model.staging-*, et dossier cible/staging reparse.
+- Ne touche ni aux licences accepted.json, ni aux sorties/jobs/workflows. Les modeles manuels ne sont toujours pas recuperes automatiquement au demarrage.
+- 6 tests xUnit: succes, echec premier move, echec deuxieme move, backup existant, staging manquant/incorrect, preservation des sorties/licences.
+- STATUT: code committe; validation Build+CodeQL Windows sur head final obligatoire, pas encore fusionne. Prochaine action: creer PR, lire CI, corriger avant merge.
+
+ACTION 2026-10-08 V4-AISTUDIO A006 - PR #101 FUSIONNEE ET RECONCILIATION IMPORT MANUEL
+- PR #101 head 5679f61ccb38100fb5d66d22f863bd1c0f254326: Build run 37820613961 SUCCESS, CodeQL run 37820613953 SUCCESS.
+- CI Windows: 98 tests xUnit passes, 0 failed, 0 ignored; publication Windows x64 et packaging deterministe passes.
+- PR #101 squash merged main 68adde5d59e5b9ae5a6c197fcf03813e7f1a2faa.
+- PR #102 synchronisee depuis main et conserve les checkpoints A001-A006, R001-R015, S001-S003. Conserve les correctifs AI Studio packages + recovery manager-owned deja fusionnes.
+- Import des modeles a licence manuelle reste sur helper separé ManualModelDirectorySwap; AUCUNE restauration silencieuse de poids manuels.
+- ISSUE #95 OUVERTE: anciens dossiers target.backup-GUID, tests de crash physique Windows, liens symboliques parents, autres chemins d'update.
+- Suivant: valider nouveau head PR #102 Build + CodeQL, corriger si besoin, puis fusionner uniquement quand les deux sont verts.

@@ -485,41 +485,9 @@ public sealed class LocalAiStudioService
                 }
             }
 
-            var backup =
-                target +
-                ".backup-" +
-                Guid.NewGuid().ToString("N");
-
-            var hadExisting =
-                Directory.Exists(target);
-
-            if (hadExisting)
-                Directory.Move(target, backup);
-
-            try
-            {
-                Directory.Move(
-                    staging,
-                    target);
-
-                if (Directory.Exists(backup))
-                    Directory.Delete(backup, true);
-            }
-            catch
-            {
-                if (Directory.Exists(target))
-                    Directory.Delete(target, true);
-
-                if (hadExisting &&
-                    Directory.Exists(backup))
-                {
-                    Directory.Move(
-                        backup,
-                        target);
-                }
-
-                throw;
-            }
+            // Copy/verify all source files before touching the installed
+            // model. Swapping is guarded by a real backup and rollback.
+            ManualModelDirectorySwap.ReplaceStaged(staging, target);
 
             transfer.Complete();
 
