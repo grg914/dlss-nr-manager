@@ -92,7 +92,8 @@ public sealed class DownloadManagerTests
             media,
             new AiUpscaleService(),
             studio,
-            new AiOriginDetectionService(media));
+            new AiOriginDetectionService(media),
+            new VlcRuntimeService());
 
         var entries = center.GetEntries();
 
@@ -103,6 +104,10 @@ public sealed class DownloadManagerTests
         Assert.Contains(
             entries,
             x => x.Id == "realesrgan");
+
+        Assert.Contains(
+            entries,
+            x => x.Id == "vlc-runtime");
 
         Assert.Contains(
             entries,
@@ -124,7 +129,8 @@ public sealed class DownloadManagerTests
             media,
             new AiUpscaleService(),
             new LocalAiStudioService(),
-            new AiOriginDetectionService(media));
+            new AiOriginDetectionService(media),
+            new VlcRuntimeService());
 
         var entries = center.GetEntries();
 
