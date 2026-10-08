@@ -252,10 +252,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $createdAt = (git show -s --format=%cI HEAD).Trim()
-          if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
-
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-nuget-offline-seed.ps1 -TimestampUtc "$createdAt"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-nuget-offline-seed.ps1
           if ($LASTEXITCODE -ne 0) { throw "NuGet seed generation failed." }
 
           $zip = "build-local/nuget-offline.zip"
