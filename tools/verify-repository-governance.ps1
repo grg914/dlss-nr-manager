@@ -152,6 +152,41 @@ if ($checkoutMatch.Index -gt $helperMatch.Index) {
     throw "runtime-refresh dispatch-release checkout must occur before the local dispatch helper is invoked."
 }
 
+$releaseWorkflowPath = Join-Path $Root ".github\workflows\release.yml"
+$releaseWorkflow = Get-Content -LiteralPath $releaseWorkflowPath -Raw
+$dispatchHelperPath = Join-Path $Root "tools\dispatch-release-if-needed.sh"
+$dispatchHelper = Get-Content -LiteralPath $dispatchHelperPath -Raw
+
+if ($releaseWorkflow -notmatch "(?ms)^\s*workflow_dispatch:\s*\r?\n\s*inputs:\s*\r?\n\s*source_sha:") {
+    throw "release.yml must expose workflow_dispatch input source_sha for exact-source automated releases."
+}
+
+if ($releaseWorkflow -notmatch "id:\s*source" -or
+    $releaseWorkflow -notmatch "steps\.source\.outputs\.sha") {
+    throw "release.yml must resolve and consume an exact source SHA."
+}
+
+if ($releaseWorkflow -notmatch "compare/\$source\.\.\.main") {
+    throw "release.yml must verify that automated source_sha belongs to main history."
+}
+
+if ($releaseWorkflow -notmatch 'git fetch --no-tags --prune --depth=1 origin "\$target"') {
+    throw "release.yml must fetch the exact resolved release source SHA."
+}
+
+if ($releaseWorkflow -notmatch 'gh release create \$tag .*--target "\$\{\{ steps\.source\.outputs\.sha \}\}"') {
+    throw "release.yml must create a new stable release against the exact resolved source SHA."
+}
+
+if ($releaseWorkflow -notmatch '-SourceCommit "\$\{\{ steps\.source\.outputs\.sha \}\}"' -or
+    $releaseWorkflow -notmatch '-CommitSha "\$\{\{ steps\.source\.outputs\.sha \}\}"') {
+    throw "release.yml SBOM and provenance generation must use the exact resolved source SHA."
+}
+
+if ($dispatchHelper -notmatch 'gh workflow run release\.yml --repo "\$repo" --ref main -f "source_sha=\$source_sha"') {
+    throw "dispatch-release-if-needed.sh must pass the validated source_sha into release.yml."
+}
+
 Write-Host "Repository governance validation passed."
 Write-Host "Required policy files: $($required.Count)"
 Write-Host "Component policy entries: $($components.Count)"
