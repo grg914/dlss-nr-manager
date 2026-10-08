@@ -2462,3 +2462,22 @@ ACTION 2026-10-08 A009
 - This validates the new CodeQL workflow architecture and the runtime-seed
   transport retry for the CodeQL path.
 - Build #862 remained in progress at the offline NuGet feed stage.
+
+
+ACTION 2026-10-08 A012
+- CodeQL #28 completed SUCCESS on PR #81 head
+  0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599.
+- Successful CodeQL steps:
+  checkout
+  initialization
+  .NET 8 check
+  manager-owned offline NuGet feed preparation
+  offline restore
+  C# build
+  security-extended analysis
+  post-analysis/upload cleanup
+- Conclusion:
+  runtime-seed transport retry fix is validated by a full successful CodeQL run;
+  CodeQL configuration itself is healthy.
+- Remaining merge gate for PR #81:
+  Build #862 still in progress.
