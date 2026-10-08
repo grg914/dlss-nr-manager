@@ -4018,3 +4018,19 @@ ACTION 2026-10-08 A084
   recovery paths are emitted as plain text.
 - The historical progress rewrites from #55/#57 were intentionally not restored;
   only the still-relevant workflow bug fix was recovered.
+
+
+ACTION 2026-10-08 A085
+- Identified and verified the two closed PRs showing historical red Build crosses:
+  PR #60: Build #671 FAILED before its Caustica/SPBR audit because checkout used
+  mutable pull-request GITHUB_REF; PR #61 replaced this with immutable PR-head
+  SHA checkout and Build #679 passed. Current main still contains that immutable
+  checkout logic.
+  PR #65: Build #687 FAILED in verify-minecraft-native-ngx-path.ps1 due to a
+  false policy rejection; final PR #66 corrected the verifier and Build #689
+  passed. Current main retains the corrected native Vulkan/NGX verifier.
+- Added explicit cleanup comments to #60 and #65 recording the exact failure and
+  the merged corrective PR, so the red crosses cannot be mistaken for unresolved
+  current-main regressions.
+- Conclusion: both red crosses are historical/superseded and require no rollback
+  or new product fix.
