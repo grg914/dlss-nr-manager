@@ -487,5 +487,10 @@ Repository policy and audit references:
 - [Machine-readable feature policy](manifests/feature-policy.json)
 - [Upstream/dependency sync](docs/UPSTREAM-SYNC.md)
 - [Machine-readable component policy](manifests/component-policy.json)
+- [Support](SUPPORT.md)
+- [Source availability](SOURCE_AVAILABILITY.md)
+- [Dependency update policy](docs/DEPENDENCY_UPDATE_POLICY.md)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
 
 Production Build/Release follows the manager-owned / zero-upstream architecture documented in these files. Large redistributable runtimes belong in project-owned Releases rather than normal Git history; restricted SDK/model material remains local or user-supplied according to its license.
