@@ -10,7 +10,7 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application version: **v3.1.0**.
+Current application version: **v3.2.0**.
 
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, manager-owned validated NVIDIA runtime bundles, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
@@ -69,6 +69,17 @@ Use the latest GitHub Release for the Windows x64 single-file build. Current rel
 - the latest compatible Minecraft 26.2 Caustica RTX production JAR
 - `SPBRScandi.zip`, the validated SPBR-based Scandi resource pack
 - manager-owned validated runtime assets for FFmpeg, Real-ESRGAN, OptiScaler, ReShade, AI-origin models, Streamline/video Neural Rendering and Minecraft 26.2
+
+## What's new in v3.2.0
+
+v3.2 consolidates the NVIDIA runtime UX and finalizes the latest manager-owned runtime/release checkpoint.
+
+- **Persistent FR/EN UI selection.** Language choice remains consistent across restarts.
+- **OptiScaler selector reliability.** The advanced selection path was corrected so the chosen build/variant remains coherent with the managed game state.
+- **Central NVIDIA runtime management.** DLSS/Streamline resources are managed from the Games & DLSS workflow instead of being duplicated in Minecraft-specific controls.
+- **Minecraft RTX path preserved.** Minecraft continues to use the protected Caustica Vulkan/NGX path rather than the generic game runtime staging path.
+- **Complete Streamline Neural Rendering bundle.** The manager-owned Streamline package includes both `sl.dlss_nr.dll` and the validated NVIDIA-signed `nvngx_dlssnr.dll`.
+- **Release/runtime checkpoint validated.** Build, runtime-seed refresh, release publication, zero-upstream production audit and manager-owned asset parity were revalidated for the v3.2.0 checkpoint.
 
 ## What's new in v3.1.0
 
