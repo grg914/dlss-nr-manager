@@ -20,6 +20,7 @@ The canonical machine-readable source provenance is:
 | NVIDIA DLSS / NGX SDK | NVIDIA proprietary SDK terms | Local-only build input unless redistribution is explicitly cleared |
 | FFmpeg | LGPL-compatible configuration in this project | Build intentionally avoids `--enable-gpl` and `--enable-nonfree` |
 | Real-ESRGAN / ncnn / Vulkan support | Upstream open-source licenses | Preserve upstream licenses and model notices |
+| Microsoft Visual C++ / OpenMP runtime (when bundled) | Microsoft Visual Studio redistribution terms | Redistribute only through an allowed REDIST path with version/hash/provenance; audit tracked in issue #79 |
 | ONNX Runtime | MIT | Preserve upstream license |
 | AI-origin detector models | Model-specific Apache-2.0 / MIT metadata in vendored model repositories | Preserve model cards/licenses beside weights |
 | Minecraft Fabric/mod ecosystem | Per-project open-source licenses | Versions/hashes frozen in runtime lock; preserve bundled notices |
