@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible DLSS NR Manager problem
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not post passwords, access tokens, private SDK files, or exploit details here.
+        Security vulnerabilities should use the repository Security Advisory / private vulnerability reporting flow.
+  - type: input
+    id: version
+    attributes:
+      label: DLSS NR Manager version
+      placeholder: v3.2.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU / driver
+      placeholder: RTX 5070 / driver 5xx.xx
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Games & DLSS
+        - Minecraft RTX
+        - Media Neural / AI Upscale
+        - AI Detection
+        - PC Update / Cleanup
+        - Downloads / Runtime
+        - Release / Update
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Redact personal paths/secrets before posting.
+      render: text
