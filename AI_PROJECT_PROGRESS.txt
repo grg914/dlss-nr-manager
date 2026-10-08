@@ -2709,3 +2709,15 @@ ACTION 2026-10-08 A029
   executable/icon validation;
   deterministic application packaging (two independent ZIP builds + SHA-256 equality).
 - No code change made.
+
+
+ACTION 2026-10-08 A030
+- Build #864 passed:
+  Publish Windows x64 single-file: SUCCESS
+  Verify executable and icon: SUCCESS
+- Build #864 has now entered the decisive final step:
+  Verify deterministic application packaging: in_progress.
+- This is the exact step that failed on Build #862 before the
+  create-application-package.ps1 Root fix.
+- CodeQL #30 remains in Analyze with all prerequisite stages successful.
+- No code change made.
