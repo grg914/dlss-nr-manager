@@ -3926,3 +3926,34 @@ ACTION 2026-10-08 A080
   manager-owned NuGet feed.
 - No failed exact-head step is reported and PR #84 remains frozen on
   e39886fe11518b799570d6501ec5e511fd18a82f.
+
+
+ACTION 2026-10-08 A081
+- Continued read-only design audit for the next runtime seed hardening while PR #84
+  remains frozen in exact-head CI.
+- tools/create-deterministic-flat-zip.ps1 is intentionally flat-only and rejects
+  nested directories. It can be reused for simple flat bundles but is not a safe
+  drop-in for Minecraft/OptiScaler/ReShade package trees.
+- A future deterministic recursive ZIP helper should therefore normalize:
+  recursive relative paths;
+  ordinal entry ordering;
+  case-insensitive duplicate paths;
+  one explicit stable timestamp;
+  compression mode;
+  post-write entry/timestamp verification and SHA-256 reporting.
+- Repository audit found no existing generic release-asset publish-if-changed
+  helper. publish-video2dlssnr.ps1 already demonstrates post-upload size/digest
+  verification but still uploads unconditionally.
+- Preferred next architecture after PR #84:
+  one reusable digest-aware publication helper that inspects the existing GitHub
+  asset digest, emits SKIP unchanged when identical, otherwise replaces it and
+  re-reads/verifies the remote SHA-256;
+  use deterministic packaging before that helper wherever the project owns the
+  archive construction;
+  migrate Temurin to skip unchanged ZIP + stable metadata rather than always
+  regenerating refreshed_at_utc.
+- No implementation branch opened yet because the next pass will touch
+  runtime-refresh.yml and should start only after PR #84 lands.
+- Current authoritative PR #84 head remains
+  e39886fe11518b799570d6501ec5e511fd18a82f with Build #875 and CodeQL #41
+  still in manager-owned offline NuGet feed preparation and no failed steps.
