@@ -4535,3 +4535,25 @@ ACTION 2026-10-08 A107
 - PR #75 final journal-synchronized head is
   6ab356fdf669448530665b8224173933cf2b818d; Build #890 and CodeQL #56 are the
   required exact-head checks currently running.
+
+
+ACTION 2026-10-08 A108
+- PR #75 final exact-head validation completed on
+  6ab356fdf669448530665b8224173933cf2b818d.
+- Final Build #890: SUCCESS through regression tests, Windows single-file publish,
+  executable/icon verification and deterministic application packaging.
+- Final CodeQL #56: SUCCESS through instrumented C# build, Analyze and all post
+  steps.
+- GitHub reported mergeable=true, mergeable_state=clean.
+- PR #75 was squash-merged with expected-head protection.
+- New main commit:
+  4bbe034adfe3ec1a37107723dc39c8bb71f314f5.
+- Open pull requests after merge: ZERO.
+- Main now officially contains VSR-HDR VLC Direct, Restore HD Video, centralized
+  VLC management in Téléchargements, manager-owned VLC runtime fallback,
+  deterministic VLC offline release packaging, scoped VLC runtime refresh and
+  the related docs/tests/governance changes.
+- Issue cleanup from A107 remains valid: #90 closed duplicate of #87; #82 stays
+  open because Protect main still requires only build and not CodeQL.
+- Next: verify post-merge Build/CodeQL/Runtime Seed Refresh on 4bbe034a and any
+  resulting Release dispatch before declaring the deployment path clean.
