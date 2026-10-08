@@ -4719,3 +4719,26 @@ ACTION 2026-10-08 A113
   repository governance checks; CodeQL #58 SUCCESS; GitHub reports PR #91 clean.
 - Next action: squash-merge #91 with expected-head protection, then verify the
   post-merge Runtime Seed Refresh resolves release-only instead of all.
+
+
+ACTION 2026-10-08 A114
+- Runtime Seed Refresh #28 completed fully SUCCESS on main 4bbe034a.
+- Final dispatch-release log confirms exact checkout of
+  4bbe034adfe3ec1a37107723dc39c8bb71f314f5 and correct stable-release
+  immutability behavior:
+  stable v3.2.0 still belongs to e5927e1d718dfff19540964ba46ee4edaa933c6b;
+  requested source was 4bbe034adfe3ec1a37107723dc39c8bb71f314f5;
+  runtime seed refresh was allowed but production release dispatch was skipped
+  until the application version is bumped.
+- With #28 fully complete, PR #91 was squash-merged using expected-head
+  protection on c4ddd472a61c00dcf70d72866f2ac92f606d8930.
+- New official main commit:
+  2e1be8a20ea4efe0daabd6e0e06af1e591f253a3.
+- Open pull requests after merge: ZERO.
+- Post-merge validation started automatically on 2e1be8a2:
+  Build #893 in_progress;
+  CodeQL #59 in_progress;
+  Runtime Seed Refresh #29 in_progress.
+- Runtime Refresh #29 is the production proof for the #91 fix: seed-release must
+  resolve this governance/mapper/build-only merge to release-only and must not
+  start expensive runtime producer jobs.
