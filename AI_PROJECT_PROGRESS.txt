@@ -3426,3 +3426,28 @@ ACTION 2026-10-08 A061
   Streamline still in_progress.
 - No main code change made; waiting for Runtime Seed Refresh #23 finalization
   and dispatch-release validation before opening the release-source-pinning PR.
+
+
+ACTION 2026-10-08 A061
+- Runtime Seed Refresh #23 windows-runtime completed SUCCESS; only native-runtime
+  ReShade remained before dispatch-release at this checkpoint.
+- Captured manager-owned release digests after the second consecutive full
+  refresh to quantify unnecessary asset churn:
+  Streamline same size 171,509,289 bytes but digest changed again to
+  788e198501af89a8659fcc71883b1e48a853fe516db726f565ef9e2150632860;
+  Minecraft same size 28,699,844 bytes but digest changed again to
+  fb5a69d25a296bd9063d58a313f3dc1ff19082c19648564dc1bdf0991614e83f;
+  Real-ESRGAN same size 2,240,981 bytes but digest changed again to
+  2e271f6ba230d4eabbe8984ee3ee0856e8e7c52d5ef84861b94cb0b5b5a6637f;
+  FFmpeg digest changed to
+  9fed986b98e92ec84d94d89e7a1db4a94af653cc7c0f955ca5ccf9e5af1ad7d1;
+  OptiScaler digest changed to
+  aae0afb59e04123f959cab4d2e51d7b9489ce7d3efff940399825ae34a9443bf.
+- Temurin JRE ZIP retained the exact same upstream SHA-256
+  4c95451cea98556def2c54f7782933f52a26d4a36bd85e1d59f0364464828b07
+  but its release updated_at changed again, proving an unchanged binary was
+  re-uploaded; temurin-25-jre.json changed again due refreshed_at_utc.
+- This is production evidence for a separate runtime-asset reproducibility / skip
+  unchanged hardening after the scope-routing PR.
+- The new NuGet seed remains stable at c0e7e334... and is the first asset already
+  converted to content-addressed packaging + digest-aware publication.
