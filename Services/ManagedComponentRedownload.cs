@@ -131,18 +131,35 @@ public static class ManagedComponentRedownload
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "DlssNrManager");
         var media = Path.Combine(root, "media-engine");
-        var transactional = RecoverOwnedBackups([
+        var owned = new List<string>
+        {
             Path.Combine(media, "video2dlssnr"),
             Path.Combine(media, "tools"),
             Path.Combine(media, "realesrgan"),
             Path.Combine(root, "vlc"),
             Path.Combine(root, "ai-origin-detector")
-        ]);
+        };
+        owned.AddRange(GetManagerOwnedAiStudioRecoveryPaths());
+
+        var transactional = RecoverOwnedBackups(owned);
 
         var legacy = RecoverLegacyMediaUpdateBackups(media);
         return new ComponentRecoveryReport(
             transactional.Restored + legacy.Restored,
             transactional.Failed + legacy.Failed);
+    }
+
+    /// <summary>
+    /// Only redistribute-allowed AI Studio models may be automatically
+    /// restored. Restricted/manual-license model folders are never selected.
+    /// </summary>
+    public static IReadOnlyList<string> GetManagerOwnedAiStudioRecoveryPaths()
+    {
+        var studio = new LocalAiStudioService();
+        return LocalAiStudioService.Models
+            .Where(model => model.ManagerOwnedRedistributionAllowed)
+            .Select(studio.GetModelDirectory)
+            .ToArray();
     }
 
     /// <summary>
