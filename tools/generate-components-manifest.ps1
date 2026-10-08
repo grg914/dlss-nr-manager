@@ -1,6 +1,7 @@
 param(
     [string]$AssetsDirectory = "release-assets",
-    [string]$OutputPath = "release-assets/components-manifest.json"
+    [string]$OutputPath = "release-assets/components-manifest.json",
+    [string]$GeneratedAtUtc = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -93,13 +94,22 @@ if (Test-Path -LiteralPath $javaMetadataPath) {
 }
 Add-Asset $components "java25" "Eclipse Temurin JRE 25" "temurin-25-jre-win-x64.zip" "" $javaVersion
 
+$generatedAt = if ([string]::IsNullOrWhiteSpace($GeneratedAtUtc)) {
+    [DateTime]::UtcNow.ToString("o")
+} else {
+    ([DateTimeOffset]::Parse($GeneratedAtUtc)).UtcDateTime.ToString("o")
+}
+
 $manifest = [ordered]@{
     schema = 1
-    generated_at_utc = [DateTime]::UtcNow.ToString("o")
+    generated_at_utc = $generatedAt
     manager_repository = "grg914/dlss-nr-manager"
     application_version = $AppVersion
     components = @($components)
 }
 
-$manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $output -Encoding UTF8
+[System.IO.File]::WriteAllText(
+    $output,
+    ($manifest | ConvertTo-Json -Depth 8),
+    [System.Text.UTF8Encoding]::new($false))
 Write-Host "Generated $output with $($components.Count) manager-owned components."

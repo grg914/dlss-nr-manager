@@ -62,6 +62,7 @@ $downloaded = @()
 $completed = $false
 for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
     $attemptFiles = @()
+    $attemptTemporaryPaths = @()
     $retryReason = $null
 
     try {
@@ -72,6 +73,7 @@ for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
             $destinationPath = Join-Path $destinationRoot $asset.Name
             $temporaryPath = "$destinationPath.download.$attempt.$([Guid]::NewGuid().ToString('N'))"
             Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            $attemptTemporaryPaths += $temporaryPath
 
             Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri $asset.Url -OutFile $temporaryPath
 
@@ -111,8 +113,8 @@ for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
         }
 
         if (-not [string]::IsNullOrWhiteSpace($retryReason)) {
-            foreach ($entry in $attemptFiles) {
-                Remove-Item -LiteralPath $entry.TemporaryPath -Force -ErrorAction SilentlyContinue
+            foreach ($temporaryPath in $attemptTemporaryPaths) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
             }
 
             if ($attempt -ge $ConsistencyRetries) {
@@ -134,10 +136,20 @@ for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
         break
     }
     catch {
-        foreach ($entry in $attemptFiles) {
-            Remove-Item -LiteralPath $entry.TemporaryPath -Force -ErrorAction SilentlyContinue
+        $caught = $_
+        foreach ($temporaryPath in $attemptTemporaryPaths) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
         }
-        throw
+
+        if ($attempt -ge $ConsistencyRetries) {
+            throw
+        }
+
+        Write-Warning "Manager-owned runtime seed attempt $attempt/$ConsistencyRetries failed: $($caught.Exception.Message) Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+        if ($ConsistencyRetryDelaySeconds -gt 0) {
+            Start-Sleep -Seconds $ConsistencyRetryDelaySeconds
+        }
+        continue
     }
 }
 

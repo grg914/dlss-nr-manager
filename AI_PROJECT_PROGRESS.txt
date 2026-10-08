@@ -1349,3 +1349,890 @@ Prochaine action exacte:
 1. considerer la livraison v3.2.0 CLOSE / VALIDEE.
 2. ne pas rouvrir cette release sans regression reproductible.
 3. reprendre la prochaine phase du cahier des charges uniquement apres proposition des solutions et validation utilisateur.
+
+
+================================================================================
+CHECKPOINT 0G - DLSS 310.9.1 / VSR-HDR / AI STUDIO / DOWNLOAD MANAGER /
+                 I18N / AUDIT GLOBAL DEPOT (2026-10-08)
+================================================================================
+
+CE CHECKPOINT EST AUTORITATIF POUR LA REPRISE APRES LES COUPURES DU 07-08/10.
+Il complete les checkpoints precedents sans les supprimer.
+
+1. NVIDIA DLSS SDK 310.9.1
+
+Branche:
+- chore/nvidia-dlss-310.9.1
+
+Validation locale utilisateur:
+- NVIDIA/DLSS clone local:
+  C:\Users\Grg\Desktop\git\DLSS
+- tag exact: v310.9.1
+- commit upstream reel: 374959484e79a640feaba44c93ac8cfb0a03f5b5
+- sous-module NVIDIAImageScaling: 35e13ba316c98eeecf16f37eae70ce88019911f6 (v1.0.3)
+
+Lock corrige:
+- nvidia-dlss-sdk source_tag: v310.9.1
+- ref: 374959484e79a640feaba44c93ac8cfb0a03f5b5
+
+Build video2dlssnr local avec SDK licencie:
+- 24 tests executes, 13 skipped, 2560 assertions, 0 failure
+- forwarder PE/exports valide
+- nvngx_dlss.dll SHA-256:
+  3975567b8943c53acce397f2b72380092f84f162d00b0d2c7d08a1025c563983
+- nvngx_dlssnr.dll SHA-256:
+  e16bcf15e16e13f527491cdf7845b2fe6521a738d8f7c9c721866a8496e1fc8e
+- signatures Authenticode NVIDIA valides
+- package produit:
+  build-local/video2dlssnr_release.zip
+- SHA-256 package publie:
+  c17873419a85df11b89d3652ef6ea78db600f311bba4a62e5e1f5f97e828802a
+- publication runtime-seed-v1: SUCCESS
+- regle maintenue: SDK NVIDIA brut reste local_only; ne pas publier le SDK brut.
+
+2. VSR-HDR VIDEO / VLC
+
+Branche:
+- feat/vlc-video-enhancement
+PR:
+- #75
+
+Objectif:
+- menu "VSR-HDR Video"
+- lecture locale VLC avec VSR/HDR temps reel
+- fullscreen
+- echelle x1/x2/x4 selon contexte
+- reduction artefacts / upscale
+- indicateur OSD VSR/HDR en haut a droite
+- sous-menu "Restore HD Video" pour amelioration permanente + export dans dossier choisi
+- evaluation qualite sur videos floues, en evitant hallucinations/details incoherents.
+
+VLC:
+- fork utilisateur: grg914/vlc
+- runtime VLC 3.0.24 manager-owned publie dans runtime-seed-v1
+- SHA-256 runtime:
+  fcf30850371ad10c9373cc4f0f4501e7dee49e3e9ae9f20c72fb2661a1ca6323
+- SHA-256 source:
+  e7cab503d1d7d5849b89d2cf0e1ee60d0ef6d012407791b644b9cfc0cc225fdf
+- runtime + source correspondante publies pour autonomie/offline.
+
+Erreur CI PR #75 identifiee:
+- CS8602 nullable dans RefreshVideoEnhancementOptionStates
+- correction appliquee par garde/non-null explicite.
+- textes statiques/dynamiques VSR-HDR passes en politique FR/EN.
+- PR reste a valider par dernier Build sur head courant avant merge.
+
+Important:
+- le bouton "Set up portable VLC" de #75 est temporaire.
+- apres integration #75 -> main puis rebase/integration #77, VLC doit etre enregistre
+  dans le Download Manager unique et ce bouton doit devenir "Manage in Downloads".
+- aucune fonction ne doit conserver un second chemin de telechargement.
+
+3. AI STUDIO LOCAL
+
+Branche:
+- feat/local-ai-studio
+PR:
+- #77
+
+Menu:
+- AI Studio local
+  - Create / Creer
+  - Model Manager
+  - Jobs
+  - Runtime
+
+Taches:
+- Text-to-Image
+- Image-to-Image
+- Inpainting / Outpainting
+- Text-to-Video
+- Image-to-Video
+- Video-to-Video
+
+Backends:
+- Auto
+- ComfyUI
+- Diffusers
+
+Modele image recommande:
+- FLUX.2 [klein] 4B
+
+Options image quality-first:
+- FLUX.2 [dev] (licence manuelle/restrictive)
+- Qwen-Image-2.1 (licence manuelle/restrictive)
+- SDXL 1.0
+- SDXL Inpainting
+
+Modele video recommande:
+- Wan2.2 TI2V 5B
+
+Options video quality-first:
+- Wan2.2 T2V A14B
+- Wan2.2 I2V A14B
+- Wan2.2 Animate 14B
+- LTX-2.5 (licence manuelle/restrictive)
+
+HunyuanVideo 1.5:
+- volontairement exclu de la distribution manager-owned par defaut en raison
+  de contraintes territoriales/licence incompatibles avec une distribution generale.
+
+Workspace isole:
+- %LOCALAPPDATA%\DlssNrManager\ai-studio
+- runtime/python
+- runtime/comfyui
+- runtime/diffusers
+- runtime/wheelhouse
+- models
+- workflows
+- jobs
+- outputs
+
+Regle:
+- aucun Python/pip/CUDA systeme ne doit etre modifie.
+- runtime cible entierement prive/manager-owned/offline.
+
+Sources verrouillees:
+- ComfyUI
+- Diffusers
+- FLUX.2 reference
+- Wan2.2 reference
+- group "ai-studio", vendoring explicite uniquement avec -IncludeAiStudioSources.
+
+Catalogue machine-readable:
+- manifests/ai-studio-models.json
+- contient modele, tier, licence, redistribution manager-owned et URL officielle.
+
+4. PACKAGES MODELES / GITHUB RELEASES
+
+Decision utilisateur:
+- code/config/policies dans le depot Git.
+- runtimes/poids/gros binaires dans les GitHub Releases du depot utilisateur.
+- ne pas mettre les gros poids dans l'historique Git.
+
+Outil:
+- tools/publish-ai-studio-package.ps1
+
+Regle de taille:
+- AUCUNE limite produit sur la taille totale d'un modele/package.
+- un modele peut faire 10/50/120+ Go.
+- segmentation uniquement pour respecter les contraintes de transport par asset GitHub.
+- manifest package + SHA-256 chunks + SHA-256 archive reconstruite.
+- extraction locale sans plafond total artificiel produit.
+
+5. DOWNLOAD MANAGER GLOBAL
+
+Nouveau menu principal:
+- Downloads / Telechargements
+
+But:
+- UNIQUE surface d'installation/suppression/reinstallation pour les composants geres.
+
+Actions:
+- Install / Installer
+- Remove / Supprimer
+- Redownload / Retelecharger
+- Cancel / Annuler
+
+Entrees deja centralisees sur #77:
+- Media Neural Runtime
+- Real-ESRGAN AI Upscale
+- Detecteur d'origine IA
+- modeles AI Studio
+
+Regle produit:
+- si un composant apparait dans Telechargements, aucun autre menu ne doit
+  posseder un bouton Setup/Download/Install pour le meme composant.
+- les pages metier gardent seulement reglages/etat et "Manage in Downloads".
+
+Telechargements caches:
+- MediaService ne doit plus auto-setup lors de Process.
+- AiUpscaleService verifie localement et renvoie vers Telechargements si absent.
+- AiOriginDetectionService verifie localement et renvoie vers Telechargements si absent.
+- aucun setup reseau silencieux depuis les pages metier.
+
+VLC:
+- a integrer au meme Download Manager apres merge #75/rebase #77.
+
+6. PROGRESSION GLOBALE TELECHARGEMENTS
+
+UI:
+- petite barre en bas a gauche dans la zone basse historique de navigation.
+- cachee hors transfert.
+
+Affichage:
+- nom composant
+- pourcentage
+- vitesse Mo/s en FR / MB/s en EN
+- temps restant / ETA
+
+Infrastructure:
+- DownloadProgressHub / DownloadProgressHandle
+
+Branches raccordees:
+- manager release assets
+- mise a jour application
+- MediaService
+- Real-ESRGAN
+- AI Origin Detector
+- futurs packages AI Studio
+- import local de gros modeles.
+
+7. CONFIRMATION > 1 GO
+
+Regle utilisateur:
+- tout telechargement manager-owned > 1 GiB doit demander Oui/Non AVANT transfert.
+- pour un modele chunked, utiliser la taille COMPLETE reconstruite et non la taille d'un chunk.
+- refus = zero transfert.
+
+Infrastructure:
+- LargeDownloadApprovalHub
+- seuil: > 1 GiB
+- tests ajoutes.
+
+8. LICENCES MANUELLES / GATED
+
+Modeles actuels:
+- FLUX.2 [dev]
+- Qwen-Image-2.1
+- LTX-2.5
+
+Flux:
+1. Installer dans Download Manager.
+2. Fenetre licence dediee.
+3. nom licence + resume restrictions.
+4. bouton URL licence officielle.
+5. checkbox acceptation.
+6. Refuse = rien n'est installe.
+7. Accept = consentement local enregistre.
+8. selection du dossier obtenu depuis source officielle.
+9. import atomique vers stockage AI Studio gere.
+10. progression/annulation.
+
+Important juridique/technique:
+- accepter la licence dans DLSS NR Manager ne donne PAS a DLSS NR Manager
+  de nouveaux droits de redistribution.
+- les poids restrictifs/gated ne sont donc pas automatiquement mirrors dans
+  les GitHub Releases utilisateur simplement a cause de l'acceptation finale.
+- acceptation liee a modele + nom licence + URL licence; changement d'identite
+  licence => nouvelle acceptation requise.
+
+9. FR/EN
+
+Decision:
+- nouveaux menus et messages doivent etre FR/EN comme le reste de l'app.
+
+Travail effectue:
+- AI Studio static strings: localises.
+- Download Manager static + dynamic status/details: localises.
+- barre progression, ETA, large download dialog: localises.
+- model details/runtime status: localises.
+- license dialog: resumes + boutons + legal notice: localises.
+- VSR-HDR static/dynamic strings: localises sur #75.
+
+Noms propres/licences:
+- ne pas traduire les noms juridiques officiels:
+  FLUX.2, Qwen, Wan, LTX, Apache-2.0, Qwen Research License, etc.
+
+Exception acceptee:
+- texte brut provenant d'une exception systeme/tiers peut rester en anglais;
+  seul le prefixe UI est traduit pour ne pas alterer le diagnostic original.
+
+10. PR / CI / ERREURS CONNUES
+
+PR #69:
+- FERMEE / obsolete.
+- unique changement de traduction preserve dans #75/#77.
+
+PR #75:
+- VSR-HDR Video.
+- mergeable contre main au dernier controle.
+- CS8602 nullable corrige.
+- checks a revalider sur dernier head avant merge.
+
+PR #77:
+- Local AI Studio + Download Manager.
+- mergeable contre main au dernier controle.
+- premiere erreur recente: HttpClient namespace manquant dans AiStudioPackageService.
+- correction appliquee: using System.Net.Http.
+- plusieurs runs annules ne sont pas des erreurs fonctionnelles: concurrency
+  cancel-in-progress annule les anciens heads lors de commits successifs.
+- dernier Build doit etre vert avant merge.
+
+Ordre de merge recommande:
+1. #75 d'abord.
+2. verifier Build main.
+3. rebaser/reconcilier #77 sur nouveau main car MainWindow.xaml,
+   MainWindow.xaml.cs et localisation sont modifies dans les deux PR.
+4. integrer VLC dans Download Manager et retirer bouton setup VLC doublon.
+5. Build #77 rebased.
+6. fusionner seulement si vert.
+
+11. AUDIT GLOBAL DEPOT / POLITIQUES - EN COURS
+
+Demande utilisateur:
+- verifier les fichiers/politiques manquants pour TOUT le projet, pas seulement AI Studio.
+
+Perimetre:
+- application WPF
+- Build/Release/offline
+- NVIDIA/DLSS/Streamline
+- Media Neural
+- OptiScaler/ReShade
+- Real-ESRGAN
+- AI origin detection
+- AI Studio
+- VSR-HDR/VLC
+- Minecraft/Caustica/SPBR
+- PC Update/Cleanup
+- futurs modules.
+
+Deja present:
+- LICENSE
+- README.md
+- third_party/README.md
+- third_party/DEPENDENCIES.lock.json
+- third_party/UPSTREAMS.json
+- docs/UPSTREAM-SYNC.md
+- docs/PROJECT-CONTINUITY.md
+- docs/LOCAL_AI_STUDIO.md
+- source provenance/locks
+- production zero-upstream audit
+- manager-owned runtime seed
+- offline NuGet
+- SHA-256 checks sur les assets critiques
+- workflows Build/Release/Runtime Refresh/Upstream Monitor.
+
+Politiques/fichiers identifies comme potentiellement manquants et a auditer/ajouter:
+- SECURITY.md
+- CONTRIBUTING.md
+- THIRD_PARTY_NOTICES.md ou equivalent global
+- politique donnees/telemetry/privacy explicite
+- politique release artifacts / redistribution globale
+- SBOM release (CycloneDX ou SPDX)
+- provenance/attestation des releases
+- dependabot config / politique d'updates automatisees compatible avec architecture
+- CodeQL ou equivalent static analysis si compatible avec zero-upstream policy
+- inventaire machine-readable global des composants runtime, au-dela d'AI Studio
+- politique suppression/cache/donnees locales
+- politique signature/authenticite binaires tiers
+- politique secret scanning / credentials
+- eventuelle issue/PR template de securite.
+
+Important:
+- ne pas ajouter un workflow tiers externe simplement pour "faire standard":
+  garder l'objectif zero-upstream/reproductible.
+- preferer outils preinstalles/GitHub natifs/scripts vendored ou manager-owned.
+- tout nouvel audit doit respecter la politique de licences existante.
+
+12. POINT DE REPRISE "XZ-UTILS"
+
+Le message precedent utilisateur indique:
+- "Ajoute xz-utils a l'installation et au toolchain APT puis continue."
+
+Aucun commit contenant litteralement "xz-utils" n'a ete retrouve par recherche GitHub
+sur les branches actuelles au moment de ce checkpoint.
+NE PAS pretendre que ce changement est deja publie dans le depot sans preuve.
+Prochaine action:
+- retrouver le workflow/script Linux/apt concerne ou la branche de travail correspondante;
+- verifier si xz-utils doit etre ajoute au bootstrap/toolchain AI Studio/offline;
+- appliquer le correctif uniquement au bon chemin puis valider CI.
+
+13. PROCHAINE ACTION EXACTE
+
+1. Continuer audit global des politiques/fichiers manquants.
+2. Ajouter les policies transversales non redondantes sur une branche de hardening
+   separee si possible, pour ne pas surcharger #75/#77.
+3. Verifier/retrouver le point xz-utils et l'appliquer au bon toolchain APT.
+4. Ajouter SBOM/provenance release de maniere reproductible et sans action tierce
+   non vendoree si faisable.
+5. Auditer secrets/permissions GitHub Actions.
+6. Verifier les derniers Builds #75/#77.
+7. Fusionner #75 seulement si vert.
+8. Rebase/reconcile #77, centraliser VLC dans Downloads, enlever setup doublon.
+9. Fusionner #77 seulement apres CI verte.
+10. Mettre a jour ce fichier avec les resultats reels.
+
+FIN CHECKPOINT 0G
+
+
+================================================================================
+CHECKPOINT 0H - AUDIT GLOBAL DEPOT / GOVERNANCE / SBOM / RELEASE IMMUTABLE
+                 / CODEQL / XZ / POLITIQUES TRANSVERSALES (2026-10-08)
+================================================================================
+
+CE CHECKPOINT COMPLETE 0G ET DEVIENT LA SOURCE DE REPRISE POUR L'AUDIT GLOBAL
+DU DEPOT. NE PAS CONSIDERER PR #81 COMME FUSIONNEE OU VALIDEE TANT QUE LES
+CHECKS DU HEAD FINAL NE SONT PAS SUCCESS.
+
+1. ETAT DES PR FONCTIONNELLES AVANT HARDENING GLOBAL
+
+PR #75:
+- titre: feat: add VSR-HDR Video realtime, permanent and offline VLC
+- head verifie: 67fe547c5f5ca7c0c5c43540d3bb499fb8f6e237
+- mergeable_state: clean au dernier controle
+- Build #822: SUCCESS
+- erreur nullable CS8602 anterieure: corrigee
+- reste a reconcilier apres merge avec le Download Manager central:
+  VLC doit devenir une entree du menu Telechargements et le bouton setup VLC
+  local de la page VSR-HDR doit disparaitre/remplacer par Manage in Downloads.
+
+PR #77:
+- titre: feat: add Local AI Studio with multi-model manager
+- head verifie: 4a2e7e79151aae645fcffda300ace4e849f37a49
+- mergeable_state: clean au dernier controle
+- Build #833: SUCCESS
+- erreur HttpClient anterieure: corrigee
+- contient le checkpoint 0G.
+- apres integration de #75/main, doit etre rebase/reconcilie pour absorber VLC
+  dans Telechargements sans chemin de download duplique.
+
+2. PR #81 - HARDENING GLOBAL DU DEPOT
+
+Branche:
+- hardening/repository-governance
+
+PR:
+- #81
+- titre: hardening: repository governance, SBOM and immutable releases
+
+Base initiale de branche:
+- main 51a24343c5eee76fb648d2badd248b45d5754c7c
+
+Etat:
+- OPEN
+- mergeable au dernier controle
+- NE PAS FUSIONNER avant Build + CodeQL du head final SUCCESS.
+
+3. XZ-UTILS / TOOLCHAIN LINUX
+
+Demande utilisateur reprise apres coupure:
+- ajouter xz-utils a l'installation et au toolchain APT.
+
+Implementation:
+- .github/workflows/media-vendor.yml: xz-utils ajoute
+- .github/workflows/runtime-refresh.yml: xz-utils ajoute
+- .github/workflows/upstream-monitor.yml: xz-utils ajoute
+- tools/build-ffmpeg-windows.sh exige maintenant la commande xz.
+
+Conclusion:
+- xz-utils n'est plus seulement installe passivement; le build FFmpeg valide
+  explicitement que xz est disponible.
+
+4. POLITIQUES / FICHIERS TRANSVERSAUX AJOUTES
+
+Racine:
+- SECURITY.md
+- CONTRIBUTING.md
+
+GitHub:
+- .github/CODEOWNERS
+- .github/pull_request_template.md
+- .github/workflows/codeql.yml
+
+Documentation:
+- docs/THIRD_PARTY_NOTICES.md
+- docs/DATA_PRIVACY.md
+- docs/RELEASE_ARTIFACT_POLICY.md
+- docs/AI_RUNTIME_SECURITY.md
+- docs/CODE_SIGNING_POLICY.md
+- docs/PC_MAINTENANCE_SAFETY.md
+- docs/BACKUP_ROLLBACK_POLICY.md
+- docs/FEATURE_POLICY_MATRIX.md
+- docs/GITHUB_REPOSITORY_SETTINGS.md
+
+Manifests machine-readable:
+- manifests/component-policy.json
+- manifests/feature-policy.json
+
+Outils:
+- tools/verify-repository-governance.ps1
+- tools/generate-sbom.ps1
+- tools/generate-release-provenance.ps1
+- tools/create-application-package.ps1
+- tools/dispatch-release-if-needed.sh
+
+Doublon retire:
+- tools/create-deterministic-zip.ps1
+- raison: doublonnait le packager applicatif sans etre reference.
+- politique: une seule voie canonique pour le package stable.
+
+5. GOUVERNANCE CI
+
+tools/verify-repository-governance.ps1 verifie notamment:
+- presence des policies obligatoires;
+- JSON valide pour locks/manifests;
+- schema component-policy;
+- IDs composants uniques;
+- schema feature-policy;
+- IDs features uniques;
+- champs securite obligatoires pour chaque feature;
+- bloc permissions explicite dans chaque workflow;
+- toute action GitHub externe pinnee sur un SHA complet de 40 caracteres.
+
+Audit manuel des workflows effectue:
+- build.yml: permissions explicites
+- continuity-checkpoint.yml: permissions explicites
+- media-vendor.yml: permissions explicites
+- minecraft-vendor.yml: permissions explicites
+- native-vendor.yml: permissions explicites
+- nuget-seed.yml: permissions explicites
+- release.yml: permissions explicites
+- runtime-refresh.yml: permissions explicites
+- upstream-monitor.yml: permissions explicites
+- toutes les actions externes observees etaient pinnees a un SHA complet.
+
+6. CODEQL
+
+Ajout:
+- .github/workflows/codeql.yml
+- analyse C#
+- action officielle github/codeql-action v4 pinnee au commit:
+  2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+- queries: security-extended
+- permissions minimales:
+  contents: read
+  actions: read
+  security-events: write
+- restore/build a partir du feed NuGet manager-owned/offline du projet.
+
+Issue de suivi:
+- #82 [security] require CodeQL on main after governance hardening
+
+Regle:
+- ne rendre CodeQL obligatoire dans Protect main qu'apres validation reelle sur main.
+- ne pas remplacer le check Build par CodeQL; les deux doivent rester distincts.
+
+7. RULESET GITHUB "PROTECT MAIN"
+
+Ruleset reel verifie via API:
+- nom: Protect main
+- enforcement: active
+- cible: default branch
+- suppression branche interdite
+- non-fast-forward interdit
+- PR obligatoire
+- review threads doivent etre resolus
+- merge autorise: squash / rebase
+- status check obligatoire: build
+- strict/up-to-date status checks: true
+- historique lineaire obligatoire
+- aucun bypass actor
+- current_user_can_bypass: never
+
+CODEOWNERS:
+- ajoute pour les chemins sensibles.
+- pas impose comme approbation obligatoire dans le ruleset actuel.
+- decision documentee: ne pas exiger code-owner approval tant que le depot
+  reste single-maintainer sans autre reviewer de confiance.
+
+Limite d'audit:
+- l'integration GitHub disponible n'a pas permis de lire les endpoints dedies
+  aux alertes Secret Scanning / Dependabot / Code Scanning.
+- NE PAS ecrire "zero alertes" sans verification directe de l'onglet Security.
+
+8. DEPENDABOT
+
+Decision:
+- ne pas ajouter Dependabot mecaniquement pour modifier les versions du projet.
+
+Raison:
+- le projet dispose deja de third_party/UPSTREAMS.json,
+  DEPENDENCIES.lock.json, refresh-upstream.ps1, validation Windows/Linux,
+  runtime seed et promotion manager-owned.
+- une PR Dependabot qui changerait seulement un csproj/lock pourrait contourner
+  la provenance et le circuit de promotion attendu.
+
+CodeQL a ete ajoute car il est orthogonal a ce pipeline de versions.
+
+9. POLITIQUE IA / COMFYUI
+
+docs/AI_RUNTIME_SECURITY.md definit:
+- Python/PyTorch/CUDA application-private
+- aucun pip global
+- aucun changement Python/CUDA systeme
+- pas de custom nodes communautaires auto-installes
+- custom nodes = code Python arbitraire, donc pin/review/consentement requis
+- API ComfyUI loopback par defaut
+- preference SafeTensors / ONNX
+- pickle/pt/pth/ckpt arbitraires traites comme input executable/non fiable
+- aucun upload implicite de prompts/media
+- process externes avec executable explicite, working dir controle,
+  environnement controle et nettoyage process-tree
+- tokens fournisseurs jamais dans logs/manifests/source.
+
+10. PC UPDATE / CLEANUP
+
+Audit du code:
+- PC Update scan: lecture WinGet/Chocolatey/Windows Update/driver metadata
+- WinGet Update All: confirmation explicite avant winget upgrade --all
+- liens d'action caches limites a HTTPS ou Windows Settings URI
+- PC Cleanup: categories temp/cache/shader explicites
+- analyse taille/fichiers avant suppression
+- confirmation explicite
+- fichiers lockes sautes
+- paths limites aux roots prevues.
+
+Policy:
+- docs/PC_MAINTENANCE_SAFETY.md
+
+Important:
+- suppression cache = destructive sans rollback fichier.
+- ne jamais etendre le cleanup par defaut a Documents/Downloads/saves/projets.
+
+11. BACKUP / ROLLBACK
+
+docs/BACKUP_ROLLBACK_POLICY.md formalise:
+- manifest de fichiers geres
+- backup avant collision
+- transaction journal
+- hashes geres
+- rollback install/update
+- recovery transaction interrompue
+- update application stage + backup + restore
+- Minecraft ne doit pas supprimer worlds/saves/screenshots/mods non geres
+- AI/model removal ne doit pas supprimer outputs utilisateur
+- restauration video permanente ecrit un nouveau fichier par defaut
+- PC Cleanup est l'exception destructive documentee.
+
+12. FEATURE POLICY MATRIX
+
+manifests/feature-policy.json + docs/FEATURE_POLICY_MATRIX.md couvrent:
+- Games & DLSS
+- Minecraft RTX
+- Media Neural
+- VSR-HDR Video (#75)
+- AI Detection
+- Local AI Studio (#77)
+- Downloads (#77)
+- PC Update Center
+- PC Cleanup
+- Diagnostics
+- Advanced OptiScaler
+- OptiScaler log
+- Application
+
+Chaque entree machine-readable documente:
+- network
+- mutations
+- integrity
+- rollback
+- canonical_download_surface
+- status
+- noms UI FR/EN.
+
+13. THIRD-PARTY / LICENCES
+
+docs/THIRD_PARTY_NOTICES.md formalise:
+- source exacte
+- revision immuable
+- licence
+- droits source/binaire/weights
+- obligations attribution/source
+- integrite
+- update policy.
+
+FFmpeg:
+- build audite
+- --enable-gpl NON active
+- --enable-nonfree NON active
+- package conserve LICENSE.md + COPYING.LGPLv2.1
+- nv-codec-headers provenance conservee.
+
+NVIDIA:
+- public accessible != librement redistribuable.
+- NVIDIA DLSS SDK brut reste local-only.
+- signatures Authenticode NVIDIA restent distinctes des droits de redistribution.
+
+IA:
+- licence du code != necessairement licence des weights.
+- acceptation utilisateur d'une licence gated ne donne pas au projet de droits
+  supplementaires pour mirror les weights.
+
+14. DONNEES / PRIVACY
+
+docs/DATA_PRIVACY.md:
+- local-first
+- pas analytics/ads/behavior tracking ajoutes par defaut
+- pas upload implicite media/prompts/outputs
+- network explicite pour installation/update/licence officielle
+- tokens/secrets hors logs/source/config ordinaire
+- diagnostics partageables apres revue utilisateur
+- offline operation ne doit pas devenir silencieusement un upload fallback.
+
+15. SIGNATURE / AUTHENTICITE
+
+docs/CODE_SIGNING_POLICY.md:
+- trust actuel: project-owned Releases + SHA-256 + SHA256SUMS +
+  component manifest + provenance.
+- ne pas presenter l'EXE comme Authenticode-signe sans vraie signature.
+- binaires NVIDIA proteges: signature fournisseur + hash.
+- futur Authenticode manager: cle privee hors depot, signature avant hash final,
+  verification publisher, timestamp, rotation explicite.
+
+16. SBOM / PROVENANCE
+
+tools/generate-sbom.ps1:
+- SPDX 2.3
+- app
+- PackageReference NuGet
+- sources locks
+- Minecraft runtime lock
+- et, en Release, composants manager-owned reels issus de components-manifest.json
+  avec SHA-256.
+
+tools/generate-release-provenance.ps1:
+- repository
+- version
+- source commit
+- workflow
+- zero-upstream
+- manager-owned runtime seed
+- offline NuGet
+- stable release immutable
+- SHA-256 du component manifest.
+
+Metadata de release:
+- timestamps derives du timestamp du commit source, pas de l'heure aleatoire du run.
+
+17. PACKAGE APPLICATION REPRODUCTIBLE
+
+tools/create-application-package.ps1 est la voie canonique.
+
+Contenu ZIP:
+- DlssNrManager.exe
+- README.md
+- LICENSE
+- THIRD_PARTY_NOTICES.md
+- DATA_PRIVACY.md
+
+Reproductibilite:
+- ordre fixe
+- timestamps ZIP normalises a partir du commit source
+- verification des entrees
+- Build genere deux ZIP successifs et exige le meme SHA-256.
+
+18. RELEASE STABLE IMMUTABLE
+
+Nouvelle politique:
+- un tag stable appartient a un commit source exact
+- stable tag existant sur autre commit => Release refuse et demande bump version
+- asset stable existant meme SHA-256 => skip
+- asset stable existant bytes differents => FAIL
+- nouveau contenu => nouvelle version
+- gh release create cible le SHA exact du workflow, pas "main" mouvant.
+
+components-manifest.json:
+- support GeneratedAtUtc deterministe
+- Release doit passer le timestamp du commit.
+
+SBOM/provenance:
+- memes timestamps de commit
+- SBOM lie au component manifest reel.
+
+19. RUNTIME SEED VS RELEASE STABLE
+
+runtime-seed-v1:
+- reste prerelease/staging mutable
+- peut recevoir des runtimes rafraichis.
+
+Probleme historique corrige conceptuellement:
+- l'ancien Runtime Seed Refresh redemandait Release apres refresh, meme si
+  v3.2.0 existait deja.
+
+Nouvel outil:
+- tools/dispatch-release-if-needed.sh
+
+Comportement:
+- lit la version du csproj au source SHA exact
+- resout le tag exact
+- tag absent => dispatch Release
+- tag meme commit => rerun idempotent autorise
+- tag autre commit => seed conserve, stable Release SKIP jusqu'au bump version
+- support tag annote/leger
+- Build fait bash -n sur le helper.
+
+Consequence attendue apres merge #81:
+- main sera plus recent que le tag v3.2.0 existant
+  (v3.2.0 pointe vers e5927e1d718dfff19540964ba46ee4edaa933c6b).
+- Runtime Seed Refresh peut tourner.
+- il NE DOIT PAS reecrire v3.2.0.
+- il doit afficher un skip de dispatch stable tant que Version reste 3.2.0.
+
+20. README / VISIBILITE
+
+README lie maintenant:
+- Security
+- Contributing
+- third-party notices
+- privacy
+- release policy
+- AI runtime security
+- signing policy
+- PC maintenance safety
+- backup/rollback
+- feature policy
+- GitHub settings baseline
+- upstream sync
+- component policy.
+
+21. ETAT CI AU MOMENT DE CE CHECKPOINT
+
+Important:
+- plusieurs anciens runs #81 ont ete CANCELLED uniquement parce que des commits
+  successifs ont declenche cancel-in-progress.
+- ne pas interpreter ces cancellations comme des regressions.
+
+Avant les derniers commits de reproductibilite:
+- un Build #846 avait deja passe:
+  governance
+  SPDX SBOM
+  Minecraft native Vulkan/NGX
+  Caustica/SPBR
+  Streamline
+  zero-upstream
+  puis continuait vers NuGet offline.
+
+Les derniers commits ont ensuite ajoute:
+- deterministic application package
+- immutable source tag gate
+- runtime dispatch helper
+- removal duplicate zip helper
+- documentation release exacte
+- ce checkpoint.
+
+DONC:
+- un NOUVEAU Build + CodeQL sur le head contenant 0H est requis.
+- ne pas fusionner #81 sur la base d'un ancien run vert/cancelled.
+
+22. PROCHAINE ACTION EXACTE
+
+1. FigER le head #81 apres ce checkpoint.
+2. Attendre Build et CodeQL du head exact.
+3. Si echec:
+   - inspecter l'etape exacte;
+   - corriger uniquement la cause;
+   - relancer/attendre les checks du nouveau head.
+4. Si Build + CodeQL SUCCESS:
+   - fusionner #81 selon le ruleset Protect main.
+5. Apres merge:
+   - verifier Build main;
+   - verifier CodeQL main;
+   - verifier Runtime Seed Refresh declenche par les fichiers workflow/toolchain.
+6. Confirmer que Runtime Seed Refresh NE republie PAS v3.2.0 depuis le nouveau main;
+   il doit skip stable dispatch car v3.2.0 appartient au commit e5927e1d...
+7. Verifier que main reste sans regression zero-upstream.
+8. Une fois CodeQL main stable:
+   - traiter issue #82;
+   - ajouter CodeQL aux required status checks du ruleset Protect main
+     via UI/admin disponible.
+9. Ensuite seulement reprendre l'ordre features:
+   - #75 VSR-HDR
+   - Build main
+   - rebase/reconcile #77
+   - centraliser VLC dans Downloads et supprimer setup doublon
+   - Build #77
+   - fusion #77 si vert.
+10. Re-mettre a jour AI_PROJECT_PROGRESS.txt apres les resultats reels.
+
+FIN CHECKPOINT 0H

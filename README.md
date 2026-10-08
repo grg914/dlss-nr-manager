@@ -467,3 +467,25 @@ dotnet publish DlssNrManager.csproj -c Release -r win-x64 --self-contained true 
 ```
 
 GitHub Actions publishes `DlssNrManager.exe` as a build artifact. Tags matching `v*` can create a GitHub Release with the executable and ZIP. The release workflow requires the Git tag to match the project version exactly; for example, project version `1.4.2` must use tag `v1.4.2`.
+
+
+## Security, supply chain and contribution
+
+Repository policy and audit references:
+
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+- [Third-party notices and redistribution](docs/THIRD_PARTY_NOTICES.md)
+- [Data and privacy policy](docs/DATA_PRIVACY.md)
+- [Release artifact policy](docs/RELEASE_ARTIFACT_POLICY.md)
+- [AI runtime security](docs/AI_RUNTIME_SECURITY.md)
+- [Binary signing and authenticity](docs/CODE_SIGNING_POLICY.md)
+- [PC maintenance safety](docs/PC_MAINTENANCE_SAFETY.md)
+- [Backup and rollback policy](docs/BACKUP_ROLLBACK_POLICY.md)
+- [GitHub repository settings baseline](docs/GITHUB_REPOSITORY_SETTINGS.md)
+- [Feature security/policy matrix](docs/FEATURE_POLICY_MATRIX.md)
+- [Machine-readable feature policy](manifests/feature-policy.json)
+- [Upstream/dependency sync](docs/UPSTREAM-SYNC.md)
+- [Machine-readable component policy](manifests/component-policy.json)
+
+Production Build/Release follows the manager-owned / zero-upstream architecture documented in these files. Large redistributable runtimes belong in project-owned Releases rather than normal Git history; restricted SDK/model material remains local or user-supplied according to its license.

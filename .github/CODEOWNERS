@@ -1,0 +1,19 @@
+# Default repository owner
+* @grg914
+
+# Supply chain / automation
+/.github/workflows/ @grg914
+/tools/ @grg914
+/third_party/ @grg914
+/manifests/ @grg914
+
+# Runtime/update/download/install boundaries
+/Services/*Runtime* @grg914
+/Services/*Update* @grg914
+/Services/*Download* @grg914
+/Services/*Installer* @grg914
+
+# Release/security policies
+/SECURITY.md @grg914
+/docs/RELEASE_ARTIFACT_POLICY.md @grg914
+/docs/THIRD_PARTY_NOTICES.md @grg914

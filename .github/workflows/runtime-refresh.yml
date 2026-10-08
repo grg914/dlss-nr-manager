@@ -224,7 +224,7 @@ jobs:
       - name: Install refresh-only FFmpeg toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mingw-w64 nasm pkg-config make zip binutils-mingw-w64-x86-64
+          sudo apt-get install -y --no-install-recommends mingw-w64 nasm pkg-config make zip xz-utils binutils-mingw-w64-x86-64
 
       - name: Build manager-owned FFmpeg
         run: bash ./tools/build-ffmpeg-windows.sh
@@ -300,6 +300,6 @@ jobs:
       - name: Dispatch production release after seed promotion
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          gh workflow run release.yml --repo "${{ github.repository }}" --ref main
-          if [ $? -ne 0 ]; then exit 1; fi
+          bash ./tools/dispatch-release-if-needed.sh "${{ github.repository }}" "${{ github.sha }}"
