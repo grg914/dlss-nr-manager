@@ -23,6 +23,10 @@ class RuntimeSeedWriterPolicyTests(unittest.TestCase):
         self.assertIn('uploaded.size', self.nuget)
         self.assertIn('Existing NuGet asset has no GitHub digest', self.nuget)
 
+    def test_openmp_publication_requires_license_attestation(self):
+        self.assertIn("env.DLSSNR_OPENMP_REDIST_APPROVED == '1'", self.refresh)
+        self.assertIn("Skipping Real-ESRGAN publication", self.refresh)
+
     def test_provenance_gate_before_legacy_clobber(self):
         old = self.nuget.index('gh release upload $env:RUNTIME_SEED_TAG $path')
         self.assertLess(self.nuget.index('Get-FileHash -LiteralPath $path'), old)
