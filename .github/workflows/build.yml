@@ -72,7 +72,10 @@ jobs:
             "tools/verify-streamline-runtime-asset.ps1",
             "tools/download-runtime-seed.ps1",
             "tools/prepare-offline-dotnet.ps1",
-            "tools/build-nuget-offline-seed.ps1"
+            "tools/build-nuget-offline-seed.ps1",
+            "tools/verify-repository-governance.ps1",
+            "tools/generate-sbom.ps1",
+            "tools/generate-release-provenance.ps1"
           )
 
           foreach ($path in $paths) {
@@ -111,6 +114,19 @@ jobs:
               throw "Upstream policy '$($policy.id)' has no dependency lock entry."
             }
           }
+
+      - name: Validate repository governance
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-repository-governance.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Repository governance audit failed." }
+
+      - name: Generate and validate SPDX SBOM
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-sbom.ps1 -OutputPath build-local/SBOM.spdx.json
+          if ($LASTEXITCODE -ne 0) { throw "SBOM generation failed." }
+          Get-Content build-local/SBOM.spdx.json -Raw | ConvertFrom-Json | Out-Null
 
       - name: Enforce Minecraft native Vulkan/NGX policy
         shell: pwsh
