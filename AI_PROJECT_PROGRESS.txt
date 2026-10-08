@@ -2571,3 +2571,22 @@ ACTION 2026-10-08 A020
   README/LICENSE/THIRD_PARTY_NOTICES/DATA_PRIVACY included,
   SHA-256 emitted after verification.
 - No additional code change made; exact CI execution remains authoritative.
+
+
+ACTION 2026-10-08 A021
+- Exact-head CI progressed on PR #81.
+- Build #864:
+  checkout SUCCESS
+  .NET 8 SUCCESS
+  release dispatch helper syntax SUCCESS
+  self-contained tooling SUCCESS
+  repository governance SUCCESS
+  SPDX SBOM SUCCESS
+  Minecraft Vulkan/NGX SUCCESS
+  Caustica/Scandi audit SUCCESS
+  Streamline audit SUCCESS
+  zero-upstream production audit currently in progress
+- CodeQL #30:
+  checkout SUCCESS
+  CodeQL initialization currently in progress
+- No failure detected; no branch modification made.
