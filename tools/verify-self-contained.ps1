@@ -30,6 +30,7 @@ function Get-RelativePathCompat {
 }
 
 $missing = @()
+$optionalMissing = @()
 $metadataIssues = @()
 $mutableRefs = @()
 $nestedGit = @()
@@ -60,6 +61,8 @@ foreach ($source in @($Lock.sources)) {
     $relative = [string]$source.path
     $url = [string]$source.url
     $ref = [string]$source.ref
+    $group = if ($source.group) { [string]$source.group } else { "core" }
+    $optionalMirror = $group -eq "ai-studio"
 
     if ($ref -notmatch "^[0-9a-fA-F]{40}$") {
         $mutableRefs += "$id -> $ref"
@@ -67,7 +70,12 @@ foreach ($source in @($Lock.sources)) {
 
     $path = Join-Path $Root $relative
     if (!(Test-Path -LiteralPath $path)) {
-        $missing += $relative
+        if ($optionalMirror) {
+            $optionalMissing += $relative
+        }
+        else {
+            $missing += $relative
+        }
         continue
     }
 
@@ -274,6 +282,15 @@ if ($missing.Count -eq 0) {
 else {
     Write-Host "Missing locked public source mirrors:"
     $missing | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" }
+}
+
+Write-Host ""
+if ($optionalMissing.Count -eq 0) {
+    Write-Host "Optional source mirrors not staged: NONE"
+}
+else {
+    Write-Host "Optional source mirrors not staged (allowed):"
+    $optionalMissing | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" }
 }
 
 Write-Host ""

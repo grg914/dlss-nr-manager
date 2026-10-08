@@ -90,6 +90,7 @@
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
 
           <StackPanel Margin="8,0,8,14">
@@ -149,6 +150,8 @@
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="⛏" Width="26"/><TextBlock Text="Minecraft RTX"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="✨" Width="26"/><TextBlock Text="Media Neural"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="◉" Width="26"/><TextBlock Text="Détection IA"/></StackPanel></ListBoxItem>
+            <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="✦" Width="26"/><TextBlock Text="AI Studio local"/></StackPanel></ListBoxItem>
+            <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="⇩" Width="26"/><TextBlock Text="Téléchargements"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="↻" Width="26"/><TextBlock Text="PC Update Center"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="🧹" Width="26"/><TextBlock Text="PC Cleanup"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="✓" Width="26"/><TextBlock Text="Diagnostics"/></StackPanel></ListBoxItem>
@@ -156,6 +159,36 @@
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="▤" Width="26"/><TextBlock Text="OptiScaler log"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="☰" Width="26"/><TextBlock Text="Application"/></StackPanel></ListBoxItem>
           </ListBox>
+
+          <Border x:Name="DownloadProgressPanel"
+                  Grid.Row="2"
+                  Visibility="Collapsed"
+                  Background="#0B121A"
+                  BorderBrush="#1E2C3A"
+                  BorderThickness="1"
+                  CornerRadius="8"
+                  Padding="10,8"
+                  Margin="0,10,0,0">
+            <StackPanel>
+              <TextBlock x:Name="DownloadProgressTitleText"
+                         Text="Téléchargement"
+                         Foreground="#EAF4FF"
+                         FontSize="10"
+                         FontWeight="SemiBold"
+                         TextTrimming="CharacterEllipsis"/>
+              <ProgressBar x:Name="GlobalDownloadProgressBar"
+                           Minimum="0"
+                           Maximum="100"
+                           Value="0"
+                           Height="4"
+                           Margin="0,6,0,5"/>
+              <TextBlock x:Name="DownloadProgressDetailsText"
+                         Text="0 % • 0,0 Mo/s • calcul…"
+                         Foreground="{StaticResource Muted}"
+                         FontSize="9"
+                         TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+          </Border>
 
         </Grid>
       </Border>
@@ -1040,11 +1073,10 @@
                                 Margin="0,0,0,8"/>
                     </Grid>
 
-                    <Button x:Name="AiUpscaleSetupButton"
-                            Style="{StaticResource CyanButton}"
-                            Content="Set up AI Upscale engine"
+                    <Button Style="{StaticResource CyanButton}"
+                            Content="Gérer dans Téléchargements"
                             Margin="0,12,0,0"
-                            Click="SetupAiUpscale_Click"/>
+                            Click="OpenDownloadsCenter_Click"/>
 
                     <TextBlock x:Name="AiUpscaleStatusText"
                                Text="AI Upscale engine not installed yet."
@@ -1064,10 +1096,9 @@
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Button Grid.Column="0"
-                          x:Name="MediaSetupButton"
                           Style="{StaticResource CyanButton}"
-                          Content="Set up media engine"
-                          Click="SetupMedia_Click"/>
+                          Content="Gérer dans Téléchargements"
+                          Click="OpenDownloadsCenter_Click"/>
                   <Button Grid.Column="2"
                           x:Name="MediaProcessButton"
                           Style="{StaticResource PrimaryButton}"
@@ -1160,9 +1191,8 @@
                             <ColumnDefinition Width="*"/>
                           </Grid.ColumnDefinitions>
                           <Button Grid.Column="0"
-                                  x:Name="AiOriginSetupButton"
-                                  Content="Verify / repair detector"
-                                  Click="SetupAiOrigin_Click"/>
+                                  Content="Gérer dans Téléchargements"
+                                  Click="OpenDownloadsCenter_Click"/>
                           <Button Grid.Column="2"
                                   x:Name="AiOriginAnalyzeButton"
                                   Style="{StaticResource PrimaryButton}"
@@ -1202,6 +1232,398 @@
                                Margin="0,6,0,0"/>
                   </StackPanel>
                 </Border></Grid></ScrollViewer></TabItem>
+        <TabItem>
+          <Grid Margin="18">
+            <TabControl>
+              <TabItem Header="Créer">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <Grid Margin="18">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="1.2*"/>
+                      <ColumnDefinition Width="18"/>
+                      <ColumnDefinition Width="0.8*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource CardBorder}">
+                      <StackPanel>
+                        <TextBlock Text="AI Studio local" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock Text="Génération locale image et vidéo avec choix du modèle, backend isolé et sortie hors ligne."
+                                   Style="{StaticResource SectionSubtitle}"
+                                   Margin="0,4,0,14"/>
+
+                        <Grid Margin="0,0,0,10">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                          </Grid.ColumnDefinitions>
+
+                          <StackPanel Grid.Column="0">
+                            <TextBlock Text="Tâche"
+                                       Foreground="{StaticResource Muted}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"/>
+                            <ComboBox x:Name="AiStudioTaskBox"
+                                      DisplayMemberPath="Label"
+                                      Margin="0,5,0,0"
+                                      SelectionChanged="AiStudioTaskBox_SelectionChanged"/>
+                          </StackPanel>
+
+                          <StackPanel Grid.Column="2">
+                            <TextBlock Text="Backend"
+                                       Foreground="{StaticResource Muted}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"/>
+                            <ComboBox x:Name="AiStudioBackendBox"
+                                      Margin="0,5,0,0"
+                                      SelectedIndex="0">
+                              <ComboBoxItem Content="Auto — meilleur backend disponible"/>
+                              <ComboBoxItem Content="ComfyUI — workflows / nodes"/>
+                              <ComboBoxItem Content="Diffusers — pipeline direct"/>
+                            </ComboBox>
+                          </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Modèle"
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"/>
+                        <ComboBox x:Name="AiStudioModelBox"
+                                  DisplayMemberPath="DisplayName"
+                                  Margin="0,5,0,5"
+                                  SelectionChanged="AiStudioModelBox_SelectionChanged"/>
+                        <TextBlock x:Name="AiStudioModelDetailsText"
+                                   Text="Choisissez une tâche pour voir les meilleurs modèles compatibles."
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="10"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Prompt"
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"/>
+                        <TextBox x:Name="AiStudioPromptBox"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 MinHeight="110"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Margin="0,5,0,10"/>
+
+                        <Grid Margin="0,0,0,10">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+                          <TextBox x:Name="AiStudioInputBox"
+                                   IsReadOnly="True"
+                                   MinHeight="36"
+                                   ToolTip="Image or video source for image-to-image, image-to-video or video-to-video."/>
+                          <Button Grid.Column="2"
+                                  Content="Source"
+                                  Click="SelectAiStudioInput_Click"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,10">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+                          <TextBox x:Name="AiStudioMaskBox"
+                                   IsReadOnly="True"
+                                   MinHeight="36"
+                                   ToolTip="Optional mask for inpainting/outpainting."/>
+                          <Button Grid.Column="2"
+                                  Content="Masque"
+                                  Click="SelectAiStudioMask_Click"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+                          <TextBox x:Name="AiStudioOutputBox"
+                                   IsReadOnly="True"
+                                   MinHeight="36"/>
+                          <Button Grid.Column="2"
+                                  Content="Dossier de sortie"
+                                  Click="SelectAiStudioOutput_Click"/>
+                        </Grid>
+
+                        <Button x:Name="AiStudioQueueButton"
+                                Style="{StaticResource PrimaryButton}"
+                                Content="Ajouter à la file de génération"
+                                Click="QueueAiStudioJob_Click"/>
+
+                        <TextBlock x:Name="AiStudioStatusText"
+                                   Text="AI Studio local prêt à configurer."
+                                   Foreground="{StaticResource Muted}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Margin="0,10,0,0"/>
+                      </StackPanel>
+                    </Border>
+
+                    <StackPanel Grid.Column="2">
+                      <Border Style="{StaticResource CardBorder}">
+                        <StackPanel>
+                          <TextBlock Text="Sélection qualité" Style="{StaticResource SectionTitle}"/>
+                          <TextBlock Text="Le modèle par défaut privilégie qualité + fiabilité. Les modèles Maximum Quality restent disponibles si la VRAM et le stockage le permettent."
+                                     Style="{StaticResource SectionSubtitle}"
+                                     Margin="0,4,0,12"/>
+                          <TextBlock Text="Image recommandé"
+                                     FontWeight="SemiBold"/>
+                          <TextBlock Text="FLUX.2 [klein] 4B"
+                                     Foreground="{StaticResource Accent}"
+                                     Margin="0,3,0,10"/>
+                          <TextBlock Text="Vidéo recommandé"
+                                     FontWeight="SemiBold"/>
+                          <TextBlock Text="Wan2.2 TI2V 5B"
+                                     Foreground="{StaticResource Accent}"
+                                     Margin="0,3,0,10"/>
+                          <TextBlock Text="Qualité maximale"
+                                     FontWeight="SemiBold"/>
+                          <TextBlock Text="FLUX.2 [dev] • Qwen-Image-2.1 • Wan2.2 A14B • LTX-2.5"
+                                     Foreground="{StaticResource Muted}"
+                                     TextWrapping="Wrap"
+                                     Margin="0,3,0,0"/>
+                        </StackPanel>
+                      </Border>
+
+                      <Border Style="{StaticResource CardBorder}" Margin="0,14,0,0">
+                        <StackPanel>
+                          <TextBlock Text="Offline / isolation" Style="{StaticResource SectionTitle}"/>
+                          <TextBlock Text="Python, PyTorch, CUDA userspace, ComfyUI, Diffusers, modèles, workflows et jobs restent dans le runtime privé DLSS NR Manager. Aucun Python système n'est modifié."
+                                     Foreground="{StaticResource Muted}"
+                                     TextWrapping="Wrap"
+                                     FontSize="11"
+                                     Margin="0,4,0,10"/>
+                          <TextBlock x:Name="AiStudioRuntimeSummaryText"
+                                     Text="Runtime non préparé."
+                                     Foreground="{StaticResource Muted}"
+                                     FontSize="11"
+                                     TextWrapping="Wrap"/>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </Grid>
+                </ScrollViewer>
+              </TabItem>
+
+              <TabItem Header="Model Manager">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <Grid Margin="18">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="1.1*"/>
+                      <ColumnDefinition Width="18"/>
+                      <ColumnDefinition Width="0.9*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource CardBorder}">
+                      <StackPanel>
+                        <TextBlock Text="Model Manager" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock Text="Modèles disponibles selon qualité, tâche, licence et possibilité de redistribution offline."
+                                   Style="{StaticResource SectionSubtitle}"
+                                   Margin="0,4,0,12"/>
+                        <ListBox x:Name="AiStudioModelList"
+                                 MinHeight="440"
+                                 SelectionChanged="AiStudioModelList_SelectionChanged"/>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                      <StackPanel>
+                        <TextBlock Text="Détails du modèle" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock x:Name="AiStudioManagerModelText"
+                                   Text="Sélectionnez un modèle."
+                                   Foreground="{StaticResource Muted}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,12"/>
+                        <TextBlock x:Name="AiStudioManagerModelStatusText"
+                                   Text="État non vérifié."
+                                   Foreground="{StaticResource Accent}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,12"/>
+                        <Button Content="Actualiser les modèles"
+                                Click="RefreshAiStudioModels_Click"/>
+                        <Button Content="Ouvrir le dossier des modèles"
+                                Margin="0,8,0,0"
+                                Click="OpenAiStudioModelsFolder_Click"/>
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+                </ScrollViewer>
+              </TabItem>
+
+              <TabItem Header="Jobs">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <Border Style="{StaticResource CardBorder}" Margin="18">
+                    <StackPanel>
+                      <TextBlock Text="Job Manager" Style="{StaticResource SectionTitle}"/>
+                      <TextBlock Text="File locale persistante des générations image/vidéo."
+                                 Style="{StaticResource SectionSubtitle}"
+                                 Margin="0,4,0,12"/>
+                      <ListBox x:Name="AiStudioJobList" MinHeight="440"/>
+                      <Button Content="Actualiser la file"
+                              Margin="0,10,0,0"
+                              Click="RefreshAiStudioJobs_Click"/>
+                    </StackPanel>
+                  </Border>
+                </ScrollViewer>
+              </TabItem>
+
+              <TabItem Header="Runtime">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <Grid Margin="18">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="18"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource CardBorder}">
+                      <StackPanel>
+                        <TextBlock Text="Runtime isolé" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock Text="Workspace privé pour Python / PyTorch / CUDA userspace / ComfyUI / Diffusers."
+                                   Style="{StaticResource SectionSubtitle}"
+                                   Margin="0,4,0,12"/>
+                        <Button Style="{StaticResource CyanButton}"
+                                Content="Préparer le workspace isolé"
+                                Click="PrepareAiStudioWorkspace_Click"/>
+                        <Button Content="Ouvrir AI Studio"
+                                Margin="0,8,0,0"
+                                Click="OpenAiStudioRoot_Click"/>
+                        <TextBlock x:Name="AiStudioRuntimeStatusText"
+                                   Text="Aucun runtime AI Studio préparé."
+                                   Foreground="{StaticResource Muted}"
+                                   TextWrapping="Wrap"
+                                   FontSize="11"
+                                   Margin="0,10,0,0"/>
+                      </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                      <StackPanel>
+                        <TextBlock Text="Backends" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock Text="ComfyUI"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Text="Orchestrateur principal : workflows, nodes et API locale. Processus externe GPL-3.0."
+                                   Foreground="{StaticResource Muted}"
+                                   TextWrapping="Wrap"
+                                   FontSize="11"
+                                   Margin="0,3,0,10"/>
+                        <TextBlock Text="Diffusers"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Text="Backend direct/fallback Apache-2.0 pour pipelines Python reproductibles."
+                                   Foreground="{StaticResource Muted}"
+                                   TextWrapping="Wrap"
+                                   FontSize="11"/>
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+                </ScrollViewer>
+              </TabItem>
+            </TabControl>
+          </Grid>
+        </TabItem>
+        <TabItem>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid Margin="24">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.15*"/>
+                <ColumnDefinition Width="18"/>
+                <ColumnDefinition Width="0.85*"/>
+              </Grid.ColumnDefinitions>
+
+              <Border Grid.Column="0" Style="{StaticResource CardBorder}">
+                <StackPanel>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="Téléchargements" Style="{StaticResource SectionTitle}"/>
+                      <TextBlock Text="Gérez tous les composants locaux : installer, supprimer ou retélécharger quand vous voulez."
+                                 Style="{StaticResource SectionSubtitle}"
+                                 Margin="0,4,0,12"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Content="Actualiser"
+                            Click="RefreshDownloadCenter_Click"/>
+                  </Grid>
+
+                  <ListBox x:Name="DownloadCenterList"
+                           MinHeight="500"
+                           SelectionChanged="DownloadCenterList_SelectionChanged"/>
+                </StackPanel>
+              </Border>
+
+              <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                <StackPanel>
+                  <TextBlock Text="Composant sélectionné" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock x:Name="DownloadCenterDetailsText"
+                             Text="Sélectionnez un téléchargement."
+                             Foreground="{StaticResource Muted}"
+                             TextWrapping="Wrap"
+                             Margin="0,8,0,14"/>
+
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button x:Name="DownloadCenterInstallButton"
+                            Style="{StaticResource PrimaryButton}"
+                            Content="Installer"
+                            IsEnabled="False"
+                            Click="InstallDownloadCenter_Click"/>
+                    <Button x:Name="DownloadCenterRedownloadButton"
+                            Content="Retélécharger"
+                            IsEnabled="False"
+                            Margin="8,0,0,0"
+                            Click="RedownloadDownloadCenter_Click"/>
+                  </StackPanel>
+
+                  <Button x:Name="DownloadCenterRemoveButton"
+                          Content="Supprimer"
+                          IsEnabled="False"
+                          Click="RemoveDownloadCenter_Click"/>
+
+                  <Button x:Name="DownloadCenterCancelButton"
+                          Content="Annuler le téléchargement"
+                          Visibility="Collapsed"
+                          Margin="0,8,0,0"
+                          Click="CancelDownloadCenter_Click"/>
+
+                  <TextBlock x:Name="DownloadCenterStatusText"
+                             Text="Aucune opération en cours."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="0,12,0,0"/>
+
+                  <Border Background="#0B121A"
+                          BorderBrush="#1E2C3A"
+                          BorderThickness="1"
+                          CornerRadius="8"
+                          Padding="10"
+                          Margin="0,16,0,0">
+                    <StackPanel>
+                      <TextBlock Text="Règles"
+                                 FontWeight="SemiBold"
+                                 Margin="0,0,0,5"/>
+                      <TextBlock Text="• Plus de 1 Go : confirmation obligatoire avant téléchargement.&#x0a;• Gros modèles : taille totale illimitée côté app, transport en chunks GitHub.&#x0a;• SHA-256 vérifié avant installation.&#x0a;• Suppression locale possible à tout moment."
+                                 Foreground="{StaticResource Muted}"
+                                 FontSize="10"
+                                 TextWrapping="Wrap"/>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+              </Border>
+            </Grid>
+          </ScrollViewer>
+        </TabItem>
         <TabItem><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid Margin="24"><Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
             <StackPanel>
               <Grid>

@@ -204,7 +204,39 @@
                         "redistribution":  "MIT",
                         "source_tag":  "3.11.9"
                     }
-                ],
+,
+                    {
+                        "id":  "ai-studio-comfyui",
+                        "group":  "ai-studio",
+                        "path":  "third_party/ai-studio/ComfyUI",
+                        "url":  "https://github.com/Comfy-Org/ComfyUI.git",
+                        "ref":  "52f98af2e2e42c421070a3e147c161c47cdeaf22",
+                        "redistribution":  "GPL-3.0; keep as separate external process/source component"
+                    },
+                    {
+                        "id":  "ai-studio-diffusers",
+                        "group":  "ai-studio",
+                        "path":  "third_party/ai-studio/diffusers",
+                        "url":  "https://github.com/huggingface/diffusers.git",
+                        "ref":  "122b1e11fd497c3eeef14b3b98ca26a60166e48b",
+                        "redistribution":  "Apache-2.0"
+                    },
+                    {
+                        "id":  "ai-studio-flux2-reference",
+                        "group":  "ai-studio",
+                        "path":  "third_party/ai-studio/flux2",
+                        "url":  "https://github.com/black-forest-labs/flux2.git",
+                        "ref":  "50fe5162777813d869182b139e83b10743caef15",
+                        "redistribution":  "Apache-2.0; model weights handled separately"
+                    },
+                    {
+                        "id":  "ai-studio-wan2.2",
+                        "group":  "ai-studio",
+                        "path":  "third_party/ai-studio/Wan2.2",
+                        "url":  "https://github.com/Wan-Video/Wan2.2.git",
+                        "ref":  "1ea34ff48f87168174e12956e200b1d908b1c5ff",
+                        "redistribution":  "Apache-2.0; model weights handled separately"
+                    }                ],
     "local_only":  [
                        {
                            "id":  "nvidia-dlss-sdk",

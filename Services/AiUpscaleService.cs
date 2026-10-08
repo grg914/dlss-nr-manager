@@ -243,6 +243,47 @@ public sealed class AiUpscaleService
         TryDeleteDirectory(RootDirectory);
     }
 
+    public async Task VerifyInstalledAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsInstalled)
+        {
+            throw new InvalidOperationException(
+                "Real-ESRGAN AI Upscale is not installed. Install it from the Téléchargements menu.");
+        }
+
+        foreach (var asset in RequiredModels)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var path = Path.Combine(
+                ModelsDirectory,
+                asset.FileName);
+
+            if (!File.Exists(path) ||
+                new FileInfo(path).Length != asset.ExpectedSize)
+            {
+                throw new InvalidDataException(
+                    $"Installed Real-ESRGAN model is missing or has an unexpected size: {asset.FileName}. Use Retélécharger in the Téléchargements menu.");
+            }
+
+            var actualGitBlobSha1 =
+                await GitBlobSha1Async(
+                    path,
+                    cancellationToken);
+
+            if (!actualGitBlobSha1.Equals(
+                    asset.ExpectedGitBlobSha1,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    $"Installed Real-ESRGAN model failed integrity verification: {asset.FileName}. Use Retélécharger in the Téléchargements menu.");
+            }
+        }
+
+        _modelsVerified = true;
+    }
+
     public async Task<string> UpscaleAsync(
         string source,
         AiUpscaleOptions options,
@@ -261,7 +302,7 @@ public sealed class AiUpscaleService
         Directory.CreateDirectory(options.OutputDirectory);
 
         if (!IsReady)
-            await SetupAsync(progress, cancellationToken);
+            await VerifyInstalledAsync(cancellationToken);
 
         return IsImage(source)
             ? await UpscaleImageAsync(source, options, progress, cancellationToken)
@@ -307,14 +348,13 @@ public sealed class AiUpscaleService
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        if (!File.Exists(FfmpegExe) || !File.Exists(FfprobeExe))
+        if (!media.IsReady ||
+            !File.Exists(FfmpegExe) ||
+            !File.Exists(FfprobeExe))
         {
-            progress?.Report("Preparing FFmpeg for video AI upscaling…");
-            await media.SetupAsync(progress, cancellationToken);
+            throw new InvalidOperationException(
+                "Media Neural Runtime / FFmpeg is required for video AI upscaling. Install it from the Téléchargements menu.");
         }
-
-        if (!File.Exists(FfmpegExe) || !File.Exists(FfprobeExe))
-            throw new InvalidOperationException("FFmpeg is required for video AI upscaling.");
 
         var fps = await ProbeFpsAsync(source, cancellationToken);
 
@@ -610,21 +650,37 @@ public sealed class AiUpscaleService
                             "Real-ESRGAN archive exceeds the 1 GB safety limit.");
                     }
 
-                    await using (var input =
-                        await response.Content.ReadAsStreamAsync(token))
-                    await using (var output = new FileStream(
-                        temp,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.None,
-                        128 * 1024,
-                        useAsync: true))
+                    using var transfer =
+                        DownloadProgressHub.Begin(
+                            Path.GetFileName(destination),
+                            response.Content.Headers.ContentLength);
+
+                    try
                     {
-                        await CopyWithLimitAsync(
-                            input,
-                            output,
-                            MaxEngineArchiveBytes,
-                            token);
+                        await using (var input =
+                            await response.Content.ReadAsStreamAsync(token))
+                        await using (var output = new FileStream(
+                            temp,
+                            FileMode.Create,
+                            FileAccess.Write,
+                            FileShare.None,
+                            128 * 1024,
+                            useAsync: true))
+                        {
+                            await CopyWithLimitAsync(
+                                input,
+                                output,
+                                MaxEngineArchiveBytes,
+                                transfer,
+                                token);
+                        }
+
+                        transfer.Complete();
+                    }
+                    catch (Exception ex)
+                    {
+                        transfer.Fail(ex);
+                        throw;
                     }
 
                     if (new FileInfo(temp).Length < 1024)
@@ -663,6 +719,7 @@ public sealed class AiUpscaleService
         Stream input,
         Stream output,
         long maxBytes,
+        DownloadProgressHandle progress,
         CancellationToken cancellationToken)
     {
         var buffer = new byte[128 * 1024];
@@ -687,6 +744,8 @@ public sealed class AiUpscaleService
             await output.WriteAsync(
                 buffer.AsMemory(0, read),
                 cancellationToken);
+
+            progress.Report(total);
         }
     }
 
@@ -816,21 +875,37 @@ public sealed class AiUpscaleService
                             $"Real-ESRGAN model '{asset.FileName}' HTTP size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {contentLength:N0}.");
                     }
 
-                    await using (var input =
-                        await response.Content.ReadAsStreamAsync(token))
-                    await using (var output = new FileStream(
-                        temp,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.None,
-                        128 * 1024,
-                        useAsync: true))
+                    using var transfer =
+                        DownloadProgressHub.Begin(
+                            asset.FileName,
+                            asset.ExpectedSize);
+
+                    try
                     {
-                        await CopyWithLimitAsync(
-                            input,
-                            output,
-                            asset.ExpectedSize,
-                            token);
+                        await using (var input =
+                            await response.Content.ReadAsStreamAsync(token))
+                        await using (var output = new FileStream(
+                            temp,
+                            FileMode.Create,
+                            FileAccess.Write,
+                            FileShare.None,
+                            128 * 1024,
+                            useAsync: true))
+                        {
+                            await CopyWithLimitAsync(
+                                input,
+                                output,
+                                asset.ExpectedSize,
+                                transfer,
+                                token);
+                        }
+
+                        transfer.Complete();
+                    }
+                    catch (Exception ex)
+                    {
+                        transfer.Fail(ex);
+                        throw;
                     }
 
                     var actualSize = new FileInfo(temp).Length;

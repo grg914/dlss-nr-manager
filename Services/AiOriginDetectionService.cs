@@ -88,11 +88,53 @@ public sealed class AiOriginDetectionService : IDisposable
 
     public bool IsReady => _modelsVerified;
 
+    public void Reset()
+    {
+        _primarySession?.Dispose();
+        _primarySession = null;
+        _secondarySession?.Dispose();
+        _secondarySession = null;
+        _modelsVerified = false;
+        TryDeleteDirectory(RootDirectory);
+    }
+
     public AiOriginDetectionService(MediaService media)
     {
         _media = media;
         _http.DefaultRequestHeaders.UserAgent.ParseAdd(
             $"DlssNrManager/{AppIdentity.UserAgentVersion}");
+    }
+
+    public async Task VerifyInstalledAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsInstalled)
+        {
+            throw new InvalidOperationException(
+                "AI origin detector is not installed. Install it from the Téléchargements menu.");
+        }
+
+        var primary =
+            await Sha256Async(
+                PrimaryModelPath,
+                cancellationToken);
+        var secondary =
+            await Sha256Async(
+                SecondaryModelPath,
+                cancellationToken);
+
+        if (!primary.Equals(
+                PrimaryModelSha256,
+                StringComparison.OrdinalIgnoreCase) ||
+            !secondary.Equals(
+                SecondaryModelSha256,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                "Installed AI origin detector models failed integrity verification. Use Retélécharger in the Téléchargements menu.");
+        }
+
+        _modelsVerified = true;
     }
 
     public async Task SetupAsync(
@@ -202,21 +244,37 @@ public sealed class AiOriginDetectionService : IDisposable
                             "AI detector model exceeds the 256 MB safety limit.");
                     }
 
-                    await using (var input =
-                        await response.Content.ReadAsStreamAsync(token))
-                    await using (var output = new FileStream(
-                                     temp,
-                                     FileMode.Create,
-                                     FileAccess.Write,
-                                     FileShare.None,
-                                     128 * 1024,
-                                     useAsync: true))
+                    using var transfer =
+                        DownloadProgressHub.Begin(
+                            label,
+                            response.Content.Headers.ContentLength);
+
+                    try
                     {
-                        await CopyWithLimitAsync(
-                            input,
-                            output,
-                            MaxModelDownloadBytes,
-                            token);
+                        await using (var input =
+                            await response.Content.ReadAsStreamAsync(token))
+                        await using (var output = new FileStream(
+                                         temp,
+                                         FileMode.Create,
+                                         FileAccess.Write,
+                                         FileShare.None,
+                                         128 * 1024,
+                                         useAsync: true))
+                        {
+                            await CopyWithLimitAsync(
+                                input,
+                                output,
+                                MaxModelDownloadBytes,
+                                transfer,
+                                token);
+                        }
+
+                        transfer.Complete();
+                    }
+                    catch (Exception ex)
+                    {
+                        transfer.Fail(ex);
+                        throw;
                     }
 
                     var actual = await Sha256Async(temp, token);
@@ -244,6 +302,7 @@ public sealed class AiOriginDetectionService : IDisposable
         Stream input,
         Stream output,
         long maxBytes,
+        DownloadProgressHandle progress,
         CancellationToken cancellationToken)
     {
         var buffer = new byte[128 * 1024];
@@ -268,6 +327,8 @@ public sealed class AiOriginDetectionService : IDisposable
             await output.WriteAsync(
                 buffer.AsMemory(0, read),
                 cancellationToken);
+
+            progress.Report(total);
         }
     }
 
@@ -281,7 +342,7 @@ public sealed class AiOriginDetectionService : IDisposable
             throw new FileNotFoundException("Media file was not found.", source);
 
         if (!_modelsVerified)
-            await SetupAsync(progress, cancellationToken);
+            await VerifyInstalledAsync(cancellationToken);
 
         var extension = Path.GetExtension(source).ToLowerInvariant();
         if (extension is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".tif" or ".tiff" or ".webp")
@@ -315,7 +376,12 @@ public sealed class AiOriginDetectionService : IDisposable
         AiOriginAnalysisMode mode)
     {
         progress?.Report("Preparing multi-frame video analysis…");
-        await _media.SetupAsync(progress, cancellationToken);
+
+        if (!_media.IsReady)
+        {
+            throw new InvalidOperationException(
+                "Media Neural Runtime / FFmpeg is required for video AI-origin analysis. Install it from the Téléchargements menu.");
+        }
 
         var duration = await ProbeDurationAsync(source, cancellationToken);
         var provenance = await FindVideoProvenanceSignalsAsync(source, cancellationToken);

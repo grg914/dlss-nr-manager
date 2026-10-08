@@ -240,7 +240,10 @@ public sealed class MediaService
             throw new FileNotFoundException("Media file was not found.", source);
 
         if (!IsReady)
-            await SetupAsync(progress, cancellationToken);
+        {
+            throw new InvalidOperationException(
+                "Media Neural Runtime is not installed. Install or repair it from the Téléchargements menu.");
+        }
 
         Directory.CreateDirectory(options.OutputDirectory);
 
@@ -618,21 +621,37 @@ public sealed class MediaService
                             "Media component archive exceeds the 1 GB safety limit.");
                     }
 
-                    await using (var input =
-                        await response.Content.ReadAsStreamAsync(token))
-                    await using (var output = new FileStream(
-                        temp,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.None,
-                        128 * 1024,
-                        useAsync: true))
+                    using var transfer =
+                        DownloadProgressHub.Begin(
+                            Path.GetFileName(destination),
+                            response.Content.Headers.ContentLength);
+
+                    try
                     {
-                        await CopyWithLimitAsync(
-                            input,
-                            output,
-                            MaxComponentDownloadBytes,
-                            token);
+                        await using (var input =
+                            await response.Content.ReadAsStreamAsync(token))
+                        await using (var output = new FileStream(
+                            temp,
+                            FileMode.Create,
+                            FileAccess.Write,
+                            FileShare.None,
+                            128 * 1024,
+                            useAsync: true))
+                        {
+                            await CopyWithLimitAsync(
+                                input,
+                                output,
+                                MaxComponentDownloadBytes,
+                                transfer,
+                                token);
+                        }
+
+                        transfer.Complete();
+                    }
+                    catch (Exception ex)
+                    {
+                        transfer.Fail(ex);
+                        throw;
                     }
 
                     if (new FileInfo(temp).Length < 1024)
@@ -689,6 +708,7 @@ public sealed class MediaService
         Stream input,
         Stream output,
         long maxBytes,
+        DownloadProgressHandle progress,
         CancellationToken cancellationToken)
     {
         var buffer = new byte[128 * 1024];
@@ -713,6 +733,8 @@ public sealed class MediaService
             await output.WriteAsync(
                 buffer.AsMemory(0, read),
                 cancellationToken);
+
+            progress.Report(total);
         }
     }
 

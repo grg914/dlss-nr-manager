@@ -3982,31 +3982,27 @@ ACTION 2026-10-08 A082
 
 
 ACTION 2026-10-08 A083
-- Created cleanup/stale-pr-consolidation from main 778bd9ca3972355435284687a3b4be7eb462de5d to recover useful
-  closed/stale PR content without resurrecting obsolete workflow implementations.
+- Created cleanup/stale-pr-consolidation from main 778bd9ca3972355435284687a3b4be7eb462de5d.
+- Consolidation commit:
+  52390f8d1d75f50b49a6c04ff955aa95084626f8.
 - Recovered the real lost change from closed PR #69:
   FR/EN localization for the visible Minecraft non-renderer performance-pack label.
-- Selectively consolidated still-useful governance/support content from stale open
-  PRs #78/#80:
+- Selectively recovered useful stale governance/support content from #78/#80:
   root .gitattributes;
-  GitHub bug/feature/security issue forms without hard dependency on repository labels;
+  GitHub bug/feature/security issue forms without hard label dependencies;
   SUPPORT.md;
   SOURCE_AVAILABILITY.md;
-  dependency update policy;
-  repository threat model;
-  release checklist aligned to current #81/#83/#85/#84 architecture.
-- README policy links are extended to the consolidated documents.
-- Intentionally NOT copied from #78/#80 because obsolete, duplicative, or unsafe to
-  reintroduce blindly:
-  old build/release/runtime-refresh workflow edits;
-  old repository-policy verifier superseded by verify-repository-governance.ps1;
-  old release metadata generator superseded by current SBOM/provenance pipeline;
-  old FFmpeg source packaging path;
-  duplicate root THIRD_PARTY_NOTICES naming;
-  Dependabot configuration, because automatic NuGet/runtime updates must first be
-  reconciled with the manager-owned offline seed/update architecture.
-- This cleanup PR will supersede #78 and #80 after CI validation; #77 Local AI Studio
-  remains a real feature and will be rebased/fixed separately rather than closed.
+  docs/DEPENDENCY_UPDATE_POLICY.md;
+  docs/THREAT_MODEL.md;
+  docs/RELEASE_CHECKLIST.md aligned with current governance/release architecture;
+  README links to those documents.
+- Intentionally did not restore stale #78/#80 workflow/release/runtime edits,
+  obsolete repository-policy verifier/release-metadata generator/FFmpeg source
+  packaging path, duplicate root notices, or Dependabot configuration.
+- Dependabot was omitted deliberately because generic NuGet/runtime automation
+  must first be reconciled with the manager-owned offline seed/update path.
+- This branch is intended to supersede stale governance PRs #78 and #80 after
+  validation; Local AI Studio PR #77 remains a real feature to rebase/fix separately.
 
 
 ACTION 2026-10-08 A084
@@ -4022,3 +4018,89 @@ ACTION 2026-10-08 A084
   recovery paths are emitted as plain text.
 - The historical progress rewrites from #55/#57 were intentionally not restored;
   only the still-relevant workflow bug fix was recovered.
+
+
+ACTION 2026-10-08 A085
+- Identified and verified the two closed PRs showing historical red Build crosses:
+  PR #60: Build #671 FAILED before its Caustica/SPBR audit because checkout used
+  mutable pull-request GITHUB_REF; PR #61 replaced this with immutable PR-head
+  SHA checkout and Build #679 passed. Current main still contains that immutable
+  checkout logic.
+  PR #65: Build #687 FAILED in verify-minecraft-native-ngx-path.ps1 due to a
+  false policy rejection; final PR #66 corrected the verifier and Build #689
+  passed. Current main retains the corrected native Vulkan/NGX verifier.
+- Added explicit cleanup comments to #60 and #65 recording the exact failure and
+  the merged corrective PR, so the red crosses cannot be mistaken for unresolved
+  current-main regressions.
+- Conclusion: both red crosses are historical/superseded and require no rollback
+  or new product fix.
+
+
+ACTION 2026-10-08 A086
+- Revalidated cleanup PR #86 exact head
+  7a6ef3b64e8ee27fe67eac4c2849846a2ebf6af4.
+- GitHub reports mergeable=true, mergeable_state=clean.
+- Exact-head Build #878 completed SUCCESS with no failed step, including:
+  repository/runtime audits;
+  manager-owned offline NuGet feed + restore;
+  regression tests;
+  Windows single-file publish + executable/icon verification;
+  deterministic application packaging.
+- Exact-head CodeQL #44 completed SUCCESS with no failed step, including:
+  offline restore;
+  instrumented C# build;
+  Analyze and all post-analysis steps.
+- Diff review confirms #86 selectively restores useful content only:
+  lost PR #69 FR/EN performance-pack localization;
+  lost #55/#57 continuity-checkpoint heredoc rendering fix;
+  useful support/source/policy/issue-template material from stale #78/#80.
+- No obsolete #78/#80 runtime/release workflow implementation is reintroduced.
+- PR #86 is ready for squash merge with expected-head protection.
+
+
+ACTION 2026-10-08 A087
+- PR #86 cleanup/stale-pr-consolidation was squash-merged with expected-head
+  protection after exact-head Build #878 and CodeQL #44 both completed SUCCESS.
+- New main commit:
+  d0caf982692c73ea4759592d1a026ac9af0beb63.
+- Main now officially contains:
+  recovered PR #69 FR/EN performance-pack localization;
+  recovered #55/#57 continuity-checkpoint heredoc rendering fix;
+  selectively consolidated support/source/policy/issue-template content from
+  stale governance PRs #78/#80 without restoring their obsolete workflows.
+- PR #78 and #80 are closed as superseded by the merged #81/#86 governance path.
+- Closed-unmerged audit status after #86:
+  #69 recovered by #86;
+  #55/#57 relevant workflow fix recovered by #86;
+  #60 superseded by merged #61;
+  #64/#65 superseded by merged #66;
+  #40 duplicate of merged #38;
+  #35 duplicate of merged #34;
+  #31 functional FFmpeg cutover already present on current main;
+  #22 superseded by merged v3.0/PR #28;
+  #18 remaining hardening was integrated by merged #20.
+- The only red/conflicted PR still requiring a real code correction is #77
+  Local AI Studio; #78's red state is obsolete because #78 is now closed.
+
+
+ACTION 2026-10-08 A088
+- Added explicit cleanup comments to ambiguous closed-unmerged PRs so historical
+  branches/red states are not mistaken for unresolved regressions:
+  #64 superseded by merged #66;
+  #69 missing localization recovered by merged #86;
+  #55/#57 only relevant continuity rendering fix recovered by merged #86;
+  #18 remaining v1.5.1 hardening integrated by merged #20;
+  #31 manager-owned FFmpeg cutover already present in current main.
+- #60 and #65 were already annotated in A085 with their historical red-Build
+  failure causes and merged corrective PRs (#61 and #66).
+- Re-audited PR #77 Local AI Studio conflict against current main d0caf982:
+  26 changed files total, but only two overlap files changed on main since the
+  feature base: AI_PROJECT_PROGRESS.txt and Services/UiLocalizationService.cs.
+- PR #77 already contains the recovered #69 performance-pack localization.
+- Its intentional translation of generic Download Manager action Remove as
+  Supprimer is retained instead of old main Retirer because the action deletes
+  an installed local component.
+- Selected fix: linearly reconstruct feat/local-ai-studio directly on current
+  main, preserve all 25 feature implementation files from #77, replace stale
+  progress with authoritative live journal, then force-with-lease the branch and
+  validate a new exact head with Build + CodeQL.

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using DlssNrManager.Models;
+using DlssNrManager.Dialogs;
 using DlssNrManager.Services;
 
 namespace DlssNrManager;
@@ -18,6 +19,8 @@ public partial class MainWindow : Window
     private readonly GameArtworkService _artwork = new();
     private readonly MediaService _media = new();
     private readonly AiUpscaleService _aiUpscale = new();
+    private readonly LocalAiStudioService _aiStudio = new();
+    private readonly DownloadCenterService _downloadCenter;
     private readonly AiOriginDetectionService _aiOrigin;
     private readonly ReShadeService _reshade = new();
     private readonly ComponentUpdateService _components = new();
@@ -52,6 +55,7 @@ public partial class MainWindow : Window
     private int _stateRefreshVersion;
     private CancellationTokenSource? _mediaOperationCts;
     private CancellationTokenSource? _aiOriginCts;
+    private CancellationTokenSource? _downloadCenterCts;
 
     private sealed record AdvancedSettingsSnapshot(
         int FpsType,
@@ -74,11 +78,20 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
+        DownloadProgressHub.Changed += OnDownloadProgressChanged;
+        LargeDownloadApprovalHub.ApprovalRequested =
+            ConfirmLargeDownloadAsync;
+
         var scanSettings = ScanSettingsService.Load();
         ScanAllDrivesCheck.IsChecked = scanSettings.ScanAllFixedDrives;
 
         _minecraftOneClick = new MinecraftOneClickService(_minecraft);
         _aiOrigin = new AiOriginDetectionService(_media);
+        _downloadCenter = new DownloadCenterService(
+            _media,
+            _aiUpscale,
+            _aiStudio,
+            _aiOrigin);
 
         AppVersionText.Text = $"Version v{AppIdentity.VersionString}";
         SoftwareRenderingButton.Content =
@@ -98,6 +111,9 @@ public partial class MainWindow : Window
         _localization.Apply();
         _languageSelectorReady = true;
 
+        InitializeAiStudioUi();
+        RefreshDownloadCenter();
+
         Loaded += async (_, _) =>
         {
             ResetPointerState();
@@ -108,30 +124,34 @@ public partial class MainWindow : Window
 
         MediaStatusText.Text = _media.IsReady
             ? "Media engine ready."
-            : "Media engine not installed yet.";
+            : "Media engine not installed • manage it from Téléchargements.";
 
         AiUpscaleStatusText.Text = _aiUpscale.IsReady
             ? "AI Upscale engine ready."
             : _aiUpscale.IsInstalled
-                ? "AI Upscale engine installed • model verification pending."
-                : "AI Upscale engine not installed yet.";
+                ? "AI Upscale engine installed • local verification pending."
+                : "AI Upscale engine not installed • manage it from Téléchargements.";
 
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "AI origin detector ready."
             : _aiOrigin.IsInstalled
-                ? "AI origin detector installed • model verification pending."
-                : "AI origin detector not installed yet.";
+                ? "AI origin detector installed • local verification pending."
+                : "AI origin detector not installed • manage it from Téléchargements.";
 
         _cleanupItems = _pcCleanup.CreateDefaultItems();
         PcCleanupList.ItemsSource = _cleanupItems;
 
         Closed += (_, _) =>
         {
+            DownloadProgressHub.Changed -= OnDownloadProgressChanged;
+            LargeDownloadApprovalHub.ApprovalRequested = null;
             try { _mediaOperationCts?.Cancel(); } catch { }
             try { _aiOriginCts?.Cancel(); } catch { }
+            try { _downloadCenterCts?.Cancel(); } catch { }
             try { ExternalProcessTracker.Shutdown(); } catch { }
             _mediaOperationCts?.Dispose();
             _aiOriginCts?.Dispose();
+            _downloadCenterCts?.Dispose();
             _aiOrigin.Dispose();
         };
     }
@@ -2553,32 +2573,15 @@ public partial class MainWindow : Window
             MediaOutputBox.Text = dialog.FolderName;
     }
 
-    private async void SetupMedia_Click(object sender, RoutedEventArgs e)
+    private void OpenDownloadsCenter_Click(
+        object sender,
+        RoutedEventArgs e)
     {
-        try
-        {
-            MediaSetupButton.IsEnabled = false;
-            MediaProcessButton.IsEnabled = false;
-            var progress = new Progress<string>(message => MediaStatusText.Text = message);
-
-            await _media.SetupAsync(progress);
-            MediaStatusText.Text =
-                "Media engine ready • video2dlssnr + FFmpeg installed in LocalAppData.";
-        }
-        catch (Exception ex)
-        {
-            MediaStatusText.Text = $"Media engine setup failed: {ex.Message}";
-            MessageBox.Show(
-                ex.Message,
-                "Media setup failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-        finally
-        {
-            MediaSetupButton.IsEnabled = true;
-            MediaProcessButton.IsEnabled = true;
-        }
+        // Menu order is kept in sync with the main TabControl.
+        const int downloadsMenuIndex = 5;
+        MainMenuList.SelectedIndex =
+            downloadsMenuIndex;
+        RefreshDownloadCenter();
     }
 
     private void MediaModeBox_SelectionChanged(
@@ -2639,43 +2642,6 @@ public partial class MainWindow : Window
                 : "No media selected • detector not set up yet.";
     }
 
-    private async void SetupAiOrigin_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        try
-        {
-            AiOriginSetupButton.IsEnabled = false;
-            AiOriginAnalyzeButton.IsEnabled = false;
-
-            var progress = new Progress<string>(
-                message => AiOriginStatusText.Text = message);
-
-            await _aiOrigin.SetupAsync(
-                progress,
-                CancellationToken.None,
-                forceVerify: true);
-            AiOriginStatusText.Text =
-                "AI origin detector ready • both ONNX models verified by SHA-256.";
-        }
-        catch (Exception ex)
-        {
-            AiOriginStatusText.Text =
-                $"AI origin detector setup failed: {ex.Message}";
-
-            MessageBox.Show(
-                ex.Message,
-                "AI origin detector setup failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-        finally
-        {
-            AiOriginSetupButton.IsEnabled = true;
-            AiOriginAnalyzeButton.IsEnabled = true;
-        }
-    }
-
     private async void AnalyzeAiOrigin_Click(
         object sender,
         RoutedEventArgs e)
@@ -2697,7 +2663,6 @@ public partial class MainWindow : Window
             _aiOriginCts?.Dispose();
             _aiOriginCts = new CancellationTokenSource();
 
-            AiOriginSetupButton.IsEnabled = false;
             AiOriginAnalyzeButton.IsEnabled = false;
             AiOriginCancelButton.IsEnabled = true;
             MediaProcessButton.IsEnabled = false;
@@ -2769,7 +2734,6 @@ public partial class MainWindow : Window
         }
         finally
         {
-            AiOriginSetupButton.IsEnabled = true;
             AiOriginAnalyzeButton.IsEnabled = true;
             AiOriginCancelButton.IsEnabled = false;
             MediaProcessButton.IsEnabled = true;
@@ -2846,39 +2810,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void SetupAiUpscale_Click(
-        object sender,
-        RoutedEventArgs e)
-    {
-        try
-        {
-            AiUpscaleSetupButton.IsEnabled = false;
-
-            var progress = new Progress<string>(
-                message => AiUpscaleStatusText.Text = message);
-
-            await _aiUpscale.SetupAsync(progress);
-
-            AiUpscaleStatusText.Text =
-                "AI Upscale engine ready • Real-ESRGAN NCNN Vulkan installed in LocalAppData.";
-        }
-        catch (Exception ex)
-        {
-            AiUpscaleStatusText.Text =
-                $"AI Upscale setup failed: {ex.Message}";
-
-            MessageBox.Show(
-                ex.Message,
-                "AI Upscale setup failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-        finally
-        {
-            AiUpscaleSetupButton.IsEnabled = true;
-        }
-    }
-
     private AiUpscaleOptions CaptureAiUpscaleOptions(
         string outputDirectory)
     {
@@ -2943,9 +2874,7 @@ public partial class MainWindow : Window
 
         try
         {
-            MediaSetupButton.IsEnabled = false;
             MediaProcessButton.IsEnabled = false;
-            AiUpscaleSetupButton.IsEnabled = false;
 
             var scale = MediaScaleBox.SelectedIndex switch
             {
@@ -3052,9 +2981,7 @@ public partial class MainWindow : Window
         {
             _mediaOperationCts?.Dispose();
             _mediaOperationCts = null;
-            MediaSetupButton.IsEnabled = true;
             MediaProcessButton.IsEnabled = true;
-            AiUpscaleSetupButton.IsEnabled = true;
         }
     }
 
@@ -3381,4 +3308,897 @@ public partial class MainWindow : Window
         System.Windows.Input.Mouse.OverrideCursor = null;
         Cursor = null;
     }
+
+    private void InitializeAiStudioUi()
+    {
+        if (AiStudioTaskBox == null ||
+            AiStudioModelBox == null ||
+            AiStudioBackendBox == null)
+        {
+            return;
+        }
+
+        AiStudioTaskBox.ItemsSource =
+            LocalAiStudioService.TaskChoices;
+        AiStudioBackendBox.SelectedIndex = 0;
+        AiStudioOutputBox.Text = _aiStudio.OutputsRoot;
+
+        if (AiStudioTaskBox.Items.Count > 0)
+            AiStudioTaskBox.SelectedIndex = 0;
+
+        RefreshAiStudioModelManager();
+        RefreshAiStudioJobs();
+        RefreshAiStudioRuntimeStatus();
+    }
+
+    private AiStudioTaskChoice? SelectedAiStudioTask()
+        => AiStudioTaskBox?.SelectedItem as AiStudioTaskChoice;
+
+    private AiStudioModelDescriptor? SelectedAiStudioModel()
+        => AiStudioModelBox?.SelectedItem as AiStudioModelDescriptor;
+
+    private AiStudioBackend SelectedAiStudioBackend()
+        => AiStudioBackendBox?.SelectedIndex switch
+        {
+            1 => AiStudioBackend.ComfyUi,
+            2 => AiStudioBackend.Diffusers,
+            _ => AiStudioBackend.Auto
+        };
+
+    private void AiStudioTaskBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        RefreshAiStudioModelChoices();
+    }
+
+    private void RefreshAiStudioModelChoices()
+    {
+        if (AiStudioTaskBox == null ||
+            AiStudioModelBox == null)
+        {
+            return;
+        }
+
+        var task = SelectedAiStudioTask();
+        if (task == null)
+        {
+            AiStudioModelBox.ItemsSource = null;
+            return;
+        }
+
+        var models = _aiStudio.GetModels(task.Task);
+        AiStudioModelBox.ItemsSource = models;
+
+        var preferred =
+            models.FirstOrDefault(x =>
+                x.Tier == AiStudioModelTier.Recommended) ??
+            models.FirstOrDefault();
+
+        if (preferred != null)
+            AiStudioModelBox.SelectedItem = preferred;
+
+        var requiresInput =
+            task.Task is
+                AiStudioTaskKind.ImageToImage or
+                AiStudioTaskKind.InpaintOutpaint or
+                AiStudioTaskKind.ImageToVideo or
+                AiStudioTaskKind.VideoToVideo;
+
+        var usesMask =
+            task.Task == AiStudioTaskKind.InpaintOutpaint;
+
+        if (AiStudioInputBox != null)
+            AiStudioInputBox.IsEnabled = requiresInput;
+
+        if (AiStudioMaskBox != null)
+            AiStudioMaskBox.IsEnabled = usesMask;
+    }
+
+    private void AiStudioModelBox_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        RefreshSelectedAiStudioModelDetails();
+    }
+
+    private void RefreshSelectedAiStudioModelDetails()
+    {
+        var model = SelectedAiStudioModel();
+        if (model == null ||
+            AiStudioModelDetailsText == null)
+        {
+            return;
+        }
+
+        var backends = string.Join(
+            ", ",
+            model.Backends.Select(x =>
+                x == AiStudioBackend.ComfyUi
+                    ? "ComfyUI"
+                    : "Diffusers"));
+
+        AiStudioModelDetailsText.Text =
+            $"{UiLocalizationService.Translate(model.QualityLabel, _uiLanguage)} • {model.License} • {backends}\n" +
+            $"{UiLocalizationService.Translate(model.HardwareLabel, _uiLanguage)}\n" +
+            $"{UiLocalizationService.Translate(model.Notes, _uiLanguage)}\n" +
+            $"{L("Model", "Modèle")}: {model.Repository}";
+    }
+
+    private void AiStudioModelList_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        if (AiStudioModelList?.SelectedItem
+            is not AiStudioModelDescriptor model)
+        {
+            return;
+        }
+
+        AiStudioManagerModelText.Text =
+            $"{model.DisplayName}\n" +
+            $"{L("Tier", "Niveau")}: {model.Tier}\n" +
+            $"{L("Tasks", "Tâches")}: {string.Join(", ", model.Tasks)}\n" +
+            $"Backends: {string.Join(", ", model.Backends)}\n" +
+            $"{L("Repository", "Dépôt")}: {model.Repository}\n" +
+            $"{L("License", "Licence")}: {model.License}\n" +
+            $"{L("Hardware", "Matériel")}: {UiLocalizationService.Translate(model.HardwareLabel, _uiLanguage)}\n\n" +
+            UiLocalizationService.Translate(model.Notes, _uiLanguage);
+
+        AiStudioManagerModelStatusText.Text =
+            _aiStudio.GetModelStatus(
+                model,
+                _uiLanguage);
+    }
+
+    private void RefreshAiStudioModels_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        RefreshAiStudioModelManager();
+    }
+
+    private void RefreshAiStudioModelManager()
+    {
+        if (AiStudioModelList == null)
+            return;
+
+        var selectedId =
+            (AiStudioModelList.SelectedItem
+                as AiStudioModelDescriptor)?.Id;
+
+        AiStudioModelList.ItemsSource =
+            LocalAiStudioService.Models;
+
+        if (!string.IsNullOrWhiteSpace(selectedId))
+        {
+            AiStudioModelList.SelectedItem =
+                LocalAiStudioService.Models
+                    .FirstOrDefault(x => x.Id == selectedId);
+        }
+
+        AiStudioModelList.SelectedItem ??=
+            LocalAiStudioService.Models.FirstOrDefault();
+    }
+
+    private void SelectAiStudioInput_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = L("Select AI Studio source", "Sélectionnez la source AI Studio"),
+            Filter =
+                "Media files|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.mp4;*.mkv;*.mov;*.webm|All files|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == true)
+            AiStudioInputBox.Text = dialog.FileName;
+    }
+
+    private void SelectAiStudioMask_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = L("Select inpainting mask", "Sélectionnez le masque d’inpainting"),
+            Filter =
+                "Image files|*.png;*.jpg;*.jpeg;*.webp;*.bmp|All files|*.*"
+        };
+
+        if (dialog.ShowDialog(this) == true)
+            AiStudioMaskBox.Text = dialog.FileName;
+    }
+
+    private void SelectAiStudioOutput_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = L("Select AI Studio output folder", "Sélectionnez le dossier de sortie AI Studio"),
+            InitialDirectory =
+                Directory.Exists(AiStudioOutputBox.Text)
+                    ? AiStudioOutputBox.Text
+                    : _aiStudio.OutputsRoot
+        };
+
+        if (dialog.ShowDialog(this) == true)
+            AiStudioOutputBox.Text = dialog.FolderName;
+    }
+
+    private void QueueAiStudioJob_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var task = SelectedAiStudioTask();
+        var model = SelectedAiStudioModel();
+
+        if (task == null || model == null)
+        {
+            MessageBox.Show(
+                L("Select a task and a model first.", "Sélectionnez d’abord une tâche et un modèle."),
+                "AI Studio local",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var requiresInput =
+            task.Task is
+                AiStudioTaskKind.ImageToImage or
+                AiStudioTaskKind.InpaintOutpaint or
+                AiStudioTaskKind.ImageToVideo or
+                AiStudioTaskKind.VideoToVideo;
+
+        if (requiresInput &&
+            (string.IsNullOrWhiteSpace(AiStudioInputBox.Text) ||
+             !File.Exists(AiStudioInputBox.Text)))
+        {
+            MessageBox.Show(
+                L("This task requires a valid source image or video.", "Cette tâche nécessite une image ou une vidéo source valide."),
+                "AI Studio local",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var output = string.IsNullOrWhiteSpace(
+            AiStudioOutputBox.Text)
+            ? _aiStudio.OutputsRoot
+            : AiStudioOutputBox.Text;
+
+        var job = _aiStudio.QueueJob(
+            task.Task,
+            model,
+            SelectedAiStudioBackend(),
+            AiStudioPromptBox.Text ?? string.Empty,
+            string.IsNullOrWhiteSpace(AiStudioInputBox.Text)
+                ? null
+                : AiStudioInputBox.Text,
+            string.IsNullOrWhiteSpace(AiStudioMaskBox.Text)
+                ? null
+                : AiStudioMaskBox.Text,
+            output);
+
+        AiStudioStatusText.Text =
+            L(
+                $"Job {job.Id:N} queued • {model.DisplayName} • {task.Label}. Execution starts only after the isolated manager-owned runtime and selected model are installed.",
+                $"Job {job.Id:N} ajouté à la file • {model.DisplayName} • {task.Label}. L’exécution démarre uniquement lorsque le runtime isolé géré et le modèle sélectionné sont installés.");
+
+        RefreshAiStudioJobs();
+    }
+
+    private void RefreshAiStudioJobs_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        RefreshAiStudioJobs();
+    }
+
+    private void RefreshAiStudioJobs()
+    {
+        if (AiStudioJobList == null)
+            return;
+
+        AiStudioJobList.ItemsSource =
+            _aiStudio.LoadJobs()
+                .Select(x =>
+                    $"{x.CreatedAt.LocalDateTime:g} • {x.Task} • {x.ModelId} • {x.Status} • {x.Id:N}")
+                .ToArray();
+    }
+
+    private void PrepareAiStudioWorkspace_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        try
+        {
+            _aiStudio.EnsureWorkspace();
+            RefreshAiStudioRuntimeStatus();
+
+            AiStudioStatusText.Text =
+                L(
+                    "Isolated AI Studio workspace prepared. Python/PyTorch/CUDA/ComfyUI/Diffusers remain manager-owned components and are not installed globally.",
+                    "Workspace AI Studio isolé préparé. Python/PyTorch/CUDA/ComfyUI/Diffusers restent des composants gérés par l’application et ne sont pas installés globalement.");
+        }
+        catch (Exception ex)
+        {
+            AiStudioRuntimeStatusText.Text =
+                L(
+                    $"Unable to prepare AI Studio workspace: {ex.Message}",
+                    $"Impossible de préparer le workspace AI Studio : {ex.Message}");
+        }
+    }
+
+    private void RefreshAiStudioRuntimeStatus()
+    {
+        if (AiStudioRuntimeStatusText != null)
+            AiStudioRuntimeStatusText.Text =
+                _aiStudio.GetRuntimeSummary(
+                    _uiLanguage);
+
+        if (AiStudioRuntimeSummaryText != null)
+            AiStudioRuntimeSummaryText.Text =
+                _aiStudio.GetRuntimeSummary();
+    }
+
+    private void OpenAiStudioModelsFolder_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _aiStudio.EnsureWorkspace();
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = _aiStudio.ModelsRoot,
+            UseShellExecute = true
+        });
+    }
+
+    private void OpenAiStudioRoot_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _aiStudio.EnsureWorkspace();
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = _aiStudio.Root,
+            UseShellExecute = true
+        });
+    }
+
+
+    private void OnDownloadProgressChanged(
+        DownloadProgressSnapshot snapshot)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            _ = Dispatcher.BeginInvoke(
+                () => OnDownloadProgressChanged(snapshot));
+            return;
+        }
+
+        if (DownloadProgressPanel == null ||
+            GlobalDownloadProgressBar == null ||
+            DownloadProgressTitleText == null ||
+            DownloadProgressDetailsText == null)
+        {
+            return;
+        }
+
+        if (!snapshot.IsActive)
+        {
+            DownloadProgressPanel.Visibility =
+                Visibility.Collapsed;
+            return;
+        }
+
+        DownloadProgressPanel.Visibility =
+            Visibility.Visible;
+
+        DownloadProgressTitleText.Text =
+            snapshot.Label;
+
+        var speedMiB =
+            snapshot.BytesPerSecond /
+            (1024d * 1024d);
+
+        if (snapshot.Percent is double percent)
+        {
+            GlobalDownloadProgressBar.IsIndeterminate =
+                false;
+            GlobalDownloadProgressBar.Value =
+                percent;
+
+            DownloadProgressDetailsText.Text =
+                $"{percent:0} % • {speedMiB:0.0} {(UiLocalizationService.NormalizeLanguage(_uiLanguage) == "fr" ? "Mo/s" : "MB/s")} • {FormatDownloadEta(snapshot.EstimatedRemaining)}";
+        }
+        else
+        {
+            GlobalDownloadProgressBar.IsIndeterminate =
+                true;
+
+            DownloadProgressDetailsText.Text =
+                $"{speedMiB:0.0} {(UiLocalizationService.NormalizeLanguage(_uiLanguage) == "fr" ? "Mo/s" : "MB/s")} • {L("time remaining: calculating…", "temps restant : calcul…")}";
+        }
+    }
+
+    private string FormatDownloadEta(
+        TimeSpan? remaining)
+    {
+        if (remaining == null ||
+            remaining.Value < TimeSpan.Zero ||
+            double.IsNaN(remaining.Value.TotalSeconds) ||
+            double.IsInfinity(remaining.Value.TotalSeconds))
+        {
+            return L("time remaining: calculating…", "temps restant : calcul…");
+        }
+
+        var value = remaining.Value;
+
+        if (value.TotalHours >= 1)
+        {
+            return
+                $"{L("remaining", "reste")} {Math.Floor(value.TotalHours):0}:" +
+                $"{value.Minutes:00}:{value.Seconds:00}";
+        }
+
+        return
+            $"{L("remaining", "reste")} {value.Minutes:00}:{value.Seconds:00}";
+    }
+
+
+    private Task<bool> ConfirmLargeDownloadAsync(
+        LargeDownloadApprovalRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+            return Task.FromCanceled<bool>(cancellationToken);
+
+        if (Dispatcher.CheckAccess())
+            return Task.FromResult(ShowLargeDownloadApproval(request));
+
+        return Dispatcher
+            .InvokeAsync(
+                () => ShowLargeDownloadApproval(request))
+            .Task;
+    }
+
+    private bool ShowLargeDownloadApproval(
+        LargeDownloadApprovalRequest request)
+    {
+        var answer = MessageBox.Show(
+            this,
+            L(
+                $"This download exceeds 1 GB.\n\n{request.Label}\nEstimated size: {request.TotalGiB:0.00} GB\n{request.Purpose}\n\nThe download will use bandwidth and disk space.\n\nDo you want to continue?",
+                $"Ce téléchargement dépasse 1 Go.\n\n{request.Label}\nTaille estimée : {request.TotalGiB:0.00} Go\n{request.Purpose}\n\nLe téléchargement utilisera de la bande passante et de l'espace disque.\n\nVoulez-vous continuer ?"),
+            L("Large download", "Téléchargement volumineux"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        return answer == MessageBoxResult.Yes;
+    }
+
+
+    private DownloadCenterEntry? SelectedDownloadCenterEntry()
+        => DownloadCenterList?.SelectedItem
+            as DownloadCenterEntry;
+
+    private void RefreshDownloadCenter_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        RefreshDownloadCenter();
+    }
+
+    private void RefreshDownloadCenter()
+    {
+        if (DownloadCenterList == null)
+            return;
+
+        var selectedId =
+            (DownloadCenterList.SelectedItem
+                as DownloadCenterEntry)?.Id;
+
+        var entries =
+            _downloadCenter.GetEntries(_uiLanguage);
+
+        DownloadCenterList.ItemsSource =
+            entries;
+
+        if (!string.IsNullOrWhiteSpace(selectedId))
+        {
+            DownloadCenterList.SelectedItem =
+                entries.FirstOrDefault(
+                    x => x.Id == selectedId);
+        }
+
+        DownloadCenterList.SelectedItem ??=
+            entries.FirstOrDefault();
+
+        RefreshDownloadCenterButtons();
+    }
+
+    private async void DownloadCenterList_SelectionChanged(
+        object sender,
+        SelectionChangedEventArgs e)
+    {
+        await RefreshDownloadCenterSelectionAsync();
+    }
+
+    private async Task RefreshDownloadCenterSelectionAsync()
+    {
+        var entry =
+            SelectedDownloadCenterEntry();
+
+        if (entry == null)
+        {
+            DownloadCenterDetailsText.Text =
+                L("Select a download.", "Sélectionnez un téléchargement.");
+            RefreshDownloadCenterButtons();
+            return;
+        }
+
+        DownloadCenterDetailsText.Text =
+            $"{entry.DisplayName}\n{L("Loading details…", "Chargement des détails…")}";
+
+        try
+        {
+            DownloadCenterDetailsText.Text =
+                await _downloadCenter.GetDetailsAsync(
+                    entry,
+                    _uiLanguage);
+        }
+        catch (Exception ex)
+        {
+            DownloadCenterDetailsText.Text =
+                $"{entry.DisplayName}\n\n{L("Remote details unavailable", "Détails distants indisponibles")} : {ex.Message}";
+        }
+
+        RefreshDownloadCenterButtons();
+    }
+
+    private void RefreshDownloadCenterButtons()
+    {
+        if (DownloadCenterInstallButton == null ||
+            DownloadCenterRemoveButton == null ||
+            DownloadCenterRedownloadButton == null)
+        {
+            return;
+        }
+
+        var entry =
+            SelectedDownloadCenterEntry();
+
+        if (entry == null)
+        {
+            DownloadCenterInstallButton.IsEnabled =
+                false;
+            DownloadCenterRemoveButton.IsEnabled =
+                false;
+            DownloadCenterRedownloadButton.IsEnabled =
+                false;
+            return;
+        }
+
+        var busy =
+            _downloadCenterCts != null;
+
+        DownloadCenterInstallButton.IsEnabled =
+            !busy &&
+            !entry.IsInstalled &&
+            (entry.CanInstallAutomatically ||
+             entry.RequiresLicenseAcceptance);
+
+        DownloadCenterRemoveButton.IsEnabled =
+            !busy &&
+            entry.IsInstalled;
+
+        DownloadCenterRedownloadButton.IsEnabled =
+            !busy &&
+            entry.IsInstalled &&
+            (entry.CanInstallAutomatically ||
+             entry.RequiresLicenseAcceptance);
+    }
+
+    private async void InstallDownloadCenter_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var entry =
+            SelectedDownloadCenterEntry();
+
+        if (entry == null)
+            return;
+
+        await RunDownloadCenterOperationAsync(
+            entry,
+            redownload: false);
+    }
+
+    private async void RedownloadDownloadCenter_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var entry =
+            SelectedDownloadCenterEntry();
+
+        if (entry == null)
+            return;
+
+        var answer = MessageBox.Show(
+            this,
+            entry.RequiresLicenseAcceptance
+                ? L(
+                    $"Reimport {entry.DisplayName}?\n\nThe current local copy will be replaced by the official files you select.",
+                    $"Réimporter {entry.DisplayName} ?\n\nLa copie locale actuelle sera remplacée par les fichiers officiels que vous sélectionnerez.")
+                : L(
+                    $"Redownload {entry.DisplayName}?\n\nThe current local copy will be deleted and downloaded again.",
+                    $"Retélécharger {entry.DisplayName} ?\n\nLa copie locale actuelle sera supprimée puis téléchargée à nouveau."),
+            entry.RequiresLicenseAcceptance
+                ? L("Reimport", "Réimporter")
+                : L("Redownload", "Retélécharger"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.No);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        await RunDownloadCenterOperationAsync(
+            entry,
+            redownload: true);
+    }
+
+    private async Task RunDownloadCenterOperationAsync(
+        DownloadCenterEntry entry,
+        bool redownload)
+    {
+        if (entry.RequiresLicenseAcceptance)
+        {
+            await RunManualLicensedModelInstallAsync(
+                entry,
+                redownload);
+            return;
+        }
+
+        if (_downloadCenterCts != null)
+            return;
+
+        _downloadCenterCts =
+            new CancellationTokenSource();
+
+        DownloadCenterCancelButton.Visibility =
+            Visibility.Visible;
+        RefreshDownloadCenterButtons();
+
+        var progress =
+            new Progress<string>(
+                message =>
+                {
+                    DownloadCenterStatusText.Text =
+                        message;
+                });
+
+        try
+        {
+            DownloadCenterStatusText.Text =
+                redownload
+                    ? L($"Redownloading {entry.DisplayName}…", $"Retéléchargement de {entry.DisplayName}…")
+                    : L($"Installing {entry.DisplayName}…", $"Installation de {entry.DisplayName}…");
+
+            if (redownload)
+            {
+                await _downloadCenter.RedownloadAsync(
+                    entry,
+                    progress,
+                    _downloadCenterCts.Token);
+            }
+            else
+            {
+                await _downloadCenter.InstallAsync(
+                    entry,
+                    progress,
+                    _downloadCenterCts.Token);
+            }
+
+            DownloadCenterStatusText.Text =
+                L($"{entry.DisplayName} is ready.", $"{entry.DisplayName} est prêt.");
+        }
+        catch (OperationCanceledException)
+        {
+            DownloadCenterStatusText.Text =
+                L($"Operation cancelled: {entry.DisplayName}.", $"Opération annulée : {entry.DisplayName}.");
+        }
+        catch (Exception ex)
+        {
+            DownloadCenterStatusText.Text =
+                L($"Failure: {ex.Message}", $"Échec : {ex.Message}");
+        }
+        finally
+        {
+            _downloadCenterCts.Dispose();
+            _downloadCenterCts = null;
+            DownloadCenterCancelButton.Visibility =
+                Visibility.Collapsed;
+
+            RefreshDownloadCenter();
+            await RefreshDownloadCenterSelectionAsync();
+        }
+    }
+
+    private async Task RunManualLicensedModelInstallAsync(
+        DownloadCenterEntry entry,
+        bool redownload)
+    {
+        if (_downloadCenterCts != null)
+            return;
+
+        var licenseInfo =
+            _downloadCenter.GetManualLicenseInfo(
+                entry);
+
+        if (licenseInfo == null)
+        {
+            DownloadCenterStatusText.Text =
+                L($"No manual license is configured for {entry.DisplayName}.", $"Aucune licence manuelle configurée pour {entry.DisplayName}.");
+            return;
+        }
+
+        if (!_downloadCenter.IsManualLicenseAccepted(
+                entry))
+        {
+            var dialog =
+                new AiStudioLicenseDialog(
+                    licenseInfo,
+                    _uiLanguage)
+                {
+                    Owner = this
+                };
+
+            var accepted =
+                dialog.ShowDialog() == true &&
+                dialog.Accepted;
+
+            if (!accepted)
+            {
+                DownloadCenterStatusText.Text =
+                    L($"License declined • {entry.DisplayName} was not installed.", $"Licence refusée • {entry.DisplayName} n'a pas été installé.");
+                return;
+            }
+
+            _downloadCenter.AcceptManualLicense(
+                entry);
+
+            DownloadCenterStatusText.Text =
+                L($"License accepted for {entry.DisplayName}. Now select the files obtained from the official source.", $"Licence acceptée pour {entry.DisplayName}. Sélectionnez maintenant les fichiers obtenus depuis la source officielle.");
+        }
+
+        var folderDialog =
+            new OpenFolderDialog
+            {
+                Title =
+                    L($"Select the official folder for {entry.DisplayName}", $"Sélectionnez le dossier officiel de {entry.DisplayName}")
+            };
+
+        if (folderDialog.ShowDialog(this) != true)
+        {
+            DownloadCenterStatusText.Text =
+                L($"Installation cancelled. The license for {entry.DisplayName} remains accepted locally for this version.", $"Installation annulée. La licence de {entry.DisplayName} reste acceptée localement pour cette version.");
+            await RefreshDownloadCenterSelectionAsync();
+            return;
+        }
+
+        _downloadCenterCts =
+            new CancellationTokenSource();
+
+        DownloadCenterCancelButton.Visibility =
+            Visibility.Visible;
+        RefreshDownloadCenterButtons();
+
+        var progress =
+            new Progress<string>(
+                message =>
+                {
+                    DownloadCenterStatusText.Text =
+                        message;
+                });
+
+        try
+        {
+            DownloadCenterStatusText.Text =
+                redownload
+                    ? L($"Reimporting {entry.DisplayName}…", $"Réimport de {entry.DisplayName}…")
+                    : L($"Importing {entry.DisplayName}…", $"Import de {entry.DisplayName}…");
+
+            await _downloadCenter.ImportManualModelAsync(
+                entry,
+                folderDialog.FolderName,
+                progress,
+                _downloadCenterCts.Token);
+
+            DownloadCenterStatusText.Text =
+                L($"{entry.DisplayName} is ready and available offline.", $"{entry.DisplayName} est prêt et disponible hors ligne.");
+        }
+        catch (OperationCanceledException)
+        {
+            DownloadCenterStatusText.Text =
+                L($"Import cancelled: {entry.DisplayName}.", $"Import annulé : {entry.DisplayName}.");
+        }
+        catch (Exception ex)
+        {
+            DownloadCenterStatusText.Text =
+                L($"Import failed: {ex.Message}", $"Échec de l'import : {ex.Message}");
+        }
+        finally
+        {
+            _downloadCenterCts.Dispose();
+            _downloadCenterCts = null;
+            DownloadCenterCancelButton.Visibility =
+                Visibility.Collapsed;
+
+            RefreshDownloadCenter();
+            await RefreshDownloadCenterSelectionAsync();
+        }
+    }
+
+    private void RemoveDownloadCenter_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var entry =
+            SelectedDownloadCenterEntry();
+
+        if (entry == null ||
+            !entry.IsInstalled)
+        {
+            return;
+        }
+
+        var answer = MessageBox.Show(
+            this,
+            L(
+                $"Remove {entry.DisplayName} from this PC?\n\nThe local files will be deleted. You can download them again later.",
+                $"Supprimer {entry.DisplayName} de ce PC ?\n\nLes fichiers locaux seront supprimés. Vous pourrez les retélécharger plus tard."),
+            L("Remove local download", "Supprimer le téléchargement local"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            _downloadCenter.Remove(entry);
+            DownloadCenterStatusText.Text =
+                L($"{entry.DisplayName} removed locally.", $"{entry.DisplayName} supprimé localement.");
+        }
+        catch (Exception ex)
+        {
+            DownloadCenterStatusText.Text =
+                L($"Unable to remove: {ex.Message}", $"Suppression impossible : {ex.Message}");
+        }
+
+        RefreshDownloadCenter();
+    }
+
+    private void CancelDownloadCenter_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _downloadCenterCts?.Cancel();
+        DownloadCenterStatusText.Text =
+            L("Cancelling download…", "Annulation du téléchargement…");
+    }
+
+    private string L(
+        string english,
+        string french)
+        => UiLocalizationService.NormalizeLanguage(_uiLanguage) == "fr"
+            ? french
+            : english;
+
 }

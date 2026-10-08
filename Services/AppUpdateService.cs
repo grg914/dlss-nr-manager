@@ -82,21 +82,37 @@ public sealed class AppUpdateService
                                 "The update package exceeds the 768 MB safety limit.");
                         }
 
-                        await using var input =
-                            await response.Content.ReadAsStreamAsync(token);
-                        await using var output = new FileStream(
-                            temp,
-                            FileMode.Create,
-                            FileAccess.Write,
-                            FileShare.None,
-                            128 * 1024,
-                            useAsync: true);
+                        using var transfer =
+                            DownloadProgressHub.Begin(
+                                release.AssetName,
+                                response.Content.Headers.ContentLength);
 
-                        await CopyWithLimitAsync(
-                            input,
-                            output,
-                            MaxUpdateDownloadBytes,
-                            token);
+                        try
+                        {
+                            await using var input =
+                                await response.Content.ReadAsStreamAsync(token);
+                            await using var output = new FileStream(
+                                temp,
+                                FileMode.Create,
+                                FileAccess.Write,
+                                FileShare.None,
+                                128 * 1024,
+                                useAsync: true);
+
+                            await CopyWithLimitAsync(
+                                input,
+                                output,
+                                MaxUpdateDownloadBytes,
+                                transfer,
+                                token);
+
+                            transfer.Complete();
+                        }
+                        catch (Exception ex)
+                        {
+                            transfer.Fail(ex);
+                            throw;
+                        }
                     }
 
                     if (new FileInfo(temp).Length < 128 * 1024)
@@ -352,6 +368,7 @@ try {
         Stream input,
         Stream output,
         long maxBytes,
+        DownloadProgressHandle progress,
         CancellationToken cancellationToken)
     {
         var buffer = new byte[128 * 1024];
