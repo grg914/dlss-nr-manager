@@ -4383,3 +4383,29 @@ ACTION 2026-10-08 A101
 - No Runtime Seed Refresh workflow was created for 1a38c609, confirming the
   refined runtime-refresh path routing does not rebuild runtime assets for this
   application/UI/service-only change.
+
+
+ACTION 2026-10-08 A102
+- Audited the last remaining open pull request: PR #75
+  feat: add VSR-HDR Vidéo realtime, permanent and offline VLC.
+- PR #75 is not a duplicate and still contains useful production functionality,
+  but its head 67fe547c5f5ca7c0c5c43540d3bb499fb8f6e237 is based on old main
+  51a24343c5eee76fb648d2badd248b45d5754c7c and predates recent governance,
+  AI Studio, Download Manager and PC Clean hardening.
+- Rebase audit found 16 PR files, 10 overlapping with current main.
+- Automatic hunk application succeeds for most feature additions, but current
+  main must remain authoritative for hardened workflows and newer UI/services.
+- Important reconciliation requirements identified:
+  * add VLC to the post-#84 runtime scope mapper; old #75 did not know about it;
+  * preserve current release source pinning/governance/deterministic packaging;
+  * create the VLC offline bundle with the deterministic flat ZIP helper instead
+    of old Compress-Archive;
+  * add a Build scope-map regression for tools/publish-vlc-runtime.ps1 -> vlc;
+  * keep AI Studio/PC Clean/current localization and only add VSR-HDR entries;
+  * do not restore the old duplicate Set up portable VLC download button in the
+    VSR page: VLC must be managed centrally from Téléchargements per product rule;
+  * integrate VLC as a Download Center component with install/remove/redownload;
+  * preserve current live AI_PROJECT_PROGRESS.txt instead of old PR checkpoint.
+- Selected resolution: reconstruct feat/vlc-video-enhancement linearly on current
+  main 1a38c60980cf7f5774e1d1356200c5f8efaa8ccf, then run exact-head Build +
+  CodeQL and merge only if clean.
