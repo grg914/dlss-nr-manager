@@ -353,6 +353,23 @@ public sealed class AiStudioPackageService
                 ResolveInstallPath(
                     package.Manifest.InstallRelativePath);
 
+            ValidateModelInstallTarget(
+                installPath,
+                _studio.GetModelDirectory(model));
+
+            // Previous package versions used target.backup-<GUID>.
+            // Preserve unresolved legacy backups instead of overwriting them.
+            var parent = Path.GetDirectoryName(installPath)!;
+            if (Directory.Exists(parent) &&
+                Directory.EnumerateDirectories(
+                    parent,
+                    Path.GetFileName(installPath) + ".backup-*",
+                    SearchOption.TopDirectoryOnly).Any())
+            {
+                throw new InvalidOperationException(
+                    "Unresolved AI Studio model backup. Review the diagnostic log before reinstalling this model.");
+            }
+
             var staging =
                 installPath +
                 ".staging-" +
@@ -367,9 +384,24 @@ public sealed class AiStudioPackageService
                 MaxModelArchiveEntries,
                 MaxModelExpandedBytes);
 
-            ReplaceDirectoryAtomically(
-                staging,
-                installPath);
+            try
+            {
+                await ManagedComponentRedownload.ReplaceAsync(
+                    [installPath],
+                    token =>
+                    {
+                        token.ThrowIfCancellationRequested();
+                        Directory.Move(staging, installPath);
+                        return Task.CompletedTask;
+                    },
+                    () => Directory.Exists(installPath) &&
+                          Directory.EnumerateFileSystemEntries(installPath).Any(),
+                    cancellationToken);
+            }
+            finally
+            {
+                TryDeleteDirectory(staging);
+            }
 
             transfer.Complete();
 
@@ -670,50 +702,23 @@ public sealed class AiStudioPackageService
         return full;
     }
 
-    private static void ReplaceDirectoryAtomically(
-        string staging,
-        string target)
+    /// <summary>
+    /// A manager-owned model package may replace only the selected model,
+    /// never workspace runtime, outputs, jobs or another licensed model.
+    /// </summary>
+    public static string ValidateModelInstallTarget(
+        string resolvedInstallPath,
+        string selectedModelDirectory)
     {
-        Directory.CreateDirectory(
-            Path.GetDirectoryName(target)!);
-
-        var backup =
-            target +
-            ".backup-" +
-            Guid.NewGuid().ToString("N");
-
-        var movedExisting = false;
-
-        try
+        var actual = Path.GetFullPath(resolvedInstallPath);
+        var expected = Path.GetFullPath(selectedModelDirectory);
+        if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
         {
-            if (Directory.Exists(target))
-            {
-                Directory.Move(
-                    target,
-                    backup);
-                movedExisting = true;
-            }
-
-            Directory.Move(
-                staging,
-                target);
-
-            TryDeleteDirectory(backup);
+            throw new InvalidDataException(
+                "AI Studio package install path does not match the selected model directory.");
         }
-        catch
-        {
-            TryDeleteDirectory(target);
 
-            if (movedExisting &&
-                Directory.Exists(backup))
-            {
-                Directory.Move(
-                    backup,
-                    target);
-            }
-
-            throw;
-        }
+        return actual;
     }
 
     private static void TryDeleteFile(

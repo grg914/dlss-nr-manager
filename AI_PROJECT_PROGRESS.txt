@@ -4874,3 +4874,13 @@ ACTION 2026-10-08 V4-AISTUDIO A001 - AUDIT MODELES ET CRASH ROLLBACK
 - Tests xUnit du confinement des chemins, du catalogage des modeles autorises, et invariants rollback.
 - Note: anciens backups .backup-GUID d'AI Studio restent a traiter separement; ne pas declarer l'issue #95 fermee.
 - ETAT: checkpoint avant implementation. CI et test Windows REQUIS.
+
+
+ACTION 2026-10-08 V4-AISTUDIO A002 - CONFINEMENT DU MODELE ET ROLLBACK
+- AiStudioPackageService.InstallAsync exige maintenant que ResolveInstallPath(manifest.install_relative_path) corresponde EXACTEMENT a GetModelDirectory(model) ; bloque modeles manuels, autres modeles, runtime, jobs, outputs et workflows.
+- Remplacement du helper ancien ReplaceDirectoryAtomically (qui pouvait effacer target si move initial echouait) par ManagedComponentRedownload.ReplaceAsync; rollback version existante et validation dossier non vide; nettoyage staging en finally.
+- Installation refusee en cas d'ancien dossier de backup legacy target.backup-* non resolu, pour ne pas empiler des transactions.
+- La recovery startup ajoute par liste blanche seulement les dossiers des models LocalAiStudioService.Models ou ManagerOwnedRedistributionAllowed=true. Les poids sous licence manuelle sont exclus de tout restore automatique.
+- 8 cas xUnit: cible permise, 6 destinations interdites, liste blanche de recovery vs catalogage license et exclusion outputs.
+- LIMITES: anciens backups target.backup-GUID restent intacts/revue manuelle, lien symbolique dans ModelsRoot non audite ici; tests Windows et CodeQL obligatoires.
+- STATUT: code ecrit et checkpoint durable; attend CI avant fusion.
