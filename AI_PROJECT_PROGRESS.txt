@@ -2684,3 +2684,18 @@ ACTION 2026-10-08 A018
   C# build: in_progress
 - Confirms the runtime-seed transport hardening continues to work on the new
   exact head after the packaging fix.
+
+
+ACTION 2026-10-08 A028
+- PR #81 merge readiness was checked while CI continued.
+- PR state: open, non-draft, mergeable=true, mergeable_state=blocked only while
+  required checks are still running.
+- No requested reviewers, submitted reviews, or unresolved review threads.
+- CodeQL #30:
+  offline restore: SUCCESS
+  instrumented C# build: SUCCESS
+  Analyze: in_progress
+- Build #864:
+  offline restore: SUCCESS
+  regression tests: in_progress
+- No code change made.
