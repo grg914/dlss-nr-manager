@@ -1,3 +1,9 @@
+CHECKPOINT R033 (2026-10-08) - TEST CRASH JOB OBJECT WINDOWS
+- Branche test/v4-windows-jobobject-crash depuis main apres PR #112. Nouveau projet sans dep externe tests/CrashProbe, qui lance ping.exe via ExternalProcessTracker.Start et ecrit son PID.
+- ForcedManagerTerminationTests lance le vrai CrashProbe (dotnet exec, runtimeconfig/depsfile des tests), attend le PID fils, tue uniquement le parent avec Kill(entireProcessTree:false), puis exige que Windows KILL_ON_JOB_CLOSE ferme le fils. Nettoyage finally de secours.
+- CI Windows Build + CodeQL requis; ne pas confondre succes du test avec tests GPU reels/coupure courant. Ne jamais supprimer le test pour masquer une defaillance.
+PROCHAINE ACTION: ouvrir PR, verifier les tests sur Windows Actions, corriger erreurs avant fusion. Issue #95 reste ouverte et v4 NON PUBLIEE.
+
 CHECKPOINT R023 (2026-10-08) - TEST WINDOWS PROCESS LIFECYCLE
 - Ajout tests/DlssNrManager.Tests/ExternalProcessTrackerTests.cs: lance le binaire Windows system32 ping.exe puis ExternalProcessTracker.Kill et exige WaitForExit, finally Kill meme si test echoue. Test d'arret normal, PAS preuve d'arret brutal de l'application ni GPU.
 - PR #110 contient aussi protections de liens/jonctions et checkpoints R021/R022. Nouveau head et Build/CodeQL requis avant fusion.
