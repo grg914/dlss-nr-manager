@@ -28,6 +28,7 @@ jobs:
             pkg-config \
             make \
             zip \
+            xz-utils \
             binutils-mingw-w64-x86-64
 
       - name: Build vendored FFmpeg Windows x64 runtime
