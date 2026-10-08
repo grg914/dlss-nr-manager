@@ -52,6 +52,12 @@ jobs:
         run: |
           & .\tools\verify-minecraft-native-ngx-path.ps1
 
+      - name: Validate repository governance
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-repository-governance.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Repository governance audit failed." }
+
       - name: Enforce zero-upstream production audit
         shell: pwsh
         run: |
@@ -275,6 +281,14 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-components-manifest.ps1 -AssetsDirectory release-assets -OutputPath release-assets/components-manifest.json
           if ($LASTEXITCODE -ne 0) { throw "Component manifest generation failed." }
 
+      - name: Generate SPDX SBOM and release provenance
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-sbom.ps1 -OutputPath release-assets/SBOM.spdx.json
+          if ($LASTEXITCODE -ne 0) { throw "SBOM generation failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-provenance.ps1 -Repository "${{ github.repository }}" -CommitSha "${{ github.sha }}" -Version "${{ steps.version.outputs.version }}" -ComponentManifestPath "release-assets/components-manifest.json" -RunId "${{ github.run_id }}" -RunAttempt "${{ github.run_attempt }}" -WorkflowRef "${{ github.workflow_ref }}" -OutputPath "release-assets/release-provenance.json"
+          if ($LASTEXITCODE -ne 0) { throw "Release provenance generation failed." }
+
       - name: Generate final SHA-256 checksums
         shell: pwsh
         run: |
@@ -306,7 +320,9 @@ jobs:
             "release-assets/realesr-animevideov3-x4.param",
             "release-assets/realesr-animevideov3-x4.bin",
             "release-assets/SPBRScandi.zip",
-            "release-assets/components-manifest.json"
+            "release-assets/components-manifest.json",
+            "release-assets/SBOM.spdx.json",
+            "release-assets/release-provenance.json"
           )
 
           $lines = foreach ($file in $files) {
@@ -336,6 +352,8 @@ jobs:
             "DlssNrManager-win-x64.zip",
             "SHA256SUMS.txt",
             "release-assets/components-manifest.json",
+            "release-assets/SBOM.spdx.json",
+            "release-assets/release-provenance.json",
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
             "release-assets/video2dlssnr_release.zip",
@@ -354,9 +372,32 @@ jobs:
           $files += @(Get-ChildItem release-assets -Filter "realesr*.bin" -File | ForEach-Object FullName)
           $files = @($files | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_) } | Sort-Object -Unique)
 
+          $releaseState = gh api "repos/${{ github.repository }}/releases/tags/$tag" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Unable to inspect stable release $tag before upload." }
+
           foreach ($file in $files) {
-            gh release upload $tag $file --repo "${{ github.repository }}" --clobber
+            $name = [System.IO.Path]::GetFileName($file)
+            $localSha = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            $existing = @($releaseState.assets) | Where-Object { [string]$_.name -eq $name } | Select-Object -First 1
+
+            if ($existing) {
+              $digest = [string]$existing.digest
+              if (-not $digest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Existing stable asset '$name' has no SHA-256 digest; refusing replacement."
+              }
+              $remoteSha = $digest.Substring(7).ToLowerInvariant()
+              if ($remoteSha -ne $localSha) {
+                throw "Stable release asset '$name' already exists with different bytes. Stable releases are immutable; publish a new version."
+              }
+              Write-Host "SKIP immutable stable asset $name (identical SHA-256)."
+              continue
+            }
+
+            gh release upload $tag $file --repo "${{ github.repository }}"
             if ($LASTEXITCODE -ne 0) { throw "Failed to upload release asset: $file" }
+
+            $releaseState = gh api "repos/${{ github.repository }}/releases/tags/$tag" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw "Unable to refresh stable release state after uploading $name." }
           }
 
           gh release edit $tag --repo "${{ github.repository }}" --latest
