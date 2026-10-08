@@ -2481,3 +2481,12 @@ ACTION 2026-10-08 A012
   CodeQL configuration itself is healthy.
 - Remaining merge gate for PR #81:
   Build #862 still in progress.
+
+
+ACTION 2026-10-08 A013
+- Build #862 passed the previously fragile section:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: SUCCESS
+- Build #862 is now running regression tests.
+- Combined with CodeQL #28 SUCCESS, the runtime-seed transport retry fix is now
+  validated independently in both Build and CodeQL pipelines.
