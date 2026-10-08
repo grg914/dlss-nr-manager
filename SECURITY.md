@@ -90,3 +90,19 @@ At minimum, changes to these paths require explicit review of integrity and lice
 ## Disclosure
 
 After a fix is available, a public issue/advisory may summarize the impact without exposing user secrets or restricted vendor material.
+
+
+## Static analysis and repository protection
+
+The repository uses a pinned GitHub CodeQL C# workflow in addition to the normal Build pipeline.
+
+CodeQL is a security-analysis layer, not a replacement for:
+
+- regression tests;
+- zero-upstream audits;
+- dependency/license review;
+- runtime signature/hash checks.
+
+The target repository-settings baseline is documented in `docs/GITHUB_REPOSITORY_SETTINGS.md`.
+
+Destructive/mutating operations must also follow `docs/BACKUP_ROLLBACK_POLICY.md`.
