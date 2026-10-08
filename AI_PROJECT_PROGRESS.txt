@@ -1,3 +1,22 @@
+CHECKPOINT 2026-10-08 R016 - REPRISE APRES INTERRUPTION / ETAT VERIFIE GITHUB
+
+- Depot: grg914/dlss-nr-manager. Reprise sur le journal de main, sans supposer les anciens checkpoints encore actuels.
+- PR #99, #100 et #101 signalees fusionnees dans les checkpoints et l'issue #95. Dernier merge #101 documente: 68adde5d59e5b9ae5a6c197fcf03813e7f1a2faa.
+- PR #102, head consigne 29cfac94b0c10a2ccdf712f469ccd75f3e41031b: Build 37822109071 SUCCESS; CodeQL 37822109057 encore IN_PROGRESS lors de la consultation en direct du connecteur GitHub.
+- PR #103, head consigne 45f47855cc869ab44a623a6afd5c53bd7731bdd0: CodeQL 37822384235 SUCCESS; Build 37822384191 encore IN_PROGRESS lors de la consultation.
+- Ne fusionner ni #102 ni #103 tant que chaque check n'est pas SUCCESS sur la revision de HEAD actuelle et que la branche est a jour avec main. Verifier d'abord que leurs heads n'ont pas change.
+- Issue #95 toujours ouverte: crash Windows physique, legacy backups modeles manuels, junctions/symlinks parents et audit exhaustif Telechargements restent a traiter. Pas de publication v4.0.
+- Issue #82: CodeQL n'est pas encore atteste comme required check de Protect main; a regler dans le ruleset avec droits Admin.
+- Ce checkpoint documente la reprise; il ne constitue PAS une preuve de tests executes localement, de fusion, ni de release.
+
+PROCHAINE ACTION EXACTE:
+1. Rafraichir les HEAD des PR #102/#103 et les checks Build + CodeQL sur ces HEAD.
+2. Examiner le diff, les tests et l'absence de conflits sur chaque PR; si tout vert, fusionner dans un ordre serialise, rebaser/revalider la PR restante si necessaire.
+3. Verifier Build et CodeQL sur main apres fusion.
+4. Mettre a jour ce journal a chaque validation et poursuivre l'issue #95, sans effacer les sauvegardes incertaines.
+
+---
+
 CHECKPOINT 0E - SOLUTION A VALIDEE / DURCISSEMENT MINECRAFT NATIVE NGX (2026-10-07)
 
 Decision utilisateur:
