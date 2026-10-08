@@ -10,10 +10,20 @@ Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $exe = (Resolve-Path -LiteralPath $ExecutablePath).Path
-$timestamp = ([DateTimeOffset]::Parse($TimestampUtc)).ToUniversalTime()
+$parsedTimestamp = ([DateTimeOffset]::Parse($TimestampUtc)).ToUniversalTime()
+$zipSecond = $parsedTimestamp.Second - ($parsedTimestamp.Second % 2)
+$timestamp = [DateTimeOffset]::new(
+    $parsedTimestamp.Year,
+    $parsedTimestamp.Month,
+    $parsedTimestamp.Day,
+    $parsedTimestamp.Hour,
+    $parsedTimestamp.Minute,
+    $zipSecond,
+    [TimeSpan]::Zero)
 
 $entries = @(
     @{ Source = $exe; Name = "DlssNrManager.exe" },
+    @{ Source = (Join-Path $Root "README.md"); Name = "README.md" },
     @{ Source = (Join-Path $Root "LICENSE"); Name = "LICENSE" },
     @{ Source = (Join-Path $Root "docs\THIRD_PARTY_NOTICES.md"); Name = "THIRD_PARTY_NOTICES.md" },
     @{ Source = (Join-Path $Root "docs\DATA_PRIVACY.md"); Name = "DATA_PRIVACY.md" }
