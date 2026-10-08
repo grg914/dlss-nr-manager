@@ -2308,3 +2308,19 @@ ACTION 2026-10-08 A005
   preinstalled .NET 8 check
 - CodeQL #27 currently at the same manager-owned offline NuGet feed preparation.
 - No code change required at this point.
+
+
+ACTION 2026-10-08 A006
+- CodeQL #27 failed at step: Prepare manager-owned offline NuGet feed.
+- Retrieved the completed job log.
+- Exact root cause:
+  tools/download-runtime-seed.ps1 line 76 Invoke-WebRequest
+  IOException: "Unable to read data from the transport connection:
+  An existing connection was forcibly closed by the remote host."
+- CodeQL initialization itself succeeded.
+- No C# security analysis ran because the offline feed could not finish.
+- Diagnosis: transient GitHub release-asset transport failure, not a CodeQL
+  query/configuration or application compile failure.
+- Corrective action selected:
+  harden download-runtime-seed.ps1 with bounded retry/backoff around the
+  release-asset download so Build/CodeQL/Release use the same resilient path.
