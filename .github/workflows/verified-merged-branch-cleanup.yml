@@ -1,0 +1,83 @@
+name: Verified Merged Branch Cleanup
+
+# PR: read-only full dry-run. Main push after merging this workflow: one cleanup.
+on:
+  pull_request:
+    paths:
+      - .github/workflows/verified-merged-branch-cleanup.yml
+      - docs/BRANCH_CLEANUP_CANDIDATES_2026-10-08.json
+      - tools/prune-merged-pr-branches.py
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verified-merged-branch-cleanup.yml
+      - docs/BRANCH_CLEANUP_CANDIDATES_2026-10-08.json
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: verified-merged-branch-cleanup-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  preview-no-delete:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Fetch pinned script and audited manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/contents/tools/prune-merged-pr-branches.py?ref=${GITHUB_SHA}" --jq '.content' | tr -d '\n' | base64 --decode > branch-prune.py
+          gh api "repos/${GITHUB_REPOSITORY}/contents/docs/BRANCH_CLEANUP_CANDIDATES_2026-10-08.json?ref=${GITHUB_SHA}" --jq '.content' | tr -d '\n' | base64 --decode > candidates.json
+          python3 -m py_compile branch-prune.py
+          python3 -m json.tool candidates.json >/dev/null
+      - name: Verify every branch without deleting anything
+        run: python3 branch-prune.py --manifest candidates.json
+
+  delete-verified-refs:
+    if: github.event_name == 'push' && github.repository == 'grg914/dlss-nr-manager'
+    permissions:
+      contents: write
+      pull-requests: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Fetch pinned script and audited manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/contents/tools/prune-merged-pr-branches.py?ref=${GITHUB_SHA}" --jq '.content' | tr -d '\n' | base64 --decode > branch-prune.py
+          gh api "repos/${GITHUB_REPOSITORY}/contents/docs/BRANCH_CLEANUP_CANDIDATES_2026-10-08.json?ref=${GITHUB_SHA}" --jq '.content' | tr -d '\n' | base64 --decode > candidates.json
+          python3 -m py_compile branch-prune.py
+          python3 -m json.tool candidates.json >/dev/null
+      - name: Delete only already merged, SHA-pinned PR branches
+        run: python3 branch-prune.py --manifest candidates.json --execute
+      - name: Record cleanup results
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f merged-branch-cleanup-result.json ]; then
+            {
+              echo '### Cleanup results (machine-readable)'
+              echo 'Full per-branch decisions are also available in this run log.'
+              echo '~~~json'
+              cat merged-branch-cleanup-result.json
+              echo '~~~'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No cleanup results produced. No deletion is claimed.' >> "$GITHUB_STEP_SUMMARY"
+          fi

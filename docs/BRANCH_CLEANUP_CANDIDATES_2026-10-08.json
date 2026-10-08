@@ -1,0 +1,434 @@
+{
+  "schema": 1,
+  "repository": "grg914/dlss-nr-manager",
+  "reference_main_sha": "58761014f8e4962a5c271e9c0801677935e399e2",
+  "generated_utc": "2026-10-08",
+  "policy": "merged-pr-exact-head-main-only-open-excluded-release-preserved",
+  "candidates": [
+    {
+      "branch": "audit/caustica-scandi-assets-v2",
+      "sha": "f8d5ded11d62044a6a62c2f2c0c6e0df74ce9b4e",
+      "merged_pr": 61
+    },
+    {
+      "branch": "audit/optiscaler-minecraft-path",
+      "sha": "2aec4ca97b6e644b03c46a30a5523bc4aecdf328",
+      "merged_pr": 63
+    },
+    {
+      "branch": "automation/upstream-sync-37591538524",
+      "sha": "ddb4e72a6dd7895686bd953d38317323530838d2",
+      "merged_pr": 49
+    },
+    {
+      "branch": "chore/bootstrap-github-release",
+      "sha": "3a20eab28c7e99b0f2ec95a73108506aa0176a33",
+      "merged_pr": 10
+    },
+    {
+      "branch": "chore/nvidia-dlss-310.9.1",
+      "sha": "4b95f00695b9c6d9ebc2fceb51259170b547897e",
+      "merged_pr": 74
+    },
+    {
+      "branch": "ci/document-release-only-refresh",
+      "sha": "240cef3eb27ee25ece101543e42c263ec35c5a6d",
+      "merged_pr": 53
+    },
+    {
+      "branch": "cleanup/stale-pr-consolidation",
+      "sha": "7a6ef3b64e8ee27fe67eac4c2849846a2ebf6af4",
+      "merged_pr": 86
+    },
+    {
+      "branch": "docs/ai-project-progress",
+      "sha": "f6a159067dbe7afa17da6675f4fbf2de908ccdc8",
+      "merged_pr": 39
+    },
+    {
+      "branch": "docs/close-caustica-audit",
+      "sha": "bca0e5b8745b79b52a3e5652cfc8987a154168b1",
+      "merged_pr": 62
+    },
+    {
+      "branch": "docs/close-v3.2.0-checkpoint",
+      "sha": "531b389ad583f9dc542a024a563dddc26506471a",
+      "merged_pr": 73
+    },
+    {
+      "branch": "docs/current-project-checkpoint-20261007",
+      "sha": "5ce91ff9d59c38daa8be99baa1e6014447db8c37",
+      "merged_pr": 54
+    },
+    {
+      "branch": "docs/final-v3-1-1-checkpoint",
+      "sha": "109088937f4c6700ecd38c1942e4286f1c9d6e7c",
+      "merged_pr": 56
+    },
+    {
+      "branch": "docs/progress-checkpoint-2026-10-07",
+      "sha": "2474208f2ccfd3a6feed6f5fe733d9cadfa8ef96",
+      "merged_pr": 58
+    },
+    {
+      "branch": "docs/v4-prompt-requirements-checkpoint",
+      "sha": "87bcdae73e684ac89c0b8e62cd47f0f27ce6c0a3",
+      "merged_pr": 106
+    },
+    {
+      "branch": "docs/v4-prompt-roadmap-20261008",
+      "sha": "099daecc4ad4f641912b63db6d32847a1df50a19",
+      "merged_pr": 92
+    },
+    {
+      "branch": "docs/v4-r019-reconciled",
+      "sha": "cd759a7cf566e347c823cd03b55758dc67198706",
+      "merged_pr": 108
+    },
+    {
+      "branch": "docs/v4-third-party-notices-recovery",
+      "sha": "29f46c7c66120cf06a55fdc463ff20dedfed2105",
+      "merged_pr": 126
+    },
+    {
+      "branch": "feat/ai-origin-detection",
+      "sha": "9ec5cefd0f6295053f87c19fec162b874b8194e1",
+      "merged_pr": 9
+    },
+    {
+      "branch": "feat/dlssnrmanager-menu-v1.5.0",
+      "sha": "e8e375a31e1c201401f087e2f9483a21a74fc499",
+      "merged_pr": 17
+    },
+    {
+      "branch": "feat/local-ai-studio",
+      "sha": "612c8e09745e6225f2808c7c323bb488eadb0bbe",
+      "merged_pr": 77
+    },
+    {
+      "branch": "feat/minecraft-scandi-packs",
+      "sha": "07976d0795c1fd078dc906e3dbb5d8ae0ba4b64d",
+      "merged_pr": 8
+    },
+    {
+      "branch": "feat/nvidia-nr-check-v1.3",
+      "sha": "b6615289cc6bbf6ec5422b3780b626a234dda94e",
+      "merged_pr": 13
+    },
+    {
+      "branch": "feat/pc-clean-maintenance",
+      "sha": "6f9e656b020bdee22721c80be7344183582e8776",
+      "merged_pr": 89
+    },
+    {
+      "branch": "feat/rtx-wide-compat-safety-v1.4",
+      "sha": "0303f769cb764eebfdc22e57f3b8662adef0fdeb",
+      "merged_pr": 14
+    },
+    {
+      "branch": "feat/vlc-video-enhancement",
+      "sha": "6ab356fdf669448530665b8224173933cf2b818d",
+      "merged_pr": 75
+    },
+    {
+      "branch": "feature/ai-upscale",
+      "sha": "d37cf851029fbf70d7d1a3ca5fe7cb82b053dfbf",
+      "merged_pr": 4
+    },
+    {
+      "branch": "feature/auto-runtime-winget-nvidia",
+      "sha": "d231197a615b38c00a7e4be834878fbec1567fd7",
+      "merged_pr": 7
+    },
+    {
+      "branch": "feature/bundled-caustica-update-all",
+      "sha": "d73dcc1b96be4bfe2a4376d783cce658870b1168",
+      "merged_pr": 25
+    },
+    {
+      "branch": "feature/consolidate-local-updates",
+      "sha": "cd00f977d9f48a6161b9c4beae568a450b308689",
+      "merged_pr": 1
+    },
+    {
+      "branch": "feature/manual-manager-update-check",
+      "sha": "c3261e5f88c225b284f4a25f5a233b3d2097a1a1",
+      "merged_pr": 26
+    },
+    {
+      "branch": "feature/minecraft-rtx",
+      "sha": "5ffaa7b9a8169d0d3c278565e422253971511e84",
+      "merged_pr": 5
+    },
+    {
+      "branch": "feature/pc-update-center",
+      "sha": "1ceb3c803956819f64698af68357eeb0d335c2c1",
+      "merged_pr": 3
+    },
+    {
+      "branch": "feature/v2.1-swapper-hardening",
+      "sha": "3aa78bb3595d6bf2ec10c9f34506666bc2171710",
+      "merged_pr": 27
+    },
+    {
+      "branch": "feature/v4-download-center-media-update-reconciled",
+      "sha": "5eb6e958d21043bdb7ee2218919320dda27eebb7",
+      "merged_pr": 114
+    },
+    {
+      "branch": "feature/v4-hardware-profiles-20261008",
+      "sha": "2d90d0edd285027162bb45b9c30357b5fca151f9",
+      "merged_pr": 93
+    },
+    {
+      "branch": "feature/v4-localized-option-tooltips",
+      "sha": "27b608294553cd253e96ab00c7005aad0be26954",
+      "merged_pr": 94
+    },
+    {
+      "branch": "fix/ai-origin-ensemble-v1.4.1",
+      "sha": "ebb9293ad30d288254c9153466126ae426f72bb0",
+      "merged_pr": 15
+    },
+    {
+      "branch": "fix/artwork-icon-pc-updates",
+      "sha": "e790b7c7cfee12ea95d67828f00ddad12465bc54",
+      "merged_pr": 6
+    },
+    {
+      "branch": "fix/artwork-reload-battlefield6",
+      "sha": "704da63b6c7de4b61ed255b03bf0383902a45294",
+      "merged_pr": 2
+    },
+    {
+      "branch": "fix/caustica-texture-pack-hash",
+      "sha": "549713a794102b70299fab034d7292fcec2bdcf1",
+      "merged_pr": 12
+    },
+    {
+      "branch": "fix/deterministic-fabric-profile",
+      "sha": "ecbd4e6cb8289d545ab23c954c3994f80cf98c6e",
+      "merged_pr": 38
+    },
+    {
+      "branch": "fix/dynamic-fps-26-2-upstream",
+      "sha": "d851ce155b0b22856df468b0e00ebc0b4c20371a",
+      "merged_pr": 36
+    },
+    {
+      "branch": "fix/dynamic-fps-compatible-release-resolution",
+      "sha": "41a8e2b3caf345db83e885f2a9ed4f9991d0c03e",
+      "merged_pr": 37
+    },
+    {
+      "branch": "fix/fabric-installer-metadata-powershell",
+      "sha": "2680b94776d08c75f7082b75e4cffcc23574609d",
+      "merged_pr": 44
+    },
+    {
+      "branch": "fix/fabric-loader-detail-metadata",
+      "sha": "185d60e644fee0606b870264f3cb59e308aad417",
+      "merged_pr": 41
+    },
+    {
+      "branch": "fix/fabric-loader-response-enumeration",
+      "sha": "b67f6720830202aff725fe551e63854bd17eac34",
+      "merged_pr": 43
+    },
+    {
+      "branch": "fix/fabric-maven-meta-release-status",
+      "sha": "15bdbc8280de7af087c9fb6de69567d695d62549",
+      "merged_pr": 42
+    },
+    {
+      "branch": "fix/full-audit-reliability-v1.4.2",
+      "sha": "f54a2263f0e217f0532846fe44f23b17780f1686",
+      "merged_pr": 16
+    },
+    {
+      "branch": "fix/full-audit-v1.5.1-final",
+      "sha": "eabd5678aa28e525f2bcd88966e0b31704217cdb",
+      "merged_pr": 19
+    },
+    {
+      "branch": "fix/integrate-pr18-v1.5.1",
+      "sha": "7e3a104864f70183f913292e724b2ba19c233736",
+      "merged_pr": 20
+    },
+    {
+      "branch": "fix/modrinth-response-enumeration",
+      "sha": "c383fccf7307c4d21447434146b52d8176d20a2d",
+      "merged_pr": 45
+    },
+    {
+      "branch": "fix/notify-only-upstream-issues",
+      "sha": "5aa69a271d3ca849321245bf64080fe7b1cd748a",
+      "merged_pr": 88
+    },
+    {
+      "branch": "fix/phase4-post-merge-sync",
+      "sha": "d9dd76cfb61531df6aee6b1d713ed2d9a3abbacd",
+      "merged_pr": 34
+    },
+    {
+      "branch": "fix/release-main-bootstrap-trigger",
+      "sha": "2d9a904e5202b68e6b701b45b75df0a74c677245",
+      "merged_pr": 11
+    },
+    {
+      "branch": "fix/replace-scanditexture-with-spbr-safe",
+      "sha": "9bd264422658b75f89b158ce3bbc52cbe1a290b3",
+      "merged_pr": 23
+    },
+    {
+      "branch": "fix/runtime-refresh-concurrency-v2",
+      "sha": "ba3123702c63d7f26c8066bd2df8b395a361bd4c",
+      "merged_pr": 71
+    },
+    {
+      "branch": "fix/runtime-refresh-governance-scope",
+      "sha": "c4ddd472a61c00dcf70d72866f2ac92f606d8930",
+      "merged_pr": 91
+    },
+    {
+      "branch": "fix/runtime-refresh-release-only",
+      "sha": "c3851553a38e7a36f5ac67d20e5a55af37d945da",
+      "merged_pr": 70
+    },
+    {
+      "branch": "fix/upstream-pr-fallback-exitcode",
+      "sha": "47c66d73e986a1330c7c99a9a8b324dfefef2613",
+      "merged_pr": 47
+    },
+    {
+      "branch": "fix/upstream-pr-permission-fallback",
+      "sha": "b74756166b6709c1cfb9c1281182d1d09ef8b6e9",
+      "merged_pr": 46
+    },
+    {
+      "branch": "fix/upstream-protected-main-fallback",
+      "sha": "de2d315f9472af7988a47dec75bb890827d4235f",
+      "merged_pr": 50
+    },
+    {
+      "branch": "fix/v3.2.0-release-streamline-exit",
+      "sha": "761c867faf71f468fd3a9e801a20ba235c9f15c6",
+      "merged_pr": 72
+    },
+    {
+      "branch": "fix/v4-ai-studio-manual-import-safety",
+      "sha": "29cfac94b0c10a2ccdf712f469ccd75f3e41031b",
+      "merged_pr": 102
+    },
+    {
+      "branch": "fix/v4-ai-studio-staging-cleanup-rebased",
+      "sha": "675f5e8455081a3fe9a8d090777e0142e6bfd16a",
+      "merged_pr": 105
+    },
+    {
+      "branch": "fix/v4-download-center-transactional-redownload",
+      "sha": "b93a2fda50f8ccf4f0b0e2f40232e2002594a2a4",
+      "merged_pr": 96
+    },
+    {
+      "branch": "fix/v4-media-update-recovery",
+      "sha": "84aa0ad83021fdcd4afc8f0e204a9c30d493729e",
+      "merged_pr": 100
+    },
+    {
+      "branch": "fix/v4-recover-interrupted-component-reinstalls",
+      "sha": "5a8fbb1b8fcbd69e76a6485e661a1abcff329907",
+      "merged_pr": 98
+    },
+    {
+      "branch": "fix/v4-streamline-seed-bounded-retry",
+      "sha": "24ec809ac3a72b7d86c21966579b6d0004bb549b",
+      "merged_pr": 127
+    },
+    {
+      "branch": "fix/v4-vlc-owned-process-lifecycle",
+      "sha": "d1f7d2e3f3610b5e198e7485545107c7374e64d4",
+      "merged_pr": 97
+    },
+    {
+      "branch": "grg914-patch-1",
+      "sha": "3445bc8357fb495d4fdc86640d72647949e0dfc7",
+      "merged_pr": 59
+    },
+    {
+      "branch": "hardening-minecraft-native-ngx-policy-v3",
+      "sha": "f0be1a446d5a353845dbadf3686066505482b124",
+      "merged_pr": 66
+    },
+    {
+      "branch": "hardening/deterministic-nuget-seed",
+      "sha": "56e9d5784fd9a855e12263e9db3ac427cf7ad6ef",
+      "merged_pr": 83
+    },
+    {
+      "branch": "hardening/release-source-pinning",
+      "sha": "0bf7d6631200ee692801bb2f16f31574cfd9694e",
+      "merged_pr": 85
+    },
+    {
+      "branch": "hardening/repository-governance",
+      "sha": "3d6365a8fafc6bd773ec29585bcc8bee996f62e9",
+      "merged_pr": 81
+    },
+    {
+      "branch": "hardening/runtime-refresh-scoping",
+      "sha": "e39886fe11518b799570d6501ec5e511fd18a82f",
+      "merged_pr": 84
+    },
+    {
+      "branch": "refactor/games-nvidia-runtime-manager",
+      "sha": "a22f77bf838fb2f4d009563283d3424e937ed05c",
+      "merged_pr": 67
+    },
+    {
+      "branch": "refactor/phase3-upstream-sync",
+      "sha": "b61218ac122a6a6ede088e8be3bb1f6fa4c92967",
+      "merged_pr": 32
+    },
+    {
+      "branch": "refactor/phase4-zero-upstream-production",
+      "sha": "acc6bacd6b674360a49679dd2a83e555f83357d6",
+      "merged_pr": 33
+    },
+    {
+      "branch": "refactor/self-contained-monorepo",
+      "sha": "befb8232e76d3066327666cd68722105f683032d",
+      "merged_pr": 29
+    },
+    {
+      "branch": "research/v4-realesrgan-openmp-free-reconciled",
+      "sha": "4092e4fc249c32aa773b95140dd54515d9318021",
+      "merged_pr": 119
+    },
+    {
+      "branch": "security/v4-ai-studio-model-install-rollback",
+      "sha": "5679f61ccb38100fb5d66d22f863bd1c0f254326",
+      "merged_pr": 101
+    },
+    {
+      "branch": "security/v4-cleanup-acceptance-reconciled",
+      "sha": "10f005c52e5daa89f7b0f1c7fa113ee138e13b48",
+      "merged_pr": 122
+    },
+    {
+      "branch": "security/v4-crash-and-safe-removal-reconciled",
+      "sha": "8c1abf61cfe9b152e949c2f8685958ca4b0d0d70",
+      "merged_pr": 117
+    },
+    {
+      "branch": "security/v4-finalization-safety-docs-reconciled",
+      "sha": "30a32cedf51b6e13f62e489251bde89e75eb301c",
+      "merged_pr": 112
+    },
+    {
+      "branch": "security/v4-trusted-gpu-probing",
+      "sha": "05166b055e0b1786a341be8b4bdb57d1ec42452e",
+      "merged_pr": 99
+    }
+  ]
+}
