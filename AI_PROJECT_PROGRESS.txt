@@ -1,3 +1,11 @@
+CHECKPOINT R050 (2026-10-08) - PR122 MERGEE / INVENTAIRE BRANCHES
+- Main SHA 3e339572fba05f15fa89ba40161ad59b84e083dc apres fusion PR #122; Build et CodeQL du push main SUCCESS. PR #120/#121 fermees comme remplacees. R039-R045 deja sur main.
+- Inventaire pagine de 125 branches dans docs/BRANCH_AUDIT_2026-10-08.md: 88 refs avec PR mergee, 24 associees a PR fermee sans merge direct, 12 sans PR (incluant branche audit), 1 main. Six divergences anciennes sans PR demandent revue semantique; ne PAS fusionner/effacer a l'aveugle. Issue #124.
+- Complements R046-R049 (asset Streamline temporairement absent, rerun, release v3.2 et audit branches) preserves sans tronquer le journal dans docs/PROJECT_PROGRESS_R046_R050.md.
+- PR #126 recupere selectivement THIRD_PARTY_NOTICES.md absent de main; PR #127 ajoute un retry borne uniquement pour asset Streamline absent, sans relacher SHA-256. Build+CodeQL de ces PR a verifier avant merge.
+- AUCUNE suppression de branches effectuee: connecteur GitHub ne permet pas delete-branch. Release v4 non publiee; issues #79 #82 #95 #111 #123 #124 et tests Windows/NVIDIA reels restant.
+PROCHAINE ACTION: verifier CI PR125 et merger; garder journal complet et annexes; poursuivre audit des branches divergentes et release gating.
+
 CHECKPOINT R045 (2026-10-08) - CORRECTION FLAKY TEST CRASH PID MARKER
 - PR #122: Build GitHub Actions run 37841038462 a passe les audits de scripts / gouvernance, puis echec xUnit Run regression tests: 125 tests passed, 1 FAILED dans ForcedManagerTerminationTests.Abrupt_manager_termination_kills_owned_helper_on_windows. Erreur exacte IOException: impossible de lire le fichier dlssnr-crash-probe-*.pid car encore utilise par un autre processus. Stack: File.ReadAllText(marker) ligne 60.
 - Analyse de cause: CrashProbe Program.cs utilisait File.WriteAllText directement sur le chemin marqueur; File.Exists(marker) pouvait devenir vrai avant fermeture complete du handle Windows. Le test lisait le fichier trop tot; ce FAIL ne prouve PAS que JobObject KILL_ON_JOB_CLOSE est casse.

@@ -276,8 +276,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Path "runtime-audit" -Force | Out-Null
-          gh release download runtime-seed-v1 --repo "${{ github.repository }}" --pattern "streamline-runtime-v2.14.1-win-x64.zip" --dir "runtime-audit" --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Unable to download manager-owned Streamline runtime seed." }
+          # A seed refresh may briefly remove the expected asset when using
+          # --clobber. Retry ONLY the precise "no assets match" condition;
+          # other errors and all digest/structure verification fail closed.
+          $assetName = "streamline-runtime-v2.14.1-win-x64.zip"
+          $downloaded = $false
+          for ($attempt = 1; $attempt -le 4; $attempt++) {
+            $outcome = @(gh release download runtime-seed-v1 --repo "${{ github.repository }}" --pattern "$assetName" --dir "runtime-audit" --clobber 2>&1)
+            if ($LASTEXITCODE -eq 0) {
+              $downloaded = $true
+              break
+            }
+            $errorText = ($outcome | Out-String).Trim()
+            if ($errorText -notmatch '(?i)no assets match the file pattern') {
+              throw "Unable to download manager-owned Streamline runtime seed: $errorText"
+            }
+            if ($attempt -ge 4) { throw "Streamline seed asset is still missing after 4 attempts: $assetName" }
+            $pause = [int][Math]::Pow(2, $attempt)
+            Write-Warning "Expected seed asset temporarily missing (attempt $attempt/4); retry in $pause seconds."
+            Start-Sleep -Seconds $pause
+          }
+          if (-not $downloaded) { throw "Unable to download manager-owned Streamline runtime seed." }
 
           $zip = Join-Path "runtime-audit" "streamline-runtime-v2.14.1-win-x64.zip"
           $release = gh api "repos/${{ github.repository }}/releases/tags/runtime-seed-v1" | ConvertFrom-Json
