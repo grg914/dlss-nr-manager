@@ -317,10 +317,26 @@ jobs:
           exact_ref="$(gh api "repos/$repo/git/matching-refs/tags/$tag" --jq '.[] | select(.ref == "refs/tags/'"$tag"'") | [.object.type, .object.sha] | @tsv')"
 
           if [ -n "$exact_ref" ]; then
-            tag_type="${exact_ref%%
-\t'*}"
-            tag_sha="${exact_ref#*
-\t'}"
+            IFS=
+              tag_object="$(gh api "repos/$repo/git/tags/$tag_sha")"
+              tag_type="$(printf '%s' "$tag_object" | jq -r '.object.type')"
+              tag_sha="$(printf '%s' "$tag_object" | jq -r '.object.sha')"
+            fi
+
+            if [ "$tag_type" != "commit" ]; then
+              echo "Stable tag $tag does not resolve to a commit." >&2
+              exit 1
+            fi
+
+            if [ "$tag_sha" != "$source_sha" ]; then
+              echo "Stable $tag already belongs to $tag_sha; current main is $source_sha."
+              echo "Runtime seed was refreshed, but production release dispatch is intentionally skipped until the application version is bumped."
+              exit 0
+            fi
+          fi
+
+          gh workflow run release.yml --repo "$repo" --ref main
+\t' read -r tag_type tag_sha <<< "$exact_ref"
 
             if [ "$tag_type" = "tag" ]; then
               tag_object="$(gh api "repos/$repo/git/tags/$tag_sha")"
