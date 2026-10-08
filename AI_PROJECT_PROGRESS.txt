@@ -4847,3 +4847,13 @@ ACTION 2026-10-08 V4-RECOVERY R012 - AUDIT MISES A JOUR AUTOMATIQUES MEDIA
 - La branche implementera l'utilisation de ManagedComponentRedownload.ReplaceAsync pour les futures mises a jour media et un recuperateur conservateur pour les backups legacy _update-backup-* deja presents.
 - Teste rollback echec/annulation et protection de realesrgan, sorties utilisateur et sauvegardes ambigues; ne jamais effacer un backup dont le retour est incertain.
 - Statut: AUDIT/PLAN sauvegardes dans GitHub; implementation et validations restent a faire.
+
+
+ACTION 2026-10-08 V4-RECOVERY R013 - UNIFIER MEDIA UPDATER ET RECOVERY LEGACY
+- MediaService.UpdateToolsAsync utilise desormais ManagedComponentRedownload.ReplaceAsync pour les deux seuls repertoires geres video2dlssnr et tools, avec IsReady comme validation du remplacement; ne touche pas au sibling realesrgan.
+- Blocage d'une nouvelle mise a jour s'il subsiste un dossier _update-backup-* non resolu dans media-engine.
+- RecoverKnownManagedComponentBackups invoque egalement RecoverLegacyMediaUpdateBackups, convertissant par Directory.Move les backups historiques _update-backup-<GUID> en sauvegardes per-component avec restoration via RecoverOwnedBackups.
+- Protections: ambiguites >1, junction/symlink, backup concurrent, fichiers inconnus conserves; aucune suppression recursive de dossier legacy contenant des fichiers inconnus.
+- Recovery apres crash pendant migration: sous-repertoire deja deplace laisse en nouveau format et recupere au prochain demarrage.
+- 5 tests de regression: video2dlssnr + tools, migration partielle, plusieurs backups ambigus, fichier inconnu, dossier vide sans impact utilisateur.
+- LIMITES: crash apres recovery partielle ou pendant nettoyage peut exiger revue manuelle. CI et CodeQL a faire sur ce commit, aucun test d'arret brutal physique.
