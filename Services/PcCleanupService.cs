@@ -247,7 +247,8 @@ public sealed class PcCleanupService
             try
             {
                 var info = new FileInfo(file);
-                if ((info.Attributes & FileAttributes.ReparsePoint) != 0)
+                if ((info.Attributes & FileAttributes.ReparsePoint) != 0 ||
+                    ManagedPathSafety.HasReparsePointOnPath(file))
                     continue;
 
                 bytes += Math.Max(0, info.Length);
@@ -293,8 +294,12 @@ public sealed class PcCleanupService
             try
             {
                 var info = new FileInfo(file);
-                if ((info.Attributes & FileAttributes.ReparsePoint) != 0)
+                if ((info.Attributes & FileAttributes.ReparsePoint) != 0 ||
+                    ManagedPathSafety.HasReparsePointOnPath(file))
+                {
+                    skippedFiles++;
                     continue;
+                }
 
                 var length = Math.Max(0, info.Length);
                 File.SetAttributes(file, FileAttributes.Normal);
@@ -339,6 +344,19 @@ public sealed class PcCleanupService
         {
             cancellationToken.ThrowIfCancellationRequested();
             var directory = pending.Pop();
+            try
+            {
+                if (ManagedPathSafety.HasReparsePointOnPath(directory))
+                {
+                    skipped++;
+                    continue;
+                }
+            }
+            catch
+            {
+                skipped++;
+                continue;
+            }
 
             foreach (var pattern in patterns)
             {
@@ -441,6 +459,11 @@ public sealed class PcCleanupService
 
             try
             {
+                if (ManagedPathSafety.HasReparsePointOnPath(directory))
+                {
+                    skipped++;
+                    continue;
+                }
                 if (!Directory.EnumerateFileSystemEntries(directory).Any())
                     Directory.Delete(directory, false);
             }
@@ -456,7 +479,10 @@ public sealed class PcCleanupService
         try
         {
             var attributes = File.GetAttributes(root);
-            return (attributes & FileAttributes.ReparsePoint) == 0;
+            // A normal leaf can still be nested below a junction that
+            // redirects cleanup outside the manager's allowed roots.
+            return (attributes & FileAttributes.ReparsePoint) == 0 &&
+                   !ManagedPathSafety.HasReparsePointOnPath(root);
         }
         catch
         {

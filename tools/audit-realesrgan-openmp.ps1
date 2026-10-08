@@ -32,10 +32,10 @@ if ($dependencies.Count -eq 0) {
     throw "No PE DLL imports were identified. Refusing to assume the audit succeeded."
 }
 
-Write-Host "Direct PE imports for $exe:"
+Write-Host "Direct PE imports for ${exe}:"
 $dependencies | ForEach-Object { Write-Host "  $_" }
 
-$openMp = @($dependencies | Where-Object { $_ -match '(?i)^(vcomp\d*|libomp|libgomp|libiomp\d*)\.dll$' })
+$openMp = @($dependencies | Where-Object { $_ -match '(?i)^(vcomp[0-9a-z_-]*|libomp[0-9a-z_.-]*|libgomp[0-9a-z_.-]*|libiomp[0-9a-z_.-]*)\.dll$' })
 if ($openMp.Count -gt 0) {
     throw "OpenMP runtime import remains: $($openMp -join ', '). Do not ship the experimental binary without a licensed runtime."
 }

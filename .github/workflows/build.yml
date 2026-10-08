@@ -98,6 +98,8 @@ jobs:
             "tools/vendor-third-party.ps1",
             "tools/verify-self-contained.ps1",
             "tools/build-realesrgan.ps1",
+            "tools/audit-realesrgan-openmp.ps1",
+            "tools/verify-v4-windows-process-cleanup.ps1",
             "tools/build-optiscaler.ps1",
             "tools/build-reshade.ps1",
             "tools/build-video2dlssnr.ps1",

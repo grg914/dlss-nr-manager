@@ -1,3 +1,52 @@
+CHECKPOINT R045 (2026-10-08) - CORRECTION FLAKY TEST CRASH PID MARKER
+- PR #122: Build GitHub Actions run 37841038462 a passe les audits de scripts / gouvernance, puis echec xUnit Run regression tests: 125 tests passed, 1 FAILED dans ForcedManagerTerminationTests.Abrupt_manager_termination_kills_owned_helper_on_windows. Erreur exacte IOException: impossible de lire le fichier dlssnr-crash-probe-*.pid car encore utilise par un autre processus. Stack: File.ReadAllText(marker) ligne 60.
+- Analyse de cause: CrashProbe Program.cs utilisait File.WriteAllText directement sur le chemin marqueur; File.Exists(marker) pouvait devenir vrai avant fermeture complete du handle Windows. Le test lisait le fichier trop tot; ce FAIL ne prouve PAS que JobObject KILL_ON_JOB_CLOSE est casse.
+- Correctif commit a916b2c876866d7548506f8e7948a3ddb209e009: ecrit d'abord un fichier .writing, le ferme puis File.Move vers le marqueur final pour publication atomique. Correctif commit 221b7eff8740ae69421f2316c5e7e0d5723f72c1: la boucle de readiness tente File.ReadAllText + int.TryParse sur 25s, tolere IOException transitoire, attend un PID valide avant kill. Aucun test ignore ni supprime; le test verifie toujours le processus enfant apres kill du seul parent.
+- CodeQL sur ancien HEAD 0ccb59969a0e7d84d61f376cbaf6063411bcbe6a: SUCCESS 37841038606; Build ancien HEAD ECHEC, il faudra un nouveau Build ET CodeQL SUCCESS sur head actuel avant merge PR122.
+- Autres checkpoints R039-R044 sauvegardes sur branche #122, main contient R038. Aucun hardware PC utilisateur teste et v4 NON PUBLIEE.
+PROCHAINE ACTION: observer nouveau Build et CodeQL PR122, diagnostiquer echec eventuel; ne fusionner que sur head vert puis fermer PR120/121, relire R039-R045 sur main.
+
+CHECKPOINT R044 (2026-10-08) - CI REVELE CORRUPTION SCRIPT / RESTAURATION COMPLETE
+- PR #122 Build 37840681826 ECHEC de la verification syntaxe PowerShell: tools/audit-realesrgan-openmp.ps1 avait string unterminated (The string is missing the terminator: '). Inspection directe: le remplacement texte precedent du pattern contenant le caractere '$' de fin de regex a ete traite comme $' (jeton de substitution Javascript du suffixe), ce qui a duplique une partie du script et coupe les quotes.
+- Reparation commit 9990601ea59f202b458148af04ce19c8c84da073: fichier RECONSTRUIT depuis la version complete et saine de main, remplacements via callbacks Javascript pour garantir le texte LITTERAL, correction ${exe}: et regex OpenMP etendue avec \$ final. Controle de structure: une seule declaration openMp et un seul message PASS.
+- Les controles CI doivent etre relances sur le dernier HEAD; ne pas declarer scripts PowerShell valides avant Build/CodeQL success. Issue #79, tests GPU/perf toujours ouverts; release v4.0 non publiee.
+PROCHAINE ACTION: CI syntaxe d'abord, puis tests 126 et packaging; fusion #122 si tout vert, fermer #120/121, verifier journal R039-R044 sur main.
+
+CHECKPOINT R043 (2026-10-08) - AUDIT PE OPENMP ET COUVERTURE DES NOMS DE DLL
+- En plus de R042 (correction syntaxe PowerShell ${exe}: et inclusion dans build.yml), extension du pattern de refus dans tools/audit-realesrgan-openmp.ps1 pour detecter variantes de noms vcomp140d.dll, libgomp-1.dll, libiomp5md.dll, libomp*.dll, en plus des noms simples. Ancienne regex ne couvrait que vcomp[0-9], libgomp.dll, libomp.dll et libiomp[0-9]. Le script demeure analyse des IMPORTS DIRECTS seulement; aucune garantie sur import transitif/licence, pas de promotion production.
+- Commit du correctif pattern sur PR #122: 0aa47d7efaff4d2a1bfa8f0459df81a0d8cf4ec2. Nouveau Build et CodeQL requis sur head final de la branche; anciens resultats #120/#121 ne prouvent pas le head #122.
+- Issue #79 reste ouverte; benchmark/cross-DLL verification et Windows GPU reel requis avant tout packaging.
+PROCHAINE ACTION: attendre CI exact nouveau commit apres checkpoint, corriger si echec puis merger PR #122 uniquement si tout vert; fermer PR #120/#121 obsoletes apres fusion et verifier R039-R043 sur main.
+
+CHECKPOINT R042 (2026-10-08) - CI DETECTE ET CORRIGE ERREUR POWERSHELL AUDIT REALESRGAN
+- PR #122 Build 37840275946 ECHEC a l'etape "Validate self-contained tooling". Cause exacte recue dans le log: tools/audit-realesrgan-openmp.ps1 variable reference invalide car "Write-Host ... $exe:" interprete la sequence ':' comme nom de variable/drive PowerShell. L'ancien Build #119 passait car le script n'etait PAS dans la liste de verification syntaxique.
+- Correctif sur branche #122 commit 1830d7df04fd41b187a5bb7fe636d0b1912e7d86: syntaxe Write-Host "Direct PE imports for ${exe}:" et maintien du controle du script dans .github/workflows/build.yml. Build/CodeQL sur nouveau head a revalider; ne pas masquer echec initial.
+- Tests PowerShell ne prouvent pas correctness PE/VM ni benchmark GPU/VRAM; issue #79 ouverte. Journal R039-R041 deja sur branche #122; besoin fusion en main une fois checks verts; v4.0 non publiee.
+PROCHAINE ACTION: verifier CI sur head apres ce checkpoint, corriger si nouvelle erreur; merger uniquement si Build+CodeQL success, puis fermer #120/#121 obsolete et controler R039-R042 sur main.
+
+CHECKPOINT R041 (2026-10-08) - RECONCILIATION PC CLEAN + TEST WINDOWS ET VERIFICATION SYNTAXE
+- PR #119 fusionnee sur main commit 52dacd47f8966b516419d6ada627e55270115c64: Build 37838790919 SUCCESS, 124 tests passes (0 echec/ignore), CodeQL 37838790887 SUCCESS. Journal R037/R038 et etude no-OpenMP deja presents sur main; PR #118 fermee comme remplacee.
+- Branche security/v4-cleanup-acceptance-reconciled creee depuis main apres PR119, reprenant les deux corrections de branches #120 et #121 (script PC acceptance non destructif, doc FR, garde PC Clean contre liens/jonctions parents et 2 tests).
+- Verification de .github/workflows/build.yml: ancienne liste de scripts PowerShell parses ne couvrait PAS tools/audit-realesrgan-openmp.ps1 ni tools/verify-v4-windows-process-cleanup.ps1. Ajout des deux a la validation syntaxique CI sans changer les releases et scripts de production. Verification CI complete necessaire; ne pas annoncer scripts executes tant que tests terrain absents.
+- R039 et R040 recuperes in extenso des branches d'origine et prependes avec R041 au journal existant R031-R038. Les PR #120/#121 devront etre fermees APRES merge du remplacement. Aucune modification de GPU/user machine, pas de preuve de suppression hors chemin en concurrence TOCTOU.
+PROCHAINE ACTION: ouvrir PR de reconciliation, attendre Build/CodeQL SUCCESS sur son head, corriger echec eventuel, puis fusionner et lire le fichier journal main pour R038-R041. Issues #79 #82 #95 #111 restent ouvertes; v4.0 NON PUBLIEE.
+
+CHECKPOINT R040 (2026-10-08) - SECURITY PC CLEAN PARENT JUNCTION GUARD
+- Analyse Services/PcCleanupService.cs: IsSafeDirectoryRoot verifiait seulement les attributs de la racine; un chemin APPDATA sous parent jonction/symlink pouvait en realite cibler des fichiers hors de la zone attendue, car IsAllowedRoot fait une comparaison lexicale de chemin. Risque deletion hors cible.
+- Branche security/v4-pc-clean-parent-reparse depuis main post-PR117. Correction: IsSafeDirectoryRoot refuse reparse point sur chaque parent via ManagedPathSafety.HasReparsePointOnPath; EnumerateFilesSafe recontrole chaque sous-dossier avant enumeration; ScanRoot et CleanRoot refusent un fichier dont un parent ou lui-meme est un reparse point; DeleteEmptyDirectories refuse la suppression des dossiers a chemin redirige. Toujours limites TOCTOU de substitutions concurrentes; aucune garantie absolue, fichiers en cours d'utilisation ignores.
+- Ajout tests/DlssNrManager.Tests/PcCleanupParentJunctionTests.cs: setup local APPDATA avec lien symbolique parent vers dossier de test hors chemin, exige absence de scan et suppression, sentinelle preservee; test normal verifie que selection *.tmp efface uniquement ancien cache et preserve important.txt. Test symlink conditionnel aux privileges Windows.
+- Code non valide tant que Build/CodeQL CI ne sont pas verts sur HEAD. Aucune operation de nettoyage executee sur le PC utilisateur.
+- PR #119 recherche OpenMP et PR #120 outil acceptance Windows en parallele, avec R037-R039 sur leurs branches; conserver tous checkpoints lors des fusions subsequentes.
+PROCHAINE ACTION: ouvrir PR avec Build/CodeQL requis, verifier tests, fusion/reconciliation avec latest main seulement si vert. V4 non publiee.
+
+CHECKPOINT R039 (2026-10-08) - TEST D'ACCEPTATION WINDOWS REEL, NON DESTRUCTIF
+- PR #117 fusionnee dans main commit 3e8c9487c46ca163f545bc28b8567f83796c781d apres Build 37837120315 et CodeQL 37837120163 SUCCESS; 124 tests, aucun echec/ignore; R031-R036 relus sur main; PR #115/#116 fermees obsoletes.
+- Branche test/v4-windows-acceptance-audit: nouveau tools/verify-v4-windows-process-cleanup.ps1: demarre une instance du manager, photographie les PID des utilitaires, attend sa fermeture, et identifie apres delai les nouveaux PID encore actifs; sauvegarde rapport JSON temporaire. Option explicite -ForceTerminateAfterSeconds tue UNIQUEMENT l'instance lancee (pas l'arbre), avertissement de perte de donnees; jamais de suppression processus auxiliaire ni fichier utilisateur.
+- docs/V4_WINDOWS_PROCESS_ACCEPTANCE.md: mode normal/force, codes retour 0/2/3, interpretation prudente des faux positifs, absence de validation GPU/VRAM, procedure de verification terrain et conservation rapport dans issue #95.
+- Script cree sur GitHub mais PAS EXECUTE sur PC utilisateur; ce n'est PAS une validation materielle reussie. CI PowerShell/Windows Build+CodeQL requise pour cette branche.
+- PR #118 recherche OpenMP remplacee dans PR #119 pour conserver journal R031-R038, en attente validations. Issues #95 et #79 ouvertes, pas de release v4.
+PROCHAINE ACTION: PR du test terrain, CI sur head exact puis merge/reconciliation; executer tests sur vrai PC Nvidia Windows et verifier logs, interruptions, rollback et VRAM avant v4.0.
+
 CHECKPOINT R038 (2026-10-08) - PR117 MERGEE; EVALUATION REALESRGAN REBASEE
 - PR #117 fusionnee sur main 3e8c9487c46ca163f545bc28b8567f83796c781d. Build 37837120315 et CodeQL 37837120163: SUCCESS. Build 124 tests passed, 0 failed, 0 skipped. PR #115 et #116 fermees obsolete; journal R031-R036 verifie sur main.
 - Nouvelle branche research/v4-realesrgan-openmp-free-reconciled depuis main post PR117: reporte strictement le mode experimental -DisableOpenMp, le script audit imports PE et la documentation de l'ancienne PR #118; garde R037 et tout historique R031-R036.

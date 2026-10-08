@@ -51,14 +51,26 @@ public sealed class ForcedManagerTerminationTests
                 throw new InvalidOperationException("Unable to start the crash probe.");
 
             var ready = Stopwatch.StartNew();
-            while (!File.Exists(marker) && !host.HasExited &&
-                   ready.Elapsed < TimeSpan.FromSeconds(25))
-                Thread.Sleep(100);
+            var helperPid = 0;
+            while (!host.HasExited && ready.Elapsed < TimeSpan.FromSeconds(25))
+            {
+                try
+                {
+                    if (File.Exists(marker) &&
+                        int.TryParse(File.ReadAllText(marker).Trim(), out helperPid))
+                        break;
+                }
+                catch (IOException)
+                {
+                    // Windows may briefly hold a newly written marker open.
+                    // Retry readiness rather than failing the cleanup test.
+                }
 
-            Assert.True(File.Exists(marker),
-                "Crash probe failed to start a tracked Windows helper.");
-            var text = File.ReadAllText(marker).Trim();
-            Assert.True(int.TryParse(text, out var helperPid));
+                Thread.Sleep(100);
+            }
+
+            Assert.True(helperPid > 0,
+                "Crash probe failed to publish a readable tracked helper PID.");
             helper = Process.GetProcessById(helperPid);
             Assert.False(helper.HasExited, "Crash probe helper exited before forced termination.");
 
