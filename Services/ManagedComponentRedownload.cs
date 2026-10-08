@@ -63,7 +63,9 @@ public static class ManagedComponentRedownload
             {
                 try
                 {
-                    if (Directory.Exists(entry.Path))
+                    // If a move failed before installation began, do not
+                    // touch a sibling component that was never moved.
+                    if ((started || entry.Moved) && Directory.Exists(entry.Path))
                         Directory.Delete(entry.Path, recursive: true);
 
                     if (entry.Moved)
