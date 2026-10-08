@@ -2445,3 +2445,20 @@ ACTION 2026-10-08 A008
 - Build application for CodeQL = SUCCESS.
 - CodeQL #28 entered the Analyze step.
 - Build #862 still downloading/preparing the manager-owned offline NuGet feed.
+
+
+ACTION 2026-10-08 A009
+- CodeQL #28 on PR #81 head 0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599
+  completed SUCCESS.
+- Successful CodeQL stages:
+  * checkout
+  * init
+  * .NET 8 validation
+  * manager-owned offline NuGet feed preparation
+  * offline restore
+  * instrumented C# build
+  * security-extended analysis
+  * SARIF/post-processing
+- This validates the new CodeQL workflow architecture and the runtime-seed
+  transport retry for the CodeQL path.
+- Build #862 remained in progress at the offline NuGet feed stage.
