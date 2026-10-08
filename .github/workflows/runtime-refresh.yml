@@ -254,8 +254,44 @@ jobs:
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-nuget-offline-seed.ps1
           if ($LASTEXITCODE -ne 0) { throw "NuGet seed generation failed." }
-          gh release upload $env:RUNTIME_SEED_TAG "build-local/nuget-offline.zip" --repo "${{ github.repository }}" --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Unable to publish offline NuGet seed." }
+
+          $zip = "build-local/nuget-offline.zip"
+          $localSha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $release = gh api "repos/${{ github.repository }}/releases/tags/$env:RUNTIME_SEED_TAG" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Unable to inspect current runtime seed release." }
+
+          $existing = @($release.assets) | Where-Object { [string]$_.name -eq "nuget-offline.zip" } | Select-Object -First 1
+          $upload = $true
+          if ($existing) {
+            $digest = [string]$existing.digest
+            if (-not $digest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+              throw "Existing nuget-offline.zip has no GitHub SHA-256 digest; refusing blind replacement."
+            }
+
+            $remoteSha = $digest.Substring(7).ToLowerInvariant()
+            if ($remoteSha -eq $localSha) {
+              Write-Host "SKIP unchanged manager-owned nuget-offline.zip ($localSha)."
+              $upload = $false
+            }
+          }
+
+          if ($upload) {
+            gh release upload $env:RUNTIME_SEED_TAG $zip --repo "${{ github.repository }}" --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Unable to publish offline NuGet seed." }
+
+            $confirmedRelease = gh api "repos/${{ github.repository }}/releases/tags/$env:RUNTIME_SEED_TAG" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw "Unable to verify published offline NuGet seed." }
+            $confirmed = @($confirmedRelease.assets) | Where-Object { [string]$_.name -eq "nuget-offline.zip" } | Select-Object -First 1
+            if (-not $confirmed -or -not ([string]$confirmed.digest).StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+              throw "Published nuget-offline.zip has no GitHub SHA-256 digest."
+            }
+
+            $publishedSha = ([string]$confirmed.digest).Substring(7).ToLowerInvariant()
+            if ($publishedSha -ne $localSha) {
+              throw "Published nuget-offline.zip digest mismatch. Expected $localSha, got $publishedSha."
+            }
+            Write-Host "Published manager-owned nuget-offline.zip ($localSha)."
+          }
 
   java-runtime:
     needs: seed-release
@@ -297,6 +333,12 @@ jobs:
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.java-runtime.outputs.changed == 'true')
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository for local dispatch helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          lfs: false
+
       - name: Dispatch production release after seed promotion
         env:
           GH_TOKEN: ${{ github.token }}

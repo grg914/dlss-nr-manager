@@ -80,6 +80,7 @@ jobs:
             "tools/verify-repository-governance.ps1",
             "tools/generate-sbom.ps1",
             "tools/generate-release-provenance.ps1",
+            "tools/create-deterministic-flat-zip.ps1",
             "tools/create-application-package.ps1"
           )
 
@@ -119,6 +120,53 @@ jobs:
               throw "Upstream policy '$($policy.id)' has no dependency lock entry."
             }
           }
+
+      - name: Verify deterministic flat ZIP helper
+        shell: pwsh
+        run: |
+          $testRoot = Join-Path $env:RUNNER_TEMP "dlssnr-deterministic-flat-zip"
+          $input = Join-Path $testRoot "input"
+          $zipA = Join-Path $testRoot "a.zip"
+          $zipB = Join-Path $testRoot "b.zip"
+          Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $input | Out-Null
+
+          # Create files in deliberately non-sorted order. The helper must sort
+          # entries itself and ignore source-file mtimes.
+          [IO.File]::WriteAllText((Join-Path $input "zeta.txt"), "zeta`n", [Text.UTF8Encoding]::new($false))
+          [IO.File]::WriteAllText((Join-Path $input "alpha.txt"), "alpha`n", [Text.UTF8Encoding]::new($false))
+          $timestamp = "2026-01-02T03:04:05Z"
+
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\create-deterministic-flat-zip.ps1 -InputDirectory $input -OutputPath $zipA -TimestampUtc $timestamp -Compression Store
+          if ($LASTEXITCODE -ne 0) { throw "First deterministic flat ZIP build failed." }
+
+          (Get-Item (Join-Path $input "alpha.txt")).LastWriteTimeUtc = [DateTime]::UtcNow.AddYears(-2)
+          (Get-Item (Join-Path $input "zeta.txt")).LastWriteTimeUtc = [DateTime]::UtcNow.AddYears(2)
+
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\create-deterministic-flat-zip.ps1 -InputDirectory $input -OutputPath $zipB -TimestampUtc $timestamp -Compression Store
+          if ($LASTEXITCODE -ne 0) { throw "Second deterministic flat ZIP build failed." }
+
+          $a = (Get-FileHash -LiteralPath $zipA -Algorithm SHA256).Hash
+          $b = (Get-FileHash -LiteralPath $zipB -Algorithm SHA256).Hash
+          if ($a -ne $b) {
+            throw "Deterministic flat ZIP helper is not reproducible. First SHA-256: $a; second SHA-256: $b"
+          }
+
+          $seedBuilder = Get-Content .\tools\build-nuget-offline-seed.ps1 -Raw
+          if ($seedBuilder -match '\[DateTime\]::UtcNow' -or
+              $seedBuilder -match 'Compress-Archive' -or
+              $seedBuilder -match 'generated_at_utc' -or
+              $seedBuilder -match 'git show') {
+            throw "NuGet seed builder contains a known non-deterministic timestamp/archive path."
+          }
+          if ($seedBuilder -notmatch '\$deterministicArchiveTimestamp\s*=\s*"1980-01-01T00:00:00Z"') {
+            throw "NuGet seed builder does not use the fixed content-addressed ZIP epoch."
+          }
+          if ($seedBuilder -notmatch 'create-deterministic-flat-zip\.ps1') {
+            throw "NuGet seed builder does not use the deterministic ZIP helper."
+          }
+
+          Write-Host "Deterministic flat ZIP helper verified: $($a.ToLowerInvariant())"
 
       - name: Validate repository governance
         shell: pwsh

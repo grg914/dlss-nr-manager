@@ -2236,3 +2236,787 @@ DONC:
 10. Re-mettre a jour AI_PROJECT_PROGRESS.txt apres les resultats reels.
 
 FIN CHECKPOINT 0H
+
+
+================================================================================
+LIVE ACTION LOG - CONTINUITY AFTER CONNECTION INTERRUPTION (2026-10-08)
+================================================================================
+
+User instruction:
+- Record every significant action in AI_PROJECT_PROGRESS.txt to make future
+  continuation reliable after connection interruptions.
+
+Logging strategy:
+- Live progress is written on branch docs/live-ai-project-progress.
+- Reason: Build workflow runs on main pushes and pull requests only. Keeping
+  this live log on a no-PR documentation branch avoids cancelling/restarting
+  PR #81 Build/CodeQL on every journal update.
+- Before final merge of hardening/features, this live log must be reconciled
+  back into the canonical AI_PROJECT_PROGRESS.txt that reaches main.
+
+ACTION 2026-10-08 A001
+- Resumed from Build #860 / CodeQL #26 validation point after connection loss.
+- Checked .github/workflows/build.yml trigger.
+- Confirmed Build runs on:
+  push main
+  pull_request
+  workflow_dispatch
+- Conclusion: a no-PR progress branch can receive log commits without
+  restarting the active PR #81 Build.
+
+ACTION 2026-10-08 A002
+- Read PR #81 current state through GitHub.
+- Current PR #81 head at this checkpoint:
+  4382348ca0ed9e46eedf384ae6770225b398ea36
+- mergeable: true
+- mergeable_state: blocked (checks/rules pending, not a merge conflict).
+
+ACTION 2026-10-08 A003
+- Created branch docs/live-ai-project-progress from exact PR #81 head
+  4382348ca0ed9e46eedf384ae6770225b398ea36.
+- Purpose: persistent live action journal without invalidating PR #81 CI.
+
+
+ACTION 2026-10-08 A004
+- Rechecked PR #81 exact current head after creating the live progress branch.
+- Head: 4382348ca0ed9e46eedf384ae6770225b398ea36
+- Build #861: in_progress
+- CodeQL #27: in_progress
+- mergeable: true
+- mergeable_state: blocked only by pending checks/rules; no merge conflict.
+- Decision: do not modify hardening/repository-governance while these exact-head
+  checks run.
+
+
+ACTION 2026-10-08 A005
+- Inspected job steps for PR #81 head 4382348c.
+- Build #861 completed successfully:
+  checkout
+  preinstalled .NET 8 check
+  release dispatch helper bash syntax
+  self-contained tooling validation
+  repository governance validation
+  SPDX SBOM generation/validation
+  Minecraft native Vulkan/NGX policy
+  Caustica/SPBR audit
+  NVIDIA Streamline runtime seed audit
+  zero-upstream production audit
+- Build #861 currently at manager-owned offline NuGet feed preparation.
+- CodeQL #27 completed successfully:
+  checkout
+  CodeQL initialization
+  preinstalled .NET 8 check
+- CodeQL #27 currently at the same manager-owned offline NuGet feed preparation.
+- No code change required at this point.
+
+
+ACTION 2026-10-08 A006
+- CodeQL #27 failed at step: Prepare manager-owned offline NuGet feed.
+- Retrieved the completed job log.
+- Exact root cause:
+  tools/download-runtime-seed.ps1 line 76 Invoke-WebRequest
+  IOException: "Unable to read data from the transport connection:
+  An existing connection was forcibly closed by the remote host."
+- CodeQL initialization itself succeeded.
+- No C# security analysis ran because the offline feed could not finish.
+- Diagnosis: transient GitHub release-asset transport failure, not a CodeQL
+  query/configuration or application compile failure.
+- Corrective action selected:
+  harden download-runtime-seed.ps1 with bounded retry/backoff around the
+  release-asset download so Build/CodeQL/Release use the same resilient path.
+
+
+ACTION 2026-10-08 A007
+- Inspected tools/download-runtime-seed.ps1 after CodeQL #27 transport failure.
+- Found the script already had ConsistencyRetries=4 around the complete seed
+  snapshot, but the catch block immediately rethrew every exception.
+- Consequence: HTTP/transport exceptions never reached retry attempts 2-4.
+- Also found a partial-download cleanup gap: the temporary path was not added
+  to attemptFiles until after successful download/hash, so a transport failure
+  could leave a .download.* temporary file.
+
+ACTION 2026-10-08 A008
+- Patched hardening/repository-governance:
+  commit 0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599
+  file tools/download-runtime-seed.ps1
+- Changes:
+  track every temporary download path immediately;
+  clean all attempt temporary files on consistency retry and exception;
+  retry the complete runtime-seed snapshot after transient/API/transport
+  exceptions while attempts remain;
+  retain final failure after the configured ConsistencyRetries limit;
+  reuse the existing bounded retry delay.
+- This resiliency applies to every caller of download-runtime-seed.ps1,
+  including Build, CodeQL offline NuGet preparation and Release/runtime paths.
+- The fix intentionally preserves SHA-256 validation and post-download seed
+  identity/digest consistency checks.
+
+
+ACTION 2026-10-08 A009
+- Rechecked PR #81 after runtime-seed retry fix.
+- New exact head:
+  0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599
+- mergeable: true
+- mergeable_state: blocked only by checks/rules.
+- Build #862: pending
+- CodeQL #28: in_progress
+- Decision: freeze hardening branch again and validate this exact head.
+
+
+ACTION 2026-10-08 A010
+- Rechecked Build #862 and CodeQL #28 on PR #81 head 0fe3c7f6.
+- Build #862 has successfully passed:
+  checkout
+  .NET 8 toolchain
+  release dispatch helper syntax
+  self-contained tooling
+  repository governance
+  SPDX SBOM
+  Minecraft native Vulkan/NGX policy
+- Build #862 is currently auditing Caustica/SPBR.
+- CodeQL #28 has successfully passed:
+  checkout
+  CodeQL initialization
+  .NET 8 toolchain
+- CodeQL #28 is currently re-testing manager-owned offline NuGet preparation
+  with the new runtime-seed retry logic.
+- No new error observed at this checkpoint.
+
+
+ACTION 2026-10-08 A005
+- Inspected failed CodeQL #27 logs.
+- Root cause was NOT CodeQL and NOT C# compilation.
+- Failure occurred in tools/download-runtime-seed.ps1 during
+  Prepare manager-owned offline NuGet feed.
+- Exact transport error:
+  Invoke-WebRequest IOException:
+  "Unable to read data from the transport connection:
+   An existing connection was forcibly closed by the remote host."
+- Build #861 was cancelled at the same offline-feed stage, so no application
+  regression was established by that run.
+
+ACTION 2026-10-08 A006
+- Re-read PR #81 after the transport failure.
+- PR head had advanced to:
+  0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599
+- Commit:
+  fix: retry transient runtime-seed transport failures
+- Audited its diff in tools/download-runtime-seed.ps1.
+- Change behavior:
+  * tracks every attempt temporary path;
+  * cleans temporary downloads on retry/failure;
+  * retries a complete runtime-seed snapshot after a transient exception;
+  * preserves the existing consistency-retry limit;
+  * throws after the final allowed attempt.
+- New exact-head checks:
+  Build #862: in_progress
+  CodeQL #28: in_progress
+- PR #81 remains mergeable=true and blocked only pending checks/rules.
+
+
+ACTION 2026-10-08 A007
+- Rechecked exact-head CI after runtime-seed retry fix.
+- CodeQL #28:
+  Prepare manager-owned offline NuGet feed = SUCCESS.
+- This directly validates that the retry fix resolved the transport failure
+  observed in CodeQL #27.
+- CodeQL #28 continued into Restore from manager-owned feed.
+- Build #862 remained in Prepare manager-owned offline NuGet feed at this point.
+
+
+ACTION 2026-10-08 A011
+- Rechecked PR #81 CI after the runtime-seed retry patch.
+- CodeQL #28 now confirms the retry fix works:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore from manager-owned feed: SUCCESS
+  Build application for CodeQL: SUCCESS
+  Analyze: in_progress
+- This proves the prior #27 failure was a transient transport weakness and the
+  new retry behavior allows the pipeline to recover.
+- Build #862 remains in offline NuGet feed preparation at this checkpoint.
+- No additional code change required.
+
+
+ACTION 2026-10-08 A008
+- CodeQL #28 progressed successfully through:
+  * manager-owned offline NuGet feed preparation
+  * offline restore
+  * instrumented C# application build
+- Build application for CodeQL = SUCCESS.
+- CodeQL #28 entered the Analyze step.
+- Build #862 still downloading/preparing the manager-owned offline NuGet feed.
+
+
+ACTION 2026-10-08 A009
+- CodeQL #28 on PR #81 head 0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599
+  completed SUCCESS.
+- Successful CodeQL stages:
+  * checkout
+  * init
+  * .NET 8 validation
+  * manager-owned offline NuGet feed preparation
+  * offline restore
+  * instrumented C# build
+  * security-extended analysis
+  * SARIF/post-processing
+- This validates the new CodeQL workflow architecture and the runtime-seed
+  transport retry for the CodeQL path.
+- Build #862 remained in progress at the offline NuGet feed stage.
+
+
+ACTION 2026-10-08 A012
+- CodeQL #28 completed SUCCESS on PR #81 head
+  0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599.
+- Successful CodeQL steps:
+  checkout
+  initialization
+  .NET 8 check
+  manager-owned offline NuGet feed preparation
+  offline restore
+  C# build
+  security-extended analysis
+  post-analysis/upload cleanup
+- Conclusion:
+  runtime-seed transport retry fix is validated by a full successful CodeQL run;
+  CodeQL configuration itself is healthy.
+- Remaining merge gate for PR #81:
+  Build #862 still in progress.
+
+
+ACTION 2026-10-08 A013
+- Build #862 passed the previously fragile section:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: SUCCESS
+- Build #862 is now running regression tests.
+- Combined with CodeQL #28 SUCCESS, the runtime-seed transport retry fix is now
+  validated independently in both Build and CodeQL pipelines.
+
+
+ACTION 2026-10-08 A014
+- Build #862 regression tests: SUCCESS.
+- Build #862 moved to Publish Windows x64 single-file.
+- Remaining checks on this exact head:
+  verify executable/icon
+  verify deterministic application packaging
+  final Build conclusion.
+
+
+ACTION 2026-10-08 A015
+- Build #862 completed FAILURE only at:
+  Verify deterministic application packaging.
+- All prior Build #862 steps were SUCCESS, including:
+  offline NuGet feed
+  offline restore
+  37/37 regression tests
+  Windows x64 single-file publish
+  executable/icon validation.
+- Retrieved exact failure log:
+  create-application-package.ps1 line 5
+  Join-Path cannot bind Path because $PSScriptRoot was empty while evaluating
+  the default value of parameter Root.
+- Therefore the failure occurred before ZIP creation and did not prove any
+  byte-level reproducibility defect.
+
+ACTION 2026-10-08 A016
+- Patched hardening/repository-governance:
+  commit 3d6365a8fafc6bd773ec29585bcc8bee996f62e9
+  file tools/create-application-package.ps1
+- Root parameter now defaults to an empty string.
+- Script resolves Root after param binding from PSScriptRoot and explicitly
+  fails with a clear message if PSScriptRoot itself cannot be resolved.
+- Goal: compatibility across Windows PowerShell 5.1 and PowerShell 7 invocation.
+- This change restarts PR #81 checks; exact-head validation is required again.
+
+
+ACTION 2026-10-08 A017
+- Rechecked PR #81 after deterministic package root fix.
+- Exact head:
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9
+- mergeable: true
+- mergeable_state: blocked only by pending checks.
+- Build #864: pending
+- CodeQL #30: pending
+- Branch frozen for exact-head validation.
+
+
+ACTION 2026-10-08 A018
+- Verified AI_PROJECT_PROGRESS.txt after connection interruption.
+- main still contains the historical project log through the v3.2.0 release checkpoint.
+- hardening/repository-governance contains checkpoints 0G and 0H.
+- docs/live-ai-project-progress contains checkpoints 0G/0H plus the live action journal through A017.
+- Re-read PR #81 exact state from GitHub:
+  head 3d6365a8fafc6bd773ec29585bcc8bee996f62e9
+  mergeable: true
+  mergeable_state: blocked only by pending checks
+  Build #864: in_progress
+  CodeQL #30: queued
+- Resume point confirmed: validate the deterministic application-package root fix on this exact head before any merge.
+
+
+ACTION 2026-10-08 A019
+- Rechecked exact-head jobs for PR #81 head
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Build #864 and CodeQL #30 both obtained runners and entered checkout.
+- Build #864 still has deterministic application packaging as final validation step #17.
+- CodeQL #30 will validate the same manager-owned offline NuGet path independently.
+
+ACTION 2026-10-08 A020
+- Re-read tools/create-application-package.ps1 after the A016 Root fix.
+- Confirmed Root now defaults to empty and is resolved after parameter binding
+  from PSScriptRoot.
+- Confirmed deterministic package invariants remain:
+  fixed entry order,
+  ZIP timestamps normalized to 2-second ZIP precision,
+  exact entry-set verification,
+  README/LICENSE/THIRD_PARTY_NOTICES/DATA_PRIVACY included,
+  SHA-256 emitted after verification.
+- No additional code change made; exact CI execution remains authoritative.
+
+
+ACTION 2026-10-08 A021
+- Exact-head CI progressed on PR #81.
+- Build #864:
+  checkout SUCCESS
+  .NET 8 SUCCESS
+  release dispatch helper syntax SUCCESS
+  self-contained tooling SUCCESS
+  repository governance SUCCESS
+  SPDX SBOM SUCCESS
+  Minecraft Vulkan/NGX SUCCESS
+  Caustica/Scandi audit SUCCESS
+  Streamline audit SUCCESS
+  zero-upstream production audit currently in progress
+- CodeQL #30:
+  checkout SUCCESS
+  CodeQL initialization currently in progress
+- No failure detected; no branch modification made.
+
+
+ACTION 2026-10-08 A022
+- Rechecked exact-head CI on PR #81 after A021.
+- Build #864:
+  zero-upstream production audit: SUCCESS
+  manager-owned offline NuGet feed preparation: in_progress
+- CodeQL #30:
+  CodeQL initialization: SUCCESS
+  .NET 8 validation: SUCCESS
+  manager-owned offline NuGet feed preparation: in_progress
+- Both pipelines are now exercising the runtime-seed/offline dependency path
+  independently on the same exact head.
+- No code change made.
+
+
+ACTION 2026-10-08 A023
+- Attempted to fetch live job logs for Build #864 and CodeQL #30 while both
+  jobs were still active.
+- GitHub returned BlobNotFound/404 for the temporary log blob on both jobs.
+- This is a log-materialization limitation while the jobs are active, not a
+  Build/CodeQL failure.
+- Authoritative status remains the workflow/job step API.
+- No code change made.
+
+
+ACTION 2026-10-08 A024
+- Rechecked PR #81 exact-head CI on
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Build #864 remains healthy through step 11; step 12
+  Prepare manager-owned offline NuGet feed is still in_progress.
+- CodeQL #30 remains healthy through initialization and .NET 8 validation;
+  its manager-owned offline NuGet feed preparation is still in_progress.
+- No failed/cancelled step is reported by the authoritative workflow step API.
+- No code change made; hardening/repository-governance remains frozen while
+  exact-head validation continues.
+
+
+ACTION 2026-10-08 A025
+- Performed read-only audit while exact-head CI remains frozen.
+- Reviewed Build/CodeQL workflows plus tools/create-application-package.ps1,
+  tools/prepare-offline-dotnet.ps1 and tools/download-runtime-seed.ps1.
+- Deterministic package Root fix is structurally correct: Root is resolved only
+  after param binding, fixed entry order/timestamps are preserved, and Build
+  still performs a two-ZIP SHA-256 reproducibility check.
+- Runtime seed release runtime-seed-v1 currently contains nuget-offline.zip at
+  263,046,731 bytes (~251 MiB), SHA-256
+  38ab02f61cdea1734ee80697ab81b340648a1a4413db568ebff5280b1c79a4bf.
+- prepare-offline-dotnet downloads that full manager-owned ZIP, validates the
+  release digest/snapshot, expands it, then hashes every package from its
+  manifest. Build and CodeQL perform this independently.
+- Therefore the long offline-feed stage is currently plausible from workload
+  size; no hang/failure signal has been observed through the workflow API.
+- Potential future optimization: reduce/partition the offline seed or introduce
+  a trusted manager-owned reuse strategy, but do not alter this exact head
+  before #864/#30 complete.
+
+
+ACTION 2026-10-08 A026
+- CodeQL #30 progressed on exact head
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Prepare manager-owned offline NuGet feed: SUCCESS.
+- CodeQL #30 entered Restore from manager-owned feed.
+- This reconfirms the A008/A012 runtime-seed retry path on the final package-root
+  fix head, not only on the previous 0fe3c7f6 head.
+- Build #864 remains in its independent offline-feed preparation step.
+- No code change made.
+
+
+ACTION 2026-10-08 A027
+- Exact-head CI advanced on both pipelines.
+- Build #864:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: in_progress
+- CodeQL #30:
+  Restore from manager-owned feed: SUCCESS
+  Build application for CodeQL: in_progress
+- The final 3d6365a8 head has therefore passed the previously fragile
+  manager-owned seed download/validation path in both Build and CodeQL.
+- No code change made.
+
+
+ACTION 2026-10-08 A018
+- Rechecked PR #81 head 3d6365a8 CI after package-root fix.
+- Build #864:
+  manager-owned offline NuGet feed: SUCCESS
+  offline restore: SUCCESS
+  regression tests: in_progress
+- CodeQL #30:
+  manager-owned offline NuGet feed: SUCCESS
+  offline restore: SUCCESS
+  C# build: in_progress
+- Confirms the runtime-seed transport hardening continues to work on the new
+  exact head after the packaging fix.
+
+
+ACTION 2026-10-08 A028
+- PR #81 merge readiness was checked while CI continued.
+- PR state: open, non-draft, mergeable=true, mergeable_state=blocked only while
+  required checks are still running.
+- No requested reviewers, submitted reviews, or unresolved review threads.
+- CodeQL #30:
+  offline restore: SUCCESS
+  instrumented C# build: SUCCESS
+  Analyze: in_progress
+- Build #864:
+  offline restore: SUCCESS
+  regression tests: in_progress
+- No code change made.
+
+
+ACTION 2026-10-08 A029
+- Build #864 regression tests: SUCCESS on exact head 3d6365a8.
+- Build #864 entered Publish Windows x64 single-file.
+- CodeQL #30 remains in Analyze after a successful offline restore and C# build.
+- Remaining Build gates:
+  executable/icon validation;
+  deterministic application packaging (two independent ZIP builds + SHA-256 equality).
+- No code change made.
+
+
+ACTION 2026-10-08 A030
+- Build #864 passed:
+  Publish Windows x64 single-file: SUCCESS
+  Verify executable and icon: SUCCESS
+- Build #864 has now entered the decisive final step:
+  Verify deterministic application packaging: in_progress.
+- This is the exact step that failed on Build #862 before the
+  create-application-package.ps1 Root fix.
+- CodeQL #30 remains in Analyze with all prerequisite stages successful.
+- No code change made.
+
+
+ACTION 2026-10-08 A031
+- Build #864 completed SUCCESS on exact PR #81 head
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Regression result from completed job log:
+  37 passed, 0 failed, 0 skipped.
+- The previously failing deterministic packaging gate now passes.
+- package-a.zip SHA-256:
+  d41926d3696bda129bd6e511ee51e72f964a57faf76e6c0a5addf7e322e22485
+- package-b.zip SHA-256:
+  d41926d3696bda129bd6e511ee51e72f964a57faf76e6c0a5addf7e322e22485
+- Byte-for-byte reproducibility is therefore validated for this exact head.
+- Remaining merge gate: CodeQL #30 final Analyze/post steps.
+
+
+ACTION 2026-10-08 A032
+- CodeQL #30 completed SUCCESS on exact PR #81 head
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Successful stages include:
+  manager-owned offline NuGet feed preparation;
+  offline restore;
+  instrumented C# build;
+  security-extended Analyze;
+  post-analysis cleanup/upload.
+- Build #864 and CodeQL #30 are now both green on the same exact head.
+- Next action: recheck PR merge state and merge #81 if GitHub reports no remaining gate.
+
+
+ACTION 2026-10-08 A019
+- Final exact-head validation for PR #81:
+  head 3d6365a8fafc6bd773ec29585bcc8bee996f62e9
+  Build #864: SUCCESS
+  CodeQL #30: SUCCESS
+  mergeable: true
+  mergeable_state: clean
+  draft: false
+- Build #864 specifically passed:
+  repository governance
+  SPDX SBOM
+  zero-upstream
+  offline NuGet feed + restore
+  37/37 tests
+  Windows x64 publish
+  EXE/icon validation
+  deterministic application ZIP verification.
+- CodeQL #30 passed full C# security-extended analysis.
+- PR #81 is eligible for merge on this exact head.
+
+
+ACTION 2026-10-08 A033
+- PR #81 reached mergeable_state=clean after Build #864 and CodeQL #30 both
+  completed SUCCESS on exact head 3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Repository ruleset requires linear history and allows squash/rebase only.
+- PR #81 was merged with squash and expected-head protection.
+- New main commit:
+  d1da778d9af9ccaa5bb0eb0a3d5cced4f5ea02cc
+- GitHub result: Pull Request successfully merged.
+- Next action: copy this live journal onto a fresh branch based on the new main,
+  then merge that documentation-only synchronization through the protected PR path.
+
+
+ACTION 2026-10-08 A020
+- Merged PR #81 using squash after exact-head Build + CodeQL success.
+- Merge result:
+  merged: true
+  main commit: d1da778d9af9ccaa5bb0eb0a3d5cced4f5ea02cc
+- Merge title:
+  hardening: repository governance, SBOM and immutable releases (#81)
+- Next mandatory validation:
+  Build on main
+  CodeQL on main
+  Runtime Seed Refresh on main
+  verify runtime seed may refresh but stable v3.2.0 is NOT republished from
+  the newer main commit without an application version bump.
+
+
+ACTION 2026-10-08 A021
+- Queried recent main workflows after PR #81 merge commit
+  d1da778d9af9ccaa5bb0eb0a3d5cced4f5ea02cc.
+- Main workflows started:
+  Build #865 (run 37714838574): in_progress
+  CodeQL #31 (run 37714838604): in_progress
+  Runtime Seed Refresh #22 (run 37714838595): in_progress
+  Upstream Dependency Sync #15 (run 37714838621): in_progress
+- All four runs target the exact merged main SHA.
+- Next checks:
+  validate Build/CodeQL main;
+  inspect Runtime Seed Refresh scope and stable-release dispatch behavior;
+  inspect whether Upstream Dependency Sync creates any change/PR.
+
+
+ACTION 2026-10-08 A034
+- Post-merge main validation started automatically for commit
+  d1da778d9af9ccaa5bb0eb0a3d5cced4f5ea02cc.
+- Active runs:
+  Build #865
+  CodeQL #31
+  Runtime Seed Refresh #22
+  Upstream Dependency Sync #15
+- Build #865 is healthy through repository/security/runtime audits and is now
+  at the zero-upstream production audit.
+- CodeQL #31 is initializing.
+- Runtime Seed Refresh #22 resolved its scope successfully and is refreshing
+  Windows/Java/NuGet/FFmpeg/native manager-owned seed assets in parallel;
+  restricted video runtime preservation already succeeded.
+- Upstream Dependency Sync #15 is starting its prepare job.
+- No failed step is currently reported.
+- Important concurrency validation: Build/CodeQL may overlap seed refresh asset
+  replacement; download-runtime-seed.ps1 now has snapshot consistency checks
+  and bounded full-snapshot retries specifically to survive such changes.
+
+
+ACTION 2026-10-08 A022
+- Inspected Runtime Seed Refresh #22 seed-release log.
+- Confirmed exact resolved scope:
+  Refresh scope: all
+- Inspected current main runtime-refresh.yml scope logic.
+- Reason is expected under current implementation:
+  only runtime-refresh.yml/release.yml orchestration changes and pure csproj
+  version-only changes preserve release-only;
+  any other changed file in the triggering compare sets value=all.
+- PR #81 changed non-orchestration runtime/tooling files (including FFmpeg
+  toolchain/runtime download hardening), therefore a full seed refresh is
+  expected and not an error.
+- Runtime Seed Refresh #22 currently has active rebuilds for:
+  Streamline/Minecraft
+  Java 25
+  FFmpeg
+  Real-ESRGAN/OptiScaler/ReShade
+  while NuGet and restricted-runtime preservation already succeeded.
+
+
+ACTION 2026-10-08 A035
+- Runtime Seed Refresh #22 completed its nuget-runtime job successfully and
+  replaced runtime-seed-v1/nuget-offline.zip while Build #865 and CodeQL #31
+  were independently preparing their offline feeds.
+- Previous nuget-offline.zip:
+  size 263,046,731 bytes
+  sha256 38ab02f61cdea1734ee80697ab81b340648a1a4413db568ebff5280b1c79a4bf
+- Refreshed nuget-offline.zip:
+  size 263,046,731 bytes
+  sha256 48c05a01cd74788d8bfb4a873fd8d60b205454e2f034cf91721c4f17e7b7160c
+- Read-only audit found build-nuget-offline-seed.ps1 embeds
+  generated_at_utc=[DateTime]::UtcNow and uses Compress-Archive.
+- This makes the seed archive non-reproducible even when the package set and
+  bytes are unchanged, causing unnecessary release-asset replacement, network
+  transfer, and snapshot-race exposure.
+- Follow-up hardening/optimization selected after current post-merge validation:
+  make nuget-offline.zip deterministic (stable manifest metadata, fixed order
+  and normalized ZIP timestamps) and skip release upload/clobber when SHA-256
+  is already identical.
+- No code change made yet because Build #865 / CodeQL #31 / refresh #22 /
+  upstream sync #15 are still validating main.
+
+
+ACTION 2026-10-08 A023
+- Rechecked all post-merge main workflows.
+- Upstream Dependency Sync #15: SUCCESS.
+- Upstream sync details:
+  pending validated upstream check: SUCCESS
+  updater identity: SUCCESS
+  detect/vendor/pin step: SUCCESS
+  Minecraft lock refresh: skipped
+  Linux validation: skipped
+  Windows validation: skipped
+  dependency branch/PR publication: skipped
+  restricted update recording: skipped
+- Conclusion: no upstream dependency change required and no automation PR was
+  created by this run.
+- Build #865 and CodeQL #31 continue through manager-owned offline NuGet prep.
+- Runtime Seed Refresh #22 continues full refresh; NuGet and restricted runtime
+  preservation are already SUCCESS.
+
+
+ACTION 2026-10-08 A036
+- Created follow-up branch hardening/deterministic-nuget-seed from merged main
+  commit d1da778d9af9ccaa5bb0eb0a3d5cced4f5ea02cc.
+- Patched tools/build-nuget-offline-seed.ps1:
+  deterministic source timestamp (explicit TimestampUtc or git commit time);
+  UTF-8 manifest without BOM and normalized newlines;
+  no DateTime::UtcNow packaging metadata;
+  deterministic SHA-256 output.
+- Patched .github/workflows/runtime-refresh.yml:
+  pass source commit timestamp to seed generation;
+  compare local SHA-256 with the existing GitHub release asset;
+  skip unchanged nuget-offline.zip uploads;
+  verify GitHub-reported SHA-256 after any actual upload.
+- Initial commits on follow-up branch:
+  1bb9e9fac50e85e54cb52abcce8948e65ff4414e
+  181d45fa8c0723a6aa15e7195898a50a3afbac9e
+
+ACTION 2026-10-08 A037
+- Added tools/create-deterministic-flat-zip.ps1 on follow-up branch.
+- Helper enforces flat inputs, stable name ordering, caller-supplied timestamp,
+  ZIP 2-second timestamp normalization, deterministic Store/Optimal mode,
+  exact entry-set verification, and SHA-256 reporting.
+- Refactored build-nuget-offline-seed.ps1 to use the helper with Store mode;
+  .nupkg files are already ZIP containers so a second deflate pass is avoided.
+- Added Build workflow validation:
+  parser checks include the new helper;
+  creates files in non-sorted order;
+  builds two ZIPs with identical logical inputs but changed source mtimes;
+  requires identical SHA-256;
+  rejects DateTime::UtcNow / Compress-Archive in the NuGet seed builder;
+  requires the builder to call create-deterministic-flat-zip.ps1.
+- Follow-up branch commits:
+  eb367e567364b963d06817d83a5846587244b500
+  697e48a3952ef01aa07739f67025c49bc4e741e5
+  867463fba9837d91135d73630fa17c915fe54324
+- Branch is not yet opened as a PR; current main post-merge workflows remain
+  authoritative and are not disturbed by these branch-only commits.
+
+
+ACTION 2026-10-08 A038
+- Post-merge Build #865 completed SUCCESS on main commit d1da778d9af9.
+- Completed job log confirms the runtime-seed retry hardening was exercised in
+  a real concurrent refresh race:
+  attempt 1/4 observed runtime-seed-v1 temporarily without nuget-offline.zip
+  while refresh #22 replaced the asset;
+  the script retried the complete seed snapshot automatically;
+  attempt 2 validated nuget-offline.zip SHA-256
+  48c05a01cd74788d8bfb4a873fd8d60b205454e2f034cf91721c4f17e7b7160c.
+- Build #865 then completed:
+  37/37 regression tests passed;
+  deterministic application packaging passed with SHA-256
+  bc08991942b441599f15fd8dd7b4fff8326531c4796520b8f1dfab3722d9c779.
+- This is direct production-CI evidence that the bounded full-snapshot retry
+  protects consumers during manager-owned seed asset replacement.
+
+
+ACTION 2026-10-08 A039
+- Post-merge CodeQL #31 completed SUCCESS on main commit d1da778d9af9.
+- CodeQL #31 validated the refreshed manager-owned nuget-offline.zip directly
+  with SHA-256
+  48c05a01cd74788d8bfb4a873fd8d60b205454e2f034cf91721c4f17e7b7160c,
+  then completed offline restore, C# build and security-extended analysis.
+- Main Build #865 and CodeQL #31 are therefore both green after PR #81 merge.
+- Upstream Dependency Sync #15 also completed without an update to promote.
+- Runtime Seed Refresh #22 remains the only active post-merge workflow.
+
+
+ACTION 2026-10-08 A040
+- Tightened the follow-up NuGet seed design from per-commit reproducibility to
+  content-addressed reproducibility.
+- Follow-up branch hardening/deterministic-nuget-seed now removes volatile
+  generated_at_utc metadata from manifest.json and no longer derives archive
+  metadata from git commit time.
+- The outer seed ZIP uses the fixed ZIP epoch 1980-01-01T00:00:00Z.
+- Consequence: identical package names/bytes/hash manifest now produce identical
+  nuget-offline.zip bytes across scheduled runs and unrelated repository commits.
+- Runtime refresh no longer passes a source timestamp to seed generation.
+- Build validation now rejects DateTime::UtcNow, Compress-Archive,
+  generated_at_utc and git-show based metadata in the seed builder, and requires
+  the fixed content-addressed ZIP epoch plus deterministic helper usage.
+- Follow-up commits:
+  4c7fc25b7b051159a7c92a125755e4d9ae7923ae
+  62685a1d7716b66f0e3652f331300cf54befd167
+  dee722c3f5210da6bf268af6287f55cef4996489
+- Runtime Seed Refresh #22 on current main remains active only in Windows
+  Streamline refresh and native ReShade build; no failed job is reported.
+
+
+ACTION 2026-10-08 A041
+- Follow-up branch now verifies full NuGet seed reproducibility, not only the
+  synthetic helper test.
+- build-nuget-offline-seed.ps1 creates the complete nuget-offline.zip twice
+  from the same validated feed, compares both SHA-256 values, and fails before
+  publication if any byte differs; the verification copy is then removed.
+- Commit: e182c69366e0e7835f2a2279ccd9ae680eb8d2d6.
+- Runtime Seed Refresh #22 native-runtime completed SUCCESS; only
+  windows-runtime / Refresh Streamline bundle remains active.
+- Read-only audit of publish-streamline-runtime.ps1 found another future
+  optimization target: STREAMLINE_RUNTIME.json is packaged with Compress-Archive
+  and the release asset is always uploaded with --clobber, even when logical
+  runtime inputs are unchanged. This can cause needless recompression/upload
+  and replacement races similar to the NuGet issue being fixed separately.
+- Active Streamline job logs are still unavailable while the job is running;
+  workflow step status remains authoritative and reports no failure.
+
+
+ACTION 2026-10-08 A042
+- Follow-up hardening/deterministic-nuget-seed is ready for PR validation.
+- Current design guarantees content-addressed NuGet seed packaging:
+  stable manifest content;
+  fixed ZIP epoch;
+  stable entry ordering;
+  no outer recompression of .nupkg files;
+  full archive generated twice with SHA-256 equality required;
+  unchanged release asset upload skipped by digest;
+  changed upload digest verified after publication.
+- Build workflow contains an independent synthetic reproducibility test and
+  static guards against reintroducing wall-clock/commit-time metadata.
+- Static read-only audit found no additional blocking issue in the four changed
+  implementation/workflow files.
+- Runtime Seed Refresh #22 on existing main still has only windows-runtime /
+  Refresh Streamline bundle active; all other jobs are SUCCESS.
+- Next: synchronize this live journal into the follow-up branch once, then open
+  the PR and freeze its exact head for Build/CodeQL validation.

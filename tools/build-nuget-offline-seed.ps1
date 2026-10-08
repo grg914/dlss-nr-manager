@@ -15,6 +15,11 @@ Remove-Item -LiteralPath $feed -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $packages, $feed, (Split-Path -Parent $zip) | Out-Null
 
+# The seed is content-addressed: archive metadata must not vary with wall-clock
+# time or source commit when the package set and bytes are unchanged.
+$deterministicArchiveTimestamp = "1980-01-01T00:00:00Z"
+
+
 Push-Location $Root
 try {
     dotnet restore DlssNrManager.csproj --packages "$packages" --runtime win-x64
@@ -78,7 +83,6 @@ foreach ($package in $wanted.Values) {
 
 $manifest = [ordered]@{
     schema = 2
-    generated_at_utc = [DateTime]::UtcNow.ToString("o")
     runtime_identifier = "win-x64"
     packages = @(
         Get-ChildItem -LiteralPath $feed -Filter "*.nupkg" -File | Sort-Object Name | ForEach-Object {
@@ -89,12 +93,46 @@ $manifest = [ordered]@{
         }
     )
 }
-$manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $feed "manifest.json") -Encoding UTF8
-Compress-Archive -Path (Join-Path $feed "*") -DestinationPath $zip -Force
-if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1MB) { throw "Offline NuGet seed ZIP was not generated correctly." }
 
+$manifestPath = Join-Path $feed "manifest.json"
+$manifestJson = ($manifest | ConvertTo-Json -Depth 8) -replace "`r`n", "`n"
+[IO.File]::WriteAllText($manifestPath, $manifestJson + "`n", [Text.UTF8Encoding]::new($false))
+
+# NuGet packages are ZIP containers already. The deterministic flat ZIP helper
+# stores them without another deflate pass, fixes entry ordering/timestamps, and
+# verifies the resulting entry set before the seed can be published.
+& (Join-Path $PSScriptRoot "create-deterministic-flat-zip.ps1") `
+    -InputDirectory $feed `
+    -OutputPath $zip `
+    -TimestampUtc $deterministicArchiveTimestamp `
+    -Compression Store
+
+if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1MB) {
+    throw "Offline NuGet seed ZIP was not generated correctly."
+}
+
+$sha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+$verificationZip = "$zip.repro-check"
+Remove-Item -LiteralPath $verificationZip -Force -ErrorAction SilentlyContinue
+try {
+    & (Join-Path $PSScriptRoot "create-deterministic-flat-zip.ps1") `
+        -InputDirectory $feed `
+        -OutputPath $verificationZip `
+        -TimestampUtc $deterministicArchiveTimestamp `
+        -Compression Store
+
+    $verificationSha256 = (Get-FileHash -LiteralPath $verificationZip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($verificationSha256 -ne $sha256) {
+        throw "Offline NuGet seed is not reproducible. First SHA-256: $sha256; second SHA-256: $verificationSha256"
+    }
+}
+finally {
+    Remove-Item -LiteralPath $verificationZip -Force -ErrorAction SilentlyContinue
+}
 Write-Host "Offline NuGet seed generated with $($manifest.packages.Count) packages: $zip"
+Write-Host "Deterministic seed SHA-256 verified twice: $sha256"
 if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
     "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
     "package_count=$($manifest.packages.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "sha256=$sha256" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 }
