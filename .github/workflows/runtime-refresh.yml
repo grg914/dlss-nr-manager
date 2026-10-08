@@ -18,6 +18,7 @@ on:
       - 'tools/map-runtime-refresh-files.sh'
       - 'tools/publish-streamline-runtime.ps1'
       - 'tools/publish-temurin25-runtime.ps1'
+      - 'tools/publish-vlc-runtime.ps1'
       - 'tools/bootstrap-minecraft-runtime.ps1'
       - 'third_party/**'
   schedule:
@@ -323,6 +324,23 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\publish-temurin25-runtime.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG"
           if ($LASTEXITCODE -ne 0) { throw "Temurin 25 runtime refresh failed." }
 
+  vlc-runtime:
+    needs: seed-release
+    if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'vlc')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Mirror verified VLC runtime and corresponding source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\publish-vlc-runtime.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG"
+          if ($LASTEXITCODE -ne 0) { throw "VLC runtime refresh failed." }
+
   dispatch-release:
     needs:
       - seed-release
@@ -332,6 +350,7 @@ jobs:
       - ffmpeg-runtime
       - nuget-runtime
       - java-runtime
+      - vlc-runtime
     if: >-
       always() &&
       needs.seed-release.result == 'success' &&
@@ -341,6 +360,7 @@ jobs:
       (needs.ffmpeg-runtime.result == 'success' || needs.ffmpeg-runtime.result == 'skipped') &&
       (needs.nuget-runtime.result == 'success' || needs.nuget-runtime.result == 'skipped') &&
       (needs.java-runtime.result == 'success' || needs.java-runtime.result == 'skipped') &&
+      (needs.vlc-runtime.result == 'success' || needs.vlc-runtime.result == 'skipped') &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || needs.java-runtime.outputs.changed == 'true')
     runs-on: ubuntu-latest
     steps:

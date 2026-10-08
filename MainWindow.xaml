@@ -149,6 +149,7 @@
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="🎮" Width="26"/><TextBlock Text="Jeux &amp; DLSS"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="⛏" Width="26"/><TextBlock Text="Minecraft RTX"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="✨" Width="26"/><TextBlock Text="Media Neural"/></StackPanel></ListBoxItem>
+            <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="▶" Width="26"/><TextBlock Text="VSR-HDR Vidéo"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="◉" Width="26"/><TextBlock Text="Détection IA"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="✦" Width="26"/><TextBlock Text="AI Studio local"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="⇩" Width="26"/><TextBlock Text="Téléchargements"/></StackPanel></ListBoxItem>
@@ -1115,6 +1116,362 @@
               </StackPanel>
             </Grid>
           </Border></Grid></ScrollViewer></TabItem>
+        <TabItem>
+          <Grid Margin="18">
+            <TabControl>
+              <TabItem Header="VSR-HDR VLC (Direct)">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <StackPanel Margin="18">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.05*"/>
+                <ColumnDefinition Width="18"/>
+                <ColumnDefinition Width="0.95*"/>
+              </Grid.ColumnDefinitions>
+
+              <Border Grid.Column="0" Style="{StaticResource CardBorder}">
+                <StackPanel>
+                  <TextBlock Text="VSR-HDR VLC (Direct)" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="Real-time NVIDIA VSR / RTX Video HDR for local playback through VLC Direct3D11."
+                             Style="{StaticResource SectionSubtitle}"
+                             Margin="0,4,0,14"/>
+
+                  <TextBlock Text="Local video"
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             FontWeight="SemiBold"/>
+                  <Grid Margin="0,5,0,12">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="VlcMediaBox"
+                             IsReadOnly="True"
+                             MinHeight="40"/>
+                    <Button Grid.Column="2"
+                            Style="{StaticResource CyanButton}"
+                            Content="Choose video"
+                            Click="SelectVlcMedia_Click"/>
+                  </Grid>
+
+                  <Border Background="#0B121A"
+                          BorderBrush="#1E2C3A"
+                          BorderThickness="1"
+                          CornerRadius="9"
+                          Padding="12">
+                    <StackPanel>
+                      <TextBlock Text="VLC runtime"
+                                 FontWeight="SemiBold"/>
+                      <TextBlock x:Name="VlcStatusText"
+                                 Text="VLC detection not checked yet."
+                                 Foreground="{StaticResource Muted}"
+                                 FontSize="11"
+                                 TextWrapping="Wrap"
+                                 Margin="0,4,0,0"/>
+                    </StackPanel>
+                  </Border>
+
+                  <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            Style="{StaticResource CyanButton}"
+                            Content="Manage in Downloads"
+                            Click="OpenVlcDownloadCenter_Click"/>
+                    <Button Grid.Column="2"
+                            Content="Refresh VLC detection"
+                            Click="RefreshVlc_Click"/>
+                  </Grid>
+                </StackPanel>
+              </Border>
+
+              <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+                <StackPanel>
+                  <TextBlock Text="Real-time NVIDIA / D3D11" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="No transcoding: VLC enhances frames during playback and the original file remains unchanged."
+                             Style="{StaticResource SectionSubtitle}"
+                             Margin="0,4,0,14"/>
+
+                  <CheckBox x:Name="VlcVsrCheck"
+                            IsChecked="True"
+                            Content="Super Resolution / NVIDIA VSR"
+                            Checked="VlcRealtimeOption_Changed"
+                            Unchecked="VlcRealtimeOption_Changed"
+                            Margin="0,0,0,4"/>
+                  <TextBlock Text="Uses VLC Direct3D11 Super Resolution for real-time upscaling when supported by the NVIDIA driver."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="24,0,0,8"/>
+
+                  <CheckBox x:Name="VlcArtifactReductionCheck"
+                            IsChecked="True"
+                            Content="Réduction des artefacts vidéo"
+                            Checked="VlcRealtimeOption_Changed"
+                            Unchecked="VlcRealtimeOption_Changed"
+                            Margin="0,0,0,4"/>
+                  <TextBlock Text="RTX VSR cleanup for compression/blocking artifacts. VLC exposes this through the same NVIDIA D3D11 VSR extension, so this option uses the VSR path."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="24,0,0,12"/>
+
+                  <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="10"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                      <CheckBox x:Name="VlcScaleCheck"
+                                IsChecked="True"
+                                Content="Échelle de rendu"
+                                FontWeight="SemiBold"
+                                Checked="VlcRealtimeOption_Changed"
+                                Unchecked="VlcRealtimeOption_Changed"/>
+                      <ComboBox x:Name="VlcScaleBox"
+                                Margin="24,5,0,0"
+                                SelectedIndex="0">
+                        <ComboBoxItem Content="x1 — fenêtre native"/>
+                        <ComboBoxItem Content="x2 — fenêtre 2×"/>
+                        <ComboBoxItem Content="x4 — fenêtre 4×"/>
+                      </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Text="Display mode"
+                                 Foreground="{StaticResource Muted}"
+                                 FontSize="11"
+                                 FontWeight="SemiBold"/>
+                      <CheckBox x:Name="VlcFullscreenCheck"
+                                Content="Plein écran"
+                                Margin="0,10,0,0"
+                                Checked="VlcRealtimeOption_Changed"
+                                Unchecked="VlcRealtimeOption_Changed"/>
+
+                      <CheckBox x:Name="VlcStatusOverlayCheck"
+                                IsChecked="True"
+                                Content="Indicateur VSR/HDR en haut à droite"
+                                Margin="0,8,0,0"
+                                Checked="VlcRealtimeOption_Changed"
+                                Unchecked="VlcRealtimeOption_Changed"/>
+                    </StackPanel>
+                  </Grid>
+
+                  <TextBlock Text="x1/x2/x4 applies to windowed playback. Fullscreen targets the monitor resolution directly so the scale selector is disabled to avoid crop/zoom."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="10"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,12"/>
+
+                  <CheckBox x:Name="VlcHdrCheck"
+                            IsChecked="True"
+                            Content="HDR / RTX Video HDR"
+                            FontWeight="SemiBold"
+                            Checked="VlcRealtimeOption_Changed"
+                            Unchecked="VlcRealtimeOption_Changed"/>
+                  <ComboBox x:Name="VlcHdrModeBox"
+                            Margin="24,5,0,10"
+                            SelectedIndex="1">
+                    <ComboBoxItem Content="Auto — conserver la source"/>
+                    <ComboBoxItem Content="SDR → HDR — NVIDIA TrueHDR"/>
+                    <ComboBoxItem Content="Toujours sortir en HDR"/>
+                    <ComboBoxItem Content="Jamais sortir en HDR"/>
+                  </ComboBox>
+
+                  <TextBlock Text="SDR → HDR requires a compatible NVIDIA GPU/driver, an HDR display and Windows HDR enabled."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,14"/>
+
+                  <Button x:Name="LaunchVlcEnhancedButton"
+                          Style="{StaticResource PrimaryButton}"
+                          Content="Play in VLC with enhancement"
+                          Click="LaunchVlcEnhanced_Click"/>
+
+                  <TextBlock x:Name="VlcLaunchStatusText"
+                             Text="Select a local video, then launch VLC."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="0,10,0,0"/>
+                </StackPanel>
+              </Border>
+            </Grid>
+                  </StackPanel>
+                </ScrollViewer>
+              </TabItem>
+              <TabItem Header="Restore HD Vidéo">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <StackPanel Margin="18">
+            <Border Style="{StaticResource CardBorder}" Margin="0,18,0,0">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="1.05*"/>
+                  <ColumnDefinition Width="18"/>
+                  <ColumnDefinition Width="0.95*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="Restore HD Vidéo" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="Amélioration permanente : restaure, nettoie et upscale la vidéo puis enregistre une nouvelle copie dans le dossier choisi."
+                             Style="{StaticResource SectionSubtitle}"
+                             Margin="0,4,0,14"/>
+
+                  <TextBlock Text="Source video"
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             FontWeight="SemiBold"/>
+                  <Grid Margin="0,5,0,10">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="PermanentVideoSourceBox"
+                             IsReadOnly="True"
+                             MinHeight="40"/>
+                    <Button Grid.Column="2"
+                            Content="Choose video"
+                            Click="SelectPermanentVideo_Click"/>
+                  </Grid>
+
+                  <TextBlock Text="Output folder"
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             FontWeight="SemiBold"/>
+                  <Grid Margin="0,5,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="PermanentVideoOutputBox"
+                             IsReadOnly="True"
+                             MinHeight="40"/>
+                    <Button Grid.Column="2"
+                            Content="Choose folder"
+                            Click="SelectPermanentVideoOutput_Click"/>
+                  </Grid>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                  <CheckBox x:Name="PermanentVideoAiCheck"
+                            IsChecked="True"
+                            Content="AI Upscale / Real-ESRGAN"
+                            Checked="PermanentVideoOption_Changed"
+                            Unchecked="PermanentVideoOption_Changed"
+                            Margin="0,0,0,8"/>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="10"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                      <CheckBox x:Name="PermanentVideoScaleCheck"
+                                IsChecked="True"
+                                Content="Échelle de sortie"
+                                FontWeight="SemiBold"
+                                Checked="PermanentVideoOption_Changed"
+                                Unchecked="PermanentVideoOption_Changed"/>
+                      <ComboBox x:Name="PermanentVideoScaleBox"
+                                Margin="24,5,0,10"
+                                SelectedIndex="1">
+                        <ComboBoxItem Content="x1 — résolution native"/>
+                        <ComboBoxItem Content="x2 — upscale IA 2×"/>
+                        <ComboBoxItem Content="x4 — upscale IA 4×"/>
+                      </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Text="AI model"
+                                 Foreground="{StaticResource Muted}"
+                                 FontSize="11"
+                                 FontWeight="SemiBold"/>
+                      <ComboBox x:Name="PermanentVideoModelBox"
+                                Margin="0,5,0,10"
+                                SelectedIndex="0">
+                        <ComboBoxItem Content="General / Photo"/>
+                        <ComboBoxItem Content="General / Conservative"/>
+                        <ComboBoxItem Content="Anime / Illustration"/>
+                        <ComboBoxItem Content="Anime Video / Minecraft"/>
+                      </ComboBox>
+                    </StackPanel>
+                  </Grid>
+
+                  <CheckBox x:Name="PermanentVideoNrCheck"
+                            IsChecked="True"
+                            Content="Neural Rendering"
+                            Checked="PermanentVideoOption_Changed"
+                            Unchecked="PermanentVideoOption_Changed"
+                            Margin="0,0,0,4"/>
+
+                  <CheckBox x:Name="PermanentArtifactReductionCheck"
+                            IsChecked="True"
+                            Content="Réduction des artefacts / nettoyage"
+                            Checked="PermanentVideoOption_Changed"
+                            Unchecked="PermanentVideoOption_Changed"
+                            Margin="0,4,0,4"/>
+
+                  <TextBlock Text="Neural Rendering, artifact cleanup and AI upscale can be enabled independently. Artifact cleanup uses a conservative local neural pre-pass; x2/x4 AI upscale uses Real-ESRGAN. Processing is local and may be slow."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="24,0,0,12"/>
+
+                  <TextBlock Text="Pour une vidéo floue : commence par Neural Rendering + réduction des artefacts + x2 avec General / Conservative. x4 peut inventer ou faire scintiller des détails absents de la source ; il doit rester un choix manuel."
+                             Foreground="{StaticResource Accent2}"
+                             FontSize="10"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,10"/>
+
+                  <TextBlock Text="Permanent export currently targets a standard encoded video. NVIDIA VSR / RTX Video HDR are display-time effects and are not falsely baked into the file."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="10"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,14"/>
+
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            x:Name="PermanentVideoEnhanceButton"
+                            Style="{StaticResource PrimaryButton}"
+                            Content="Enhance &amp; save video"
+                            Click="StartPermanentVideoEnhancement_Click"/>
+                    <Button Grid.Column="2"
+                            x:Name="PermanentVideoCancelButton"
+                            Content="Cancel"
+                            IsEnabled="False"
+                            Click="CancelPermanentVideoEnhancement_Click"/>
+                  </Grid>
+
+                  <TextBlock x:Name="PermanentVideoStatusText"
+                             Text="Choose a video and an output folder."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="0,10,0,0"/>
+                </StackPanel>
+              </Grid>
+            </Border>
+                  </StackPanel>
+                </ScrollViewer>
+              </TabItem>
+            </TabControl>
+          </Grid>
+        </TabItem>
         <TabItem><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid Margin="24"><Border Background="#0B121A"
                         BorderBrush="#1E2C3A"
                         BorderThickness="1"

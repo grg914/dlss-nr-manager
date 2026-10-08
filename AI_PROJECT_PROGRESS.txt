@@ -4312,3 +4312,205 @@ ACTION 2026-10-08 A097
   encoded-command launch configuration.
 - Next action: linearly reconstruct feat/pc-clean-maintenance onto main 80e366e7,
   synchronize this journal into the branch, then open the PR and validate Build + CodeQL.
+
+
+ACTION 2026-10-08 A098
+- Reconstructed feat/pc-clean-maintenance linearly on current main after PR #88.
+- Parent main:
+  80e366e765c366014e0053217adfaff68458443d.
+- Final feature head before CI:
+  6f9e656b020bdee22721c80be7344183582e8776.
+- Opened PR #89:
+  feat: expand PC Clean with safe cache cleanup and Windows repair
+  https://github.com/grg914/dlss-nr-manager/pull/89
+- GitHub reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head validation started:
+  Build #885 (run 37727423504)
+  CodeQL #51 (run 37727423502).
+- Branch is frozen unless exact-head CI exposes a defect.
+
+
+ACTION 2026-10-08 A099
+- PR #89 exact-head CodeQL #51 passed:
+  manager-owned offline NuGet feed preparation;
+  restore from manager-owned feed;
+  instrumented C# application build.
+- This is the first CI compile proof for the expanded PC Clean implementation,
+  including MainWindow XAML/code-behind, WindowsRepairService and the new cleanup
+  pattern/reparse-root logic.
+- CodeQL #51 is now in Analyze with no failed step.
+- Build #885 has passed every pre-NuGet repository/runtime/governance gate and is
+  still preparing its independent manager-owned offline feed before regression tests.
+- PR #89 head remains frozen at
+  6f9e656b020bdee22721c80be7344183582e8776.
+
+
+ACTION 2026-10-08 A100
+- PR #89 exact-head validation completed SUCCESS on
+  6f9e656b020bdee22721c80be7344183582e8776.
+- Build #885: SUCCESS through all repository/runtime/governance audits, offline
+  NuGet restore, regression tests, Windows single-file publish, executable/icon
+  verification and deterministic application packaging.
+- Build #885 regression evidence:
+  53 passed, 0 failed, 0 skipped.
+- Deterministic application package A/B SHA-256:
+  804383890a2b822c638176acb3aeee50081cea1935e88cb01b2e5b1e382aef3c.
+- CodeQL #51: SUCCESS through offline restore, instrumented C# build, Analyze and
+  all post-analysis steps.
+- GitHub reports PR #89 mergeable=true, mergeable_state=clean.
+- Next action: squash-merge #89 with expected-head protection on 6f9e656b.
+
+
+ACTION 2026-10-08 A101
+- PR #89 PC Clean maintenance expansion was squash-merged with expected-head
+  protection after exact-head Build #885 and CodeQL #51 both completed SUCCESS.
+- New main commit:
+  1a38c60980cf7f5774e1d1356200c5f8efaa8ccf.
+- Official main now includes:
+  expanded safe cache targets (Windows thumbnail/icon, NVIDIA/AMD/Intel GPU caches);
+  filename-pattern and non-recursive cleanup support;
+  reparse-point cleanup-root rejection;
+  WindowsRepairService;
+  PC Cleanup Run DISM + SFC button with confirmation/UAC;
+  FR/EN localization;
+  README documentation;
+  regression tests.
+- Exact-head Build #885 evidence before merge:
+  53 passed, 0 failed, 0 skipped;
+  deterministic application ZIP SHA-256
+  804383890a2b822c638176acb3aeee50081cea1935e88cb01b2e5b1e382aef3c.
+- Post-merge main automatically started Build #886 and CodeQL #52.
+- No Runtime Seed Refresh workflow was created for 1a38c609, confirming the
+  refined runtime-refresh path routing does not rebuild runtime assets for this
+  application/UI/service-only change.
+
+
+ACTION 2026-10-08 A102
+- Audited the last remaining open pull request: PR #75
+  feat: add VSR-HDR Vidéo realtime, permanent and offline VLC.
+- PR #75 is not a duplicate and still contains useful production functionality,
+  but its head 67fe547c5f5ca7c0c5c43540d3bb499fb8f6e237 is based on old main
+  51a24343c5eee76fb648d2badd248b45d5754c7c and predates recent governance,
+  AI Studio, Download Manager and PC Clean hardening.
+- Rebase audit found 16 PR files, 10 overlapping with current main.
+- Automatic hunk application succeeds for most feature additions, but current
+  main must remain authoritative for hardened workflows and newer UI/services.
+- Important reconciliation requirements identified:
+  * add VLC to the post-#84 runtime scope mapper; old #75 did not know about it;
+  * preserve current release source pinning/governance/deterministic packaging;
+  * create the VLC offline bundle with the deterministic flat ZIP helper instead
+    of old Compress-Archive;
+  * add a Build scope-map regression for tools/publish-vlc-runtime.ps1 -> vlc;
+  * keep AI Studio/PC Clean/current localization and only add VSR-HDR entries;
+  * do not restore the old duplicate Set up portable VLC download button in the
+    VSR page: VLC must be managed centrally from Téléchargements per product rule;
+  * integrate VLC as a Download Center component with install/remove/redownload;
+  * preserve current live AI_PROJECT_PROGRESS.txt instead of old PR checkpoint.
+- Selected resolution: reconstruct feat/vlc-video-enhancement linearly on current
+  main 1a38c60980cf7f5774e1d1356200c5f8efaa8ccf, then run exact-head Build +
+  CodeQL and merge only if clean.
+
+
+ACTION 2026-10-08 A103
+- Reconstructed PR #75 feat/vlc-video-enhancement on current hardened main
+  1a38c60980cf7f5774e1d1356200c5f8efaa8ccf instead of merging the obsolete
+  pre-hardening history.
+- Preserved the useful feature scope:
+  VSR-HDR VLC Direct playback;
+  NVIDIA VSR / artifact-reduction request / RTX Video HDR controls;
+  x1/x2/x4 window targets and fullscreen;
+  VLC-native VSR/HDR OSD indicator;
+  Restore HD Video permanent local pipeline;
+  Neural Rendering + conservative cleanup + Real-ESRGAN integration;
+  VLC source/provenance/offline distribution documentation and tests.
+- Product consistency improvement versus old #75:
+  removed the duplicate Set up portable VLC action from the VSR-HDR page;
+  VLC is now a first-class Téléchargements component supporting install,
+  remove and redownload through DownloadCenterService;
+  the VSR-HDR page only navigates to that centralized component.
+- VlcRuntimeService resolution order is now:
+  local installed runtime -> bundled offline asset -> latest stable manager-owned
+  release -> manager-owned runtime-seed-v1.
+  Application runtime never downloads VLC directly from VideoLAN.
+- Runtime/release reconciliation with post-#84 hardening:
+  tools/publish-vlc-runtime.ps1 maps to scope id vlc;
+  Build validates that scope;
+  repository governance requires the VLC runtime-refresh trigger;
+  runtime-refresh contains a scoped vlc-runtime producer and dispatch dependency;
+  release keeps exact source-SHA pinning and creates the VLC offline bundle with
+  create-deterministic-flat-zip.ps1 instead of Compress-Archive.
+- VLC publisher now compares GitHub SHA-256 digests for runtime/source/provenance,
+  emits SKIP unchanged for identical assets and verifies the remote digest after
+  every actual replacement.
+- Current AI Studio, Download Manager, PC Clean, release governance and FR/EN
+  changes were preserved rather than replaced by the old #75 versions.
+- MediaService gained the missing native Neural Rendering 4x scale required by
+  Restore HD Video.
+- Next: sync this journal to PR #75, freeze final head, run exact-head Build +
+  CodeQL and merge only if both are green and GitHub reports clean/mergeable.
+
+
+ACTION 2026-10-08 A104
+- PR #75 exact-head Build #887 exposed one real regression-test compile defect after
+  the VSR/VLC reconstruction; all pre-test governance/runtime/zero-upstream gates
+  had already passed.
+- Exact failure:
+  DownloadManagerTests.cs had two fixtures still constructing DownloadCenterService
+  with the pre-VLC four-argument constructor, causing CS7036 because vlcRuntime is
+  now a required dependency.
+- Production application code itself compiled far enough for the test project to
+  reference the new DownloadCenterService signature; the failure was isolated to
+  stale test fixtures.
+- Fixed both fixtures by injecting a fresh VlcRuntimeService and strengthened the
+  download-center inventory test to assert that vlc-runtime is present.
+- Commit carrying the test correction before final journal sync:
+  84aa4be916defd29137b92310651b1a274377dba.
+- Old Build #887 is intentionally superseded; a fresh exact-head Build + CodeQL
+  must validate the final journal-synchronized head before merge.
+
+
+ACTION 2026-10-08 A105
+- Resumed after connection interruption on PR #75.
+- Current exact PR head is bebf94c3aaaba357e633e9ef3180d7b5fe51e7f1.
+- Build #887 failure was isolated to two stale DownloadManagerTests fixtures using
+  the pre-VLC DownloadCenterService constructor. The correction already exists in
+  commit 84aa4be916defd29137b92310651b1a274377dba and the journal-synchronized
+  head bebf94c3 includes it plus an assertion for the vlc-runtime download entry.
+- Fresh exact-head validation is Build #889 + CodeQL #55. Both have passed all
+  early checkout/toolchain/governance gates and are currently preparing their
+  manager-owned offline NuGet feeds; no failed step at this checkpoint.
+- Independently verified the pinned VLC source commit
+  6de05adcbaf2e8b85fe86aad4169393098628119 in grg914/vlc:
+  direct3d11.c defines d3d11-upscale-mode values linear/point/processor/super and
+  d3d11-hdr-mode values auto/never/always/generate;
+  the super path maps to NVIDIA RTX VSR through the NVIDIA video processor stream
+  extension when the adapter is NVIDIA;
+  d3d11_tonemap.cpp implements the NVIDIA TrueHDR stream extension for the
+  generate HDR path with NVIDIA driver support checks.
+- Therefore the VSR/HDR command-line switches emitted by VlcVideoEnhancementService
+  are grounded in the exact VLC source distributed by this project.
+- PR #75 remains mergeable=true and blocked only by required checks.
+
+
+ACTION 2026-10-08 A106
+- Exact-head validation completed successfully for PR #75 head
+  bebf94c3aaaba357e633e9ef3180d7b5fe51e7f1.
+- Build #889: SUCCESS.
+  All repository governance, runtime scope, deterministic helper, SPDX SBOM,
+  Minecraft Vulkan/NGX, Caustica/Scandi, Streamline and zero-upstream gates passed.
+  Offline manager-owned NuGet feed preparation + strict restore passed.
+  Regression tests: 60 passed, 0 failed, 0 skipped.
+  Windows x64 single-file publish and executable/icon verification passed.
+  Deterministic application packaging A/B SHA-256:
+  95b314fe9ca916422a158b23620117081c253d77d9ac13bac736bb93923fbaf9.
+- CodeQL #55: SUCCESS through offline feed/restore, C# build, Analyze and all post
+  steps.
+- Additional functional audit passed:
+  runtime-seed-v1 currently contains vlc-3.0.24-win64.zip, source tar.xz and
+  provenance JSON with the expected GitHub SHA-256 digests;
+  MainWindow contains 13 menu entries and exactly 13 direct main TabItems;
+  VSR-HDR is index 3 and Téléchargements index 6;
+  both centralized download navigation handlers target index 6.
+- PR #75 is the only remaining open pull request.
+- Next action: sync this journal-only update into #75, validate that final exact
+  head, then squash-merge #75 and confirm zero open PRs + post-merge workflows.

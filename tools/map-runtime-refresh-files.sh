@@ -57,6 +57,10 @@ for file in "$@"; do
       add_id "java25"
       ;;
 
+    tools/publish-vlc-runtime.ps1)
+      add_id "vlc"
+      ;;
+
     tools/bootstrap-minecraft-runtime.ps1)
       add_id "minecraft-fabric-installer"
       ;;

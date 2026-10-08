@@ -18,6 +18,8 @@ public partial class MainWindow : Window
     private readonly DiagnosticService _diagnostics = new();
     private readonly GameArtworkService _artwork = new();
     private readonly MediaService _media = new();
+    private readonly VlcVideoEnhancementService _vlcEnhancement = new();
+    private readonly VlcRuntimeService _vlcRuntime = new();
     private readonly AiUpscaleService _aiUpscale = new();
     private readonly LocalAiStudioService _aiStudio = new();
     private readonly DownloadCenterService _downloadCenter;
@@ -55,6 +57,7 @@ public partial class MainWindow : Window
     private bool _isBusy;
     private int _stateRefreshVersion;
     private CancellationTokenSource? _mediaOperationCts;
+    private CancellationTokenSource? _permanentVideoCts;
     private CancellationTokenSource? _aiOriginCts;
     private CancellationTokenSource? _downloadCenterCts;
 
@@ -92,7 +95,8 @@ public partial class MainWindow : Window
             _media,
             _aiUpscale,
             _aiStudio,
-            _aiOrigin);
+            _aiOrigin,
+            _vlcRuntime);
 
         AppVersionText.Text = $"Version v{AppIdentity.VersionString}";
         SoftwareRenderingButton.Content =
@@ -126,6 +130,9 @@ public partial class MainWindow : Window
         MediaStatusText.Text = _media.IsReady
             ? "Media engine ready."
             : "Media engine not installed • manage it from Téléchargements.";
+        RefreshVlcEnhancementStatus();
+        RefreshVideoEnhancementOptionStates();
+
 
         AiUpscaleStatusText.Text = _aiUpscale.IsReady
             ? "AI Upscale engine ready."
@@ -147,10 +154,12 @@ public partial class MainWindow : Window
             DownloadProgressHub.Changed -= OnDownloadProgressChanged;
             LargeDownloadApprovalHub.ApprovalRequested = null;
             try { _mediaOperationCts?.Cancel(); } catch { }
+            try { _permanentVideoCts?.Cancel(); } catch { }
             try { _aiOriginCts?.Cancel(); } catch { }
             try { _downloadCenterCts?.Cancel(); } catch { }
             try { ExternalProcessTracker.Shutdown(); } catch { }
             _mediaOperationCts?.Dispose();
+            _permanentVideoCts?.Dispose();
             _aiOriginCts?.Dispose();
             _downloadCenterCts?.Dispose();
             _aiOrigin.Dispose();
@@ -176,6 +185,8 @@ public partial class MainWindow : Window
         GameDlssFgCheck.IsEnabled = _gpuCapabilities.FrameGeneration;
         GameDlssNrCheck.IsEnabled = _gpuCapabilities.NeuralRendering;
         AppLogger.Info($"GPU detected: {_gpu.Name} • {_gpu.Generation} • {_gpuCapabilities.Summary}");
+
+        RefreshVlcEnhancementStatus();
 
         if (!_gpuCapabilities.IsSupportedRtx)
         {
@@ -2622,6 +2633,559 @@ public partial class MainWindow : Window
         }
     }
 
+    private void RefreshVlcEnhancementStatus()
+    {
+        try
+        {
+            var status = _vlcEnhancement.Detect();
+            var gpu = _gpu.Name.Equals(
+                    "Unknown GPU",
+                    StringComparison.OrdinalIgnoreCase)
+                ? ""
+                : $" • GPU: {_gpu.Name}";
+
+            VlcStatusText.Text = status.Summary + gpu;
+            LaunchVlcEnhancedButton.IsEnabled =
+                status.Found &&
+                status.SupportsD3d11EnhancementOptions;
+        }
+        catch (Exception ex)
+        {
+            VlcStatusText.Text =
+                L($"VLC detection failed: {ex.Message}", $"Échec de la détection VLC : {ex.Message}");
+            LaunchVlcEnhancedButton.IsEnabled = false;
+        }
+    }
+
+    private void SelectVlcMedia_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = L("Select a local video for VLC enhancement", "Sélectionnez une vidéo locale pour l’amélioration VLC"),
+            Filter =
+                "Videos|*.mp4;*.mkv;*.mov;*.avi;*.webm;*.m4v;*.ts;*.m2ts;*.mpeg;*.mpg|" +
+                "All files|*.*"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        VlcMediaBox.Text = dialog.FileName;
+        VlcLaunchStatusText.Text =
+            L("Video selected • choose VSR, HDR and display mode, then launch VLC.", "Vidéo sélectionnée • choisissez VSR, HDR et le mode d’affichage, puis lancez VLC.");
+    }
+
+    private void RefreshVlc_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        RefreshVlcEnhancementStatus();
+    }
+
+    private void OpenVlcDownloadCenter_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        const int downloadsMenuIndex = 6;
+        MainMenuList.SelectedIndex = downloadsMenuIndex;
+        RefreshDownloadCenter();
+
+        if (DownloadCenterList?.ItemsSource is IEnumerable<DownloadCenterEntry> entries)
+        {
+            DownloadCenterList.SelectedItem =
+                entries.FirstOrDefault(x => x.Id == "vlc-runtime");
+        }
+    }
+
+    private void VlcRealtimeOption_Changed(
+        object sender,
+        RoutedEventArgs e)
+    {
+        RefreshVideoEnhancementOptionStates();
+    }
+
+    private void PermanentVideoOption_Changed(
+        object sender,
+        RoutedEventArgs e)
+    {
+        RefreshVideoEnhancementOptionStates();
+    }
+
+    private void RefreshVideoEnhancementOptionStates()
+    {
+        if (VlcScaleCheck == null ||
+            VlcScaleBox == null ||
+            VlcHdrModeBox == null ||
+            PermanentVideoScaleBox == null ||
+            PermanentVideoModelBox == null)
+        {
+            return;
+        }
+
+        var fullscreen =
+            VlcFullscreenCheck?.IsChecked == true;
+
+        var customScale =
+            VlcScaleCheck?.IsChecked == true;
+
+        var hdrEnabled =
+            VlcHdrCheck?.IsChecked == true;
+
+        VlcScaleCheck!.IsEnabled =
+            !fullscreen;
+
+        VlcScaleBox!.IsEnabled =
+            customScale && !fullscreen;
+
+        VlcHdrModeBox!.IsEnabled =
+            hdrEnabled;
+
+        var permanentNr =
+            PermanentVideoNrCheck?.IsChecked == true;
+
+        var permanentArtifacts =
+            PermanentArtifactReductionCheck?.IsChecked == true;
+
+        var permanentAi =
+            PermanentVideoAiCheck?.IsChecked == true;
+
+        var permanentScale =
+            PermanentVideoScaleCheck?.IsChecked == true;
+
+        PermanentVideoScaleBox.IsEnabled =
+            permanentScale;
+
+        PermanentVideoModelBox.IsEnabled =
+            permanentAi;
+
+        if (PermanentVideoEnhanceButton != null)
+        {
+            PermanentVideoEnhanceButton.IsEnabled =
+                permanentNr || permanentArtifacts || permanentAi;
+        }
+
+        if (VlcLaunchStatusText != null)
+        {
+            var parts = new List<string>
+            {
+                VlcVsrCheck?.IsChecked == true
+                    ? "VSR ON"
+                    : "VSR OFF",
+                VlcArtifactReductionCheck?.IsChecked == true
+                    ? L("artifacts ON", "artefacts ON")
+                    : L("artifacts OFF", "artefacts OFF"),
+                hdrEnabled
+                    ? "HDR ON"
+                    : "HDR OFF",
+                fullscreen
+                    ? L("fullscreen", "plein écran")
+                    : customScale
+                        ? L("custom scale", "échelle personnalisée")
+                        : L("default VLC scale", "échelle VLC par défaut"),
+                VlcStatusOverlayCheck?.IsChecked == true
+                    ? L("OSD indicator ON", "indicateur OSD ON")
+                    : L("OSD indicator OFF", "indicateur OSD OFF")
+            };
+
+            VlcLaunchStatusText.Text =
+                string.Join(" • ", parts);
+        }
+
+        if (PermanentVideoStatusText != null)
+        {
+            var scaleLabel = permanentScale
+                ? L("custom scale", "échelle personnalisée")
+                : L("native x1", "x1 natif");
+
+            PermanentVideoStatusText.Text =
+                !permanentNr && !permanentArtifacts && !permanentAi
+                    ? L("Enable at least Neural Rendering, artifact reduction or AI Upscale.", "Active au moins Neural Rendering, réduction des artefacts ou Upscale IA.")
+                    : $"Neural Rendering {(permanentNr ? "ON" : "OFF")} • Artefacts {(permanentArtifacts ? "ON" : "OFF")} • Upscale IA {(permanentAi ? "ON" : "OFF")} • {scaleLabel}.";
+        }
+    }
+
+    private void LaunchVlcEnhanced_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var source = VlcMediaBox.Text;
+        if (string.IsNullOrWhiteSpace(source) ||
+            !File.Exists(source))
+        {
+            MessageBox.Show(
+                L("Select a local video first.", "Sélectionnez d’abord une vidéo locale."),
+                L("VSR-HDR Video", "VSR-HDR Vidéo"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var hdrMode = VlcHdrModeBox.SelectedIndex switch
+        {
+            1 => VlcHdrMode.Generate,
+            2 => VlcHdrMode.Always,
+            3 => VlcHdrMode.Never,
+            _ => VlcHdrMode.Auto
+        };
+
+        var scale = VlcScaleBox.SelectedIndex switch
+        {
+            1 => VlcScaleMode.X2,
+            2 => VlcScaleMode.X4,
+            _ => VlcScaleMode.X1
+        };
+
+        var fullscreen =
+            VlcFullscreenCheck.IsChecked == true;
+
+        try
+        {
+            _ = _vlcEnhancement.Launch(
+                source,
+                new VlcLaunchOptions(
+                    VlcVsrCheck.IsChecked == true,
+                    VlcArtifactReductionCheck.IsChecked == true,
+                    VlcHdrCheck.IsChecked == true,
+                    hdrMode,
+                    VlcScaleCheck.IsChecked == true,
+                    scale,
+                    fullscreen,
+                    VlcStatusOverlayCheck.IsChecked == true));
+
+            var vsr = VlcVsrCheck.IsChecked == true
+                ? "VSR ON"
+                : "VSR OFF";
+
+            var artifacts = VlcArtifactReductionCheck.IsChecked == true
+                ? L("artifacts ON", "artefacts ON")
+                : L("artifacts OFF", "artefacts OFF");
+
+            var hdr = VlcHdrCheck.IsChecked == true
+                ? hdrMode switch
+                {
+                    VlcHdrMode.Generate => "SDR→HDR ON",
+                    VlcHdrMode.Always => L("HDR forced", "HDR forcé"),
+                    VlcHdrMode.Never => L("HDR disabled", "HDR désactivé"),
+                    _ => L("HDR auto", "HDR auto")
+                }
+                : "HDR OFF";
+
+            var target = fullscreen
+                ? L("fullscreen / monitor resolution", "plein écran / résolution écran")
+                : VlcScaleCheck.IsChecked == true
+                    ? L($"window x{(int)scale}", $"fenêtre x{(int)scale}")
+                    : L("default VLC scale", "échelle VLC par défaut");
+
+            VlcLaunchStatusText.Text =
+                L($"VLC started • {vsr} • {artifacts} • {hdr} • {target}.", $"VLC démarré • {vsr} • {artifacts} • {hdr} • {target}.");
+        }
+        catch (Exception ex)
+        {
+            VlcLaunchStatusText.Text =
+                L($"Unable to launch enhanced VLC playback: {ex.Message}", $"Impossible de lancer la lecture VLC améliorée : {ex.Message}");
+
+            MessageBox.Show(
+                ex.Message,
+                "VSR-HDR Vidéo",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void SelectPermanentVideo_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = L("Select a video to enhance permanently", "Sélectionnez une vidéo à améliorer de façon permanente"),
+            Filter =
+                "Videos|*.mp4;*.mkv;*.mov;*.avi;*.webm;*.m4v;*.ts;*.m2ts;*.mpeg;*.mpg|" +
+                "All files|*.*"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        PermanentVideoSourceBox.Text =
+            dialog.FileName;
+
+        if (string.IsNullOrWhiteSpace(
+                PermanentVideoOutputBox.Text))
+        {
+            var parent =
+                Path.GetDirectoryName(dialog.FileName)
+                ?? Environment.GetFolderPath(
+                    Environment.SpecialFolder.MyVideos);
+
+            PermanentVideoOutputBox.Text =
+                Path.Combine(
+                    parent,
+                    "DLSS-NR-Enhanced");
+        }
+
+        PermanentVideoStatusText.Text =
+            L("Video selected • choose x1, x2 or x4 and start enhancement.", "Vidéo sélectionnée • choisissez x1, x2 ou x4 puis lancez l’amélioration.");
+    }
+
+    private void SelectPermanentVideoOutput_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = L("Select permanent enhanced-video output folder", "Sélectionnez le dossier de sortie de la vidéo améliorée")
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            PermanentVideoOutputBox.Text =
+                dialog.FolderName;
+        }
+    }
+
+    private async void StartPermanentVideoEnhancement_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        var source =
+            PermanentVideoSourceBox.Text;
+
+        if (string.IsNullOrWhiteSpace(source) ||
+            !File.Exists(source))
+        {
+            MessageBox.Show(
+                L("Select a local video first.", "Sélectionnez d’abord une vidéo locale."),
+                L("Restore HD Video", "Restore HD Vidéo"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var output =
+            PermanentVideoOutputBox.Text;
+
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            var parent =
+                Path.GetDirectoryName(source)
+                ?? Environment.GetFolderPath(
+                    Environment.SpecialFolder.MyVideos);
+
+            output =
+                Path.Combine(
+                    parent,
+                    "DLSS-NR-Enhanced");
+
+            PermanentVideoOutputBox.Text =
+                output;
+        }
+
+        Directory.CreateDirectory(output);
+
+        var useNeuralRendering =
+            PermanentVideoNrCheck.IsChecked == true;
+
+        var useArtifactReduction =
+            PermanentArtifactReductionCheck.IsChecked == true;
+
+        var useAiUpscale =
+            PermanentVideoAiCheck.IsChecked == true;
+
+        if (!useNeuralRendering &&
+            !useArtifactReduction &&
+            !useAiUpscale)
+        {
+            MessageBox.Show(
+                L("Enable at least Neural Rendering, artifact reduction or AI Upscale.", "Active au moins Neural Rendering, réduction des artefacts ou Upscale IA."),
+                L("VSR-HDR Video", "VSR-HDR Vidéo"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var useCustomScale =
+            PermanentVideoScaleCheck.IsChecked == true;
+
+        var scale = useCustomScale
+            ? PermanentVideoScaleBox.SelectedIndex switch
+            {
+                1 => 2,
+                2 => 4,
+                _ => 1
+            }
+            : 1;
+
+        if (useAiUpscale && scale == 1)
+        {
+            MessageBox.Show(
+                L("AI Upscale requires x2 or x4 output scale. Enable Output scale and choose x2 or x4, or disable AI Upscale.", "Upscale IA nécessite une échelle x2 ou x4. Active Échelle de sortie et choisis x2 ou x4, ou désactive Upscale IA."),
+                L("VSR-HDR Video", "VSR-HDR Vidéo"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var model = PermanentVideoModelBox.SelectedIndex switch
+        {
+            1 => AiUpscaleModel.GeneralSoft,
+            2 => AiUpscaleModel.AnimeIllustration,
+            3 => AiUpscaleModel.AnimeVideo,
+            _ => AiUpscaleModel.GeneralPhoto
+        };
+
+        _permanentVideoCts?.Cancel();
+        _permanentVideoCts?.Dispose();
+        _permanentVideoCts =
+            new CancellationTokenSource();
+
+        var cancellationToken =
+            _permanentVideoCts.Token;
+
+        string? temporaryRoot = null;
+
+        try
+        {
+            PermanentVideoEnhanceButton.IsEnabled = false;
+            PermanentVideoCancelButton.IsEnabled = true;
+
+            var progress =
+                new Progress<string>(
+                    message =>
+                        PermanentVideoStatusText.Text =
+                            message);
+
+            if (!_media.IsReady)
+            {
+                PermanentVideoStatusText.Text =
+                    L("Preparing manager-owned media engine…", "Préparation du moteur média géré…");
+                await _media.SetupAsync(
+                    progress,
+                    cancellationToken);
+            }
+
+            string result;
+
+            if (useAiUpscale)
+            {
+                var aiInput = source;
+
+                if (useNeuralRendering || useArtifactReduction)
+                {
+                    temporaryRoot = Path.Combine(
+                        Path.GetTempPath(),
+                        "DlssNrManager",
+                        "permanent-video",
+                        Guid.NewGuid().ToString("N"));
+
+                    Directory.CreateDirectory(
+                        temporaryRoot);
+
+                    PermanentVideoStatusText.Text =
+                        useNeuralRendering
+                            ? L("Neural Rendering / cleanup in progress…", "Neural Rendering / nettoyage en cours…")
+                            : L("Artifact reduction in progress…", "Réduction des artefacts en cours…");
+
+                    aiInput = await _media.ProcessAsync(
+                        source,
+                        new MediaProcessOptions(
+                            "Native",
+                            0,
+                            useNeuralRendering ? 1.0 : 0.65,
+                            temporaryRoot),
+                        progress,
+                        cancellationToken);
+                }
+
+                PermanentVideoStatusText.Text =
+                    L($"Permanent AI Upscale x{scale} in progress…", $"Upscale IA permanent x{scale} en cours…");
+
+                result = await _aiUpscale.UpscaleAsync(
+                    aiInput,
+                    new AiUpscaleOptions(
+                        scale,
+                        model,
+                        output),
+                    _media,
+                    progress,
+                    cancellationToken);
+            }
+            else
+            {
+                var nrScale = scale switch
+                {
+                    2 => "2x",
+                    4 => "4x",
+                    _ => "Native"
+                };
+
+                PermanentVideoStatusText.Text =
+                    useNeuralRendering
+                        ? L($"Permanent Neural Rendering {nrScale} in progress…", $"Neural Rendering permanent {nrScale} en cours…")
+                        : L($"Permanent artifact reduction {nrScale} in progress…", $"Réduction des artefacts permanente {nrScale} en cours…");
+
+                result = await _media.ProcessAsync(
+                    source,
+                    new MediaProcessOptions(
+                        nrScale,
+                        0,
+                        useNeuralRendering ? 1.0 : 0.65,
+                        output),
+                    progress,
+                    cancellationToken);
+            }
+
+            PermanentVideoStatusText.Text =
+                L($"Permanent enhancement complete • {result}", $"Amélioration permanente terminée • {result}");
+        }
+        catch (OperationCanceledException)
+        {
+            PermanentVideoStatusText.Text =
+                L("Permanent video enhancement cancelled.", "Amélioration vidéo permanente annulée.");
+        }
+        catch (Exception ex)
+        {
+            PermanentVideoStatusText.Text =
+                L($"Permanent enhancement failed: {ex.Message}", $"Échec de l’amélioration permanente : {ex.Message}");
+
+            MessageBox.Show(
+                ex.Message,
+                L("Restore HD Video", "Restore HD Vidéo"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(temporaryRoot))
+            {
+                try
+                {
+                    if (Directory.Exists(temporaryRoot))
+                        Directory.Delete(temporaryRoot, true);
+                }
+                catch
+                {
+                }
+            }
+
+            _permanentVideoCts?.Dispose();
+            _permanentVideoCts = null;
+            PermanentVideoEnhanceButton.IsEnabled = true;
+            PermanentVideoCancelButton.IsEnabled = false;
+        }
+    }
+
+    private void CancelPermanentVideoEnhancement_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _permanentVideoCts?.Cancel();
+        PermanentVideoStatusText.Text =
+            L("Cancelling permanent video enhancement…", "Annulation de l’amélioration vidéo permanente…");
+    }
+
     private void SelectMedia_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
@@ -2667,7 +3231,7 @@ public partial class MainWindow : Window
         RoutedEventArgs e)
     {
         // Menu order is kept in sync with the main TabControl.
-        const int downloadsMenuIndex = 5;
+        const int downloadsMenuIndex = 6;
         MainMenuList.SelectedIndex =
             downloadsMenuIndex;
         RefreshDownloadCenter();

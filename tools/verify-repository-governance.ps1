@@ -221,7 +221,8 @@ if ($scopeCheckout.Index -gt $scopeHelper.Index) {
 foreach ($requiredTrigger in @(
     "tools/build-nuget-offline-seed.ps1",
     "tools/create-deterministic-flat-zip.ps1",
-    "tools/map-runtime-refresh-files.sh"
+    "tools/map-runtime-refresh-files.sh",
+    "tools/publish-vlc-runtime.ps1"
 )) {
     $yamlEntry = "      - '$requiredTrigger'"
     if (-not $runtimeRefresh.Contains($yamlEntry)) {

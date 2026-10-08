@@ -3,6 +3,7 @@ namespace DlssNrManager.Services;
 public enum DownloadCenterKind
 {
     MediaEngine,
+    VlcRuntime,
     AiUpscale,
     AiStudioModel,
     AiOriginDetector
@@ -32,6 +33,7 @@ public sealed class DownloadCenterService
     private readonly AiUpscaleService _aiUpscale;
     private readonly LocalAiStudioService _aiStudio;
     private readonly AiOriginDetectionService _aiOrigin;
+    private readonly VlcRuntimeService _vlcRuntime;
     private readonly AiStudioPackageService _aiPackages;
     private readonly AiStudioLicenseAcceptanceService _licenseAcceptances;
 
@@ -39,12 +41,14 @@ public sealed class DownloadCenterService
         MediaService media,
         AiUpscaleService aiUpscale,
         LocalAiStudioService aiStudio,
-        AiOriginDetectionService aiOrigin)
+        AiOriginDetectionService aiOrigin,
+        VlcRuntimeService vlcRuntime)
     {
         _media = media;
         _aiUpscale = aiUpscale;
         _aiStudio = aiStudio;
         _aiOrigin = aiOrigin;
+        _vlcRuntime = vlcRuntime;
         _aiPackages = new AiStudioPackageService(aiStudio);
         _licenseAcceptances =
             new AiStudioLicenseAcceptanceService(aiStudio);
@@ -73,6 +77,20 @@ public sealed class DownloadCenterService
                     _media.IsReady,
                     true,
                     T("video2dlssnr + FFmpeg. Used by Media Neural, video processing and several local pipelines.")),
+
+                new(
+                    "vlc-runtime",
+                    "VLC 3.0.24",
+                    "Media",
+                    DownloadCenterKind.VlcRuntime,
+                    _vlcRuntime.IsReady
+                        ? T("Installed")
+                        : T("Not installed"),
+                    "GPL-2.0-or-later • external portable runtime",
+                    T("Size determined by release assets"),
+                    _vlcRuntime.IsReady,
+                    true,
+                    T("Portable VLC runtime used by VSR-HDR Video. Matching source and provenance are published with manager-owned assets.")),
 
                 new(
                     "realesrgan",
@@ -283,6 +301,12 @@ public sealed class DownloadCenterService
                     cancellationToken);
                 break;
 
+            case DownloadCenterKind.VlcRuntime:
+                await _vlcRuntime.SetupAsync(
+                    progress,
+                    cancellationToken);
+                break;
+
             case DownloadCenterKind.AiUpscale:
                 await _aiUpscale.SetupAsync(
                     progress,
@@ -327,6 +351,10 @@ public sealed class DownloadCenterService
         {
             case DownloadCenterKind.MediaEngine:
                 _media.ResetTools();
+                break;
+
+            case DownloadCenterKind.VlcRuntime:
+                _vlcRuntime.Reset();
                 break;
 
             case DownloadCenterKind.AiUpscale:

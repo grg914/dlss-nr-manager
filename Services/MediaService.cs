@@ -480,6 +480,9 @@ public sealed class MediaService
         if (scale.Equals("2x", StringComparison.OrdinalIgnoreCase))
             return (Even(width * 2), Even(height * 2));
 
+        if (scale.Equals("4x", StringComparison.OrdinalIgnoreCase))
+            return (Even(width * 4), Even(height * 4));
+
         if (scale.Equals("4K", StringComparison.OrdinalIgnoreCase))
         {
             if (width >= height)
@@ -497,6 +500,11 @@ public sealed class MediaService
         {
             args.Add("--nr-scale");
             args.Add("2");
+        }
+        else if (scale.Equals("4x", StringComparison.OrdinalIgnoreCase))
+        {
+            args.Add("--nr-scale");
+            args.Add("4");
         }
         else if (scale.Equals("4K", StringComparison.OrdinalIgnoreCase))
         {
