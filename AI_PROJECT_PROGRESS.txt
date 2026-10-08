@@ -3679,3 +3679,19 @@ ACTION 2026-10-08 A066
   Build #871 (run 37719145060)
   CodeQL #37 (run 37719145059)
 - Branch is frozen again until these checks complete or expose another defect.
+
+
+ACTION 2026-10-08 A067
+- PR #85 exact-head Build #870 progressed on frozen head
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Newly relevant gates already SUCCESS:
+  Validate release dispatch helper syntax;
+  Validate self-contained tooling;
+  Verify deterministic flat ZIP helper;
+  Validate repository governance.
+- This is the first CI proof that the release source-pinning/fail-closed
+  governance contract is accepted on Windows Build CI.
+- Build #870 also passed SBOM, Minecraft native policy and Caustica/Scandi audit
+  and is now auditing the manager-owned Streamline runtime seed.
+- CodeQL #36 completed checkout and is initializing CodeQL.
+- No PR #85 code change made; exact head remains frozen.
