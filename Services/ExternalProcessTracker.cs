@@ -56,7 +56,9 @@ public static class ExternalProcessTracker
         foreach (var process in Active.Values.ToArray())
             Kill(process);
 
-        KillStaleManagerHelpers();
+        // Kill only processes started by this instance. Scanning installed helper
+        // executable paths could terminate a concurrently running manager's jobs.
+        // KILL_ON_JOB_CLOSE covers this instance's assigned children on crash.
     }
 
     public static void Shutdown()
@@ -70,42 +72,6 @@ public static class ExternalProcessTracker
 
             CloseHandle(_jobHandle);
             _jobHandle = IntPtr.Zero;
-        }
-    }
-
-    private static void KillStaleManagerHelpers()
-    {
-        var root = Path.GetFullPath(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "DlssNrManager"));
-
-        foreach (var name in new[]
-                 {
-                     "realesrgan-ncnn-vulkan",
-                     "video2dlssnr",
-                     "ffmpeg",
-                     "ffprobe"
-                 })
-        {
-            foreach (var process in Process.GetProcessesByName(name))
-            {
-                try
-                {
-                    var path = process.MainModule?.FileName;
-                    if (!string.IsNullOrWhiteSpace(path) &&
-                        Path.GetFullPath(path).StartsWith(
-                            root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar,
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        Kill(process);
-                    }
-                }
-                catch { }
-                finally
-                {
-                    try { process.Dispose(); } catch { }
-                }
-            }
         }
     }
 
