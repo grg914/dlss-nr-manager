@@ -61,6 +61,17 @@ public sealed class HardwareProfileServiceTests
             Snapshot(vram: null), choice).UsesAutomaticFallback);
     }
 
+    [Theory]
+    [InlineData("RTX 50", "Blackwell")]
+    [InlineData("RTX 40", "Ada Lovelace")]
+    [InlineData("RTX 30", "Ampere")]
+    [InlineData("RTX 20", "Turing")]
+    public void Rtx_generation_reports_correct_gpu_architecture(
+        string generation, string expected)
+    {
+        Assert.Equal(expected, Snapshot(generation: generation).GpuArchitecture);
+    }
+
     [Fact]
     public void Driver_hardware_or_api_change_invalidates_fingerprint()
     {
