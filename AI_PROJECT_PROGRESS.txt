@@ -2435,3 +2435,13 @@ ACTION 2026-10-08 A011
   new retry behavior allows the pipeline to recover.
 - Build #862 remains in offline NuGet feed preparation at this checkpoint.
 - No additional code change required.
+
+
+ACTION 2026-10-08 A008
+- CodeQL #28 progressed successfully through:
+  * manager-owned offline NuGet feed preparation
+  * offline restore
+  * instrumented C# application build
+- Build application for CodeQL = SUCCESS.
+- CodeQL #28 entered the Analyze step.
+- Build #862 still downloading/preparing the manager-owned offline NuGet feed.
