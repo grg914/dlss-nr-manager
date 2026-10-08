@@ -4932,3 +4932,11 @@ ACTION 2026-10-08 V4-AISTUDIO A003 - RECONCILIATION PR #101 AVEC MAIN
 - Fusion de Services/ManagedComponentRedownload.cs faite MANUELLEMENT: RecoverOwnedBackups(owned) inclut a la fois Media/Real-ESRGAN/VLC/AiOrigin et seulement les modeles AI Studio redistribuables, ET RecoverLegacyMediaUpdateBackups(media) pour la compatibilite automatique.
 - Les modeles manuels, dossiers jobs/outputs et licences sont exclus. AiStudioPackageService et tests de securite preservees tels quels.
 - ETAT: CI Build + CodeQL du nouveau head OBLIGATOIRES avant fusion; pas de release 4.0.
+
+
+ACTION 2026-10-08 V4-AISTUDIO A007 - AUDIT RESIDUS DE FICHIERS TEMPORAIRES
+- Branche fix/v4-ai-studio-staging-cleanup depuis main 68adde5d59e5b9ae5a6c197fcf03813e7f1a2faa, separee de PR #102 afin d'eviter les modifications concurrentes de l'import manuel.
+- Defaut constate dans AiStudioPackageService.InstallAsync: SafeZip.Extract(archivePath,staging,...) s'executait AVANT le try/finally qui supprimait staging. Archive ZIP corrompue, erreur I/O, disque plein ou extraction interrompue pouvaient laisser des gigaoctets de fichiers .staging-GUID orphelins dans les modeles.
+- Correction prevue: englober extraction ET installation dans le meme try/finally pour nettoyer le staging quel que soit le point d'echec, sans effacer le dossier cible installe ni les sauvegardes non resolues.
+- Autre ecart UX: le message bilingue du bouton Retélécharger indique a tort suppression de la copie avant telechargement alors que ReplaceAsync preservera l'ancien runtime jusqu'au succes du remplacement. Changer UNIQUEMENT ces phrases FR/EN, aucun changement de licence.
+- Etat: checkpoint ecrit avant patch; CI et CodeQL obligatoires; test d'echec disque physique non realise.
