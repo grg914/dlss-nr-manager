@@ -166,8 +166,10 @@ if ($releaseWorkflow -notmatch "id:\s*source" -or
     throw "release.yml must resolve and consume an exact source SHA."
 }
 
-if ($releaseWorkflow -notmatch 'compare/\$source\.\.\.main') {
-    throw "release.yml must verify that automated source_sha belongs to main history."
+if ($releaseWorkflow -notmatch 'git/ref/heads/main' -or
+    $releaseWorkflow -notmatch 'Release source .* is stale; current main is' -or
+    $releaseWorkflow -notmatch 'Reconfirm release source before publication') {
+    throw "release.yml must fail closed unless workflow_dispatch source_sha remains the current main SHA through publication."
 }
 
 if ($releaseWorkflow -notmatch 'git fetch --no-tags --prune --depth=1 origin "\$target"') {
@@ -183,8 +185,10 @@ if ($releaseWorkflow -notmatch '-SourceCommit "\$\{\{ steps\.source\.outputs\.sh
     throw "release.yml SBOM and provenance generation must use the exact resolved source SHA."
 }
 
-if ($dispatchHelper -notmatch 'gh workflow run release\.yml --repo "\$repo" --ref main -f "source_sha=\$source_sha"') {
-    throw "dispatch-release-if-needed.sh must pass the validated source_sha into release.yml."
+if ($dispatchHelper -notmatch 'git/ref/heads/main' -or
+    $dispatchHelper -notmatch 'main_sha.*source_sha' -or
+    $dispatchHelper -notmatch 'gh workflow run release\.yml --repo "\$repo" --ref main -f "source_sha=\$source_sha"') {
+    throw "dispatch-release-if-needed.sh must reject stale main state and pass the validated source_sha into release.yml."
 }
 
 Write-Host "Repository governance validation passed."
