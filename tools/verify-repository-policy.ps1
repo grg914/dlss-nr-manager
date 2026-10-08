@@ -24,6 +24,9 @@ $requiredFiles = @(
     "docs/PRIVACY_AND_DATA.md",
     "docs/DOWNLOAD_RUNTIME_POLICY.md",
     "docs/RELEASE_SECURITY.md",
+    "docs/THREAT_MODEL.md",
+    "docs/DEPENDENCY_UPDATE_POLICY.md",
+    "manifests/component-policy.json",
     ".github/CODEOWNERS",
     ".github/pull_request_template.md",
     "third_party/DEPENDENCIES.lock.json",
@@ -128,7 +131,10 @@ if ($Strict) {
         "THIRD_PARTY_NOTICES.md",
         "docs/PRIVACY_AND_DATA.md",
         "docs/DOWNLOAD_RUNTIME_POLICY.md",
-        "docs/RELEASE_SECURITY.md"
+        "docs/RELEASE_SECURITY.md",
+        "docs/THREAT_MODEL.md",
+        "docs/DEPENDENCY_UPDATE_POLICY.md",
+        "manifests/component-policy.json"
     )) {
         if ($readme -notmatch [regex]::Escape($policy)) {
             Fail "README.md does not link required policy document '$policy'."
