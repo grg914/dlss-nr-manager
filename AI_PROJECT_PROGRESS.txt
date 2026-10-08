@@ -3040,3 +3040,21 @@ ACTION 2026-10-08 A043
 - Runtime Seed Refresh #22 on current main still has only windows-runtime /
   Refresh Streamline bundle active; all other refresh jobs remain SUCCESS.
 - No further change will be made to PR #83 head unless CI exposes a defect.
+
+
+ACTION 2026-10-08 A044
+- Runtime Seed Refresh #22 completed all seed-generation jobs SUCCESS, including
+  windows-runtime, native-runtime, FFmpeg, NuGet, Java and restricted-runtime
+  preservation, but the overall workflow concluded FAILURE in dispatch-release.
+- Exact failed job: dispatch-release / Dispatch production release after seed promotion.
+- Exact log error:
+  bash: ./tools/dispatch-release-if-needed.sh: No such file or directory
+  exit code 127.
+- Root cause: dispatch-release job runs on a fresh ubuntu-latest runner but has
+  no repository checkout step before invoking the repository-local helper.
+- This is deterministic workflow wiring failure, not GitHub permissions or a
+  release-helper logic failure.
+- Corrective action: add the already-pinned actions/checkout commit to the
+  dispatch-release job before the helper call, then revalidate PR #83 exact head.
+- Because #83 already modifies runtime-refresh.yml, the hotfix will be added to
+  that PR; its current CI head c2300164 will intentionally be superseded.
