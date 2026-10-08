@@ -4056,3 +4056,28 @@ ACTION 2026-10-08 A086
   useful support/source/policy/issue-template material from stale #78/#80.
 - No obsolete #78/#80 runtime/release workflow implementation is reintroduced.
 - PR #86 is ready for squash merge with expected-head protection.
+
+
+ACTION 2026-10-08 A087
+- PR #86 cleanup/stale-pr-consolidation was squash-merged with expected-head
+  protection after exact-head Build #878 and CodeQL #44 both completed SUCCESS.
+- New main commit:
+  d0caf982692c73ea4759592d1a026ac9af0beb63.
+- Main now officially contains:
+  recovered PR #69 FR/EN performance-pack localization;
+  recovered #55/#57 continuity-checkpoint heredoc rendering fix;
+  selectively consolidated support/source/policy/issue-template content from
+  stale governance PRs #78/#80 without restoring their obsolete workflows.
+- PR #78 and #80 are closed as superseded by the merged #81/#86 governance path.
+- Closed-unmerged audit status after #86:
+  #69 recovered by #86;
+  #55/#57 relevant workflow fix recovered by #86;
+  #60 superseded by merged #61;
+  #64/#65 superseded by merged #66;
+  #40 duplicate of merged #38;
+  #35 duplicate of merged #34;
+  #31 functional FFmpeg cutover already present on current main;
+  #22 superseded by merged v3.0/PR #28;
+  #18 remaining hardening was integrated by merged #20.
+- The only red/conflicted PR still requiring a real code correction is #77
+  Local AI Studio; #78's red state is obsolete because #78 is now closed.
