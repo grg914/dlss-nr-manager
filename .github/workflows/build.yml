@@ -50,6 +50,10 @@ jobs:
           }
           dotnet --info
 
+      - name: Validate release dispatch helper syntax
+        shell: bash
+        run: bash -n ./tools/dispatch-release-if-needed.sh
+
       - name: Validate self-contained tooling
         shell: pwsh
         run: |
