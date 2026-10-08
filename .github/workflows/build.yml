@@ -153,8 +153,14 @@ jobs:
           }
 
           $seedBuilder = Get-Content .\tools\build-nuget-offline-seed.ps1 -Raw
-          if ($seedBuilder -match '\[DateTime\]::UtcNow' -or $seedBuilder -match 'Compress-Archive') {
+          if ($seedBuilder -match '\[DateTime\]::UtcNow' -or
+              $seedBuilder -match 'Compress-Archive' -or
+              $seedBuilder -match 'generated_at_utc' -or
+              $seedBuilder -match 'git show') {
             throw "NuGet seed builder contains a known non-deterministic timestamp/archive path."
+          }
+          if ($seedBuilder -notmatch '\$deterministicArchiveTimestamp\s*=\s*"1980-01-01T00:00:00Z"') {
+            throw "NuGet seed builder does not use the fixed content-addressed ZIP epoch."
           }
           if ($seedBuilder -notmatch 'create-deterministic-flat-zip\.ps1') {
             throw "NuGet seed builder does not use the deterministic ZIP helper."
