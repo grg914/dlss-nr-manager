@@ -14,6 +14,15 @@ public sealed record ManagerComponentDescriptor(
     string? SourceRef,
     string Channel);
 
+public enum MediaUpdateAvailability
+{
+    NotInstalled,
+    UnknownLocalVersion,
+    UnknownRemoteVersion,
+    UpToDate,
+    UpdateAvailable
+}
+
 public sealed class ComponentUpdateService
 {
     private const string ManagerLatestReleaseApi =
@@ -36,6 +45,48 @@ public sealed class ComponentUpdateService
             new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    }
+
+    /// <summary>
+    /// Non-mutating, explicitly requested Download Center update check.
+    /// An install lacking a recorded manager-owned SHA-256 fingerprint must
+    /// not be called outdated by comparing arbitrary release names.
+    /// </summary>
+    public async Task<MediaUpdateAvailability> CheckMediaUpdateAsync(
+        MediaService media,
+        CancellationToken cancellationToken = default)
+    {
+        if (!media.IsReady)
+            return MediaUpdateAvailability.NotInstalled;
+
+        var local = LoadState();
+        if (string.IsNullOrWhiteSpace(local?.MediaFingerprint))
+            return MediaUpdateAvailability.UnknownLocalVersion;
+
+        var remote = await GetRemoteStateAsync(cancellationToken);
+        return EvaluateMediaUpdate(local, remote, installed: true);
+    }
+
+    public static MediaUpdateAvailability EvaluateMediaUpdate(
+        ComponentState? local,
+        ComponentState remote,
+        bool installed)
+    {
+        ArgumentNullException.ThrowIfNull(remote);
+
+        if (!installed)
+            return MediaUpdateAvailability.NotInstalled;
+        if (string.IsNullOrWhiteSpace(local?.MediaFingerprint))
+            return MediaUpdateAvailability.UnknownLocalVersion;
+        if (string.IsNullOrWhiteSpace(remote.MediaFingerprint))
+            return MediaUpdateAvailability.UnknownRemoteVersion;
+
+        return string.Equals(
+            local.MediaFingerprint,
+            remote.MediaFingerprint,
+            StringComparison.OrdinalIgnoreCase)
+                ? MediaUpdateAvailability.UpToDate
+                : MediaUpdateAvailability.UpdateAvailable;
     }
 
     public async Task<bool> EnsureMediaToolsLatestAsync(
