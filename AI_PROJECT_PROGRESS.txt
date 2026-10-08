@@ -3709,3 +3709,26 @@ ACTION 2026-10-08 A067
 - No failed Build step is reported.
 - CodeQL #37 is still awaiting/obtaining its runner at this checkpoint.
 - No further branch change made; exact head 5e23418 remains frozen.
+
+
+ACTION 2026-10-08 A068
+- Reconciled concurrent open PRs #84 and #85 after connection recovery.
+- PR #85 (security/correctness priority):
+  hardening/release-source-pinning
+  exact head 0bf7d6631200ee692801bb2f16f31574cfd9694e
+  Build #870 / CodeQL #36 in_progress, both currently in manager-owned offline
+  NuGet feed preparation; all earlier Build gates including repository governance
+  are SUCCESS.
+- PR #84 (performance follow-up):
+  hardening/runtime-refresh-scoping
+  exact head 5e23418cb0ceff1a0a013f1e8724a189046a131d
+  Build #871 / CodeQL #37 in_progress, both currently in manager-owned offline
+  NuGet feed preparation; the A066 PowerShell quoting fix and all new scope
+  mapping/governance tests are SUCCESS.
+- Both branches are based on main 8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Both modify AI_PROJECT_PROGRESS.txt and tools/verify-repository-governance.ps1,
+  so merge order matters even though their core implementation files differ.
+- Selected merge order: #85 first because it closes a production release TOCTOU
+  correctness/security gap; after #85 merges, #84 must be refreshed/reconciled
+  onto the new main before it can be merged under strict up-to-date rules.
+- Neither PR head was changed during this reconciliation.
