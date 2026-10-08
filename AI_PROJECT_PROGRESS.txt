@@ -4663,3 +4663,31 @@ ACTION 2026-10-08 A112
   native-runtime at OptiScaler (Real-ESRGAN already SUCCESS);
   windows-runtime at Streamline (Minecraft follows).
 - Open pull requests remain ZERO.
+
+
+ACTION 2026-10-08 A113
+- Resumed from the GitHub Actions / CodeQL / Minecraft NGX hardening checkpoint.
+- Official main is 4bbe034adfe3ec1a37107723dc39c8bb71f314f5, the squash merge of PR #75.
+- Final PR #75 validation remains confirmed:
+  Build #890 SUCCESS;
+  CodeQL #56 SUCCESS.
+- Post-merge validation on main:
+  Build #891 SUCCESS;
+  CodeQL #57 SUCCESS;
+  Runtime Seed Refresh #28 still in_progress only in dispatch-release;
+  all producer jobs (native, windows, FFmpeg, VLC, Java, NuGet, restricted runtime)
+  are SUCCESS.
+- PR #91 is the only open PR and is exact-head clean on
+  c4ddd472a61c00dcf70d72866f2ac92f606d8930:
+  Build #892 SUCCESS;
+  CodeQL #58 SUCCESS;
+  mergeable=true, mergeable_state=clean.
+- Exact #91 diff revalidated: only two changes exist:
+  tools/verify-repository-governance.ps1 is explicitly classified release-only
+  in the runtime scope mapper, and Build adds the matching scope regression.
+  No application/runtime payload is changed.
+- Deliberately did not merge #91 while Runtime Seed Refresh #28 dispatch-release
+  was still checking out its helper, because advancing main during that window
+  could intentionally trip the fail-closed exact-source guard and make #28 stale.
+- Next action: wait only for #28 dispatch-release to finish, then merge #91 with
+  expected-head protection and validate its post-merge narrow refresh behavior.
