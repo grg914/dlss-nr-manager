@@ -1,3 +1,9 @@
+CHECKPOINT R042 (2026-10-08) - CI DETECTE ET CORRIGE ERREUR POWERSHELL AUDIT REALESRGAN
+- PR #122 Build 37840275946 ECHEC a l'etape "Validate self-contained tooling". Cause exacte recue dans le log: tools/audit-realesrgan-openmp.ps1 variable reference invalide car "Write-Host ... $exe:" interprete la sequence ':' comme nom de variable/drive PowerShell. L'ancien Build #119 passait car le script n'etait PAS dans la liste de verification syntaxique.
+- Correctif sur branche #122 commit 1830d7df04fd41b187a5bb7fe636d0b1912e7d86: syntaxe Write-Host "Direct PE imports for ${exe}:" et maintien du controle du script dans .github/workflows/build.yml. Build/CodeQL sur nouveau head a revalider; ne pas masquer echec initial.
+- Tests PowerShell ne prouvent pas correctness PE/VM ni benchmark GPU/VRAM; issue #79 ouverte. Journal R039-R041 deja sur branche #122; besoin fusion en main une fois checks verts; v4.0 non publiee.
+PROCHAINE ACTION: verifier CI sur head apres ce checkpoint, corriger si nouvelle erreur; merger uniquement si Build+CodeQL success, puis fermer #120/#121 obsolete et controler R039-R042 sur main.
+
 CHECKPOINT R041 (2026-10-08) - RECONCILIATION PC CLEAN + TEST WINDOWS ET VERIFICATION SYNTAXE
 - PR #119 fusionnee sur main commit 52dacd47f8966b516419d6ada627e55270115c64: Build 37838790919 SUCCESS, 124 tests passes (0 echec/ignore), CodeQL 37838790887 SUCCESS. Journal R037/R038 et etude no-OpenMP deja presents sur main; PR #118 fermee comme remplacee.
 - Branche security/v4-cleanup-acceptance-reconciled creee depuis main apres PR119, reprenant les deux corrections de branches #120 et #121 (script PC acceptance non destructif, doc FR, garde PC Clean contre liens/jonctions parents et 2 tests).
