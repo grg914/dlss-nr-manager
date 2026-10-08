@@ -64,8 +64,7 @@ jobs:
       - name: Build application for CodeQL
         shell: pwsh
         run: |
-          $packages = "${{ steps.offline.outputs.packages }}"
-          dotnet build DlssNrManager.csproj -c Release --no-restore --packages "$packages"
+          dotnet build DlssNrManager.csproj -c Release --no-restore
           if ($LASTEXITCODE -ne 0) { throw "CodeQL build failed." }
 
       - name: Analyze
