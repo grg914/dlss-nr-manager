@@ -2,6 +2,7 @@ param(
     [switch]$Replace,
     [switch]$NormalizeExisting,
     [switch]$IncludeMinecraftSources,
+    [switch]$IncludeAiStudioSources,
     [switch]$IncludeRestrictedNvidiaSdk,
     [switch]$StageImported,
     [string[]]$Only
@@ -515,6 +516,11 @@ foreach ($source in @($Lock.sources)) {
 
     if ($group -eq "minecraft" -and -not $IncludeMinecraftSources) {
         Write-Host "SKIP $($source.path) (Minecraft source mirror not requested)"
+        continue
+    }
+
+    if ($group -eq "ai-studio" -and -not $IncludeAiStudioSources) {
+        Write-Host "SKIP $($source.path) (AI Studio source mirror not requested)"
         continue
     }
 

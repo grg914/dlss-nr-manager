@@ -272,21 +272,37 @@ public sealed class GitHubReleaseService
                             "GitHub release asset exceeds the 1 GB safety limit.");
                     }
 
-                    await using (var source =
-                        await response.Content.ReadAsStreamAsync(token))
-                    await using (var target = new FileStream(
-                        temp,
-                        FileMode.Create,
-                        FileAccess.Write,
-                        FileShare.None,
-                        128 * 1024,
-                        useAsync: true))
+                    using var transfer =
+                        DownloadProgressHub.Begin(
+                            Path.GetFileName(destination),
+                            response.Content.Headers.ContentLength);
+
+                    try
                     {
-                        await CopyWithLimitAsync(
-                            source,
-                            target,
-                            MaxReleaseAssetBytes,
-                            token);
+                        await using (var source =
+                            await response.Content.ReadAsStreamAsync(token))
+                        await using (var target = new FileStream(
+                            temp,
+                            FileMode.Create,
+                            FileAccess.Write,
+                            FileShare.None,
+                            128 * 1024,
+                            useAsync: true))
+                        {
+                            await CopyWithLimitAsync(
+                                source,
+                                target,
+                                MaxReleaseAssetBytes,
+                                transfer,
+                                token);
+                        }
+
+                        transfer.Complete();
+                    }
+                    catch (Exception ex)
+                    {
+                        transfer.Fail(ex);
+                        throw;
                     }
 
                     if (new FileInfo(temp).Length < 1024)
@@ -334,6 +350,7 @@ public sealed class GitHubReleaseService
         Stream input,
         Stream output,
         long maxBytes,
+        DownloadProgressHandle progress,
         CancellationToken cancellationToken)
     {
         var buffer = new byte[128 * 1024];
@@ -358,6 +375,8 @@ public sealed class GitHubReleaseService
             await output.WriteAsync(
                 buffer.AsMemory(0, read),
                 cancellationToken);
+
+            progress.Report(total);
         }
     }
 

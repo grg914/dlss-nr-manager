@@ -222,6 +222,42 @@
       "promotion": "notify-only",
       "lock_tag_field": "source_tag",
       "reason": "License-restricted SDK: detect automatically, but never vendor or publish raw SDK material."
+    },
+    {
+      "id": "ai-studio-comfyui",
+      "provider": "github",
+      "repository": "Comfy-Org/ComfyUI",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "notify-only",
+      "reason": "AI Studio runtime updates require Python/PyTorch/CUDA and workflow regression validation."
+    },
+    {
+      "id": "ai-studio-diffusers",
+      "provider": "github",
+      "repository": "huggingface/diffusers",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "notify-only",
+      "reason": "AI Studio runtime updates require model compatibility and reproducibility validation."
+    },
+    {
+      "id": "ai-studio-flux2-reference",
+      "provider": "github",
+      "repository": "black-forest-labs/flux2",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "notify-only",
+      "reason": "Reference implementation only; model weights are independently licensed and fingerprint-pinned."
+    },
+    {
+      "id": "ai-studio-wan2.2",
+      "provider": "github",
+      "repository": "Wan-Video/Wan2.2",
+      "strategy": "default-branch-head",
+      "enabled": true,
+      "promotion": "notify-only",
+      "reason": "Video model/runtime changes require quality, VRAM and temporal regression validation."
     }
   ]
 }

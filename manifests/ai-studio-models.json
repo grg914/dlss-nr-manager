@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "generated_for": "DLSS NR Manager Local AI Studio",
+  "models": [
+    {
+      "id": "flux2-klein-4b",
+      "display_name": "FLUX.2 [klein] 4B",
+      "tier": "recommended",
+      "license": "Apache-2.0",
+      "manager_owned_redistribution": true,
+      "official_model_url": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B"
+    },
+    {
+      "id": "flux2-dev",
+      "display_name": "FLUX.2 [dev]",
+      "tier": "maximum_quality",
+      "license": "FLUX [dev] Non-Commercial License v2.0",
+      "manager_owned_redistribution": false,
+      "official_model_url": "https://huggingface.co/black-forest-labs/FLUX.2-dev",
+      "official_license_url": "https://huggingface.co/black-forest-labs/FLUX.2-dev/blob/main/LICENSE.md"
+    },
+    {
+      "id": "qwen-image-2.1",
+      "display_name": "Qwen-Image-2.1",
+      "tier": "maximum_quality",
+      "license": "Qwen RESEARCH LICENSE AGREEMENT",
+      "manager_owned_redistribution": false,
+      "official_model_url": "https://huggingface.co/Qwen/Qwen-Image-2.1",
+      "official_license_url": "https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE"
+    },
+    {
+      "id": "sdxl-1.0",
+      "display_name": "Stable Diffusion XL 1.0",
+      "tier": "compatibility",
+      "license": "CreativeML Open RAIL++-M",
+      "manager_owned_redistribution": true,
+      "official_model_url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0"
+    },
+    {
+      "id": "sdxl-inpaint-1.0",
+      "display_name": "SDXL Inpainting 1.0",
+      "tier": "compatibility",
+      "license": "CreativeML Open RAIL++-M",
+      "manager_owned_redistribution": true,
+      "official_model_url": "https://huggingface.co/diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
+    },
+    {
+      "id": "wan2.2-ti2v-5b",
+      "display_name": "Wan2.2 TI2V 5B",
+      "tier": "recommended",
+      "license": "Apache-2.0",
+      "manager_owned_redistribution": true,
+      "official_model_url": "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B"
+    },
+    {
+      "id": "wan2.2-t2v-a14b",
+      "display_name": "Wan2.2 T2V A14B",
+      "tier": "maximum_quality",
+      "license": "Apache-2.0",
+      "manager_owned_redistribution": true,
+      "official_model_url": "https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B"
+    },
+    {
+      "id": "wan2.2-i2v-a14b",
+      "display_name": "Wan2.2 I2V A14B",
+      "tier": "maximum_quality",
+      "license": "Apache-2.0",
+      "manager_owned_redistribution": true,
+      "official_model_url": "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B"
+    },
+    {
+      "id": "wan2.2-animate-14b",
+      "display_name": "Wan2.2 Animate 14B",
+      "tier": "maximum_quality",
+      "license": "Apache-2.0",
+      "manager_owned_redistribution": true,
+      "official_model_url": "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B"
+    },
+    {
+      "id": "ltx-2.5",
+      "display_name": "LTX-2.5 Pre-Trained",
+      "tier": "maximum_quality",
+      "license": "LTX-2.x Community License",
+      "manager_owned_redistribution": false,
+      "official_model_url": "https://huggingface.co/Lightricks/LTX-2.5-Pre-Trained",
+      "official_license_url": "https://huggingface.co/Lightricks/LTX-2.5-Pre-Trained"
+    }
+  ]
+}

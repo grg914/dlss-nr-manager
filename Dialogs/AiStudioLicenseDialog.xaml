@@ -1,0 +1,92 @@
+<Window x:Class="DlssNrManager.Dialogs.AiStudioLicenseDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Licence du modèle"
+        Width="620"
+        Height="500"
+        MinWidth="540"
+        MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="#081018"
+        Foreground="#F4F8FC">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0">
+      <TextBlock x:Name="ModelNameText"
+                 FontSize="20"
+                 FontWeight="SemiBold"/>
+      <TextBlock x:Name="LicenseNameText"
+                 Foreground="#7DD3FC"
+                 FontSize="12"
+                 Margin="0,5,0,0"/>
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            Background="#101A24"
+            BorderBrush="#25384A"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="12"
+            Margin="0,16,0,12">
+      <TextBlock x:Name="SummaryText"
+                 TextWrapping="Wrap"
+                 Foreground="#C3D2E1"/>
+    </Border>
+
+    <TextBox Grid.Row="2"
+             x:Name="LegalNoticeText"
+             IsReadOnly="True"
+             AcceptsReturn="True"
+             TextWrapping="Wrap"
+             VerticalScrollBarVisibility="Auto"
+             Background="#0B141D"
+             Foreground="#B8C7D5"
+             BorderBrush="#25384A"
+             Padding="10"
+             Text="Avant d'installer ce modèle, vous devez consulter et accepter sa licence officielle.&#x0a;&#x0a;DLSS NR Manager enregistre seulement votre acceptation locale. Cette acceptation ne modifie pas la licence, ne vous accorde aucun droit supplémentaire et n'autorise pas automatiquement DLSS NR Manager à redistribuer les poids du modèle.&#x0a;&#x0a;Pour les modèles gated ou sous licence restreinte, vous devez obtenir les fichiers depuis la source officielle conformément à ses conditions, puis les importer dans le stockage local géré par l'application."/>
+
+    <CheckBox Grid.Row="3"
+              x:Name="AcceptCheckBox"
+              Content="J'ai consulté la licence officielle et j'accepte ses conditions."
+              Margin="0,14,0,12"
+              Checked="AcceptCheckBox_Changed"
+              Unchecked="AcceptCheckBox_Changed"/>
+
+    <Grid Grid.Row="4">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="8"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+
+      <Button Grid.Column="0"
+              x:Name="OpenLicenseButton"
+              Content="Voir la licence officielle"
+              Padding="12,7"
+              Click="OpenLicense_Click"/>
+
+      <Button Grid.Column="2"
+              x:Name="DeclineButton"
+              Content="Refuser"
+              Padding="18,7"
+              Click="Decline_Click"/>
+
+      <Button Grid.Column="4"
+              x:Name="AcceptButton"
+              Content="Accepter"
+              Padding="18,7"
+              IsEnabled="False"
+              Click="Accept_Click"/>
+    </Grid>
+  </Grid>
+</Window>
