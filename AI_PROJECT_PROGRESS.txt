@@ -3616,3 +3616,27 @@ ACTION 2026-10-08 A065
   Build #869 (run 37718995528)
   CodeQL #35 (run 37718995486)
 - Branch is frozen until these exact-head checks complete or expose a defect.
+
+
+ACTION 2026-10-08 A065
+- Final static audit of hardening/release-source-pinning completed before PR.
+- release.yml critical-source audit:
+  workflow_dispatch exposes source_sha;
+  the event GITHUB_SHA is used only to initialize the exact source when no
+  explicit workflow_dispatch source_sha is supplied;
+  exact checkout uses steps.source.outputs.sha;
+  stable tag ownership compares against steps.source.outputs.sha;
+  package/component/SBOM/provenance timestamps and source metadata use the exact
+  resolved SHA;
+  gh release create --target uses the exact resolved SHA;
+  workflow_dispatch rechecks current main immediately before publication.
+- dispatch-release-if-needed.sh audit:
+  validates full source SHA;
+  preserves stable-tag immutability;
+  resolves current main and skips stale source dispatch;
+  passes source_sha explicitly into release.yml.
+- verify-repository-governance.ps1 now statically enforces the above contract.
+- No additional blocking defect found in the five follow-up implementation/docs
+  files.
+- Next action: synchronize live AI_PROJECT_PROGRESS.txt into the branch, open the
+  release-source-pinning PR, and freeze its exact head for Build/CodeQL.
