@@ -4863,3 +4863,14 @@ ACTION 2026-10-08 V4-SECURITY S002 - DIAGNOSTIC CI PR #99 ET SYNCHRONISATION
 - Correction test: Assert.EndsWith("nvidia-smi.exe", path, StringComparison.OrdinalIgnoreCase), sans modifier politique des executables autorises.
 - Synchronisation branche security/v4-trusted-gpu-probing depuis main 7c7bdc26b70e1409c8d9f324f75f3bf87491a98a par commit de reconciliation a deux parents, conserve tout R001-R011/L001-L002/S001 et les changements GPU.
 - ETAT: attendu nouveaux Build/CodeQL sur le nouveau head PR #99. Ne pas fusionner avant tous controles verts. Aucun test NVIDIA-SMI sur GPU reel effectue.
+
+
+ACTION 2026-10-08 V4-AISTUDIO A001 - AUDIT MODELES ET CRASH ROLLBACK
+- Branche security/v4-ai-studio-model-install-rollback creee depuis main 86f04accae20050cc030771bdc057b05d5137599, independante de PR #100.
+- AiStudioPackageService.InstallAsync refuse deja les modeles ManagerOwnedRedistributionAllowed=false et valide SHA-256 archive, mais ResolveInstallPath n'impose que le workspace Root (une release pourrait cibler jobs/outputs/runtime ou un modele manuel).
+- ReplaceDirectoryAtomically catch appelle TryDeleteDirectory(target) meme si Directory.Move(target, backup) a echoue avant movedExisting=true: risque de perte des anciens fichiers.
+- Objectif: imposer le dossier exact GetModelDirectory(model), utiliser ManagedComponentRedownload.ReplaceAsync pour restauration en cas d'erreur/annulation et rendre les modeles manager-owned eligibles au recovery conservatif au demarrage.
+- Ne pas toucher aux fichiers des modeles a licence manuelle ou aux sorties/utilisateurs.
+- Tests xUnit du confinement des chemins, du catalogage des modeles autorises, et invariants rollback.
+- Note: anciens backups .backup-GUID d'AI Studio restent a traiter separement; ne pas declarer l'issue #95 fermee.
+- ETAT: checkpoint avant implementation. CI et test Windows REQUIS.
