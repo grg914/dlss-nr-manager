@@ -1,3 +1,12 @@
+CHECKPOINT R026 (2026-10-08) - DOWNLOAD CENTER MEDIA OPTIONAL UPDATE (PARTIAL)
+- Branche feature/v4-download-center-media-update-detection depuis main.
+- ComponentUpdateService.CheckMediaUpdateAsync: controle explicitement demande, sans mutation, compare empreinte SHA-256 des assets video2dlssnr + ffmpeg manager-owned; versions locales ou distantes inconnues = PAS d'annonce de mise a jour.
+- MainWindow bouton Actualiser de Telechargements declenche le controle pour media, statut FR/EN, et le meme bouton Retelecharger devient Mettre a jour uniquement lorsqu'une empreinte plus recente est confirmee. Aucun second bouton telechargement pour media n'est ajoute.
+- Action Mettre a jour appelle EnsureMediaToolsLatestAsync(forceRefresh:true): utilise MediaService.UpdateToolsAsync avec rollback, puis persiste empreinte seulement en cas de succes. Annulation et exceptions gerees par flux Download Center existant.
+- Cinq tests unitaires de classification update disponible, actuel, non installe, versions inconnues. TESTS CI/CodeQL A FAIRE sur head exact; ne pas annoncer fonctionnalite validee avant succes.
+- Limites ouvertes dans issue #111: autres composants (VLC/Real-ESRGAN/detecteur origine/modeles AI Studio) non versionnes ici; installation locale sans empreinte connue reste en etat inconnu, pas d'update proposee. Le controle automatique de mise a jour media deja present au demarrage reste a auditer selon le caractere optionnel voulu.
+PROCHAINE ACTION: PR et checks Build/CodeQL; verifier UI Windows et absence de doublons; garder issue #111 ouverte tant que couverture complete et tests sur machine reelle manquent. Pas de release v4.0.
+
 CHECKPOINT R019 (2026-10-08) - AUDIT FINALISATION V4 / README
 - PR #106 (checkpoint R018) toujours sous verification GitHub Build/CodeQL au moment du controle; ne pas fusionner avant checks SUCCESS sur head courant.
 - Inspection du code main: ExternalProcessTracker utilise un Windows Job Object KILL_ON_JOB_CLOSE et traque les enfants, mais ce mecanisme ne prouve pas un test sur Windows avec crash/kill effectif.
