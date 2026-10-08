@@ -3829,18 +3829,43 @@ ACTION 2026-10-08 A074
 
 ACTION 2026-10-08 A075
 - Reconciled PR #84 hardening/runtime-refresh-scoping onto official main after PR #85.
-- Rebase strategy is a linear branch reconstruction, not a merge commit:
-  parent is main dca84beeed06fb46ae78524dc420ab8cf46b80f1;
-  previous PR #84 head 6ed0c434a18b6427633b44a4c00601dc29dce4a8 is replaced with force-with-lease only after
-  the complete reconciled tree is created.
-- Preserved #84 runtime scope implementation and tests:
-  .github/workflows/build.yml;
-  .github/workflows/runtime-refresh.yml;
-  tools/map-runtime-refresh-files.sh including the corrected FFmpeg-Builds
-  release-only routing.
-- Reconciled tools/verify-repository-governance.ps1 additively:
-  retained #85 exact release source-pinning / fail-closed checks;
-  retained #84 seed-release checkout, scope mapper and required-trigger checks.
-- Synchronized live AI_PROJECT_PROGRESS.txt through A074 into the reconstructed
-  PR branch before its new exact-head CI validation.
-- No #85 production hardening was dropped by the reconciliation.
+- Linear branch reconstruction completed successfully with force-with-lease:
+  previous head 6ed0c434a18b6427633b44a4c00601dc29dce4a8;
+  new parent main dca84beeed06fb46ae78524dc420ab8cf46b80f1;
+  new PR #84 head bf3bba89c6771ef6bd0819a69e9239a53cd1b7de.
+- Reconstructed tree preserves #84 runtime scope implementation/tests and the
+  corrected FFmpeg-Builds release-only routing.
+- tools/verify-repository-governance.ps1 was reconciled additively:
+  #85 exact release source-pinning / fail-closed checks retained;
+  #84 seed-release checkout, scope mapper and required-trigger checks retained.
+- PR #84 is again mergeable=true and blocked only by fresh exact-head checks:
+  Build #874 in_progress
+  CodeQL #40 pending at first observation.
+- No #85 production hardening was dropped.
+
+
+ACTION 2026-10-08 A076
+- Runtime Seed Refresh #24 on merged main dca84bee provided the pending A057
+  production proof for content-addressed NuGet publication.
+- seed-release resolved scope=all because #24 started before PR #84 scope routing
+  was available on main.
+- nuget-runtime completed SUCCESS and generated nuget-offline.zip twice with the
+  exact same SHA-256:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e.
+- Exact publication result:
+  SKIP unchanged manager-owned nuget-offline.zip
+  (c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e).
+- This closes the A057 follow-up: unchanged deterministic NuGet seed bytes are
+  now proven not to be replaced/re-uploaded during a subsequent real refresh.
+- Other #24 runtime jobs continue only because the old coarse main scope resolver
+  returned all; PR #84 is intended to eliminate this unnecessary full rebuild.
+
+
+ACTION 2026-10-08 A077
+- Synchronized the authoritative live AI_PROJECT_PROGRESS.txt through A076 into
+  PR #84 after its linear reconciliation onto main.
+- This journal sync is intentionally performed before exact-head CI completes so
+  the final validated PR head already contains the continuity record that should
+  land on main.
+- PR #84 is frozen after this sync; no further branch change should occur unless
+  Build/CodeQL exposes a defect.
