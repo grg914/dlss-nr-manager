@@ -4582,3 +4582,23 @@ ACTION 2026-10-08 A109
 - The new scoped vlc-runtime job is present and actively executing the verified
   manager-owned VLC publisher, providing the first production validation of the
   reconciled VLC runtime path.
+
+
+ACTION 2026-10-08 A110
+- First production validation of the new VLC runtime publisher completed SUCCESS
+  in Runtime Seed Refresh #28 on main 4bbe034a.
+- Exact VLC publication evidence:
+  SKIP unchanged vlc-3.0.24-win64.zip
+    SHA-256 fcf30850371ad10c9373cc4f0f4501e7dee49e3e9ae9f20c72fb2661a1ca6323;
+  SKIP unchanged vlc-3.0.24.tar.xz
+    SHA-256 e7cab503d1d7d5849b89d2cf0e1ee60d0ef6d012407791b644b9cfc0cc225fdf;
+  SKIP unchanged vlc-3.0.24-provenance.json
+    SHA-256 ce229db08c2c9d68b228903f8184619dd1a2742cc116552d15739e35c7a3b078.
+- Publisher revalidated runtime/source/provenance and completed SUCCESS without
+  clobbering identical manager-owned assets.
+- Runtime Seed Refresh #28 still has native-runtime, ffmpeg-runtime and
+  windows-runtime active; seed-release, restricted-runtime preservation, NuGet,
+  Java and VLC are SUCCESS.
+- Build #891 and CodeQL #57 remain active in their manager-owned offline NuGet
+  preparation stage with no failed step.
+- Open pull requests remain ZERO.
