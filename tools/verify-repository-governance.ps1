@@ -14,10 +14,13 @@ $required = @(
     "docs/RELEASE_ARTIFACT_POLICY.md",
     "docs/AI_RUNTIME_SECURITY.md",
     "docs/CODE_SIGNING_POLICY.md",
+    "docs/PC_MAINTENANCE_SAFETY.md",
+    "docs/FEATURE_POLICY_MATRIX.md",
     "third_party/README.md",
     "third_party/DEPENDENCIES.lock.json",
     "third_party/UPSTREAMS.json",
-    "manifests/component-policy.json"
+    "manifests/component-policy.json",
+    "manifests/feature-policy.json"
 )
 
 $missing = @()
@@ -40,7 +43,8 @@ if ($missing.Count -gt 0) {
 foreach ($relative in @(
     "third_party/DEPENDENCIES.lock.json",
     "third_party/UPSTREAMS.json",
-    "manifests/component-policy.json"
+    "manifests/component-policy.json",
+    "manifests/feature-policy.json"
 )) {
     $path = Join-Path $Root $relative
     try {
@@ -72,6 +76,26 @@ foreach ($component in $components) {
     }
 }
 
+$featurePolicy = Get-Content -LiteralPath (Join-Path $Root "manifests/feature-policy.json") -Raw | ConvertFrom-Json
+if ([int]$featurePolicy.schema -ne 1) {
+    throw "Unsupported manifests/feature-policy.json schema."
+}
+
+$features = @($featurePolicy.features)
+$duplicateFeatureIds = @($features | Group-Object id | Where-Object Count -gt 1)
+if ($duplicateFeatureIds.Count -gt 0) {
+    throw "Duplicate feature-policy ids: $($duplicateFeatureIds.Name -join ', ')"
+}
+
+foreach ($feature in $features) {
+    foreach ($field in @("id", "ui_en", "ui_fr", "status", "network", "mutations", "integrity", "rollback", "canonical_download_surface")) {
+        $property = $feature.PSObject.Properties[$field]
+        if ($null -eq $property -or [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+            throw "Incomplete feature-policy entry '$($feature.id)': missing $field."
+        }
+    }
+}
+
 $workflowRoot = Join-Path $Root ".github\workflows"
 $workflows = @(Get-ChildItem -LiteralPath $workflowRoot -File -ErrorAction SilentlyContinue |
     Where-Object { $_.Extension -in @(".yml", ".yaml") })
@@ -99,4 +123,5 @@ foreach ($workflow in $workflows) {
 Write-Host "Repository governance validation passed."
 Write-Host "Required policy files: $($required.Count)"
 Write-Host "Component policy entries: $($components.Count)"
+Write-Host "Feature policy entries: $($features.Count)"
 Write-Host "Workflows audited: $($workflows.Count)"
