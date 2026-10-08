@@ -1,3 +1,38 @@
+CHECKPOINT R030 (2026-10-08) - RECONCILIATION PR #112 / CENTRE TELECHARGEMENTS
+- PR #112 fusionnee dans main commit 07c85195502e26365b8df8fdc2834404537bbe25: Build 37830461516 SUCCESS avec 108 tests (0 fails / 0 skipped), CodeQL 37830461642 SUCCESS.
+- CHANGELOG.md, ManagedPathSafety, protections rollback Media et import AI Studio manuel, tests Windows STOP et symlink/junction presents sur main. PR #109 et #110 fermees comme remplacees.
+- Nouvelle branche feature/v4-download-center-media-update-reconciled reconstruite depuis main post-#112: reporte les quatre fichiers code/test de l'ancienne PR #113, ainsi que checkpoints R024-R028.
+- NE PAS FUSIONNER sans Build et CodeQL SUCCESS sur le nouveau head et comparaison du diff. PR #113 a reconcilier/clore seulement APRES fusion du remplacement. v4.0 NON PUBLIEE.
+PROCHAINE ACTION: PR de remplacement, validations CI puis merge si vert, verifier main et journal; poursuivre issue #111 pour VLC, Real-ESRGAN, AI Origin et modeles AI Studio, et tests crash Windows physiques.
+
+CHECKPOINT R028 (2026-10-08) - MAJ MEDIA OPT-IN
+- AutoUpdateComponentsCheck dans MainWindow.xaml etait coche par defaut et declenchait EnsureMediaToolsLatestAsync au demarrage. Correction dans branche v4: case decochee par defaut pour nouvelles sessions, opt-in utilisateur conserve. La preference n'est pas encore persistante entre sessions.
+- Les mises a jour manuelles via le Centre de telechargements restent optionnelles. Couverture autres composants ouverte issue #111.
+
+CHECKPOINT R027 (2026-10-08) - SECURITE ORDRE DES VERSIONS
+- Empreinte SHA-256 distante differente ne suffit PAS a prouver qu'une release est plus recente. ComponentState enregistre desormais ManagerReleaseTag apres mise a jour validee, et le bouton Update n'apparait que si tag de release stable semantiquement plus recent ET empreinte differente.
+- Pas de bouton Update si tag local absent (legacy), manifest distant sans empreinte ou tag non semantique/prerelease; aucune retrogradation presentee comme mise a jour.
+- Tests ajoutés: downgrade, meme release/reupload, tag non semantique, legacy sans tag et cas de base. Verification CI obligatoire.
+
+CHECKPOINT R026 (2026-10-08) - DOWNLOAD CENTER MEDIA OPTIONAL UPDATE (PARTIAL)
+- Branche feature/v4-download-center-media-update-detection depuis main.
+- ComponentUpdateService.CheckMediaUpdateAsync: controle explicitement demande, sans mutation, compare empreinte SHA-256 des assets video2dlssnr + ffmpeg manager-owned; versions locales ou distantes inconnues = PAS d'annonce de mise a jour.
+- MainWindow bouton Actualiser de Telechargements declenche le controle pour media, statut FR/EN, et le meme bouton Retelecharger devient Mettre a jour uniquement lorsqu'une empreinte plus recente est confirmee. Aucun second bouton telechargement pour media n'est ajoute.
+- Action Mettre a jour appelle EnsureMediaToolsLatestAsync(forceRefresh:true): utilise MediaService.UpdateToolsAsync avec rollback, puis persiste empreinte seulement en cas de succes. Annulation et exceptions gerees par flux Download Center existant.
+- Cinq tests unitaires de classification update disponible, actuel, non installe, versions inconnues. TESTS CI/CodeQL A FAIRE sur head exact; ne pas annoncer fonctionnalite validee avant succes.
+- Limites ouvertes dans issue #111: autres composants (VLC/Real-ESRGAN/detecteur origine/modeles AI Studio) non versionnes ici; installation locale sans empreinte connue reste en etat inconnu, pas d'update proposee. Le controle automatique de mise a jour media deja present au demarrage reste a auditer selon le caractere optionnel voulu.
+PROCHAINE ACTION: PR et checks Build/CodeQL; verifier UI Windows et absence de doublons; garder issue #111 ouverte tant que couverture complete et tests sur machine reelle manquent. Pas de release v4.0.
+
+CHECKPOINT R025 (2026-10-08) - AUDIT PC CLEAN ET ACCEPTATION
+- Source verifiee: PcCleanupService selectionne des caches/temporaires; WindowsRepairService appelle DISM RestoreHealth puis SFC /scannow par processus eleve; controle accessible dans MainWindow.xaml.
+- Audit presence source uniquement; vrai comportement Windows, permissions, logs, temps d'execution et arret a tester avant publication.
+- Matériel/Profils implementes en source, mais tests sur GPU reel a completer; localisation tooltips statiques couvre 57 libelles litteraux sur 60 attributs XAML, trois autres sont une liaison ou des chemins. Couverture FR/EN dynamique non prouvee.
+- Manque version-aware centre de telechargement documente issue #111.
+
+CHECKPOINT R024 (2026-10-08) - SECURITE MODELES MANUELS
+- ManagedPathSafety.HasReparsePointOnPath partage entre ManagedComponentRedownload et ManualModelDirectorySwap. Controle des parents jonctions/symlinks avant transfert, restoration et suppression, avec tests preservant les donnees sous licence manuelle.
+- PR #112 fusionnee apres CI verte; cela ne constitue pas un test reelle de crash Windows ou de contention fichiers.
+
 CHECKPOINT R023 (2026-10-08) - TEST WINDOWS PROCESS LIFECYCLE
 - Ajout tests/DlssNrManager.Tests/ExternalProcessTrackerTests.cs: lance le binaire Windows system32 ping.exe puis ExternalProcessTracker.Kill et exige WaitForExit, finally Kill meme si test echoue. Test d'arret normal, PAS preuve d'arret brutal de l'application ni GPU.
 - PR #110 contient aussi protections de liens/jonctions et checkpoints R021/R022. Nouveau head et Build/CodeQL requis avant fusion.
