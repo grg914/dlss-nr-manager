@@ -5,7 +5,8 @@ namespace DlssNrManager.Services;
 
 public sealed record AppPreferences(
     bool SoftwareRendering,
-    string Language = "");
+    string Language = "",
+    bool AutoUpdateComponents = false);
 
 public static class AppPreferencesService
 {

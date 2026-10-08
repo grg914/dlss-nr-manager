@@ -14,6 +14,15 @@ public sealed record ManagerComponentDescriptor(
     string? SourceRef,
     string Channel);
 
+public enum MediaUpdateAvailability
+{
+    NotInstalled,
+    UnknownLocalVersion,
+    UnknownRemoteVersion,
+    UpToDate,
+    UpdateAvailable
+}
+
 public sealed class ComponentUpdateService
 {
     private const string ManagerLatestReleaseApi =
@@ -36,6 +45,77 @@ public sealed class ComponentUpdateService
             new ProductInfoHeaderValue("DlssNrManager", AppIdentity.UserAgentVersion));
         _http.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+    }
+
+    /// <summary>
+    /// Non-mutating, explicitly requested Download Center update check.
+    /// An install lacking a recorded manager-owned SHA-256 fingerprint must
+    /// not be called outdated by comparing arbitrary release names.
+    /// </summary>
+    public async Task<MediaUpdateAvailability> CheckMediaUpdateAsync(
+        MediaService media,
+        CancellationToken cancellationToken = default)
+    {
+        if (!media.IsReady)
+            return MediaUpdateAvailability.NotInstalled;
+
+        var local = LoadState();
+        if (string.IsNullOrWhiteSpace(local?.MediaFingerprint) ||
+            string.IsNullOrWhiteSpace(local?.ManagerReleaseTag))
+            return MediaUpdateAvailability.UnknownLocalVersion;
+
+        var remote = await GetRemoteStateAsync(cancellationToken);
+        return EvaluateMediaUpdate(local, remote, installed: true);
+    }
+
+    public static MediaUpdateAvailability EvaluateMediaUpdate(
+        ComponentState? local,
+        ComponentState remote,
+        bool installed)
+    {
+        ArgumentNullException.ThrowIfNull(remote);
+
+        if (!installed)
+            return MediaUpdateAvailability.NotInstalled;
+        if (string.IsNullOrWhiteSpace(local?.MediaFingerprint) ||
+            !TryParseStableManagerVersion(local?.ManagerReleaseTag, out var localVersion))
+            return MediaUpdateAvailability.UnknownLocalVersion;
+        if (string.IsNullOrWhiteSpace(remote.MediaFingerprint) ||
+            !TryParseStableManagerVersion(remote.ManagerReleaseTag, out var remoteVersion))
+            return MediaUpdateAvailability.UnknownRemoteVersion;
+
+        // Different bytes do not establish a newer version. In particular,
+        // never offer to downgrade a local prerelease/newer stable install.
+        if (remoteVersion <= localVersion)
+            return MediaUpdateAvailability.UpToDate;
+
+        return string.Equals(
+            local?.MediaFingerprint,
+            remote.MediaFingerprint,
+            StringComparison.OrdinalIgnoreCase)
+                ? MediaUpdateAvailability.UpToDate
+                : MediaUpdateAvailability.UpdateAvailable;
+    }
+
+    private static bool TryParseStableManagerVersion(string? tag, out Version parsed)
+    {
+        parsed = new Version(0, 0);
+        if (string.IsNullOrWhiteSpace(tag))
+            return false;
+
+        var value = tag.Trim();
+        if (value.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            value = value[1..];
+
+        // The manager's /releases/latest endpoint is stable-only. Do not
+        // normalize a prerelease or compare opaque identifiers as versions.
+        if (!value.All(c => char.IsAsciiDigit(c) || c == '.') ||
+            !Version.TryParse(value, out var candidate) ||
+            candidate is null)
+            return false;
+
+        parsed = candidate;
+        return true;
     }
 
     public async Task<bool> EnsureMediaToolsLatestAsync(
@@ -151,11 +231,17 @@ public sealed class ComponentUpdateService
 
         var mediaFingerprint = BuildMediaFingerprint(manifest);
 
+        var releaseTag = manager.RootElement.TryGetProperty("tag_name", out var tagElement) &&
+                         tagElement.ValueKind == JsonValueKind.String
+            ? tagElement.GetString()
+            : null;
+
         return new ComponentState(
             $"manager:{processorAssetId}",
             ffmpegAssetId,
             DateTimeOffset.UtcNow,
-            mediaFingerprint);
+            mediaFingerprint,
+            releaseTag);
     }
 
     private async Task<IReadOnlyList<ManagerComponentDescriptor>?>
@@ -372,4 +458,5 @@ public sealed record ComponentState(
     string ProcessorTag,
     long FfmpegAssetId,
     DateTimeOffset CheckedAt = default,
-    string? MediaFingerprint = null);
+    string? MediaFingerprint = null,
+    string? ManagerReleaseTag = null);
