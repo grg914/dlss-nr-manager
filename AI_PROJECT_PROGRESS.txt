@@ -1,3 +1,15 @@
+CHECKPOINT R018 (2026-10-08) - PROMPT.TXT RETROUVE ET CONSIGNES V4
+- Le fichier utilisateur original prompt.txt (4091 octets, fourni 2026-10-08) a ete retrouve dans la bibliotheque ChatGPT; il n'est PAS present a la racine de main du depot (lecture GitHub: NOT_FOUND). Ne pas declarer son contenu integre au depot.
+- Exigences du prompt: menu Materiels et Profils (AUTO, RTX 5060 Ti 16 GB + Ryzen 7 9700X, normal/compatible, capteurs GPU/CPU/VRAM/RAM/pilote/DirectX/Vulkan, RTX 20-50, profil recalculable), traduction totale FR/EN et infobulles, disponibilite et mise a jour optionnelle de composants dans Download Center, audit tests/dossiers/packaging, lifecycle START/RUN/STOP/CLEANUP (workers, processus, serveurs, GPU, RAM, transferts, logs), audit final regression, securite, performances, documentation, README, CHANGELOG et preparation release 4.0.
+- Ces exigences sont A VERIFIER une par une; elles ne sont pas declarees toutes implantees ou testees.
+- PR #102 fusionnee 0c8692fc0d056da712646aa1002e1eb255917a1b; PR #105 fusionnee 86079bf58cb3a7aca9914a9c97cdae112da17570 apres Build et CodeQL SUCCESS sur head 675f5e8455081a3fe9a8d090777e0142e6bfd16a.
+- PR #103 fermee, remplacee par #105; PR #104 fermee car ancien checkpoint documentaire devenu conflictuel / remplace par R017 sur #105.
+- Pas de preuve de Build/CodeQL post-merge sur main a cette lecture; pas de tests d'arret brutal Windows reels. Issue #95 reste ouverte et release 4.0 non autorisee.
+PROCHAINE ACTION: relever les workflows main post-merge; verifier la matrice des criteres prompt.txt vs implementation/tests; commencer par les scenarios de shutdown et rollback, puis FR/EN, profils materiels, options d'updates; garder issue #95 ouverte jusqu'aux tests de crash Windows; verifier README/CHANGELOG avant release.
+
+
+---
+
 CHECKPOINT R017 (2026-10-08) - PR #102 merged as 0c8692fc0d056da712646aa1002e1eb255917a1b after Build 37822109071 and CodeQL 37822109057 succeeded. PR #103 had Build 37822384191 and CodeQL 37822384235 succeeded on original head, but was blocked by merge conflicts with main. Replacement branch fix/v4-ai-studio-staging-cleanup-rebased based on main after #102 preserves the corrected manual model import and reproduces PR #103's SafeZip.Extract staging cleanup and FR/EN rollback confirmation. Must revalidate Build + CodeQL on replacement commit, close old PR #103 only once replacement is merged. No Windows crash test or v4 release validated.
 
 CHECKPOINT 0E - SOLUTION A VALIDEE / DURCISSEMENT MINECRAFT NATIVE NGX (2026-10-07)
