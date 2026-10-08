@@ -1,3 +1,24 @@
+CHECKPOINT R061 (2026-10-09) - PR128 FUSIONNEE / AUDIT R058 RECONCILIE
+- PR #125 historique et audit R046-R056 fusionnee a main 51ee9cd42461b09500b370592c8663380862d8be apres Build et CodeQL verts.
+- PR #128 fix/v4-owned-helper-isolation: nouveau HEAD 4ed14d7ab8652b942822ce8ee8fc571b2c0c4b31, Windows Build SUCCESS, 127 tests passes, 0 fails, 0 skipped (run 37854677953), CodeQL SUCCESS (run 37854677854). PR sortie de draft puis fusionnee par squash a main 1ee66e6cdbdcb38a9966d2ef61810e4d6e385d27.
+- Correctif : ExternalProcessTracker.KillAll ne tue plus globalement les processus nommes ffmpeg, ffprobe, video2dlssnr ou realesrgan-ncnn-vulkan sous le dossier partage LocalAppData; seul le suivi propre a chaque instance sert a l'arret. Job Object conserve pour la terminaison brutale; fenetre Start -> assign et echec d'attachement restent a traiter dans issue #95.
+- Audit GitHub R058: 45 branches au snapshot post-PR129, 44 comparees individuellement a main; 5 ancetres exactes sans commits uniques, 4 branches de release, plusieurs branches divergentes/pr closes non fusionnees a conserver. Liste exhaustive docs/BRANCH_AUDIT_R058_2026-10-09.md; commentaires issue #124 R058-R060 avec controles semantiques.
+- PR #130 (audit R058 + journal racine) recalee sur main APRES #128 par merge a deux parents sans perte de code; CI sur HEAD final a verifier avant fusion. Ne pas declarer PR #130 fusionnee a ce stade.
+- Version production source et derniere release publique 3.2.0; v4.0 toujours bloquee sur #79 #82 #95 #111 #123 et revue #124. Aucune qualification GPU Windows reelle declaree.
+PROCHAINE ACTION: verifier Build et CodeQL sur HEAD final PR #130; fusionner seulement si verts, reconfirmer journal et branches sur main, puis reprendre les blocages de v4.
+ 
+CHECKPOINT R058 (2026-10-09) - AUDIT EXHAUSTIF DES 45 BRANCHES APRES NETTOYAGE / SUITE V4
+- Main de reference audite: d5221deb14e774723e1cde408d182146597d1770, apres fusion PR #129; 84 refs confirmees supprimees, 45 branches restantes au relevé initial.
+- Compare GitHub main...branch lance et examine pour CHAQUE 44 branche non-main; 5 refs ancetres exactes (zero commit propre); 2 branches PR ouvertes au releve (#125 et #128); 4 refs de releases a conserver; branche refactor/phase4-zero-upstream-production referencee par nuget-seed.yml, donc conserver.
+- Branches tres divergentes (FFmpeg, video2dlssnr, upstream-sync, docs/live-ai-project-progress) a NE PAS fusionner ni supprimer automatiquement; certaines comparaisons GitHub sont tronquees a 300 chemins. PR fermees non mergees exigent audit semantique des fichiers et correctifs.
+- Inventaire nom par nom et decisions dans docs/BRANCH_AUDIT_R058_2026-10-09.md (PR #130); details + preuves dans issue #124 (R058).
+- PR #125 fusionnee sur main SHA 51ee9cd42461b09500b370592c8663380862d8be apres Build + CodeQL SUCCESS; archives R046-R050, R056 integrees. Ne pas prendre les anciens chiffres 125 branches pour l'etat actuel.
+- PR #128 (fix/v4-owned-helper-isolation): branche rebased/reconciliee au main apres PR #125, HEAD 4ed14d7ab8652b942822ce8ee8fc571b2c0c4b31; CI Build/CodeQL en cours au moment du checkpoint. Correctif remove kill par nom/chemin global, garde processus propre a l'instance; ne fusionner qu'apres tests sur HEAD final, y compris xUnit Windows.
+- PR #130 documente audit complet; doit passer Build+CodeQL sur son HEAD exact avant fusion. Ce checkpoint n'est PAS une preuve que #128 ou #130 sont fusionnees.
+- Les blocages v4 persistent: licences OpenMP #79, CodeQL obligatoire ruleset #82, tests Windows reels #95, mise a jour optionnelle centre telechargement #111, publication atomique runtime-seed #123, revue semantique branches #124.
+- Aucune release 4.0 publiee. Ne pas declarer test GPU physique ni preuve de licence acquise. Checkpoints recents R051/R057 sur PR #128 et R058 sur #130 + issue #124.
+PROCHAINE ACTION: verifier CI HEAD #128; merge seulement si vert et PR sortie de draft; reconcilier #130 avec main resultant, rerun CI; valider audit et continuer issues v4.
+ 
 CHECKPOINT R050 (2026-10-08) - PR122 MERGEE / INVENTAIRE BRANCHES
 - Main SHA 3e339572fba05f15fa89ba40161ad59b84e083dc apres fusion PR #122; Build et CodeQL du push main SUCCESS. PR #120/#121 fermees comme remplacees. R039-R045 deja sur main.
 - Inventaire pagine de 125 branches dans docs/BRANCH_AUDIT_2026-10-08.md: 88 refs avec PR mergee, 24 associees a PR fermee sans merge direct, 12 sans PR (incluant branche audit), 1 main. Six divergences anciennes sans PR demandent revue semantique; ne PAS fusionner/effacer a l'aveugle. Issue #124.
