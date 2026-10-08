@@ -122,6 +122,36 @@ foreach ($workflow in $workflows) {
     }
 }
 
+$runtimeRefreshPath = Join-Path $Root ".github\workflows\runtime-refresh.yml"
+$runtimeRefresh = Get-Content -LiteralPath $runtimeRefreshPath -Raw
+$dispatchJob = [regex]::Match(
+    $runtimeRefresh,
+    "(?ms)^  dispatch-release:\s*.*?(?=^  [A-Za-z0-9_-]+:\s*$|\z)"
+).Value
+
+if ([string]::IsNullOrWhiteSpace($dispatchJob)) {
+    throw "runtime-refresh.yml has no dispatch-release job."
+}
+
+$checkoutMatch = [regex]::Match(
+    $dispatchJob,
+    "uses:\s*actions/checkout@[0-9a-fA-F]{40}"
+)
+$helperMatch = [regex]::Match(
+    $dispatchJob,
+    "bash\s+\.\/tools\/dispatch-release-if-needed\.sh"
+)
+
+if (-not $checkoutMatch.Success) {
+    throw "runtime-refresh dispatch-release must checkout the repository with a full-SHA-pinned actions/checkout before invoking the local helper."
+}
+if (-not $helperMatch.Success) {
+    throw "runtime-refresh dispatch-release does not invoke tools/dispatch-release-if-needed.sh."
+}
+if ($checkoutMatch.Index -gt $helperMatch.Index) {
+    throw "runtime-refresh dispatch-release checkout must occur before the local dispatch helper is invoked."
+}
+
 Write-Host "Repository governance validation passed."
 Write-Host "Required policy files: $($required.Count)"
 Write-Host "Component policy entries: $($components.Count)"
