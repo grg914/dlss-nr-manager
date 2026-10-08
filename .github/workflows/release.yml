@@ -122,6 +122,7 @@ jobs:
           Copy-Item -LiteralPath "publish/DlssNrManager.exe" -Destination $package -Force
           Copy-Item -LiteralPath "LICENSE" -Destination $package -Force
           Copy-Item -LiteralPath "THIRD_PARTY_NOTICES.md" -Destination $package -Force
+          Copy-Item -LiteralPath "SOURCE_AVAILABILITY.md" -Destination $package -Force
           Compress-Archive -Path (Join-Path $package "*") -DestinationPath DlssNrManager-win-x64.zip -Force
 
       - name: Download validated manager-owned runtime seed
@@ -320,6 +321,7 @@ jobs:
             "release-assets/SPBRScandi.zip",
             "LICENSE",
             "THIRD_PARTY_NOTICES.md",
+            "SOURCE_AVAILABILITY.md",
             "manifests/component-policy.json",
             "release-assets/components-manifest.json"
           )
@@ -359,6 +361,7 @@ jobs:
             "release-assets/SPBRScandi.zip",
             "LICENSE",
             "THIRD_PARTY_NOTICES.md",
+            "SOURCE_AVAILABILITY.md",
             "manifests/component-policy.json",
             "release-assets/components-manifest.json",
             "release-assets/release-provenance.json"
@@ -392,6 +395,7 @@ jobs:
             "SHA256SUMS.txt",
             "LICENSE",
             "THIRD_PARTY_NOTICES.md",
+            "SOURCE_AVAILABILITY.md",
             "manifests/component-policy.json",
             "release-assets/components-manifest.json",
             "release-assets/release-provenance.json",
