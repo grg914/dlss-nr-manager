@@ -4784,3 +4784,13 @@ ACTION 2026-10-08 V4-RECOVERY R006 - PR #94 VALIDEE ET FUSIONNEE
 - La branche PR #96 est synchronisee avec ce main et garde tous les checkpoints R001 a R005 + la section PR #94 de main, sans ecrasement du journal.
 - Etape suivante exacte: valider Build et CodeQL sur le head reconcile de PR #96, corriger les erreurs si presentes, ne PAS supprimer l'ancienne version lors d'un echec de redownload.
 - L'issue #95 reste ouverte, faute de crash-recovery persistant et de validation sur le poste reel.
+
+
+ACTION 2026-10-08 V4-RECOVERY R007 - REPRISE CRASH RECOVERY PERSISTANT
+- Branche fix/v4-recover-interrupted-component-reinstalls creee depuis main 97eacd2269340af71099f09c96e4d773b778fb65, sans toucher a PR #97 en cours de validation.
+- PR #96 deja fusionnee apres 77 tests SUCCESS; journal R001-R006 preserve dans main.
+- Issue #95 rouvert apres fermeture automatique par mot-cle GitHub dans la PR #96; la correction de crash-recovery persistante reste a faire.
+- Audit: ManagedComponentRedownload utilise des backups .dlssnr-redownload-backup-<guid>, mais aucun passage au demarrage pour les restaurer apres power loss/kill.
+- Plan: recovery conservatif au lancement, exclusivement sur listes de directories manager-owned; sauvegardes multiples ambiguës ne sont pas supprimees; pas de suppression des sorties utilisateur, de la configuration ou des licences.
+- Tests de regression simulation d'un arret brutal (backup subsistant, copie partielle, dossier manquant), sans impliquer de crash reel.
+- NE PAS annoncer la recuperation crash verifiee sans tests de redemarrage Windows. Etat: implementation A FAIRE sur cette branche.
