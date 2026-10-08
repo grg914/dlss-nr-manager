@@ -4720,6 +4720,72 @@ ACTION 2026-10-08 V4-STEP-2: IMPLEMENTATION MATERIELS ET PROFILS EN VALIDATION
 - STATUT: CODE COMMITTE, BUILD/CODEQL EN ATTENTE. PAS encore valide en execution sur Windows et PAS encore fusionne.
 - NE PAS annoncer version 4.0 disponible.
 
+
+ACTION 2026-10-08 V4-STEP-2: VALIDATION ET FUSION
+- PR #93 (head 2d90d0edd285027162bb45b9c30357b5fca151f9) : Build SUCCESS, CodeQL SUCCESS.
+- CI Windows: 69 tests xUnit passes, 0 echec, 0 ignore; publication single-file Windows x64 reussie.
+- Merge squash dans main: e34dd3040b1674fa5f6262e45ed60b3a73cf4eda.
+- Verification sur PC RTX 5060 Ti reel non effectuee ; controles automatises uniquement.
+
+ACTION 2026-10-08 V4-STEP-3: INFOBULLES OPTIONS FR/EN (PR EN PREPARATION)
+- Branche feature/v4-localized-option-tooltips depuis main e34dd304.
+- 51 controles nommes (CheckBox, ComboBox, Slider) couverts par infobulle explicative dediee ; le CheckBox dynamique PC Cleanup reprend Details en liaison.
+- Ajout de 48 descriptions anglais/francais a UiLocalizationService ; les trois infobulles preexistantes sont conservees.
+- Un test de regression inspecte le XAML reel et verifie l'aller-retour FR/EN des infobulles nommees.
+- STATUT: attend Build/CodeQL et revue avant fusion. Les autres etiquettes, boutons et valeurs dynamiques de l'application ne sont pas encore garantis totalement bilingues ; audit a poursuivre.
+
+ACTION 2026-10-08 V4-RECOVERY R003 - CORRECTION BUILD PR #94
+- PR #94 head original 7b8a49439b3260ec2d7a9adb890cde1c6e4145e5.
+- Run CodeQL 37809525065: SUCCESS.
+- Run Build 37809525052: FAILURE dans Publish Windows x64 single-file.
+- Diagnostic exact logs job 113422446424: duplication XAML MainWindow.xaml depuis tests/DlssNrManager.Tests/bin/Release/net8.0-windows/ : CS0102 definitions dupliquees et CS0111 InitializeComponent. Origine : fixture XAML copiee vers dossier bin des tests; le projet WPF racine scanne les *.xaml sous tests/bin lors du Publish.
+- Correction: copier fixture sous extension .xml (MainWindow.markup.xml) avec TargetPath explicite dans le projet de tests; adapter la lecture XDocument du test.
+- NE PAS fusionner avant nouveau Build + CodeQL reussis sur commit corrige. Statut: CORRECTION CODE ECRITE / CI REQUISE.
+
+
+ACTION 2026-10-08 V4-RECOVERY R001 - REPRISE APRES COUPURE
+- Etat initial relu depuis main e34dd3040b1674fa5f6262e45ed60b3a73cf4eda et PR #94 (head 7b8a49439b3260ec2d7a9adb890cde1c6e4145e5).
+- PR #93 fusionnee, Build Windows 69/69 tests + CodeQL SUCCESS au commit valide.
+- PR #94 en cours: Build run 37809525052, CodeQL run 37809525065; ne pas fusionner avant SUCCESS exact head.
+- Risque confirme issue #95: DownloadCenterService.RedownloadAsync fait Remove(entry) avant InstallAsync; un echec de telechargement peut supprimer l'ancienne installation.
+- Nouvelle branche isolee fix/v4-download-center-transactional-redownload creee depuis main, sans toucher la PR #94.
+- Prochaine action: implementation du swap transactionnel (staging, preservation ancienne version, rollback et tests), conserver les donnees de l'utilisateur et eviter les doublons de telechargement.
+- Discipline de reprise: toute action durable doit avoir un commit et une entree de journal ; verification des resultats GitHub a chaque point ; jamais de merge si les tests ne sont pas conclusifs.
+- Journal de main non modifie avant merge PR; cette branche conserve ce checkpoint pour recuperation meme en cas de coupure.
+
+
+ACTION 2026-10-08 V4-RECOVERY R002 - FIX TRANSACTIONNEL DOWNLOAD CENTER
+- Modifications sur fix/v4-download-center-transactional-redownload, base main e34dd3040b1674fa5f6262e45ed60b3a73cf4eda.
+- Audit: DownloadCenterService.RedownloadAsync supprimait le composant avant la reception des assets. Les services media, VLC, Real-ESRGAN et detecteur IA necessitent un rollback, et AI Studio possede deja son staging atomique.
+- Nouveau helper ManagedComponentRedownload: deplace les seules directories detenues par le composant vers des backups, lance l'installation, verifie IsReady, restaure l'ancienne version si echec de telechargement, corruption ou annulation.
+- Scope media-engine limite a video2dlssnr et tools; ne pas toucher au sibling realesrgan. Les modeles AI Studio ne sont plus supprimes avant update, preservant les licences et les sorties.
+- Backup garde si la restauration echoue, log diagnostique; 6 tests xUnit couvrent succes, erreurs, verification, annulation, directories multiples et rejet chemins imbriques.
+- Note limite: rollback disque apres crash machine/process hard-kill n'est PAS encore assure par ce helper (pas de journal transactionnel persistant). Ne pas annoncer cette garantie.
+- STATUT: code ecrit, non encore valide par Build/CodeQL. Prochaine action: ouvrir PR, inspecter CI et corriger erreurs avant merge; rebaser sur main apres integration PR #94.
+
+ACTION 2026-10-08 V4-RECOVERY R004 - GARDE SUPPLEMENTAIRE SWAP TRANSACTIONNEL
+- Revue du code ManagedComponentRedownload: une exception lors du deplacement de la 2e directory pouvait declencher le catch avant execution d'install et supprimer une directory jamais deplacee.
+- Ajout garde (started || entry.Moved) avant suppression de la directory courante dans rollback.
+- Rappels: ne pas supprimer dossiers utilisateurs; les sauvegardes sont retenues si rollback echoue.
+- Cette verification est une revue statique, PAS une validation de crash ni de concurrence multi-processus.
+- Etape a suivre: lancer CI et tester rollback. 
+
+ACTION 2026-10-08 V4-RECOVERY R005 - REVUE COMPILATION
+- PR #96 ouverte sur issue #95; les tests d'integration sont encore en attente.
+- Revue preventive: utilisation explicite du type string[] pour le switch C# contenant plusieurs expressions de collection; evite inference fragile d'une collection expression sans type cible.
+- Aucun changement d'API public du gestionnaire de telechargement; aucune modification des boutons.
+- Point de reprise: CI Build + CodeQL requis sur le nouveau head, suivi de synchronisation avec main apres PR #94.
+
+ACTION 2026-10-08 V4-RECOVERY R006 - PR #94 VALIDEE ET FUSIONNEE
+- PR #94 final head 27b608294553cd253e96ab00c7005aad0be26954.
+- Build run 37811058036 SUCCESS, avec 71 tests xUnit passes, 0 failure, 0 skipped; publication Windows x64 et packaging deterministe passes.
+- CodeQL run 37811057957 SUCCESS. 0 review thread ouvert, merge clean.
+- PR #94 fusionnee sur main: 3a8aef8c2b84332a035beef4a3a5a59f63682c87.
+- La branche PR #96 est synchronisee avec ce main et garde tous les checkpoints R001 a R005 + la section PR #94 de main, sans ecrasement du journal.
+- Etape suivante exacte: valider Build et CodeQL sur le head reconcile de PR #96, corriger les erreurs si presentes, ne PAS supprimer l'ancienne version lors d'un echec de redownload.
+- L'issue #95 reste ouverte, faute de crash-recovery persistant et de validation sur le poste reel.
+
+
 ACTION 2026-10-08 V4-RECOVERY L001 - AUDIT LIFECYCLE ET VLC
 - Branche fix/v4-vlc-owned-process-lifecycle creee depuis main e34dd3040b1674fa5f6262e45ed60b3a73cf4eda. Aucun changement sur PR #94 ou PR #96.
 - Audit Process.Start/ExternalProcessTracker sur VlcVideoEnhancementService, MediaService, AiUpscale, AiOrigin, AppUpdate, Minecraft, WindowsRepair, PcUpdate, GpuDetection et MainWindow.
@@ -4729,3 +4795,13 @@ ACTION 2026-10-08 V4-RECOVERY L001 - AUDIT LIFECYCLE ET VLC
 - Garde anti-regression: ne pas affecter Caustica, SPBR ou shaders.
 - ETAT: correction ecrite et journalisee; Build/CodeQL sur head exact obligatoires, aucun test VLC physique realise ici.
 - Point de reprise: relire PR lifecycle correspondante, log CI, puis fusion uniquement si tous les checks requis sont verts et la base est current.
+
+
+ACTION 2026-10-08 V4-RECOVERY L002 - PR #96 TESTEE, FUSIONNEE ET RESYNCHRONISATION
+- PR #96 (head b93a2fda50f8ccf4f0b0e2f40232e2002594a2a4): Build #37812423352 SUCCESS, CodeQL #37812423179 SUCCESS.
+- xUnit 77 tests passes, 0 failed, 0 skipped ; packaging deterministe et publication Windows x64 verifies.
+- PR #96 fusionnee sur main avec squash commit 97eacd2269340af71099f09c96e4d773b778fb65.
+- PR #97 reconciliee depuis main en conservant R001-R006 + L001, sans perdre les nouvelles traductions FR/EN ni le fix Download Center.
+- PR #97 ancien head b51bde9082e1214d03f0fda5cbe4b563975cab9c: Build #37811579029 SUCCESS, CodeQL #37811579075 SUCCESS, mais CI du nouveau head fusionne requise.
+- L'issue #95 RESTE OUVERTE (recuperation automatique apres hard-kill/plantage et tests sur machine physique a faire).
+- Prochaine action: verifier Build + CodeQL du nouveau head PR #97 puis fusionner seulement si tout est vert; consigner l'operation dans un nouveau checkpoint.
