@@ -227,6 +227,35 @@ public sealed class DownloadCenterService
             T(model.Notes);
     }
 
+    public async Task<MediaUpdateAvailability> CheckAiStudioModelUpdateAsync(
+        DownloadCenterEntry entry,
+        CancellationToken cancellationToken = default)
+    {
+        if (entry.Kind != DownloadCenterKind.AiStudioModel ||
+            string.IsNullOrWhiteSpace(entry.ModelId))
+            return MediaUpdateAvailability.UnknownRemoteVersion;
+
+        var model = ResolveModel(entry);
+        if (!model.ManagerOwnedRedistributionAllowed)
+            return MediaUpdateAvailability.UnknownRemoteVersion;
+
+        if (!_aiStudio.IsModelInstalled(model))
+            return MediaUpdateAvailability.NotInstalled;
+
+        var receipt = _aiPackages.ReadInstalledReceipt(model);
+        if (receipt is null)
+            return MediaUpdateAvailability.UnknownLocalVersion;
+
+        var remote = await _aiPackages.FindLatestPackageAsync(
+            model.Id,
+            cancellationToken);
+        return AiStudioPackageService.EvaluateModelUpdate(
+            receipt,
+            remote,
+            installed: true,
+            automaticRedistributionAllowed: true);
+    }
+
     public AiStudioLicenseInfo? GetManualLicenseInfo(
         DownloadCenterEntry entry)
     {
