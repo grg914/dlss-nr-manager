@@ -3478,3 +3478,26 @@ ACTION 2026-10-08 A062
   all other runtime jobs are SUCCESS.
 - The release-source-pinning branch remains un-opened while #23 final dispatch
   behavior is still being validated on current main.
+
+
+ACTION 2026-10-08 A062
+- Continued static audit of hardening/runtime-refresh-scoping before opening a PR.
+- Confirmed from third_party/README.md that ScoopInstaller-Versions is the
+  pinned manifest source used for ReShade metadata.
+- Updated the scope mapper so third_party/ScoopInstaller-Versions/** routes to
+  reshade instead of the conservative all fallback.
+- Mapper refinement commit:
+  5d4eed8f4952fc2eb88ff24966bd030a214e5613
+- Updated Build scope-routing test to include Scoop ReShade metadata alongside
+  the ReShade + Streamline multi-runtime case.
+- Build test refinement commit:
+  b3a3504706599c5ce14f67e96e1df5766eaf63fb
+- Cross-check of runtime build scripts confirmed:
+  ReShade build consumes third_party/ReShade + dependency lock;
+  OptiScaler build consumes third_party/OptiScaler;
+  Real-ESRGAN binary build consumes third_party/Real-ESRGAN-ncnn-vulkan;
+  FFmpeg build consumes third_party/FFmpeg + third_party/nv-codec-headers.
+- Real-ESRGAN model-source and ai-model directories remain release payload/source
+  inputs rather than runtime binary build inputs and therefore remain release-only.
+- Runtime Seed Refresh #23 is still active only in native-runtime/ReShade at this
+  checkpoint; all other refresh jobs are SUCCESS.
