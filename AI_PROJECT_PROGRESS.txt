@@ -4034,3 +4034,25 @@ ACTION 2026-10-08 A085
   current-main regressions.
 - Conclusion: both red crosses are historical/superseded and require no rollback
   or new product fix.
+
+
+ACTION 2026-10-08 A086
+- Revalidated cleanup PR #86 exact head
+  7a6ef3b64e8ee27fe67eac4c2849846a2ebf6af4.
+- GitHub reports mergeable=true, mergeable_state=clean.
+- Exact-head Build #878 completed SUCCESS with no failed step, including:
+  repository/runtime audits;
+  manager-owned offline NuGet feed + restore;
+  regression tests;
+  Windows single-file publish + executable/icon verification;
+  deterministic application packaging.
+- Exact-head CodeQL #44 completed SUCCESS with no failed step, including:
+  offline restore;
+  instrumented C# build;
+  Analyze and all post-analysis steps.
+- Diff review confirms #86 selectively restores useful content only:
+  lost PR #69 FR/EN performance-pack localization;
+  lost #55/#57 continuity-checkpoint heredoc rendering fix;
+  useful support/source/policy/issue-template material from stale #78/#80.
+- No obsolete #78/#80 runtime/release workflow implementation is reintroduced.
+- PR #86 is ready for squash merge with expected-head protection.
