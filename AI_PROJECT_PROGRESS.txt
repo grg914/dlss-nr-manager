@@ -2699,3 +2699,13 @@ ACTION 2026-10-08 A028
   offline restore: SUCCESS
   regression tests: in_progress
 - No code change made.
+
+
+ACTION 2026-10-08 A029
+- Build #864 regression tests: SUCCESS on exact head 3d6365a8.
+- Build #864 entered Publish Windows x64 single-file.
+- CodeQL #30 remains in Analyze after a successful offline restore and C# build.
+- Remaining Build gates:
+  executable/icon validation;
+  deterministic application packaging (two independent ZIP builds + SHA-256 equality).
+- No code change made.
