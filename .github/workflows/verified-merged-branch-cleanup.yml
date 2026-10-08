@@ -1,0 +1,58 @@
+name: Verified Merged Branch Cleanup
+
+# One-time push trigger: this file and the frozen manifest do not change again.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verified-merged-branch-cleanup.yml
+      - docs/BRANCH_CLEANUP_CANDIDATES_2026-10-08.json
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: verified-merged-branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  delete-verified-refs:
+    if: github.repository == 'grg914/dlss-nr-manager'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Load exactly pinned audit and safe-cleanup implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/contents/tools/prune-merged-pr-branches.py?ref=${GITHUB_SHA}" --jq '.content' | tr -d '\n' | base64 --decode > branch-prune.py
+          gh api "repos/${GITHUB_REPOSITORY}/contents/docs/BRANCH_CLEANUP_CANDIDATES_2026-10-08.json?ref=${GITHUB_SHA}" --jq '.content' | tr -d '\n' | base64 --decode > candidates.json
+          python3 -m py_compile branch-prune.py
+          python3 -m json.tool candidates.json >/dev/null
+
+      - name: Delete only exactly validated, already merged PR branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 branch-prune.py --manifest candidates.json --execute
+
+      - name: Record results
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f merged-branch-cleanup-result.json ]; then
+            {
+              echo '### Cleanup results (machine-readable)'
+              echo 'The full per-branch decision is in the workflow log and the JSON below.'
+              echo '~~~json'
+              cat merged-branch-cleanup-result.json
+              echo '~~~'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No cleanup result file produced; see failure log. No deletion is claimed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
