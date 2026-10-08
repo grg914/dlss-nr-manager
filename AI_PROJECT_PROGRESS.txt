@@ -1,3 +1,26 @@
+CHECKPOINT R035 (2026-10-08) - CONSOLIDATION APRES MERGE #114 / FIX NETSDK1151
+- PR #114 fusionnee dans main: commit 2f8dc722a501e14f8b2f76b949402d66a574cfa2, Build 37833994094 SUCCESS (120 tests passed, 0 failed / skipped, Windows x64), CodeQL 37833994120 SUCCESS. Ancienne PR #113 fermee en tant que remplacee.
+- Branche actuelle security/v4-crash-and-safe-removal-reconciled construite depuis main apres #114: porte ensemble les tests de crash Windows de #115 et protections des suppressions de #116. Fusion UNIQUEMENT apres nouveaux Build + CodeQL.
+- PR #115 a echoue au Build 37834476817: NETSDK1151, CrashProbe executable non-selfcontained ne pouvait pas referencer DlssNrManager.csproj executable WPF self-contained. Correctif sur branche consolidee: CrashProbe compile par lien le code de production Services/ExternalProcessTracker.cs, sans ProjectReference a l'executable WPF; stub AppLogger.Warn vers stderr (seule dependance de journal du code du tracker). Le test observe donc le vrai code source du tracker en processus isole. A revalider en CI.
+- Tests forcage: lance CrashProbe, qui lance ping.exe via ExternalProcessTracker, tue seulement le parent, puis attend que JobObject KILL_ON_JOB_CLOSE tue le fils. Ne constitue pas test GPU reel ou panne secteur.
+- PR #116 incluse: ManagedPathSafety.EnsureSafeForRemoval et garde sur les cinq familles (Media/VLC/RealESRGAN/AIOrigin/AIStudio) avec tests de dossiers symlink. Les controles preflight ne sont pas preuve d'absence de toutes races TOCTOU.
+PROCHAINE ACTION: ouvrir PR consolidee, observer Build xUnit et CodeQL. Corriger si echec; merger uniquement apres resultats verts. Garder issue #95 ouverte et V4 non publiee.
+
+CHECKPOINT R034 (2026-10-08) - SUPPRESSION SECURISEE COMPOSANTS
+- Audit Download Center Remove: les resets pouvaient appeler Directory.Delete sans refuser les parents NTFS reparse. Garde de suppression fail closed ajoutee aux services Media, VLC, Real-ESRGAN, AI Origin et Local AI Studio; trois tests dont parent et leaf symlink (si OS permet symlink).
+- Branches et commits precedents conserves dans PR #116; integration rebasee ici depuis main apres #114.
+
+CHECKPOINT R033 (2026-10-08) - TEST CRASH WINDOWS
+- CrashProbe.exe .NET 8 teste l'assignation d'un ping.exe au vrai tracker de processus avec JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE; ForcedManagerTerminationTests tue le parent sans tuer explicitement l'arbre, puis observe la fin du processus fils et nettoie si defaillance.
+- PR #115 Build initial bloque NETSDK1151, voir correctif R035. Validation finale PENDING.
+
+CHECKPOINT R032 (2026-10-08) - CORRECTION NULLABILITE
+- PR #114 premier Build 37832801779 avait erreurs CS8602 et CS8601 dans ComponentUpdateService. Correctif head 5eb6e958d21043bdb7ee2218919320dda27eebb7: comparaison locale null-safe, Version.TryParse out var candidate verifie non null. Build 37833994094 SUCCESS (120 tests), CodeQL 37833994120 SUCCESS. Fusion main #114 reussie.
+
+CHECKPOINT R031 (2026-10-08) - OPT-IN AUTO UPDATE PERSISTANT
+- AppPreferences.AutoUpdateComponents=false par defaut y compris anciens JSON sans propriete; WPF initialise checkbox sur sauvegarde et persiste modifications Checked/Unchecked, et garde choix lors changement langue/rendu. Tests JSON de compatibilite et round-trip dans PR #114. Fusion main reussie.
+- Issue #111 reste ouverte: extensions de mises a jour VLC, Real-ESRGAN, AI Origin et modeles AI Studio non finalisees.
+
 CHECKPOINT R030 (2026-10-08) - RECONCILIATION PR #112 / CENTRE TELECHARGEMENTS
 - PR #112 fusionnee dans main commit 07c85195502e26365b8df8fdc2834404537bbe25: Build 37830461516 SUCCESS avec 108 tests (0 fails / 0 skipped), CodeQL 37830461642 SUCCESS.
 - CHANGELOG.md, ManagedPathSafety, protections rollback Media et import AI Studio manuel, tests Windows STOP et symlink/junction presents sur main. PR #109 et #110 fermees comme remplacees.
