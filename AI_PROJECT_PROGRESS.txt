@@ -4244,3 +4244,30 @@ ACTION 2026-10-08 A095
   5aa69a271d3ca849321245bf64080fe7b1cd748a
   Build #883 and CodeQL #49 are in_progress with no failed step reported.
 - Added current-state comments to #82 and #79; both remain deliberately open.
+
+
+ACTION 2026-10-08 A096
+- Completed deeper open-issue audit after A095.
+- Issue #79 Real-ESRGAN OpenMP provenance is confirmed technically valid:
+  vendored Real-ESRGAN CMake calls find_package(OpenMP), applies OpenMP compile/
+  link flags when found, and links OpenMP_CXX_LIBRARIES;
+  vendored ncnn defaults NCNN_OPENMP=ON.
+  Therefore vcomp140.dll cannot simply be removed without changing the build.
+  Added issue comment documenting the two viable directions:
+  source the Microsoft runtime from an explicitly licensed REDIST path with
+  version/SHA/signature provenance, or explicitly disable OpenMP and benchmark
+  functionality/performance before promotion.
+- Issue #76 temporal restoration remains valid research. PR #75 VSR-HDR/VLC is
+  still open and currently dirty against hardened main, so temporal engines must
+  not be promoted before #75 is reconciled. Added a status comment and kept #76 open.
+- Issue #82 remains open because the active Protect main ruleset still lists only
+  build as a required status check; no repository-file change can close it.
+- Issue #51 remains the intentional auto-managed continuity checkpoint.
+- Issue #87 now links to PR #88 and remains open only for the actual ComfyUI
+  upstream revision/manual compatibility review.
+- PR #88 exact head remains
+  5aa69a271d3ca849321245bf64080fe7b1cd748a;
+  Build #883 has passed all repository/runtime/governance audits through the
+  zero-upstream gate and is preparing the manager-owned NuGet feed;
+  CodeQL #49 is also preparing the manager-owned NuGet feed;
+  no failed step is reported.
