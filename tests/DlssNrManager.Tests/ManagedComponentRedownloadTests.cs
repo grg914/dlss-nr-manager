@@ -95,6 +95,27 @@ public sealed class ManagedComponentRedownloadTests : IDisposable
     }
 
     [Fact]
+    public async Task Unrecovered_backup_blocks_reinstallation_without_deleting_old_files()
+    {
+        var target = CreateOldRuntime();
+        var backup = target + ".dlssnr-redownload-backup-" + Guid.NewGuid().ToString("N");
+        Directory.CreateDirectory(backup);
+        File.WriteAllText(Path.Combine(backup, "previous.txt"), "backup");
+        var executed = false;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ManagedComponentRedownload.ReplaceAsync([target], _ =>
+            {
+                executed = true;
+                return Task.CompletedTask;
+            }, () => true));
+
+        Assert.False(executed);
+        Assert.Equal("old", File.ReadAllText(Path.Combine(target, "engine.txt")));
+        Assert.Equal("backup", File.ReadAllText(Path.Combine(backup, "previous.txt")));
+    }
+
+    [Fact]
     public async Task Reject_overlapping_directories_without_touching_original()
     {
         var target = CreateOldRuntime();

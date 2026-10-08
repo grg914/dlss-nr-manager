@@ -4805,3 +4805,36 @@ ACTION 2026-10-08 V4-RECOVERY L002 - PR #96 TESTEE, FUSIONNEE ET RESYNCHRONISATI
 - PR #97 ancien head b51bde9082e1214d03f0fda5cbe4b563975cab9c: Build #37811579029 SUCCESS, CodeQL #37811579075 SUCCESS, mais CI du nouveau head fusionne requise.
 - L'issue #95 RESTE OUVERTE (recuperation automatique apres hard-kill/plantage et tests sur machine physique a faire).
 - Prochaine action: verifier Build + CodeQL du nouveau head PR #97 puis fusionner seulement si tout est vert; consigner l'operation dans un nouveau checkpoint.
+
+
+ACTION 2026-10-08 V4-RECOVERY R007 - REPRISE CRASH RECOVERY PERSISTANT
+- Branche fix/v4-recover-interrupted-component-reinstalls creee depuis main 97eacd2269340af71099f09c96e4d773b778fb65, sans toucher a PR #97 en cours de validation.
+- PR #96 deja fusionnee apres 77 tests SUCCESS; journal R001-R006 preserve dans main.
+- Issue #95 rouvert apres fermeture automatique par mot-cle GitHub dans la PR #96; la correction de crash-recovery persistante reste a faire.
+- Audit: ManagedComponentRedownload utilise des backups .dlssnr-redownload-backup-<guid>, mais aucun passage au demarrage pour les restaurer apres power loss/kill.
+- Plan: recovery conservatif au lancement, exclusivement sur listes de directories manager-owned; sauvegardes multiples ambiguës ne sont pas supprimees; pas de suppression des sorties utilisateur, de la configuration ou des licences.
+- Tests de regression simulation d'un arret brutal (backup subsistant, copie partielle, dossier manquant), sans impliquer de crash reel.
+- NE PAS annoncer la recuperation crash verifiee sans tests de redemarrage Windows. Etat: implementation A FAIRE sur cette branche.
+
+ACTION 2026-10-08 V4-RECOVERY R008 - RECUPERATION BACKUPS APRES CRASH
+- Implémentation RecoverKnownManagedComponentBackups au demarrage App.OnStartup APRES mutex mono-instance, AVANT initialization MainWindow.
+- Liste blanche fixe: media-engine/video2dlssnr, media-engine/tools, media-engine/realesrgan, vlc, ai-origin-detector. Aucun repertoire user output, AI Studio licenses, Minecraft ou jeux.
+- Si backup GUID unique, restauration ancienne version depuis .dlssnr-redownload-backup-GUID ; isolation de la copie partielle par quarantine, puis nettoyage apres restauration reussie.
+- Backups multiples ambiguës laisses intacts avec avertissement ; symlink/reparse point bloque ; erreurs de restore journalisees ; affiche warning si des backups n'ont pas pu etre restaures.
+- 5 tests unitaires: installation partielle, source absente, ambiguité, fichier utilisateur voisin, nom de dossier invalide.
+- Limites: ne couvre pas panne disque, fermeture brutale pendant une operation de recovery elle-meme, rollback AI Studio (gere separement), ni validation materielle réelle; l'exigence d'un test de crash Windows reste ouverte.
+- Etat: CODE COMMITTE, CI Windows/CodeQL A VALIDER. Ne pas fermer #95 avant test complet et revue des limitations.
+
+
+ACTION 2026-10-08 V4-RECOVERY R009 - BLOQUER REINSTALLATION AVEC BACKUP PENDANT
+- Garde supplementaire dans ManagedComponentRedownload.ReplaceAsync: si un repertoire backup .dlssnr-redownload-backup-* existe deja, refuser une nouvelle transaction tant que le redemarrage/recovery ou revue manuelle n'a pas resolu ce backup.
+- Evite la creation de plusieurs generations de sauvegardes et limite le risque d'ecraser l'ancienne version pendant une recovery incomplete.
+- Test xUnit dedie: ancienne version et backup restent intacts, callback d'installation jamais execute.
+- Les controles CI de la revision initiale #98 seront remplaces par une nouvelle validation sur le prochain head (pas de merge tant que Build/CodeQL non verts).
+
+ACTION 2026-10-08 V4-RECOVERY R010 - VALIDATION ET FUSION VLC (#97), RECONCILIATION #98
+- PR #97: head d1f7d2e3f3610b5e198e7485545107c7374e64d4; Build #37814343099 SUCCESS, CodeQL #37814343116 SUCCESS, 77 tests xUnit, 0 fail, 0 skip, Windows x64 publish SUCCESS.
+- Fusion PR #97 sur main c1e1f9b771d192532d03217b1dd7d3c02fae6556.
+- PR #98 reconciliee depuis main en conservant tous les checkpoints R001-R009, L001-L002, et sans retirer le patch VLC.
+- Backup recovery au lancement encore en cours de validation; ne pas fermer l'issue #95 avant tests exhaustifs.
+- Prochaine action: CI Build et CodeQL sur nouveau head PR #98; verifier logs 0 error; fusion seulement si checks verts.
