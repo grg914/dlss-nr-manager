@@ -7,7 +7,7 @@ NV_CODEC="${NV_CODEC_SOURCE:-$ROOT/third_party/nv-codec-headers}"
 BUILD="${FFMPEG_BUILD_DIR:-$ROOT/build-ffmpeg-windows}"
 OUTPUT="${FFMPEG_OUTPUT_DIR:-$ROOT/build-ffmpeg-package}"
 
-for tool in x86_64-w64-mingw32-gcc x86_64-w64-mingw32-objdump make nasm pkg-config zip; do
+for tool in x86_64-w64-mingw32-gcc x86_64-w64-mingw32-objdump make nasm pkg-config zip xz; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "Required build tool is missing: $tool" >&2
     exit 1
