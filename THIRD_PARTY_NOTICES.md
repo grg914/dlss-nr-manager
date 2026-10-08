@@ -33,3 +33,11 @@ The list below is a navigation aid, not a legal certification. Exact obligations
 | AI generation model weights | Per-model license | Redistribution is model-specific; gated/restricted models require explicit acceptance/import policy |
 
 This summary is intentionally not a substitute for each upstream license. When a component is added or updated, its exact license files and required notices must remain with the redistributed source/runtime or be included in the release's corresponding notice/source package.
+
+## OpenMP redistribution release gate (R065)
+
+Real-ESRGAN packaging must never obtain `vcomp140.dll` from Windows `System32`. The `runtime-refresh` workflow now fails closed unless the authorized release operator explicitly sets `DLSSNR_OPENMP_REDIST_APPROVED=1` after verifying the applicable Visual Studio license rights. The packaging helper accepts only an x64 DLL under an installed Visual Studio `VC/Redist/MSVC` tree, requires valid Microsoft Authenticode signature and records source-relative path, file version and SHA-256 in `MICROSOFT_OPENMP_PROVENANCE.json`. Debug/nonredistributable directories are excluded.
+
+An environment opt-in **is an operator attestation, not an automatic legal finding**. Do not set this variable in generic CI or publish the Real-ESRGAN runtime until legal rights are independently confirmed and startup/functional tests have passed. Fallback is to install Microsoft's official VC Redistributable separately under an acceptable license, or rebuild to remove the dependency; neither fallback is silently assumed.
+
+Reference: https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution and https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute
