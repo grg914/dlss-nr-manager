@@ -3869,3 +3869,19 @@ ACTION 2026-10-08 A077
   land on main.
 - PR #84 is frozen after this sync; no further branch change should occur unless
   Build/CodeQL exposes a defect.
+
+
+ACTION 2026-10-08 A078
+- PR #84 final frozen head after journal synchronization:
+  e39886fe11518b799570d6501ec5e511fd18a82f.
+- GitHub REST reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head validation runs:
+  Build #875 (run 37720622494)
+  CodeQL #41 (run 37720622503).
+- Previous #874/#40 are superseded by the final journal-sync head and are no
+  longer authoritative for merge.
+- Post-merge main validation from PR #85 is still active:
+  Build #873 in_progress;
+  CodeQL #39 in_progress;
+  Runtime Seed Refresh #24 partially complete, with NuGet and Java already
+  SUCCESS and NuGet SKIP-unchanged proof captured in A076.
