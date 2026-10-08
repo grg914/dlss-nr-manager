@@ -4490,3 +4490,27 @@ ACTION 2026-10-08 A105
 - Therefore the VSR/HDR command-line switches emitted by VlcVideoEnhancementService
   are grounded in the exact VLC source distributed by this project.
 - PR #75 remains mergeable=true and blocked only by required checks.
+
+
+ACTION 2026-10-08 A106
+- Exact-head validation completed successfully for PR #75 head
+  bebf94c3aaaba357e633e9ef3180d7b5fe51e7f1.
+- Build #889: SUCCESS.
+  All repository governance, runtime scope, deterministic helper, SPDX SBOM,
+  Minecraft Vulkan/NGX, Caustica/Scandi, Streamline and zero-upstream gates passed.
+  Offline manager-owned NuGet feed preparation + strict restore passed.
+  Regression tests: 60 passed, 0 failed, 0 skipped.
+  Windows x64 single-file publish and executable/icon verification passed.
+  Deterministic application packaging A/B SHA-256:
+  95b314fe9ca916422a158b23620117081c253d77d9ac13bac736bb93923fbaf9.
+- CodeQL #55: SUCCESS through offline feed/restore, C# build, Analyze and all post
+  steps.
+- Additional functional audit passed:
+  runtime-seed-v1 currently contains vlc-3.0.24-win64.zip, source tar.xz and
+  provenance JSON with the expected GitHub SHA-256 digests;
+  MainWindow contains 13 menu entries and exactly 13 direct main TabItems;
+  VSR-HDR is index 3 and Téléchargements index 6;
+  both centralized download navigation handlers target index 6.
+- PR #75 is the only remaining open pull request.
+- Next action: sync this journal-only update into #75, validate that final exact
+  head, then squash-merge #75 and confirm zero open PRs + post-merge workflows.
