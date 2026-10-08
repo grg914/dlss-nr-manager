@@ -2499,3 +2499,30 @@ ACTION 2026-10-08 A014
   verify executable/icon
   verify deterministic application packaging
   final Build conclusion.
+
+
+ACTION 2026-10-08 A015
+- Build #862 completed FAILURE only at:
+  Verify deterministic application packaging.
+- All prior Build #862 steps were SUCCESS, including:
+  offline NuGet feed
+  offline restore
+  37/37 regression tests
+  Windows x64 single-file publish
+  executable/icon validation.
+- Retrieved exact failure log:
+  create-application-package.ps1 line 5
+  Join-Path cannot bind Path because $PSScriptRoot was empty while evaluating
+  the default value of parameter Root.
+- Therefore the failure occurred before ZIP creation and did not prove any
+  byte-level reproducibility defect.
+
+ACTION 2026-10-08 A016
+- Patched hardening/repository-governance:
+  commit 3d6365a8fafc6bd773ec29585bcc8bee996f62e9
+  file tools/create-application-package.ps1
+- Root parameter now defaults to an empty string.
+- Script resolves Root after param binding from PSScriptRoot and explicitly
+  fails with a clear message if PSScriptRoot itself cannot be resolved.
+- Goal: compatibility across Windows PowerShell 5.1 and PowerShell 7 invocation.
+- This change restarts PR #81 checks; exact-head validation is required again.
