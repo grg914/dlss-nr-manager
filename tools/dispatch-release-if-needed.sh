@@ -56,5 +56,5 @@ if [[ "$dry_run" == "true" ]]; then
   exit 0
 fi
 
-gh workflow run release.yml --repo "$repo" --ref main
-echo "Dispatched release.yml for $tag at $source_sha."
+gh workflow run release.yml --repo "$repo" --ref main -f "source_sha=$source_sha"
+echo "Dispatched release.yml for $tag at exact source $source_sha."
