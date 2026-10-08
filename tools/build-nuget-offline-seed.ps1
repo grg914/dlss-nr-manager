@@ -76,14 +76,40 @@ foreach ($package in $wanted.Values) {
     }
 }
 
+$sourceCommit = ""
+try {
+    $sourceCommit = (git -C $Root rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch "^[0-9a-fA-F]{40}$") {
+        $sourceCommit = ""
+    }
+}
+catch {
+    $sourceCommit = ""
+}
+
+$packageMetadata = @{}
+foreach ($package in $wanted.Values) {
+    $idLower = ([string]$package.Id).ToLowerInvariant()
+    $versionLower = ([string]$package.Version).ToLowerInvariant()
+    $packageMetadata["$idLower.$versionLower.nupkg"] = $package
+}
+
 $manifest = [ordered]@{
-    schema = 2
+    schema = 3
     generated_at_utc = [DateTime]::UtcNow.ToString("o")
     runtime_identifier = "win-x64"
+    source_commit = if ($sourceCommit) { $sourceCommit.ToLowerInvariant() } else { $null }
+    project_sha256 = (Get-FileHash (Join-Path $Root "DlssNrManager.csproj") -Algorithm SHA256).Hash.ToLowerInvariant()
+    tests_project_sha256 = (Get-FileHash (Join-Path $Root "tests/DlssNrManager.Tests/DlssNrManager.Tests.csproj") -Algorithm SHA256).Hash.ToLowerInvariant()
+    global_json_sha256 = (Get-FileHash (Join-Path $Root "global.json") -Algorithm SHA256).Hash.ToLowerInvariant()
     packages = @(
         Get-ChildItem -LiteralPath $feed -Filter "*.nupkg" -File | Sort-Object Name | ForEach-Object {
+            $meta = $packageMetadata[$_.Name.ToLowerInvariant()]
             [ordered]@{
+                id = if ($meta) { [string]$meta.Id } else { $null }
+                version = if ($meta) { [string]$meta.Version } else { $null }
                 name = $_.Name
+                size = [int64]$_.Length
                 sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             }
         }
