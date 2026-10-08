@@ -2361,3 +2361,23 @@ ACTION 2026-10-08 A009
 - Build #862: pending
 - CodeQL #28: in_progress
 - Decision: freeze hardening branch again and validate this exact head.
+
+
+ACTION 2026-10-08 A010
+- Rechecked Build #862 and CodeQL #28 on PR #81 head 0fe3c7f6.
+- Build #862 has successfully passed:
+  checkout
+  .NET 8 toolchain
+  release dispatch helper syntax
+  self-contained tooling
+  repository governance
+  SPDX SBOM
+  Minecraft native Vulkan/NGX policy
+- Build #862 is currently auditing Caustica/SPBR.
+- CodeQL #28 has successfully passed:
+  checkout
+  CodeQL initialization
+  .NET 8 toolchain
+- CodeQL #28 is currently re-testing manager-owned offline NuGet preparation
+  with the new runtime-seed retry logic.
+- No new error observed at this checkpoint.
