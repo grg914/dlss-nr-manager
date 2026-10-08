@@ -55,6 +55,7 @@ public sealed class VlcRuntimeService
 
     public void Reset()
     {
+        ManagedPathSafety.EnsureSafeForRemoval(RootDirectory);
         TryDeleteDirectory(RootDirectory);
 
         if (Directory.Exists(RootDirectory))
