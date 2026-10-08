@@ -2360,6 +2360,8 @@
                   <CheckBox x:Name="AutoUpdateComponentsCheck"
                             Content="Automatically keep GitHub components up to date"
                             IsChecked="False"
+                            Checked="AutoUpdateComponents_Changed"
+                            Unchecked="AutoUpdateComponents_Changed"
                             Margin="0,8,0,0" ToolTip="Allow supported manager-owned components to be refreshed on app startup."/>
 
                   <Grid Margin="0,14,0,0">
