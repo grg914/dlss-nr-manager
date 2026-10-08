@@ -239,6 +239,7 @@ public sealed class AiUpscaleService
 
     public void Reset()
     {
+        ManagedPathSafety.EnsureSafeForRemoval(RootDirectory);
         _modelsVerified = false;
         TryDeleteDirectory(RootDirectory);
     }

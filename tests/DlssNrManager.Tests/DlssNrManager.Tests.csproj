@@ -15,6 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\DlssNrManager.csproj" />
+    <ProjectReference Include="..\CrashProbe\DlssNrManager.CrashProbe.csproj" Aliases="CrashProbe" />
     <None Include="..\..\MainWindow.xaml" Link="Fixtures/MainWindow.markup.xml" TargetPath="MainWindow.markup.xml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

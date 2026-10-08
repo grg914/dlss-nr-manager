@@ -59,6 +59,9 @@ public sealed class MediaService
 
     public void ResetTools()
     {
+        ManagedPathSafety.EnsureSafeForRemoval(ProcessorDirectory);
+        ManagedPathSafety.EnsureSafeForRemoval(ToolsDirectory);
+
         // Keep sibling engines such as media-engine/realesrgan intact.
         // Component updates only own video2dlssnr and FFmpeg tools.
         TryDeleteDirectory(ProcessorDirectory);
