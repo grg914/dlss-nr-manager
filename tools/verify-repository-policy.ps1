@@ -21,6 +21,7 @@ $requiredFiles = @(
     "SECURITY.md",
     "CONTRIBUTING.md",
     "THIRD_PARTY_NOTICES.md",
+    "SOURCE_AVAILABILITY.md",
     "docs/PRIVACY_AND_DATA.md",
     "docs/DOWNLOAD_RUNTIME_POLICY.md",
     "docs/RELEASE_SECURITY.md",
@@ -168,6 +169,7 @@ if ($Strict) {
     foreach ($policy in @(
         "SECURITY.md",
         "THIRD_PARTY_NOTICES.md",
+        "SOURCE_AVAILABILITY.md",
         "docs/PRIVACY_AND_DATA.md",
         "docs/DOWNLOAD_RUNTIME_POLICY.md",
         "docs/RELEASE_SECURITY.md",
