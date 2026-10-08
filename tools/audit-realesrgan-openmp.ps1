@@ -32,7 +32,7 @@ if ($dependencies.Count -eq 0) {
     throw "No PE DLL imports were identified. Refusing to assume the audit succeeded."
 }
 
-Write-Host "Direct PE imports for $exe:"
+Write-Host "Direct PE imports for ${exe}:"
 $dependencies | ForEach-Object { Write-Host "  $_" }
 
 $openMp = @($dependencies | Where-Object { $_ -match '(?i)^(vcomp\d*|libomp|libgomp|libiomp\d*)\.dll$' })
