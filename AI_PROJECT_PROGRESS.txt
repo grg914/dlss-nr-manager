@@ -4125,3 +4125,190 @@ ACTION 2026-10-08 A089
   resolved. Fresh Build #880 and CodeQL #46 were queued on the reconstructed head.
 - This progress sync is the final intentional branch mutation before exact-head
   validation; subsequent CI must validate the new frozen head.
+
+
+ACTION 2026-10-08 A090
+- PR #77 final frozen head after progress synchronization:
+  612c8e09745e6225f2808c7c323bb488eadb0bbe.
+- GitHub reports mergeable=true; previous dirty/red conflict state is resolved.
+- Exact-head Build #881 has already completed SUCCESS for:
+  checkout;
+  .NET 8 toolchain;
+  shell helper syntax;
+  runtime refresh scope mapping;
+  self-contained tooling;
+  deterministic ZIP helper;
+  repository governance;
+  SPDX SBOM;
+  Minecraft Vulkan/NGX policy;
+  Caustica/Scandi audit;
+  Streamline audit.
+- Build #881 is currently in the zero-upstream production audit with no failed
+  step reported.
+- CodeQL #47 completed checkout and entered CodeQL initialization on the same
+  exact head.
+- Closed/stale governance duplicate cleanup is complete; only #77 and #75 remain
+  open as real feature PRs.
+- PR #75 is not currently red; it is a distinct VSR-HDR/VLC feature. It overlaps
+  several modern workflow/policy files and will be reconciled only after #77 is
+  resolved, not closed as a duplicate.
+
+
+ACTION 2026-10-08 A091
+- Post-merge validation for cleanup PR #86 completed fully green on main
+  d0caf982692c73ea4759592d1a026ac9af0beb63.
+- Build #879: SUCCESS through regression tests, Windows single-file publish,
+  executable/icon verification and deterministic application packaging.
+- CodeQL #45: SUCCESS through offline restore, instrumented C# build, Analyze and
+  all post-analysis steps.
+- This confirms the closed-PR consolidation/recovered fixes introduced no main
+  regression.
+- PR #77 remains on frozen exact head
+  612c8e09745e6225f2808c7c323bb488eadb0bbe with Build #881 and CodeQL #47
+  active and no failed step reported.
+
+
+ACTION 2026-10-08 A092
+- PR #77 exact-head Build #881 completed SUCCESS on
+  612c8e09745e6225f2808c7c323bb488eadb0bbe.
+- Build log evidence:
+  deterministic flat ZIP helper A/B SHA-256
+  a7ce391196f2be574815d20b454ab8734baa1a08fd003e6ab11cd9e7af292b8b;
+  regression tests: 49 passed, 0 failed, 0 skipped;
+  deterministic application package A/B SHA-256
+  87ca99905b88aa2913e1247690fcf78c1efb07027c164fb559f0bcd8989666ba.
+- The Local AI Studio/Download Manager rebase therefore compiles and passes all
+  current regression/build/repository/runtime gates.
+- Remaining PR #77 merge gate: CodeQL #47 final completion on the same exact head.
+
+
+ACTION 2026-10-08 A093
+- PR #77 final exact-head validation completed on
+  612c8e09745e6225f2808c7c323bb488eadb0bbe.
+- Build #881: SUCCESS with 49 passed, 0 failed, 0 skipped and deterministic
+  application package SHA-256
+  87ca99905b88aa2913e1247690fcf78c1efb07027c164fb559f0bcd8989666ba.
+- CodeQL #47: SUCCESS through offline feed/restore, instrumented C# build,
+  Analyze and all post-analysis steps.
+- GitHub reports mergeable=true, mergeable_state=clean.
+- The former red/dirty Local AI Studio PR is fully corrected and ready for
+  squash merge with expected-head protection.
+
+
+ACTION 2026-10-08 A094
+- PR #77 Local AI Studio was squash-merged with expected-head protection after
+  Build #881 and CodeQL #47 both completed SUCCESS on exact head 612c8e09.
+- New main commit:
+  48bc2e2c4d5d6ccfc2963fdb3350c9db4cc6de43.
+- The former red/dirty #77 conflict is therefore fully resolved and integrated.
+- Repository open-PR cleanup result immediately after merge:
+  only PR #75 VSR-HDR/VLC remains open; it is a distinct feature, not a duplicate.
+- Main post-merge validation started automatically:
+  Build #882;
+  CodeQL #48;
+  Runtime Seed Refresh #26;
+  Upstream Dependency Sync #17.
+- Next cleanup action: recompute #75 merge state against the new main and, if it
+  is conflicted/dirty, reconcile it without overwriting #81/#83/#85/#84/#86/#77
+  governance, runtime routing, localization or Download Manager changes.
+
+
+ACTION 2026-10-08 A095
+- Rechecked the two closed pull requests showing historical red crosses and
+  cleaned their visible metadata:
+  PR #60 title now starts [SUPERSEDED / RESOLVED]; its body explicitly records
+  that Build #671 failed because of mutable PR-ref checkout and that merged #61
+  fixed it with immutable PR-head SHA checkout and green Build #679.
+  PR #65 title now starts [SUPERSEDED / RESOLVED]; its body explicitly records
+  that Build #687 failed from a false-positive native NGX policy verifier and
+  that merged #66 corrected it with green Build #689.
+- These red checks are immutable historical CI evidence on obsolete commits;
+  current main does not contain either defect, so rewriting/re-running those old
+  broken commits would be incorrect cleanup.
+- Open-issue audit:
+  #51 continuity checkpoint is intentionally open/auto-managed;
+  #82 remains valid because Protect main still requires only build, not CodeQL;
+  #79 remains valid because runtime-refresh still copies vcomp140.dll directly
+  from Windows System32 into the Real-ESRGAN package;
+  #76 remains valid research for temporal video restoration and is not a
+  production defect/duplicate;
+  #87 contained incorrect wording: ai-studio-comfyui is GPL-3.0 notify-only for
+  manual Python/PyTorch/CUDA/workflow compatibility validation, not itself a
+  license-restricted dependency.
+- Corrected issue #87 title/body to [upstream] manual review update:
+  ai-studio-comfyui and left it open for the actual upstream review.
+- Created branch fix/notify-only-upstream-issues and PR #88 to correct the
+  upstream-monitor workflow so future notify-only issues use generic manual-review
+  wording instead of falsely labelling every notify-only dependency restricted.
+- PR #88 exact head:
+  5aa69a271d3ca849321245bf64080fe7b1cd748a
+  Build #883 and CodeQL #49 are in_progress with no failed step reported.
+- Added current-state comments to #82 and #79; both remain deliberately open.
+
+
+ACTION 2026-10-08 A096
+- Completed deeper open-issue audit after A095.
+- Issue #79 Real-ESRGAN OpenMP provenance is confirmed technically valid:
+  vendored Real-ESRGAN CMake calls find_package(OpenMP), applies OpenMP compile/
+  link flags when found, and links OpenMP_CXX_LIBRARIES;
+  vendored ncnn defaults NCNN_OPENMP=ON.
+  Therefore vcomp140.dll cannot simply be removed without changing the build.
+  Added issue comment documenting the two viable directions:
+  source the Microsoft runtime from an explicitly licensed REDIST path with
+  version/SHA/signature provenance, or explicitly disable OpenMP and benchmark
+  functionality/performance before promotion.
+- Issue #76 temporal restoration remains valid research. PR #75 VSR-HDR/VLC is
+  still open and currently dirty against hardened main, so temporal engines must
+  not be promoted before #75 is reconciled. Added a status comment and kept #76 open.
+- Issue #82 remains open because the active Protect main ruleset still lists only
+  build as a required status check; no repository-file change can close it.
+- Issue #51 remains the intentional auto-managed continuity checkpoint.
+- Issue #87 now links to PR #88 and remains open only for the actual ComfyUI
+  upstream revision/manual compatibility review.
+- PR #88 exact head remains
+  5aa69a271d3ca849321245bf64080fe7b1cd748a;
+  Build #883 has passed all repository/runtime/governance audits through the
+  zero-upstream gate and is preparing the manager-owned NuGet feed;
+  CodeQL #49 is also preparing the manager-owned NuGet feed;
+  no failed step is reported.
+
+
+ACTION 2026-10-08 A097
+- PR #88 notify-only upstream issue wording fix completed Build #883 SUCCESS and
+  CodeQL #49 SUCCESS, reached mergeable_state=clean, and was squash-merged with
+  expected-head protection.
+- New main commit after #88:
+  80e366e765c366014e0053217adfaff68458443d.
+- Started feature branch feat/pc-clean-maintenance for the requested PC Clean
+  expansion.
+- Existing PC Cleanup architecture was reused rather than creating a duplicate menu.
+- Safe cleanup targets added/expanded:
+  Windows Explorer thumbnail/icon databases only through thumbcache_*.db and
+  iconcache_*.db top-level patterns;
+  NVIDIA per-driver DX/GL variants and ComputeCache;
+  AMD DxCache/DxcCache/GLCache/VkCache;
+  Intel ShaderCache.
+- Existing safe targets remain: current-user temp, Windows Temp, DirectX shader
+  cache and NVIDIA legacy NV_Cache.
+- Explicit exclusions remain and are shown in UI/docs: browser profiles, user
+  documents/downloads, registry, restore points, Recycle Bin, Prefetch, WinSxS
+  and Windows Update storage are not cleaned.
+- PcCleanupService now supports per-category filename patterns and non-recursive
+  cleanup so Windows Explorer cache cleanup cannot delete unrelated files from
+  the Explorer directory.
+- Security hardening added: cleanup roots that are reparse points/junctions are
+  rejected before scanning/deletion, preventing an allowed cache path from being
+  redirected outside the intended cleanup boundary.
+- Added WindowsRepairService and PC Cleanup UI action Run DISM + SFC:
+  explicit confirmation + UAC;
+  static UTF-16LE/EncodedCommand PowerShell payload with no user input;
+  DISM /Online /Cleanup-Image /RestoreHealth runs first;
+  SFC /scannow runs second even if DISM reports a failure;
+  UAC cancellation and nonzero repair exit states are reported cleanly.
+- Added FR/EN localization and README documentation for the new cleanup/repair
+  functions.
+- Added PcCleanupAndRepairTests covering default safe target inventory,
+  pattern-limited non-recursive deletion, DISM-before-SFC command order and UAC
+  encoded-command launch configuration.
+- Next action: linearly reconstruct feat/pc-clean-maintenance onto main 80e366e7,
+  synchronize this journal into the branch, then open the PR and validate Build + CodeQL.

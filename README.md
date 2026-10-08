@@ -293,17 +293,19 @@ Safe, explicit cache analysis and cleanup inspired by system-cleaner workflows:
 
 - Current-user temporary files
 - Windows Temp
+- Windows Explorer thumbnail/icon cache, limited to `thumbcache_*.db` / `iconcache_*.db`
 - DirectX shader cache
-- NVIDIA DXCache
-- NVIDIA GLCache
-- NVIDIA legacy `NV_Cache`
+- NVIDIA DXCache / GLCache variants, ComputeCache and legacy `NV_Cache`
+- AMD DirectX/OpenGL/Vulkan shader caches
+- Intel graphics shader cache
 - Per-category selection
 - Analyze total reclaimable size before deletion
 - Locked/in-use and inaccessible files are skipped
-- Cache directories are preserved; only contents are cleaned
+- Pattern-limited cache groups never delete unrelated files from the same directory
 - Re-analysis after cleanup shows remaining cache size
+- **Run DISM + SFC** starts an explicit elevated repair sequence: `DISM /Online /Cleanup-Image /RestoreHealth` followed by `sfc /scannow`
 
-The cleaner intentionally does **not** touch browser profiles, documents, downloads, registry entries, restore points, Recycle Bin data or Windows Update storage.
+The cleaner intentionally does **not** touch browser profiles, documents, downloads, registry entries, restore points, Recycle Bin data, Prefetch, WinSxS or Windows Update storage.
 
 ### Media Neural Rendering, AI Upscale and AI-origin detection
 
@@ -416,7 +418,9 @@ Driver, Windows Update, BIOS and firmware entries continue to open official vend
 
 Use **Analyze caches** first to calculate file counts and reclaimable storage. Select or deselect categories, then use **Clean selected**.
 
-Shader caches are disposable performance caches. Games and GPU drivers rebuild them after cleanup, so the first launch after cleaning can temporarily compile shaders again.
+Shader, thumbnail and icon caches are rebuildable. Games, GPU drivers and Windows Explorer recreate them after cleanup, so the first launch/display after cleaning can temporarily rebuild cache data.
+
+Use **Run DISM + SFC** separately when Windows system integrity needs repair. The manager requests UAC and runs `DISM /Online /Cleanup-Image /RestoreHealth` first, then `sfc /scannow` in a visible elevated PowerShell window. This action does not delete personal files.
 
 ## Loader compatibility
 
