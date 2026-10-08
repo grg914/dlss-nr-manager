@@ -3732,3 +3732,27 @@ ACTION 2026-10-08 A068
   correctness/security gap; after #85 merges, #84 must be refreshed/reconciled
   onto the new main before it can be merged under strict up-to-date rules.
 - Neither PR head was changed during this reconciliation.
+
+
+ACTION 2026-10-08 A069
+- Read-only audit of PR #84 runtime scope IDs found a real branch-local routing defect.
+- tools/map-runtime-refresh-files.sh mapped third_party/FFmpeg-Builds/** to
+  ffmpeg-builds, but runtime-refresh.yml has no job condition consuming
+  ffmpeg-builds.
+- Verified from third_party/README.md and tools/build-ffmpeg-windows.sh that
+  FFmpeg-Builds is historical/reference build-recipe material only; the manager
+  runtime is built from third_party/FFmpeg + third_party/nv-codec-headers.
+- Correct routing is therefore release-only for FFmpeg-Builds-only changes.
+- Patched PR #84:
+  a6f284e6354fe2a73643ad43eee696df952159d7
+    mapper no longer emits ffmpeg-builds for third_party/FFmpeg-Builds/**;
+  6ed0c434a18b6427633b44a4c00601dc29dce4a8
+    Build tests now require FFmpeg-Builds alone => release-only and
+    FFmpeg-Builds + nv-codec-headers => nv-codec-headers.
+- PR #84 new exact head:
+  6ed0c434a18b6427633b44a4c00601dc29dce4a8
+- Previous #84 Build #871 / CodeQL #37 were intentionally superseded.
+- New exact-head checks:
+  Build #872 in_progress
+  CodeQL #38 pending.
+- PR #85 remains unchanged on exact head 0bf7d663 and stays first in merge order.
