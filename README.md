@@ -478,6 +478,8 @@ Repository policy and audit references:
 - [Third-party notices and redistribution](docs/THIRD_PARTY_NOTICES.md)
 - [Data and privacy policy](docs/DATA_PRIVACY.md)
 - [Release artifact policy](docs/RELEASE_ARTIFACT_POLICY.md)
+- [AI runtime security](docs/AI_RUNTIME_SECURITY.md)
+- [Binary signing and authenticity](docs/CODE_SIGNING_POLICY.md)
 - [Upstream/dependency sync](docs/UPSTREAM-SYNC.md)
 - [Machine-readable component policy](manifests/component-policy.json)
 
