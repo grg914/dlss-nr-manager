@@ -31,7 +31,7 @@ if (!(Test-Path -LiteralPath $redist -PathType Container)) {
 $candidates = @(Get-ChildItem -LiteralPath $redist -File -Filter 'vcomp140.dll' -Recurse |
     Where-Object {
         $relative = [IO.Path]::GetRelativePath($redist, $_.FullName).Replace('\', '/')
-        $relative -match '^[0-9][^/]*/x64/Microsoft\.VC[^/]++\.OpenMP/vcomp140\.dll$' -and
+        $relative -match '^[0-9][^/]*/x64/Microsoft\.VC[^/]*\.OpenMP/vcomp140\.dll$' -and
         $relative -notmatch '(?i)debug_nonredist|onecore'
     } | Sort-Object FullName -Descending)
 if ($candidates.Count -eq 0) {
