@@ -3081,3 +3081,21 @@ ACTION 2026-10-08 A045
   Build #867 pending
   CodeQL #33 pending
 - Branch is frozen again until these checks complete.
+
+
+ACTION 2026-10-08 A046
+- PR #83 exact-head Build #867 validated both newly added regression gates:
+  Verify deterministic flat ZIP helper: SUCCESS
+  Validate repository governance: SUCCESS
+- This proves on Windows PowerShell 5.1 that the deterministic helper generates
+  byte-identical archives despite changed source mtimes and that the updated
+  dispatch-release checkout ordering passes the repository-governance policy.
+- Build #867 then passed SBOM, Minecraft Vulkan/NGX, Caustica/Scandi and
+  Streamline audits and entered the zero-upstream production audit.
+- CodeQL #33 entered manager-owned offline NuGet feed preparation.
+- Additional read-only Runtime Seed Refresh audit identified follow-up churn
+  candidates outside PR #83: Streamline, Minecraft, Real-ESRGAN, OptiScaler,
+  ReShade and FFmpeg still use unconditional archive/upload paths; Temurin
+  computes changed state but still uploads ZIP + refreshed metadata every run.
+- These are recorded as a separate post-#83 hardening scope; no additional
+  change is being added to the frozen #83 head.
