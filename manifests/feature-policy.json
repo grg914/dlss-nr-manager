@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "project": "DLSS NR Manager",
+  "features": [
+    {
+      "id": "games-dlss",
+      "ui_en": "Games & DLSS",
+      "ui_fr": "Jeux & DLSS",
+      "status": "active",
+      "network": "manager-owned GitHub Release/component discovery when needed",
+      "mutations": "selected game directory",
+      "integrity": "SHA-256, managed install manifest, trusted NVIDIA signature path where applicable",
+      "rollback": "transaction journal + backups for managed install/update paths",
+      "canonical_download_surface": "existing component services; target centralized Downloads after feature integration"
+    },
+    {
+      "id": "minecraft-rtx",
+      "ui_en": "Minecraft RTX",
+      "ui_fr": "Minecraft RTX",
+      "status": "active",
+      "network": "manager-owned Minecraft/runtime assets in production",
+      "mutations": "selected Minecraft instance",
+      "integrity": "locked runtime manifest, hashes, native NGX/Vulkan policy and Caustica/SPBR audits",
+      "rollback": "managed install/preflight rules; do not overwrite unrelated instance data",
+      "canonical_download_surface": "manager-owned Minecraft setup"
+    },
+    {
+      "id": "media-neural",
+      "ui_en": "Media Neural",
+      "ui_fr": "Media Neural",
+      "status": "active",
+      "network": "manager-owned media runtime install/update only",
+      "mutations": "application runtime/cache + explicit output file",
+      "integrity": "manager-owned FFmpeg/video2dlssnr hashes; NVIDIA runtime signature checks where required",
+      "rollback": "original input media must not be overwritten by default",
+      "canonical_download_surface": "target centralized Downloads"
+    },
+    {
+      "id": "vsr-hdr-video",
+      "ui_en": "VSR-HDR Video",
+      "ui_fr": "VSR-HDR Vidéo",
+      "status": "feature-branch-75",
+      "network": "VLC/runtime installation only; playback itself local",
+      "mutations": "portable VLC runtime; permanent restore writes a new output",
+      "integrity": "manager-owned VLC runtime SHA-256 + corresponding source obligations",
+      "rollback": "direct playback leaves original unchanged; permanent mode outputs a separate file",
+      "canonical_download_surface": "target centralized Downloads after branch reconciliation"
+    },
+    {
+      "id": "ai-detection",
+      "ui_en": "AI Detection",
+      "ui_fr": "Détection IA",
+      "status": "active",
+      "network": "manager-owned ONNX model installation/update only",
+      "mutations": "application model cache only",
+      "integrity": "pinned ONNX model SHA-256",
+      "rollback": "model cache removable/reinstallable",
+      "canonical_download_surface": "target centralized Downloads"
+    },
+    {
+      "id": "ai-studio",
+      "ui_en": "Local AI Studio",
+      "ui_fr": "AI Studio local",
+      "status": "feature-branch-77",
+      "network": "manager-owned runtime/model install or explicit official gated-model flow",
+      "mutations": "application-private AI runtime/models/jobs/outputs",
+      "integrity": "model/runtime manifests, chunk SHA-256, reconstructed package SHA-256",
+      "rollback": "managed model/runtime removal; user outputs preserved unless explicitly deleted",
+      "canonical_download_surface": "Downloads"
+    },
+    {
+      "id": "downloads",
+      "ui_en": "Downloads",
+      "ui_fr": "Téléchargements",
+      "status": "feature-branch-77",
+      "network": "explicit component installation/update only",
+      "mutations": "application-managed component roots",
+      "integrity": "component-specific digest/signature policy",
+      "rollback": "remove/redownload; large downloads require explicit >1 GiB confirmation",
+      "canonical_download_surface": "self"
+    },
+    {
+      "id": "pc-update",
+      "ui_en": "PC Update Center",
+      "ui_fr": "PC Update Center",
+      "status": "active",
+      "network": "WinGet/Chocolatey/Windows Update/vendor HTTPS links",
+      "mutations": "external applications/system only after explicit user action",
+      "integrity": "external package managers/vendor channels; not represented as manager-owned",
+      "rollback": "owned by external installer/update mechanism",
+      "canonical_download_surface": "PC Update Center"
+    },
+    {
+      "id": "pc-cleanup",
+      "ui_en": "PC Cleanup",
+      "ui_fr": "PC Cleanup",
+      "status": "active",
+      "network": "none required",
+      "mutations": "reviewed temp/cache roots only",
+      "integrity": "canonical path/root validation and explicit category selection",
+      "rollback": "none for deleted caches; analyze + confirm before deletion",
+      "canonical_download_surface": "not applicable"
+    },
+    {
+      "id": "diagnostics",
+      "ui_en": "Diagnostics",
+      "ui_fr": "Diagnostics",
+      "status": "active",
+      "network": "none required for local report generation",
+      "mutations": "diagnostic report file only",
+      "integrity": "read-only inspection where possible",
+      "rollback": "not applicable",
+      "canonical_download_surface": "not applicable"
+    },
+    {
+      "id": "advanced-optiscaler",
+      "ui_en": "Advanced OptiScaler",
+      "ui_fr": "Advanced OptiScaler",
+      "status": "active",
+      "network": "manager-owned component install/update when needed",
+      "mutations": "managed game configuration/files",
+      "integrity": "pinned OptiScaler source/runtime + managed file hashes",
+      "rollback": "game backups/manifest tracking",
+      "canonical_download_surface": "target centralized Downloads for component binaries"
+    },
+    {
+      "id": "optiscaler-log",
+      "ui_en": "OptiScaler log",
+      "ui_fr": "OptiScaler log",
+      "status": "active",
+      "network": "none required",
+      "mutations": "read-only log inspection",
+      "integrity": "not applicable",
+      "rollback": "not applicable",
+      "canonical_download_surface": "not applicable"
+    },
+    {
+      "id": "application",
+      "ui_en": "Application",
+      "ui_fr": "Application",
+      "status": "active",
+      "network": "project-owned GitHub Release update checks/downloads",
+      "mutations": "application executable/cache/local data",
+      "integrity": "release digest/SHA-256, safe extraction, staged update version checks",
+      "rollback": "update backup/restore path; explicit confirmation for full local-data deletion",
+      "canonical_download_surface": "application updater"
+    }
+  ]
+}
