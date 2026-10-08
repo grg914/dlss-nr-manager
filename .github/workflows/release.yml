@@ -417,9 +417,52 @@ jobs:
           $files += @(Get-ChildItem release-assets -Filter "realesr*.bin" -File | ForEach-Object FullName)
           $files = @($files | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_) } | Sort-Object -Unique)
 
+          $release = gh api "repos/${{ github.repository }}/releases/tags/$tag" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not $release) {
+            throw "Unable to inspect release $tag before asset publication."
+          }
+
+          $existingByName = @{}
+          foreach ($asset in @($release.assets)) {
+            $existingByName[[string]$asset.name] = $asset
+          }
+
           foreach ($file in $files) {
-            gh release upload $tag $file --repo "${{ github.repository }}" --clobber
-            if ($LASTEXITCODE -ne 0) { throw "Failed to upload release asset: $file" }
+            $name = [System.IO.Path]::GetFileName([string]$file)
+            $localHash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+
+            if ($existingByName.ContainsKey($name)) {
+              $asset = $existingByName[$name]
+              $remoteHash = ""
+
+              if (-not [string]::IsNullOrWhiteSpace([string]$asset.digest) -and
+                  ([string]$asset.digest).StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+                $remoteHash = ([string]$asset.digest).Substring(7).ToLowerInvariant()
+              }
+              else {
+                $tempExisting = Join-Path $env:TEMP ("dlssnr-existing-" + [Guid]::NewGuid().ToString("N") + "-" + $name)
+                try {
+                  gh release download $tag --repo "${{ github.repository }}" --pattern $name --dir (Split-Path -Parent $tempExisting) --clobber
+                  if ($LASTEXITCODE -ne 0) { throw "Unable to download existing release asset '$name' for immutability verification." }
+                  $downloaded = Join-Path (Split-Path -Parent $tempExisting) $name
+                  $remoteHash = (Get-FileHash -LiteralPath $downloaded -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+                finally {
+                  $downloaded = Join-Path (Split-Path -Parent $tempExisting) $name
+                  Remove-Item -LiteralPath $downloaded -Force -ErrorAction SilentlyContinue
+                }
+              }
+
+              if ($remoteHash -ne $localHash) {
+                throw "Stable release asset '$name' already exists with a different SHA-256. Refusing to mutate published tag $tag. Publish a new application version or use an explicit audited repair procedure."
+              }
+
+              Write-Host "SKIP $name (identical immutable release asset already published)."
+              continue
+            }
+
+            gh release upload $tag $file --repo "${{ github.repository }}"
+            if ($LASTEXITCODE -ne 0) { throw "Failed to upload new release asset: $file" }
           }
 
           gh release edit $tag --repo "${{ github.repository }}" --latest
