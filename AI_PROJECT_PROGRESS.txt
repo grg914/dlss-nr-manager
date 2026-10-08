@@ -1,3 +1,9 @@
+CHECKPOINT R044 (2026-10-08) - CI REVELE CORRUPTION SCRIPT / RESTAURATION COMPLETE
+- PR #122 Build 37840681826 ECHEC de la verification syntaxe PowerShell: tools/audit-realesrgan-openmp.ps1 avait string unterminated (The string is missing the terminator: '). Inspection directe: le remplacement texte precedent du pattern contenant le caractere '$' de fin de regex a ete traite comme $' (jeton de substitution Javascript du suffixe), ce qui a duplique une partie du script et coupe les quotes.
+- Reparation commit 9990601ea59f202b458148af04ce19c8c84da073: fichier RECONSTRUIT depuis la version complete et saine de main, remplacements via callbacks Javascript pour garantir le texte LITTERAL, correction ${exe}: et regex OpenMP etendue avec \$ final. Controle de structure: une seule declaration openMp et un seul message PASS.
+- Les controles CI doivent etre relances sur le dernier HEAD; ne pas declarer scripts PowerShell valides avant Build/CodeQL success. Issue #79, tests GPU/perf toujours ouverts; release v4.0 non publiee.
+PROCHAINE ACTION: CI syntaxe d'abord, puis tests 126 et packaging; fusion #122 si tout vert, fermer #120/121, verifier journal R039-R044 sur main.
+
 CHECKPOINT R043 (2026-10-08) - AUDIT PE OPENMP ET COUVERTURE DES NOMS DE DLL
 - En plus de R042 (correction syntaxe PowerShell ${exe}: et inclusion dans build.yml), extension du pattern de refus dans tools/audit-realesrgan-openmp.ps1 pour detecter variantes de noms vcomp140d.dll, libgomp-1.dll, libiomp5md.dll, libomp*.dll, en plus des noms simples. Ancienne regex ne couvrait que vcomp[0-9], libgomp.dll, libomp.dll et libiomp[0-9]. Le script demeure analyse des IMPORTS DIRECTS seulement; aucune garantie sur import transitif/licence, pas de promotion production.
 - Commit du correctif pattern sur PR #122: 0aa47d7efaff4d2a1bfa8f0459df81a0d8cf4ec2. Nouveau Build et CodeQL requis sur head final de la branche; anciens resultats #120/#121 ne prouvent pas le head #122.
