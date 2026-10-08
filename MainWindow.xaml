@@ -1757,7 +1757,7 @@
                 <StackPanel>
                   <TextBlock Text="PC Cleanup"
                              Style="{StaticResource SectionTitle}"/>
-                  <TextBlock Text="Analyze and clean safe Windows temporary caches and NVIDIA shader caches"
+                  <TextBlock Text="Analyze and clean safe Windows temporary files, shell caches and GPU shader caches"
                              Style="{StaticResource SectionSubtitle}"
                              Margin="0,4,0,0"/>
                 </StackPanel>
@@ -1838,7 +1838,48 @@
                          FontSize="10"
                          TextWrapping="Wrap"
                          Margin="0,5,0,0"
-                         Text="Targets are intentionally limited to known cache/temp directories: current-user temp, Windows Temp, DirectX shader cache, NVIDIA DXCache, GLCache and NV_Cache. Locked files and inaccessible locations are skipped. Browser data, documents, downloads, registry entries, restore points and Windows Update storage are never touched."/>
+                         Text="Targets are intentionally limited to known rebuildable cache/temp locations: current-user temp, Windows Temp, Windows thumbnail/icon cache, DirectX shader cache and NVIDIA/AMD/Intel GPU caches. Locked files and inaccessible locations are skipped. Browser data, documents, downloads, registry entries, restore points, Prefetch, WinSxS and Windows Update storage are never touched."/>
+
+              <Border Height="1"
+                      Background="#1D2A39"
+                      Margin="0,18,0,16"/>
+
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                  <TextBlock Text="Windows system repair"
+                             FontWeight="SemiBold"
+                             FontSize="13"/>
+                  <TextBlock Text="Run DISM RestoreHealth, then SFC /scannow with administrator rights"
+                             Foreground="{StaticResource Muted}"
+                             FontSize="10"
+                             TextWrapping="Wrap"
+                             Margin="0,4,18,0"/>
+                </StackPanel>
+
+                <Button x:Name="WindowsRepairButton"
+                        Grid.Column="1"
+                        Style="{StaticResource CyanButton}"
+                        Content="Run DISM + SFC"
+                        Click="RunWindowsRepair_Click"/>
+              </Grid>
+
+              <TextBlock x:Name="WindowsRepairStatusText"
+                         Text="No repair has been run in this session."
+                         Foreground="{StaticResource Muted}"
+                         FontSize="10"
+                         TextWrapping="Wrap"
+                         Margin="0,9,0,0"/>
+
+              <TextBlock Foreground="{StaticResource Muted}"
+                         FontSize="10"
+                         TextWrapping="Wrap"
+                         Margin="0,4,0,0"
+                         Text="This repair action does not delete personal files. It requests UAC, runs DISM /Online /Cleanup-Image /RestoreHealth first, then SFC /scannow in a visible elevated PowerShell window."/>
             </StackPanel>
           </Border></Grid></ScrollViewer></TabItem>
         <TabItem><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid Margin="24"><Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">

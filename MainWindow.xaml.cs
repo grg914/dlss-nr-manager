@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly GenericNvidiaRuntimeService _genericNvidiaRuntime = new();
     private readonly NvidiaDlssNrDiscoveryService _nvidiaNrDiscovery = new();
     private readonly PcCleanupService _pcCleanup = new();
+    private readonly WindowsRepairService _windowsRepair = new();
 
     private UiLocalizationController? _localization;
     private string _uiLanguage = "en";
@@ -1577,6 +1578,94 @@ public partial class MainWindow : Window
         {
             PcCleanupAnalyzeButton.IsEnabled = true;
             PcCleanupCleanButton.IsEnabled = true;
+        }
+    }
+
+    private async void RunWindowsRepair_Click(object sender, RoutedEventArgs e)
+    {
+        var answer = MessageBox.Show(
+            L(
+                "Run Windows system repair now?\n\n" +
+                "This requests administrator rights and runs DISM /Online /Cleanup-Image /RestoreHealth, " +
+                "then SFC /scannow. It can take several minutes and DISM may use Windows Update to obtain repair files.\n\n" +
+                "Personal files are not deleted.",
+                "Lancer la réparation système Windows maintenant ?\n\n" +
+                "Cette action demande les droits administrateur et exécute DISM /Online /Cleanup-Image /RestoreHealth, " +
+                "puis SFC /scannow. Cela peut prendre plusieurs minutes et DISM peut utiliser Windows Update pour obtenir des fichiers de réparation.\n\n" +
+                "Les fichiers personnels ne sont pas supprimés."),
+            L("Windows system repair", "Réparation système Windows"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            WindowsRepairButton.IsEnabled = false;
+            WindowsRepairStatusText.Text =
+                L(
+                    "Waiting for administrator approval…",
+                    "En attente de l’autorisation administrateur…");
+
+            AppLogger.Info("Windows DISM + SFC repair requested from PC Cleanup.");
+
+            var result = await _windowsRepair.RunDismAndSfcAsync();
+
+            if (result.Cancelled)
+            {
+                WindowsRepairStatusText.Text =
+                    L(
+                        "Windows repair cancelled before elevation.",
+                        "Réparation Windows annulée avant l’élévation.");
+                AppLogger.Info("Windows DISM + SFC repair cancelled at UAC.");
+                return;
+            }
+
+            if (result.Success)
+            {
+                WindowsRepairStatusText.Text =
+                    L(
+                        "DISM + SFC completed successfully. Restart Windows if the repair window requested it.",
+                        "DISM + SFC terminés avec succès. Redémarrez Windows si la fenêtre de réparation l’a demandé.");
+                AppLogger.Info("Windows DISM + SFC repair completed successfully.");
+                return;
+            }
+
+            WindowsRepairStatusText.Text =
+                L(
+                    $"DISM + SFC finished with an error (exit code {result.ExitCode}).",
+                    $"DISM + SFC terminés avec une erreur (code de sortie {result.ExitCode}).");
+
+            AppLogger.Warn(
+                $"Windows DISM + SFC repair reported exit code {result.ExitCode}.");
+
+            MessageBox.Show(
+                L(
+                    "One or more Windows repair tools reported an error. Run the repair again or review Windows servicing/CBS logs for details.",
+                    "Un ou plusieurs outils de réparation Windows ont signalé une erreur. Relancez la réparation ou consultez les journaux de maintenance Windows/CBS pour plus de détails."),
+                L("Windows system repair", "Réparation système Windows"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            WindowsRepairStatusText.Text =
+                L(
+                    $"Windows repair failed: {ex.Message}",
+                    $"Échec de la réparation Windows : {ex.Message}");
+
+            AppLogger.Error("Windows DISM + SFC repair failed.", ex);
+
+            MessageBox.Show(
+                ex.Message,
+                L("Windows system repair", "Réparation système Windows"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            WindowsRepairButton.IsEnabled = true;
         }
     }
 
