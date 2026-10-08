@@ -2,10 +2,18 @@ param(
     [Parameter(Mandatory=$true)][string]$ExecutablePath,
     [Parameter(Mandatory=$true)][string]$OutputPath,
     [Parameter(Mandatory=$true)][string]$TimestampUtc,
-    [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    [string]$Root = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($Root)) {
+    if ([string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+        throw "Unable to resolve script root for deterministic application packaging."
+    }
+
+    $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+}
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
