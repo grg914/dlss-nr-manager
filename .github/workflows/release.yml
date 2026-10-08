@@ -37,31 +37,32 @@ jobs:
           REQUESTED_SOURCE_SHA: ${{ github.event.inputs.source_sha }}
         run: |
           $requested = [string]$env:REQUESTED_SOURCE_SHA
+          $source = "$env:GITHUB_SHA".ToLowerInvariant()
 
-          if ("${{ github.event_name }}" -eq "workflow_dispatch" -and -not [string]::IsNullOrWhiteSpace($requested)) {
-            if ($requested -notmatch "^[0-9a-fA-F]{40}$") {
-              throw "source_sha must be a full 40-character Git commit SHA."
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            if (-not [string]::IsNullOrWhiteSpace($requested)) {
+              if ($requested -notmatch "^[0-9a-fA-F]{40}$") {
+                throw "source_sha must be a full 40-character Git commit SHA."
+              }
+
+              $commit = gh api "repos/${{ github.repository }}/commits/$requested" | ConvertFrom-Json
+              if ($LASTEXITCODE -ne 0 -or -not $commit.sha) {
+                throw "Unable to resolve requested source commit $requested."
+              }
+              $source = ([string]$commit.sha).ToLowerInvariant()
+              if ($source -ne $requested.ToLowerInvariant()) {
+                throw "Requested source SHA resolved unexpectedly. Requested=$requested Resolved=$source"
+              }
             }
 
-            $commit = gh api "repos/${{ github.repository }}/commits/$requested" | ConvertFrom-Json
-            if ($LASTEXITCODE -ne 0 -or -not $commit.sha) {
-              throw "Unable to resolve requested source commit $requested."
+            $mainRef = gh api "repos/${{ github.repository }}/git/ref/heads/main" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or -not $mainRef.object.sha) {
+              throw "Unable to resolve current main SHA."
             }
-            $source = ([string]$commit.sha).ToLowerInvariant()
-            if ($source -ne $requested.ToLowerInvariant()) {
-              throw "Requested source SHA resolved unexpectedly. Requested=$requested Resolved=$source"
+            $mainSha = ([string]$mainRef.object.sha).ToLowerInvariant()
+            if ($mainSha -ne $source) {
+              throw "Release source $source is stale; current main is $mainSha. Refusing to release a superseded commit."
             }
-
-            $compare = gh api "repos/${{ github.repository }}/compare/$source...main" | ConvertFrom-Json
-            if ($LASTEXITCODE -ne 0) {
-              throw "Unable to verify that source commit $source belongs to main history."
-            }
-            if ([int]$compare.behind_by -ne 0) {
-              throw "Requested source commit $source is not an ancestor of current main."
-            }
-          }
-          else {
-            $source = "$env:GITHUB_SHA".ToLowerInvariant()
           }
 
           if ($source -notmatch "^[0-9a-f]{40}$") {
@@ -414,6 +415,23 @@ jobs:
           }
           [System.IO.File]::WriteAllLines((Join-Path $PWD "SHA256SUMS.txt"), $lines, [System.Text.UTF8Encoding]::new($false))
           Get-Content SHA256SUMS.txt
+
+      - name: Reconfirm release source before publication
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $expected = "${{ steps.source.outputs.sha }}".ToLowerInvariant()
+          $mainRef = gh api "repos/${{ github.repository }}/git/ref/heads/main" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not $mainRef.object.sha) {
+            throw "Unable to resolve current main SHA before publication."
+          }
+          $actual = ([string]$mainRef.object.sha).ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Main advanced from release source $expected to $actual during the release build. Refusing publication."
+          }
+          Write-Host "Release source is still current main: $expected"
 
       - name: Create or update GitHub release
         shell: pwsh
