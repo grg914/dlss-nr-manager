@@ -2894,3 +2894,42 @@ ACTION 2026-10-08 A023
 - Build #865 and CodeQL #31 continue through manager-owned offline NuGet prep.
 - Runtime Seed Refresh #22 continues full refresh; NuGet and restricted runtime
   preservation are already SUCCESS.
+
+
+ACTION 2026-10-08 A036
+- Created follow-up branch hardening/deterministic-nuget-seed from merged main
+  commit d1da778d9af9ccaa5bb0eb0a3d5cced4f5ea02cc.
+- Patched tools/build-nuget-offline-seed.ps1:
+  deterministic source timestamp (explicit TimestampUtc or git commit time);
+  UTF-8 manifest without BOM and normalized newlines;
+  no DateTime::UtcNow packaging metadata;
+  deterministic SHA-256 output.
+- Patched .github/workflows/runtime-refresh.yml:
+  pass source commit timestamp to seed generation;
+  compare local SHA-256 with the existing GitHub release asset;
+  skip unchanged nuget-offline.zip uploads;
+  verify GitHub-reported SHA-256 after any actual upload.
+- Initial commits on follow-up branch:
+  1bb9e9fac50e85e54cb52abcce8948e65ff4414e
+  181d45fa8c0723a6aa15e7195898a50a3afbac9e
+
+ACTION 2026-10-08 A037
+- Added tools/create-deterministic-flat-zip.ps1 on follow-up branch.
+- Helper enforces flat inputs, stable name ordering, caller-supplied timestamp,
+  ZIP 2-second timestamp normalization, deterministic Store/Optimal mode,
+  exact entry-set verification, and SHA-256 reporting.
+- Refactored build-nuget-offline-seed.ps1 to use the helper with Store mode;
+  .nupkg files are already ZIP containers so a second deflate pass is avoided.
+- Added Build workflow validation:
+  parser checks include the new helper;
+  creates files in non-sorted order;
+  builds two ZIPs with identical logical inputs but changed source mtimes;
+  requires identical SHA-256;
+  rejects DateTime::UtcNow / Compress-Archive in the NuGet seed builder;
+  requires the builder to call create-deterministic-flat-zip.ps1.
+- Follow-up branch commits:
+  eb367e567364b963d06817d83a5846587244b500
+  697e48a3952ef01aa07739f67025c49bc4e741e5
+  867463fba9837d91135d73630fa17c915fe54324
+- Branch is not yet opened as a PR; current main post-merge workflows remain
+  authoritative and are not disturbed by these branch-only commits.
