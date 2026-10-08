@@ -34,6 +34,21 @@ $managerZip = Join-Path $BuildRoot "temurin-25-jre-win-x64.zip"
 Invoke-WebRequest -Headers $headers -Uri ([string]$asset.browser_download_url) -OutFile $sourceZip
 $actual = (Get-FileHash -LiteralPath $sourceZip -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw "Temurin SHA-256 mismatch. Expected $expected, got $actual." }
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::OpenRead($sourceZip)
+try {
+    $entryNames = @($archive.Entries | ForEach-Object FullName)
+    $hasLegalTree = @($entryNames | Where-Object { $_ -match "(?i)(^|/)legal/" }).Count -gt 0
+    $hasNoticeOrLicense = @($entryNames | Where-Object { $_ -match "(?i)(^|/)(LICENSE|NOTICE)(\.[^/]*)?$" }).Count -gt 0
+    if (-not $hasLegalTree -and -not $hasNoticeOrLicense) {
+        throw "Temurin archive does not contain expected legal/license notice content; refusing manager-owned redistribution."
+    }
+}
+finally {
+    $archive.Dispose()
+}
+
 Copy-Item -LiteralPath $sourceZip -Destination $managerZip -Force
 
 $extract = Join-Path $BuildRoot "verify"
