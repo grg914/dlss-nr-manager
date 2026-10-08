@@ -28,8 +28,8 @@ public static class ManualModelDirectorySwap
             throw new InvalidDataException("Model staging directory is not a sibling of the selected model.");
         }
 
-        if (IsReparsePoint(stagePath) ||
-            (Directory.Exists(targetPath) && IsReparsePoint(targetPath)))
+        if (ManagedPathSafety.HasReparsePointOnPath(stagePath) ||
+            ManagedPathSafety.HasReparsePointOnPath(targetPath))
             throw new InvalidDataException("Model import refused for symbolic links or junctions.");
 
         // Legacy imports may have left the only working model in a backup.
@@ -47,12 +47,17 @@ public static class ManualModelDirectorySwap
         var movedOriginal = false;
         try
         {
+            if (ManagedPathSafety.HasReparsePointOnPath(backupPath))
+                throw new InvalidDataException("Model backup path traverses a junction or symbolic link.");
             if (Directory.Exists(targetPath))
             {
                 moveDirectory(targetPath, backupPath);
                 movedOriginal = true;
             }
 
+            if (ManagedPathSafety.HasReparsePointOnPath(stagePath) ||
+                ManagedPathSafety.HasReparsePointOnPath(targetPath))
+                throw new InvalidDataException("Model path redirected during import.");
             moveDirectory(stagePath, targetPath);
         }
         catch (Exception installError)
@@ -61,6 +66,9 @@ public static class ManualModelDirectorySwap
             {
                 try
                 {
+                    if (ManagedPathSafety.HasReparsePointOnPath(targetPath) ||
+                        ManagedPathSafety.HasReparsePointOnPath(backupPath))
+                        throw new InvalidDataException("Unsafe model rollback path; backup retained.");
                     if (Directory.Exists(targetPath))
                         Directory.Delete(targetPath, recursive: true);
 
@@ -85,6 +93,8 @@ public static class ManualModelDirectorySwap
         {
             try
             {
+                if (ManagedPathSafety.HasReparsePointOnPath(backupPath))
+                    throw new InvalidDataException("Unsafe backup path; manual cleanup required.");
                 Directory.Delete(backupPath, recursive: true);
             }
             catch (Exception error)
@@ -97,6 +107,4 @@ public static class ManualModelDirectorySwap
         }
     }
 
-    private static bool IsReparsePoint(string path) =>
-        (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 }
