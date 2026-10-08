@@ -1,6 +1,8 @@
 param(
     [string]$OutputPath = "SBOM.spdx.json",
-    [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    [string]$SourceCommit = "",
+    [string]$CreatedAtUtc = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -161,8 +163,25 @@ if (Test-Path -LiteralPath $minecraftLockPath) {
     }
 }
 
+if (-not [string]::IsNullOrWhiteSpace($SourceCommit) -and
+    $SourceCommit -notmatch "^[0-9a-fA-F]{40}$") {
+    throw "SourceCommit must be a full 40-character Git commit SHA when supplied."
+}
+
+$namespaceSuffix = if ([string]::IsNullOrWhiteSpace($SourceCommit)) {
+    "development"
+} else {
+    $SourceCommit.ToLowerInvariant()
+}
+
+$created = if ([string]::IsNullOrWhiteSpace($CreatedAtUtc)) {
+    [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+} else {
+    ([DateTimeOffset]::Parse($CreatedAtUtc)).UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
+}
+
 $documentNamespace = "https://github.com/grg914/dlss-nr-manager/sbom/" +
-    $appVersion + "/" + [Guid]::NewGuid().ToString("N")
+    $appVersion + "/" + $namespaceSuffix
 
 $document = [ordered]@{
     spdxVersion = "SPDX-2.3"
@@ -171,7 +190,7 @@ $document = [ordered]@{
     name = "DLSS-NR-Manager-$appVersion"
     documentNamespace = $documentNamespace
     creationInfo = [ordered]@{
-        created = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+        created = $created
         creators = @("Tool: DLSS-NR-Manager/tools/generate-sbom.ps1")
     }
     packages = @($packages)
