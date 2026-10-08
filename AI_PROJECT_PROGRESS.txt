@@ -3158,3 +3158,14 @@ ACTION 2026-10-08 A051
 - Build #867 remains the only PR #83 gate still active, currently in
   Prepare manager-owned offline NuGet feed with all prior steps SUCCESS.
 - No code change made; exact head remains frozen.
+
+
+ACTION 2026-10-08 A052
+- PR #83 exact-head Build #867 progressed:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: SUCCESS
+  Run regression tests: in_progress
+- CodeQL #33 is already fully SUCCESS on the same exact head.
+- Both exact-head checks have therefore passed the manager-owned offline feed
+  download/validation and restore paths.
+- No code change made; head 56e9d578 remains frozen.
