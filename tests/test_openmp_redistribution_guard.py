@@ -12,7 +12,7 @@ class OpenMpRedistributionGuardTests(unittest.TestCase):
     def test_no_system32_dll_publishing(self):
         self.assertNotIn('$env:WINDIR\\System32\\vcomp140.dll', self.workflow)
         self.assertIn("DLSSNR_OPENMP_REDIST_APPROVED", self.workflow)
-        self.assertIn("Redistribution approval is missing", self.workflow)
+        self.assertIn("redistribution approval is missing", self.workflow)
 
     def test_helper_fail_closed_on_licensing(self):
         self.assertIn("if (-not $ApprovedForRedistribution)", self.helper)
