@@ -3299,3 +3299,19 @@ ACTION 2026-10-08 A059
   add regression validation so helper/workflow cannot drift apart.
 - No code change made while Build #868 / CodeQL #34 / Runtime Seed Refresh #23
   are still validating merged main.
+
+
+ACTION 2026-10-08 A058
+- Read-only audit for the next runtime-refresh efficiency hardening found a
+  trigger gap introduced by the new deterministic packaging architecture:
+  tools/create-deterministic-flat-zip.ps1 is used by
+  build-nuget-offline-seed.ps1 but is not listed in runtime-refresh.yml
+  on.push.paths.
+- Therefore a future change to the ZIP helper alone would run normal Build/CodeQL
+  but would not trigger Runtime Seed Refresh to rebuild nuget-offline.zip.
+- Next hardening scope must add the helper to push paths and route changed files
+  to affected runtime ids instead of defaulting unrelated changes to all.
+- Confirmed dependency routing vocabulary from DEPENDENCIES.lock.json includes:
+  streamline, optiscaler, ffmpeg, ffmpeg-builds, nv-codec-headers, realesrgan,
+  reshade, onnxruntime and minecraft-* ids.
+- No main or active workflow branch was modified during this audit.
