@@ -3909,3 +3909,20 @@ ACTION 2026-10-08 A079
   deterministic/stable Temurin metadata when upstream bytes/version are unchanged;
   remote digest verification after any actual replacement.
 - No implementation change made while PR #84 is frozen on e39886fe.
+
+
+ACTION 2026-10-08 A080
+- Post-merge validation for PR #85 progressed to:
+  Build #873 SUCCESS on main dca84beeed06fb46ae78524dc420ab8cf46b80f1;
+  CodeQL #39 SUCCESS on the same main SHA.
+- Runtime Seed Refresh #24 remains active only in the long Windows/native
+  producer jobs; FFmpeg, NuGet, Java and restricted-runtime preservation are
+  already SUCCESS.
+- PR #84 final exact-head Build #875 has passed shell syntax, runtime scope
+  mapping, self-contained tooling, deterministic ZIP, repository governance,
+  SBOM, Minecraft native policy, Caustica/Scandi, Streamline and zero-upstream
+  gates and is in manager-owned NuGet feed preparation.
+- PR #84 CodeQL #41 completed checkout/initialization and is also preparing the
+  manager-owned NuGet feed.
+- No failed exact-head step is reported and PR #84 remains frozen on
+  e39886fe11518b799570d6501ec5e511fd18a82f.
