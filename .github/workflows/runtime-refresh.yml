@@ -176,10 +176,18 @@ jobs:
           $packageDir = "build-local/realesrgan-package"
           $zip = "build-local/realesrgan-ncnn-vulkan-windows-x64.zip"
           New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
-          Copy-Item "build-realesrgan/Release/realesrgan-ncnn-vulkan.exe" $packageDir -Force
-          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/LICENSE" (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
-          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt" (Join-Path $packageDir "LICENSE-ncnn.txt") -Force
-          Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING" (Join-Path $packageDir "LICENSE-libwebp.txt") -Force
+          foreach ($name in @(
+            "realesrgan-ncnn-vulkan.exe",
+            "LICENSE-Real-ESRGAN.txt",
+            "LICENSE-ncnn.txt",
+            "LICENSE-libwebp.txt",
+            "SOURCE-Real-ESRGAN.json",
+            "README-Real-ESRGAN.md"
+          )) {
+            $source = Join-Path "build-realesrgan/Release" $name
+            if (!(Test-Path -LiteralPath $source)) { throw "Real-ESRGAN package file is missing: $source" }
+            Copy-Item -LiteralPath $source -Destination $packageDir -Force
+          }
           $vcomp = "$env:WINDIR\System32\vcomp140.dll"
           if (Test-Path -LiteralPath $vcomp) { Copy-Item -LiteralPath $vcomp -Destination $packageDir -Force }
           Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
