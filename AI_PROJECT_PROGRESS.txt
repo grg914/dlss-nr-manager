@@ -3386,3 +3386,22 @@ ACTION 2026-10-08 A059
   c7019ee9065abb5bc8b5b43aa643087c802b4ee3
 - Branch is not yet opened as a PR; current main post-merge workflows continue
   independently.
+
+
+ACTION 2026-10-08 A060
+- Post-merge main Build #868 and CodeQL #34 both completed SUCCESS on
+  8dd45bf71a3aacea34696be9fd067409abfc13dd.
+- Both ultimately consumed the new content-addressed manager-owned NuGet seed:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e
+- CodeQL #34 exercised the snapshot-race protection during first-format
+  replacement in production CI:
+  expected old release digest
+  48c05a01cd74788d8bfb4a873fd8d60b205454e2f034cf91721c4f17e7b7160c;
+  download observed replacement bytes during the race;
+  the helper detected 'changed while downloading' and retried the complete
+  snapshot (2/4), then validated the final c0e7... seed and completed SUCCESS.
+- Build #868 validated the final c0e7... seed directly, passed 37/37 tests, and
+  deterministic application packaging passed with SHA-256
+  b1f3efc45e1a5182aa81382ef6f800d6812ebd1a5690dc108b131c79d7de8257.
+- This reconfirms snapshot consistency protection under a real asset replacement
+  while also validating the new deterministic NuGet format on merged main.
