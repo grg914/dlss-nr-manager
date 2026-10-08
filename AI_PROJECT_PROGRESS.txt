@@ -4763,3 +4763,31 @@ ACTION 2026-10-08 A115
   offline NuGet feed/restore path with no failed step; all early Build gates,
   including Minecraft native Vulkan/NGX policy, Caustica/Scandi, Streamline,
   repository governance and zero-upstream, are SUCCESS.
+
+
+ACTION 2026-10-08 A116
+- Resumed from the GitHub Actions / CodeQL / Minecraft NGX hardening checkpoint.
+- Official main remains:
+  2e1be8a20ea4efe0daabd6e0e06af1e591f253a3.
+- Open pull requests: ZERO.
+- Post-merge Build #893 completed SUCCESS.
+- Exact Build #893 evidence:
+  Minecraft native Vulkan/NGX policy audit passed;
+  Caustica selection, SPBRScandi path and NVIDIA NGX runtime markers remain present;
+  Caustica JAR structural/custom-marker audit PASSED;
+  Caustica / SPBRScandi asset verification PASSED;
+  manager-owned Streamline runtime audit PASSED;
+  zero-upstream production workflow policy OK;
+  regression tests: 60 passed, 0 failed, 0 skipped;
+  deterministic application package A/B SHA-256
+  1e3a07dc7583282f69afe201b6bad6d0f86a07d835df3a2b9eef04b0766a8178.
+- Runtime Seed Refresh #29 completed SUCCESS and is the production proof for the
+  governance-scope fix:
+  seed-release resolved Refresh scope: release-only;
+  native/windows/FFmpeg/VLC/Java/NuGet/restricted-runtime producer jobs were all
+  skipped;
+  dispatch-release completed SUCCESS while stable v3.2.0 remained immutable.
+- CodeQL #59 is the only remaining active validation on this main SHA.
+  It has passed checkout, initialization, preinstalled .NET 8, manager-owned
+  offline NuGet feed preparation and restore; Build application for CodeQL is
+  currently in progress with no failed step.
