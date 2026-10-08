@@ -3271,3 +3271,31 @@ ACTION 2026-10-08 A058
   nuget-runtime SUCCESS
   windows-runtime / native-runtime / ffmpeg-runtime still in_progress.
 - No code change made; post-merge validation continues.
+
+
+ACTION 2026-10-08 A059
+- Read-only release dispatch audit identified a TOCTOU (time-of-check/time-of-use)
+  race in the automated production release handoff.
+- tools/dispatch-release-if-needed.sh validates the requested source_sha and its
+  version/tag state, but then dispatches:
+  gh workflow run release.yml --ref main
+  without passing source_sha to release.yml.
+- release.yml manual dispatch currently checks out GITHUB_REF / GITHUB_SHA and
+  later uses github.sha / GITHUB_SHA for deterministic timestamps, SBOM,
+  provenance and release target creation.
+- Therefore, if main advances after runtime refresh validates source_sha but
+  before GitHub materializes the release workflow dispatch, release.yml can
+  build/publish a newer main commit rather than the exact validated source_sha.
+- Existing stable-tag immutability prevents some bad outcomes when a tag already
+  exists, but a new version with no existing tag remains vulnerable to releasing
+  the wrong newer commit.
+- Selected follow-up hardening after current post-merge validation:
+  add a workflow_dispatch source_sha input;
+  pass exact source_sha from dispatch helper;
+  have release.yml validate and checkout that exact SHA;
+  use the resolved release SHA consistently for package timestamps, SBOM,
+  provenance and gh release --target;
+  preserve manual main-only behavior when source_sha is omitted;
+  add regression validation so helper/workflow cannot drift apart.
+- No code change made while Build #868 / CodeQL #34 / Runtime Seed Refresh #23
+  are still validating merged main.
