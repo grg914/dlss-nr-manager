@@ -4691,3 +4691,31 @@ ACTION 2026-10-08 A113
   could intentionally trip the fail-closed exact-source guard and make #28 stale.
 - Next action: wait only for #28 dispatch-release to finish, then merge #91 with
   expected-head protection and validate its post-merge narrow refresh behavior.
+
+
+ACTION 2026-10-08 A113
+- Post-merge validation for main 4bbe034a completed successfully:
+  Build #891 SUCCESS with 60 passed, 0 failed, 0 skipped tests and deterministic
+  application ZIP SHA-256
+  a4148fc7dbd08104647639914a7d5fcc53e8e63925603938cc02766df01710dd;
+  CodeQL #57 SUCCESS;
+  Runtime Seed Refresh #28 SUCCESS across seed-release, restricted runtime,
+  NuGet, Java, FFmpeg, native runtime (Real-ESRGAN + OptiScaler + ReShade),
+  windows runtime (Streamline + Minecraft) and VLC.
+- Runtime Seed Refresh #28 dispatch-release completed SUCCESS and correctly kept
+  stable v3.2.0 immutable:
+  stable v3.2.0 belongs to e5927e1d718dfff19540964ba46ee4edaa933c6b;
+  requested source was 4bbe034adfe3ec1a37107723dc39c8bb71f314f5;
+  production release dispatch was intentionally skipped until version bump.
+- A new cleanup PR #91 was opened to fix the observed over-refresh cause:
+  tools/verify-repository-governance.ps1 previously fell into tools/* => all even
+  though it cannot change runtime bytes.
+- PR #91 exact head:
+  c4ddd472a61c00dcf70d72866f2ac92f606d8930.
+- PR #91 changes only:
+  classify tools/verify-repository-governance.ps1 as release-only in scope mapper;
+  add regression assertion in Build workflow.
+- Build #892 SUCCESS including shell syntax, runtime refresh scope mapping and
+  repository governance checks; CodeQL #58 SUCCESS; GitHub reports PR #91 clean.
+- Next action: squash-merge #91 with expected-head protection, then verify the
+  post-merge Runtime Seed Refresh resolves release-only instead of all.
