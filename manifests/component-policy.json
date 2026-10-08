@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "project": "DLSS NR Manager",
+  "policy": {
+    "canonical_download_surface": "centralized manager for managed components",
+    "large_download_confirmation_bytes": 1073741824,
+    "production_upstream_network": false,
+    "require_sha256_for_manager_owned_binary_assets": true,
+    "restricted_sdk_raw_redistribution": false
+  },
+  "components": [
+    {
+      "id": "application",
+      "category": "app",
+      "distribution": "git-source+project-release",
+      "integrity": "release SHA-256",
+      "status": "active"
+    },
+    {
+      "id": "nuget-offline",
+      "category": "build-runtime",
+      "distribution": "manager-owned runtime seed",
+      "integrity": "manifest/digest",
+      "status": "active"
+    },
+    {
+      "id": "nvidia-dlss-sdk",
+      "category": "restricted-build-input",
+      "distribution": "local-only",
+      "integrity": "immutable source ref/local validation",
+      "status": "active"
+    },
+    {
+      "id": "video2dlssnr",
+      "category": "media-runtime",
+      "distribution": "manager-owned release",
+      "integrity": "SHA-256+NVIDIA signature checks for NVIDIA DLLs",
+      "status": "active"
+    },
+    {
+      "id": "nvidia-streamline",
+      "category": "gpu-runtime",
+      "distribution": "manager-owned release",
+      "integrity": "SHA-256+signature policy",
+      "status": "active"
+    },
+    {
+      "id": "ffmpeg",
+      "category": "media-runtime",
+      "distribution": "manager-owned release",
+      "integrity": "SHA-256",
+      "status": "active"
+    },
+    {
+      "id": "realesrgan",
+      "category": "ai-upscale",
+      "distribution": "manager-owned release",
+      "integrity": "locked source+asset verification",
+      "status": "active"
+    },
+    {
+      "id": "optiscaler",
+      "category": "game-runtime",
+      "distribution": "manager-owned release",
+      "integrity": "locked source+SHA-256",
+      "status": "active"
+    },
+    {
+      "id": "reshade",
+      "category": "game-runtime",
+      "distribution": "manager-owned release",
+      "integrity": "locked source+SHA-256",
+      "status": "active"
+    },
+    {
+      "id": "temurin-25",
+      "category": "java-runtime",
+      "distribution": "manager-owned release",
+      "integrity": "manifest+SHA-256",
+      "status": "active"
+    },
+    {
+      "id": "ai-origin-models",
+      "category": "ai-model",
+      "distribution": "manager-owned release",
+      "integrity": "pinned model SHA-256",
+      "status": "active"
+    },
+    {
+      "id": "minecraft-runtime",
+      "category": "game-runtime",
+      "distribution": "manager-owned runtime lock/release",
+      "integrity": "immutable lock+hash checks",
+      "status": "active"
+    },
+    {
+      "id": "caustica-rtx",
+      "category": "minecraft-renderer",
+      "distribution": "manager-owned release",
+      "integrity": "release digest+structural audit",
+      "status": "active"
+    },
+    {
+      "id": "spbrscandi",
+      "category": "minecraft-resource-pack",
+      "distribution": "manager-owned release",
+      "integrity": "release digest+structure audit",
+      "status": "active"
+    },
+    {
+      "id": "vlc",
+      "category": "video-player-runtime",
+      "distribution": "manager-owned release with corresponding source obligations",
+      "integrity": "SHA-256",
+      "status": "feature-branch"
+    },
+    {
+      "id": "ai-studio-runtime",
+      "category": "ai-runtime",
+      "distribution": "manager-owned release",
+      "integrity": "manifest+SHA-256",
+      "status": "planned/feature-branch"
+    },
+    {
+      "id": "ai-studio-models-permissive",
+      "category": "ai-model",
+      "distribution": "manager-owned dedicated releases",
+      "integrity": "chunk manifest+reconstructed SHA-256",
+      "status": "planned/feature-branch"
+    },
+    {
+      "id": "ai-studio-models-restricted",
+      "category": "ai-model",
+      "distribution": "user-supplied after official license/access",
+      "integrity": "managed local import",
+      "status": "planned/feature-branch"
+    }
+  ]
+}
