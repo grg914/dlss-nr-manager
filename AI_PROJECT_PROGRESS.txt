@@ -3957,3 +3957,25 @@ ACTION 2026-10-08 A081
 - Current authoritative PR #84 head remains
   e39886fe11518b799570d6501ec5e511fd18a82f with Build #875 and CodeQL #41
   still in manager-owned offline NuGet feed preparation and no failed steps.
+
+
+ACTION 2026-10-08 A082
+- Audited closed PRs and current open PR status for duplicate/conflict cleanup.
+- Confirmed PR #84 exact-head Build #875 and CodeQL #41 both SUCCESS and
+  mergeable_state=clean on e39886fe11518b799570d6501ec5e511fd18a82f.
+- Runtime Seed Refresh #24 also completed all jobs SUCCESS on prior main,
+  including the NuGet SKIP-unchanged proof captured in A076.
+- Squash-merged PR #84 with expected-head protection.
+- New main commit:
+  778bd9ca3972355435284687a3b4be7eb462de5d.
+- Closed-unmerged PR audit found one real lost change:
+  PR #69 contained one FR/EN localization entry for the visible Minecraft
+  performance-pack option; current main still lacks that entry and it must be
+  restored in the cleanup follow-up.
+- PR #31 manager-owned FFmpeg cutover/build fixes are already present on current
+  main and therefore contain no lost functional change requiring recovery.
+- The two currently red/conflicted open PRs are #77 and #78 (dirty merge state),
+  not failing latest Build runs. #77 is a real Local AI Studio feature to keep;
+  #78 is stale governance work that overlaps #81 but still contains some unique
+  auxiliary policy/config files, so it must not be closed until useful unique
+  content is selectively consolidated.
