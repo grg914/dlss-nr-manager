@@ -3405,3 +3405,24 @@ ACTION 2026-10-08 A060
   b1f3efc45e1a5182aa81382ef6f800d6812ebd1a5690dc108b131c79d7de8257.
 - This reconfirms snapshot consistency protection under a real asset replacement
   while also validating the new deterministic NuGet format on merged main.
+
+
+ACTION 2026-10-08 A061
+- Post-merge Build #868 completed SUCCESS on main commit 8dd45bf71a3a.
+- Completed Build #868 log confirms it consumed the newly published
+  content-addressed NuGet seed SHA-256:
+  c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e.
+- Build #868 evidence:
+  deterministic flat ZIP helper A/B SHA-256
+  a7ce391196f2be574815d20b454ab8734baa1a08fd003e6ab11cd9e7af292b8b;
+  regression tests: 37 passed, 0 failed, 0 skipped;
+  deterministic application package A/B SHA-256
+  b1f3efc45e1a5182aa81382ef6f800d6812ebd1a5690dc108b131c79d7de8257.
+- CodeQL #34 is also fully SUCCESS on the same merged main SHA.
+- Runtime Seed Refresh #23 is now the only active post-merge workflow:
+  FFmpeg / Java / NuGet / restricted runtime SUCCESS;
+  Real-ESRGAN and OptiScaler SUCCESS;
+  ReShade in_progress;
+  Streamline still in_progress.
+- No main code change made; waiting for Runtime Seed Refresh #23 finalization
+  and dispatch-release validation before opening the release-source-pinning PR.
