@@ -159,7 +159,11 @@ foreach ($path in $tracked) {
         Fail "License-restricted local-only content is tracked by Git: $path"
     }
 
-    $leaf = [System.IO.Path]::GetFileName($normalized)
+    # Git paths are repository-relative and always slash-separated.
+    # Avoid System.IO.Path.GetFileName here because vendored source trees can
+    # legally contain names that Windows path parsing rejects even though Git
+    # can enumerate them.
+    $leaf = ($normalized -split "/")[-1]
     if ($forbiddenTracked -contains $leaf -or
         $leaf -match "(?i)\.(pfx|p12|pem|key)$") {
         Fail "Potential secret/private-key material is tracked by Git: $path"
