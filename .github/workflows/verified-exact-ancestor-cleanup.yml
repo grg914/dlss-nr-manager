@@ -1,0 +1,74 @@
+name: Verified Exact Ancestor Cleanup
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/verified-exact-ancestor-cleanup.yml
+      - docs/BRANCH_CLEANUP_EXACT_ANCESTORS_R062.json
+      - tools/prune-exact-ancestor-branches.py
+      - tests/test_prune_exact_ancestors.py
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verified-exact-ancestor-cleanup.yml
+      - docs/BRANCH_CLEANUP_EXACT_ANCESTORS_R062.json
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: verified-exact-ancestor-cleanup-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  dry-run-on-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Compile script and run isolated fail-closed tests
+        run: |
+          python3 -m py_compile tools/prune-exact-ancestor-branches.py
+          python3 -m json.tool docs/BRANCH_CLEANUP_EXACT_ANCESTORS_R062.json >/dev/null
+          python3 -m unittest discover -s tests -p 'test_prune_exact_ancestors.py' -v
+      - name: Read-only GitHub ref validation
+        run: python3 tools/prune-exact-ancestor-branches.py --manifest docs/BRANCH_CLEANUP_EXACT_ANCESTORS_R062.json
+
+  cleanup-after-main-merge:
+    if: github.event_name == 'push' && github.repository == 'grg914/dlss-nr-manager'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Re-run all fail-closed unit tests
+        run: |
+          python3 -m py_compile tools/prune-exact-ancestor-branches.py
+          python3 -m json.tool docs/BRANCH_CLEANUP_EXACT_ANCESTORS_R062.json >/dev/null
+          python3 -m unittest discover -s tests -p 'test_prune_exact_ancestors.py' -v
+      - name: Delete only 5 SHA-pinned exact ancestors
+        run: python3 tools/prune-exact-ancestor-branches.py --manifest docs/BRANCH_CLEANUP_EXACT_ANCESTORS_R062.json --execute
+      - name: Publish machine-readable deletion results
+        if: always()
+        run: |
+          if [ -f exact-ancestor-cleanup-result.json ]; then
+            echo '### Exact ancestor cleanup result' >> "$GITHUB_STEP_SUMMARY"
+            echo '~~~json' >> "$GITHUB_STEP_SUMMARY"
+            cat exact-ancestor-cleanup-result.json >> "$GITHUB_STEP_SUMMARY"
+            echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+          fi

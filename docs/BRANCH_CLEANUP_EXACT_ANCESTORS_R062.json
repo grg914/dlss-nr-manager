@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "repository": "grg914/dlss-nr-manager",
+  "reference_main_sha": "968414ec8597384ac34b1c099e18c68ffadb487d",
+  "policy": "frozen-exact-ancestor-only",
+  "candidates": [
+    {
+      "branch": "ci/protected-release-request",
+      "sha": "a8fcf36c1cfe41f6b11df7aaeb41421b916e63ef"
+    },
+    {
+      "branch": "fix/reproducible-model-and-release",
+      "sha": "905c10af23fad21fc8ca0d0b67f80b7e2aee8a0e"
+    },
+    {
+      "branch": "hardening/minecraft-native-ngx-policy",
+      "sha": "8b4ae3f2bca19e9fa3e0681afd89602038c2dcf4"
+    },
+    {
+      "branch": "hardening-minecraft-native-ngx-policy",
+      "sha": "8b4ae3f2bca19e9fa3e0681afd89602038c2dcf4"
+    },
+    {
+      "branch": "refactor/monorepo-caustica",
+      "sha": "700696083425853e3cba3dec8264e4a8222a8c79"
+    }
+  ]
+}
