@@ -34,6 +34,13 @@ public static class ManagedComponentRedownload
                 throw new ArgumentException("Overlapping owned directories are unsafe.", nameof(ownedDirectories));
         }
 
+        // Guard managed directories against reparse-point redirects.
+        foreach (var managedPath in paths)
+        {
+            if (HasReparsePointOnPath(managedPath))
+                throw new IOException($"Unsafe component path: {managedPath}");
+        }
+
         // A previous interrupted transaction must be restored or reviewed
         // before installing again; never create competing backup generations.
         foreach (var path in paths)
