@@ -39,6 +39,22 @@ public partial class App : Application
 
         AppLogger.Info("WPF startup beginning.");
 
+        // A killed process cannot run a catch/finally block. Recover backups
+        // persisted on disk before MainWindow starts detecting/installing tools.
+        // The single-instance mutex prevents competing manager operations.
+        var componentRecovery = ManagedComponentRedownload.RecoverKnownManagedComponentBackups();
+        if (componentRecovery.Failed > 0)
+        {
+            AppLogger.Warn(
+                $"Some component backups require attention: {componentRecovery.Failed} unresolved.");
+            MessageBox.Show(
+                "A previous component update was interrupted. Some backup files could not be restored automatically. " +
+                "Do not reinstall those components until the diagnostic logs have been reviewed.",
+                "DLSS NR Manager - component recovery",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+
         base.OnStartup(e);
     }
 

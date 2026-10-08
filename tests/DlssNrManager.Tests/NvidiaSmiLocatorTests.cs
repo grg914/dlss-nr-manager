@@ -19,7 +19,7 @@ public sealed class NvidiaSmiLocatorTests
         Assert.All(candidates, path =>
         {
             Assert.True(Path.IsPathFullyQualified(path));
-            Assert.True(path.EndsWith("nvidia-smi.exe", StringComparison.OrdinalIgnoreCase));
+            Assert.EndsWith("nvidia-smi.exe", path, StringComparison.OrdinalIgnoreCase);
         });
         Assert.StartsWith(Environment.SystemDirectory, candidates[0], StringComparison.OrdinalIgnoreCase);
         Assert.Contains(Path.Combine("NVIDIA Corporation", "NVSMI"), candidates[1], StringComparison.OrdinalIgnoreCase);
