@@ -4897,3 +4897,13 @@ ACTION 2026-10-08 V4-RECOVERY R014 - PR #100 CI INITIALE ET SYNCHRONISATION
 - Branche fix/v4-media-update-recovery reconciliee avec main 86f04accae20050cc030771bdc057b05d5137599, en conservant R012/R013 et les derniers checkpoints S002/S003.
 - Prochaine action: valider nouveau head de PR #100 (Build et CodeQL); ne pas fusionner avant controles verts du commit exact.
 - Issue #95 reste OUVERTE (AI Studio rollback et test d'extinction brutale a faire).
+
+
+ACTION 2026-10-08 V4-AISTUDIO A004 - AUDIT IMPORT MANUEL ET PROTECTION DE DONNEES
+- Nouvelle branche fix/v4-ai-studio-manual-import-safety depuis main f74fc789202a92520b1ea0f232ef47c2b42901f5, sans modifier PR #101 en cours.
+- Defaut audite: LocalAiStudioService.ImportModelDirectoryAsync deplace target vers target.backup-GUID, puis un catch supprime target meme si le premier Directory.Move(target,backup) echoue. Une deletion du backup apres installation peut aussi activer ce rollback alors que l'installation est valide.
+- Contraintes: le modele manuel sous licence doit pouvoir etre importe UNIQUEMENT depuis un dossier choisi par l'utilisateur apres acceptation licence; ne jamais remplacer des poids sans preuve d'une sauvegarde reussie.
+- Correction prevue: helper de remplacement de dossier staging avec sauvegarde, rollback prudent conditionnel a l'operation reussie, et gestion separee d'une erreur de nettoyage backup ; bloquer en cas de .backup-* non resolu.
+- Aucun recovery AUTOMATIQUE des modeles manuels/licences au demarrage. Les sorties/jobs/workflows restent intacts.
+- Tests de non suppression du target sur faute initiale et sauvegardes existantes, de succes sans doublon backup et de non-deletion d'un fichier utilisateur.
+- Etat: point de reprise AVANT implementation; Build + CodeQL sur head final obligatoires, pas de fusion prematuree.
