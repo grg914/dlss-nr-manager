@@ -4719,3 +4719,14 @@ ACTION 2026-10-08 V4-STEP-2: IMPLEMENTATION MATERIELS ET PROFILS EN VALIDATION
 - FR/EN + info-bulles pour les nouvelles options; tests xUnit de choix/fallback et architecture.
 - STATUT: CODE COMMITTE, BUILD/CODEQL EN ATTENTE. PAS encore valide en execution sur Windows et PAS encore fusionne.
 - NE PAS annoncer version 4.0 disponible.
+
+
+ACTION 2026-10-08 V4-RECOVERY R001 - REPRISE APRES COUPURE
+- Etat initial relu depuis main e34dd3040b1674fa5f6262e45ed60b3a73cf4eda et PR #94 (head 7b8a49439b3260ec2d7a9adb890cde1c6e4145e5).
+- PR #93 fusionnee, Build Windows 69/69 tests + CodeQL SUCCESS au commit valide.
+- PR #94 en cours: Build run 37809525052, CodeQL run 37809525065; ne pas fusionner avant SUCCESS exact head.
+- Risque confirme issue #95: DownloadCenterService.RedownloadAsync fait Remove(entry) avant InstallAsync; un echec de telechargement peut supprimer l'ancienne installation.
+- Nouvelle branche isolee fix/v4-download-center-transactional-redownload creee depuis main, sans toucher la PR #94.
+- Prochaine action: implementation du swap transactionnel (staging, preservation ancienne version, rollback et tests), conserver les donnees de l'utilisateur et eviter les doublons de telechargement.
+- Discipline de reprise: toute action durable doit avoir un commit et une entree de journal ; verification des resultats GitHub a chaque point ; jamais de merge si les tests ne sont pas conclusifs.
+- Journal de main non modifie avant merge PR; cette branche conserve ce checkpoint pour recuperation meme en cas de coupure.
