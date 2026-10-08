@@ -90,7 +90,7 @@ public sealed class ComponentUpdateService
             return MediaUpdateAvailability.UpToDate;
 
         return string.Equals(
-            local.MediaFingerprint,
+            local?.MediaFingerprint,
             remote.MediaFingerprint,
             StringComparison.OrdinalIgnoreCase)
                 ? MediaUpdateAvailability.UpToDate
@@ -109,8 +109,13 @@ public sealed class ComponentUpdateService
 
         // The manager's /releases/latest endpoint is stable-only. Do not
         // normalize a prerelease or compare opaque identifiers as versions.
-        return value.All(c => char.IsAsciiDigit(c) || c == '.') &&
-               Version.TryParse(value, out parsed);
+        if (!value.All(c => char.IsAsciiDigit(c) || c == '.') ||
+            !Version.TryParse(value, out var candidate) ||
+            candidate is null)
+            return false;
+
+        parsed = candidate;
+        return true;
     }
 
     public async Task<bool> EnsureMediaToolsLatestAsync(
