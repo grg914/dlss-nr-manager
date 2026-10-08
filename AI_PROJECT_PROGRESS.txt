@@ -4803,3 +4803,10 @@ ACTION 2026-10-08 V4-RECOVERY R008 - RECUPERATION BACKUPS APRES CRASH
 - 5 tests unitaires: installation partielle, source absente, ambiguité, fichier utilisateur voisin, nom de dossier invalide.
 - Limites: ne couvre pas panne disque, fermeture brutale pendant une operation de recovery elle-meme, rollback AI Studio (gere separement), ni validation materielle réelle; l'exigence d'un test de crash Windows reste ouverte.
 - Etat: CODE COMMITTE, CI Windows/CodeQL A VALIDER. Ne pas fermer #95 avant test complet et revue des limitations.
+
+
+ACTION 2026-10-08 V4-RECOVERY R009 - BLOQUER REINSTALLATION AVEC BACKUP PENDANT
+- Garde supplementaire dans ManagedComponentRedownload.ReplaceAsync: si un repertoire backup .dlssnr-redownload-backup-* existe deja, refuser une nouvelle transaction tant que le redemarrage/recovery ou revue manuelle n'a pas resolu ce backup.
+- Evite la creation de plusieurs generations de sauvegardes et limite le risque d'ecraser l'ancienne version pendant une recovery incomplete.
+- Test xUnit dedie: ancienne version et backup restent intacts, callback d'installation jamais execute.
+- Les controles CI de la revision initiale #98 seront remplaces par une nouvelle validation sur le prochain head (pas de merge tant que Build/CodeQL non verts).

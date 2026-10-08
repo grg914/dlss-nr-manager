@@ -34,6 +34,21 @@ public static class ManagedComponentRedownload
                 throw new ArgumentException("Overlapping owned directories are unsafe.", nameof(ownedDirectories));
         }
 
+        // A previous interrupted transaction must be restored or reviewed
+        // before installing again; never create competing backup generations.
+        foreach (var path in paths)
+        {
+            var parent = Path.GetDirectoryName(path);
+            if (parent != null && Directory.Exists(parent) &&
+                Directory.EnumerateDirectories(
+                    parent, Path.GetFileName(path) + ".dlssnr-redownload-backup-*",
+                    SearchOption.TopDirectoryOnly).Any())
+            {
+                throw new InvalidOperationException(
+                    $"Unresolved manager-owned backup for {path}. Restart the manager to attempt recovery.");
+            }
+        }
+
         var transactions = paths.Select(path => new Entry(
             path, path + ".dlssnr-redownload-backup-" + Guid.NewGuid().ToString("N"),
             Directory.Exists(path))).ToArray();
