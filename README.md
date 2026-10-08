@@ -50,6 +50,7 @@ Project-wide policies are documented and enforced in CI:
 - [Security policy](SECURITY.md)
 - [Contributing rules](CONTRIBUTING.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [Source availability](SOURCE_AVAILABILITY.md)
 - [Privacy and data handling](docs/PRIVACY_AND_DATA.md)
 - [Download and runtime policy](docs/DOWNLOAD_RUNTIME_POLICY.md)
 - [Release security and provenance](docs/RELEASE_SECURITY.md)
