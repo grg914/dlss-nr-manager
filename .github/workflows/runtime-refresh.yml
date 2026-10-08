@@ -192,8 +192,12 @@ jobs:
           Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/LICENSE" (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
           Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt" (Join-Path $packageDir "LICENSE-ncnn.txt") -Force
           Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING" (Join-Path $packageDir "LICENSE-libwebp.txt") -Force
-          $vcomp = "$env:WINDIR\System32\vcomp140.dll"
-          if (Test-Path -LiteralPath $vcomp) { Copy-Item -LiteralPath $vcomp -Destination $packageDir -Force }
+          # Never copy an untracked System32 OpenMP DLL into a public release.
+          # The producer must opt in only after a licensed REDIST/legal review.
+          $approved = $env:DLSSNR_OPENMP_REDIST_APPROVED -eq '1'
+          if (-not $approved) { throw "Real-ESRGAN release blocked: Microsoft OpenMP redistribution approval is missing (issue #79)." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\package-approved-openmp.ps1 -PackageDirectory $packageDir -VisualStudioRoot $env:VSINSTALLDIR -ApprovedForRedistribution
+          if ($LASTEXITCODE -ne 0) { throw "Real-ESRGAN Microsoft OpenMP REDIST provenance check failed." }
           Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
           gh release upload $env:RUNTIME_SEED_TAG $zip --repo "${{ github.repository }}" --clobber
           if ($LASTEXITCODE -ne 0) { throw "Unable to publish Real-ESRGAN runtime seed." }
