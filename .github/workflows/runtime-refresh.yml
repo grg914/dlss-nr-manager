@@ -35,10 +35,10 @@ permissions:
   actions: write
 
 concurrency:
-  group: runtime-seed-refresh-v2
-  # Only the newest main state should promote the shared runtime seed.
-  # This prevents an obsolete refresh from blocking a newer release.
-  cancel-in-progress: true
+  # Serialize all writers of runtime-seed-v1 across workflows.
+  # Never cancel a publisher after it has started replacing release assets.
+  group: runtime-seed-v1-writers
+  cancel-in-progress: false
 
 env:
   RUNTIME_SEED_TAG: runtime-seed-v1

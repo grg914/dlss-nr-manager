@@ -1,3 +1,10 @@
+CHECKPOINT R064 (2026-10-09) - SERIALISATION DES ECRITURES RUNTIME SEED #123
+- Constat: runtime-refresh.yml et nuget-seed.yml publient tous deux nuget-offline.zip sur runtime-seed-v1 avec --clobber mais des groupes concurrency differents; runtime-refresh pouvait annuler un writer en cours.
+- Branche fix/v4-runtime-seed-writer-serialization: groupe unique runtime-seed-v1-writers, cancel-in-progress false, skip fichier identique en comparant size + SHA256 GitHub; refuse publication sur digest existant absent; valide digest/taille apres upload. Tests de politique ajoutes.
+- Attention: publication changee utilise encore l'ancien nom et --clobber; disparition temporaire possible. Issue #123 RESTE OUVERTE jusqu'a assets immuables et promotion manifest atomique. Pas de release 4.0.
+- Ne fusionner qu'apres Build/CodeQL verts sur HEAD. Voir docs/PROJECT_PROGRESS_R064.md.
+PROCHAINE ACTION: verifier CI, conserver rollback, puis traiter #79 OpenMP, #111 Download Center et audit branches divergentes.
+ 
 CHECKPOINT R062 (2026-10-09) - PR130 FUSIONNEE ET 5 ANCETRES EXACTS EN COURS DE NETTOYAGE
 - PR #130 fusionnee dans main SHA 968414ec8597384ac34b1c099e18c68ffadb487d apres Build 37855886717 SUCCESS et CodeQL 37855886704 SUCCESS. Journal principal et audit R058 presents dans main sans troncature.
 - 46 refs presentes juste apres PR #130; aucune PR ouverte. Les 5 refs figees dans docs/BRANCH_CLEANUP_EXACT_ANCESTORS_R062.json ont 0 commits propres, 0 fichiers differents, SHA exact et pas de protection; aucun des 11 workflows courants ne les cite.
