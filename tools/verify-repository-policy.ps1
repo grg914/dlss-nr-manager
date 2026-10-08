@@ -65,7 +65,10 @@ foreach ($dependency in $allDependencies) {
 }
 
 $workflowRoot = Join-Path $Root ".github/workflows"
-$workflowFiles = @(Get-ChildItem -LiteralPath $workflowRoot -File -Include *.yml,*.yaml)
+$workflowFiles = @(
+    Get-ChildItem -LiteralPath $workflowRoot -File |
+        Where-Object { $_.Extension -in @(".yml", ".yaml") }
+)
 foreach ($workflow in $workflowFiles) {
     $lines = Get-Content -LiteralPath $workflow.FullName
     foreach ($line in $lines) {
@@ -83,23 +86,59 @@ foreach ($workflow in $workflowFiles) {
     }
 }
 
+[xml]$project = Get-Content (Join-Path $Root "DlssNrManager.csproj")
+$projectVersion = [string]$project.Project.PropertyGroup.Version
+$readme = Get-Content (Join-Path $Root "README.md") -Raw
+$versionMatch = [regex]::Match($readme, 'Current application version:\s*\*\*v([^*]+)\*\*')
+if (-not $versionMatch.Success) {
+    Fail "README.md has no parsable current application version."
+}
+if ($versionMatch.Groups[1].Value.Trim() -ne $projectVersion.Trim()) {
+    Fail "README/project version mismatch. README v$($versionMatch.Groups[1].Value), project v$projectVersion."
+}
+
+$componentPolicy = Get-Content (Join-Path $Root "manifests/component-policy.json") -Raw | ConvertFrom-Json
+if ([int]$componentPolicy.schema -ne 1) {
+    Fail "Unsupported component-policy schema."
+}
+$componentIds = @($componentPolicy.components | ForEach-Object { [string]$_.id })
+$componentDuplicates = @($componentIds | Group-Object | Where-Object Count -gt 1)
+if ($componentDuplicates.Count -gt 0) {
+    Fail "Duplicate component policy ids: $($componentDuplicates.Name -join ', ')"
+}
+foreach ($component in @($componentPolicy.components)) {
+    foreach ($field in @("id", "category", "distribution", "source_policy", "license", "runtime_source")) {
+        if ([string]::IsNullOrWhiteSpace([string]$component.$field)) {
+            Fail "Component policy entry '$($component.id)' is missing '$field'."
+        }
+    }
+}
+
+foreach ($workflowPath in @(
+    ".github/workflows/media-vendor.yml",
+    ".github/workflows/runtime-refresh.yml"
+)) {
+    $workflowText = Get-Content (Join-Path $Root $workflowPath) -Raw
+    if ($workflowText -notmatch "(?m)\bxz-utils\b") {
+        Fail "$workflowPath must install xz-utils for XZ/tarball handling."
+    }
+}
+
 $releaseWorkflow = Get-Content (Join-Path $Root ".github/workflows/release.yml") -Raw
 foreach ($requiredReleaseMarker in @(
     "SHA256SUMS.txt",
     "components-manifest.json",
-    "release-provenance.json"
+    "release-provenance.json",
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE",
+    "component-policy.json"
 )) {
     if ($releaseWorkflow -notmatch [regex]::Escape($requiredReleaseMarker)) {
         Fail "Release workflow is missing required provenance marker '$requiredReleaseMarker'."
     }
 }
 
-$tracked = @()
-git -C $Root ls-files -z | ForEach-Object {
-    if ($_ -is [string]) {
-        $tracked += ($_ -split [char]0 | Where-Object { $_ })
-    }
-}
+$tracked = @(git -C $Root ls-files)
 if ($LASTEXITCODE -ne 0) {
     Fail "Unable to enumerate tracked files."
 }
