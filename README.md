@@ -481,6 +481,8 @@ Repository policy and audit references:
 - [AI runtime security](docs/AI_RUNTIME_SECURITY.md)
 - [Binary signing and authenticity](docs/CODE_SIGNING_POLICY.md)
 - [PC maintenance safety](docs/PC_MAINTENANCE_SAFETY.md)
+- [Backup and rollback policy](docs/BACKUP_ROLLBACK_POLICY.md)
+- [GitHub repository settings baseline](docs/GITHUB_REPOSITORY_SETTINGS.md)
 - [Feature security/policy matrix](docs/FEATURE_POLICY_MATRIX.md)
 - [Machine-readable feature policy](manifests/feature-policy.json)
 - [Upstream/dependency sync](docs/UPSTREAM-SYNC.md)
