@@ -3451,3 +3451,30 @@ ACTION 2026-10-08 A061
   unchanged hardening after the scope-routing PR.
 - The new NuGet seed remains stable at c0e7e334... and is the first asset already
   converted to content-addressed packaging + digest-aware publication.
+
+
+ACTION 2026-10-08 A062
+- Strengthened hardening/release-source-pinning from ancestor acceptance to
+  fail-closed current-main pinning.
+- release.yml workflow_dispatch behavior now:
+  resolves optional source_sha exactly;
+  requires source_sha/current event SHA to equal current main HEAD;
+  checks out the exact SHA;
+  uses that SHA for tag immutability, deterministic timestamps, SBOM,
+  provenance and GitHub release target;
+  immediately before publication, resolves main again and aborts if main
+  advanced during the release build.
+- dispatch-release-if-needed.sh now resolves current main before dispatch and
+  skips stale source_sha dispatches so the newer main refresh owns publication.
+- Repository governance regression checks were updated to require this
+  fail-closed contract and the exact source_sha workflow input handoff.
+- Follow-up commits added:
+  4a8dc4453b84f6cf1a408bdf2baa7d8712971a24
+  8bdd3dfa4cbce3a4b695b58bdd9b799e2a7277f7
+  ab19be87f275613a9b8379bbedcab3de255bc86b
+- Runtime Seed Refresh #23 progressed:
+  windows-runtime is now SUCCESS, including Streamline and Minecraft;
+  native-runtime remains active only in ReShade;
+  all other runtime jobs are SUCCESS.
+- The release-source-pinning branch remains un-opened while #23 final dispatch
+  behavior is still being validated on current main.
