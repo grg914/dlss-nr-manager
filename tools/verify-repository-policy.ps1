@@ -18,6 +18,7 @@ function Require-File([string]$RelativePath) {
 
 $requiredFiles = @(
     "LICENSE",
+    "global.json",
     "SECURITY.md",
     "CONTRIBUTING.md",
     "THIRD_PARTY_NOTICES.md",
