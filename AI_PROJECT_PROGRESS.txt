@@ -4312,3 +4312,19 @@ ACTION 2026-10-08 A097
   encoded-command launch configuration.
 - Next action: linearly reconstruct feat/pc-clean-maintenance onto main 80e366e7,
   synchronize this journal into the branch, then open the PR and validate Build + CodeQL.
+
+
+ACTION 2026-10-08 A098
+- Reconstructed feat/pc-clean-maintenance linearly on current main after PR #88.
+- Parent main:
+  80e366e765c366014e0053217adfaff68458443d.
+- Final feature head before CI:
+  6f9e656b020bdee22721c80be7344183582e8776.
+- Opened PR #89:
+  feat: expand PC Clean with safe cache cleanup and Windows repair
+  https://github.com/grg914/dlss-nr-manager/pull/89
+- GitHub reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head validation started:
+  Build #885 (run 37727423504)
+  CodeQL #51 (run 37727423502).
+- Branch is frozen unless exact-head CI exposes a defect.
