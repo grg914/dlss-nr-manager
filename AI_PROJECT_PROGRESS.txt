@@ -2832,3 +2832,23 @@ ACTION 2026-10-08 A034
 - Important concurrency validation: Build/CodeQL may overlap seed refresh asset
   replacement; download-runtime-seed.ps1 now has snapshot consistency checks
   and bounded full-snapshot retries specifically to survive such changes.
+
+
+ACTION 2026-10-08 A022
+- Inspected Runtime Seed Refresh #22 seed-release log.
+- Confirmed exact resolved scope:
+  Refresh scope: all
+- Inspected current main runtime-refresh.yml scope logic.
+- Reason is expected under current implementation:
+  only runtime-refresh.yml/release.yml orchestration changes and pure csproj
+  version-only changes preserve release-only;
+  any other changed file in the triggering compare sets value=all.
+- PR #81 changed non-orchestration runtime/tooling files (including FFmpeg
+  toolchain/runtime download hardening), therefore a full seed refresh is
+  expected and not an error.
+- Runtime Seed Refresh #22 currently has active rebuilds for:
+  Streamline/Minecraft
+  Java 25
+  FFmpeg
+  Real-ESRGAN/OptiScaler/ReShade
+  while NuGet and restricted-runtime preservation already succeeded.
