@@ -72,7 +72,9 @@ jobs:
             "tools/verify-streamline-runtime-asset.ps1",
             "tools/download-runtime-seed.ps1",
             "tools/prepare-offline-dotnet.ps1",
-            "tools/build-nuget-offline-seed.ps1"
+            "tools/build-nuget-offline-seed.ps1",
+            "tools/verify-repository-policy.ps1",
+            "tools/generate-release-provenance.ps1"
           )
 
           foreach ($path in $paths) {
@@ -111,6 +113,12 @@ jobs:
               throw "Upstream policy '$($policy.id)' has no dependency lock entry."
             }
           }
+
+      - name: Enforce repository governance and release policy
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-repository-policy.ps1 -Strict
+          if ($LASTEXITCODE -ne 0) { throw "Repository governance/security policy audit failed." }
 
       - name: Enforce Minecraft native Vulkan/NGX policy
         shell: pwsh
