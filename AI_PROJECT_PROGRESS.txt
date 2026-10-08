@@ -1,3 +1,13 @@
+CHECKPOINT R019 (2026-10-08) - AUDIT FINALISATION V4 / README
+- PR #106 (checkpoint R018) toujours sous verification GitHub Build/CodeQL au moment du controle; ne pas fusionner avant checks SUCCESS sur head courant.
+- Inspection du code main: ExternalProcessTracker utilise un Windows Job Object KILL_ON_JOB_CLOSE et traque les enfants, mais ce mecanisme ne prouve pas un test sur Windows avec crash/kill effectif.
+- ManagedComponentRedownload expose ReplaceAsync/RecoverOwnedBackups et des tests unitaires; les scenarios d'arret brutal et de symlinks/jonctions restent a valider sur materiel reel.
+- Incoherence README confirmee: annonce v3.1.0, alors que DlssNrManager.csproj definit <Version>3.2.0</Version>. Correction documentaire sur branche docs/fix-readme-version-and-v4-checkpoint; aucun bump applicatif ni release.
+- CHANGELOG.md absent a la racine a l'instant de la lecture; creer avant une release 4.0 avec historique verifie, pas de succes invente.
+- prompt.txt utilisateur verifie en bibliotheque, mais reste absent de la racine GitHub (voir checkpoint R018 en PR #106).
+- Phase release 4.0 BLOQUEE: a completer audits shutdown, vrais tests Windows, profils, FR/EN, Centre telechargement, docs et CI main. Ne pas fermer issue #95.
+PROCHAINE ACTION EXACTE: faire valider cette PR documentaire par Build/CodeQL; verifier les checks de #106 et la fusion; ensuite verifier main et auditer l'arret sous Windows et les sous-processus (y compris failure d'AssignProcessToJobObject) avant publication.
+
 CHECKPOINT R017 (2026-10-08) - PR #102 merged as 0c8692fc0d056da712646aa1002e1eb255917a1b after Build 37822109071 and CodeQL 37822109057 succeeded. PR #103 had Build 37822384191 and CodeQL 37822384235 succeeded on original head, but was blocked by merge conflicts with main. Replacement branch fix/v4-ai-studio-staging-cleanup-rebased based on main after #102 preserves the corrected manual model import and reproduces PR #103's SafeZip.Extract staging cleanup and FR/EN rollback confirmation. Must revalidate Build + CodeQL on replacement commit, close old PR #103 only once replacement is merged. No Windows crash test or v4 release validated.
 
 CHECKPOINT 0E - SOLUTION A VALIDEE / DURCISSEMENT MINECRAFT NATIVE NGX (2026-10-07)
