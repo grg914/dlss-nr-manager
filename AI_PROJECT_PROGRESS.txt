@@ -4740,3 +4740,10 @@ ACTION 2026-10-08 V4-RECOVERY R002 - FIX TRANSACTIONNEL DOWNLOAD CENTER
 - Backup garde si la restauration echoue, log diagnostique; 6 tests xUnit couvrent succes, erreurs, verification, annulation, directories multiples et rejet chemins imbriques.
 - Note limite: rollback disque apres crash machine/process hard-kill n'est PAS encore assure par ce helper (pas de journal transactionnel persistant). Ne pas annoncer cette garantie.
 - STATUT: code ecrit, non encore valide par Build/CodeQL. Prochaine action: ouvrir PR, inspecter CI et corriger erreurs avant merge; rebaser sur main apres integration PR #94.
+
+ACTION 2026-10-08 V4-RECOVERY R004 - GARDE SUPPLEMENTAIRE SWAP TRANSACTIONNEL
+- Revue du code ManagedComponentRedownload: une exception lors du deplacement de la 2e directory pouvait declencher le catch avant execution d'install et supprimer une directory jamais deplacee.
+- Ajout garde (started || entry.Moved) avant suppression de la directory courante dans rollback.
+- Rappels: ne pas supprimer dossiers utilisateurs; les sauvegardes sont retenues si rollback echoue.
+- Cette verification est une revue statique, PAS une validation de crash ni de concurrence multi-processus.
+- Etape a suivre: lancer CI et tester rollback. 
