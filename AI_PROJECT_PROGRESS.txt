@@ -4940,3 +4940,11 @@ ACTION 2026-10-08 V4-AISTUDIO A007 - AUDIT RESIDUS DE FICHIERS TEMPORAIRES
 - Correction prevue: englober extraction ET installation dans le meme try/finally pour nettoyer le staging quel que soit le point d'echec, sans effacer le dossier cible installe ni les sauvegardes non resolues.
 - Autre ecart UX: le message bilingue du bouton Retélécharger indique a tort suppression de la copie avant telechargement alors que ReplaceAsync preservera l'ancien runtime jusqu'au succes du remplacement. Changer UNIQUEMENT ces phrases FR/EN, aucun changement de licence.
 - Etat: checkpoint ecrit avant patch; CI et CodeQL obligatoires; test d'echec disque physique non realise.
+
+
+ACTION 2026-10-08 V4-AISTUDIO A008 - CLEANUP EXTRACTION ET TEXTE DE REINSTALLATION
+- AiStudioPackageService.InstallAsync encadre maintenant SafeZip.Extract et ManagedComponentRedownload.ReplaceAsync dans le meme try/finally TryDeleteDirectory(staging).
+- Si extraction echoue apres avoir genere des fichiers volumineux, le staging est supprime sur le chemin d'erreur; les anciens poids/licences et le backup du modele ne sont pas inclus dans cette suppression.
+- MainWindow.xaml.cs affiche un message Retélécharger/Redownload exact: copie locale sauvegardee puis restauree si echec, au lieu de declarer sa suppression avant telechargement.
+- Limite de verification: une coupure electrique / kill forcé n'execute pas finally; la recup startup des backups transactionnels reste distincte. Les stages orphelins suite a kill ne sont pas automatiquement supprimes.
+- Etat: commit a verifier Build+CodeQL; controle de regression UI manuelle a faire sur Windows.

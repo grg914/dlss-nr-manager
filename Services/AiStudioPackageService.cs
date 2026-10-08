@@ -378,14 +378,16 @@ public sealed class AiStudioPackageService
             progress?.Report(
                 $"Extraction locale de {model.DisplayName}…");
 
-            SafeZip.Extract(
-                archivePath,
-                staging,
-                MaxModelArchiveEntries,
-                MaxModelExpandedBytes);
-
+            // Stage cleanup must also cover extraction errors and cancellation,
+            // not just exceptions thrown by the final directory swap.
             try
             {
+                SafeZip.Extract(
+                    archivePath,
+                    staging,
+                    MaxModelArchiveEntries,
+                    MaxModelExpandedBytes);
+
                 await ManagedComponentRedownload.ReplaceAsync(
                     [installPath],
                     token =>
