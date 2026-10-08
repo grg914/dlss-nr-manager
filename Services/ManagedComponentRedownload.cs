@@ -69,6 +69,10 @@ public static class ManagedComponentRedownload
                 if (!entry.Existed)
                     continue;
 
+                if (HasReparsePointOnPath(entry.Path) ||
+                    HasReparsePointOnPath(entry.Backup))
+                    throw new IOException("Component path redirected through a junction or symlink.");
+
                 Directory.Move(entry.Path, entry.Backup);
                 entry.Moved = true;
             }
@@ -87,6 +91,10 @@ public static class ManagedComponentRedownload
             {
                 try
                 {
+                    if (HasReparsePointOnPath(entry.Path) ||
+                        HasReparsePointOnPath(entry.Backup))
+                        throw new IOException("Unsafe reparse point during rollback; backup retained.");
+
                     // If a move failed before installation began, do not
                     // touch a sibling component that was never moved.
                     if ((started || entry.Moved) && Directory.Exists(entry.Path))
@@ -114,6 +122,8 @@ public static class ManagedComponentRedownload
         {
             try
             {
+                if (HasReparsePointOnPath(entry.Backup))
+                    throw new IOException("Unsafe reparse point in old backup; manual cleanup required.");
                 Directory.Delete(entry.Backup, recursive: true);
             }
             catch (Exception error)
@@ -186,6 +196,12 @@ public static class ManagedComponentRedownload
             var parent = Path.GetDirectoryName(path);
             if (string.IsNullOrWhiteSpace(parent) || !Directory.Exists(parent))
                 continue;
+            if (HasReparsePointOnPath(path))
+            {
+                failed++;
+                AppLogger.Warn($"Skipped component recovery through junction or symlink: {path}");
+                continue;
+            }
 
             var prefix = Path.GetFileName(path) + ".dlssnr-redownload-backup-";
             try
@@ -287,6 +303,11 @@ public static class ManagedComponentRedownload
         mediaRoot = Path.GetFullPath(mediaRoot);
         if (!Directory.Exists(mediaRoot))
             return new ComponentRecoveryReport(0, 0);
+        if (HasReparsePointOnPath(mediaRoot))
+        {
+            AppLogger.Warn($"Skipped legacy media recovery through junction or symlink: {mediaRoot}");
+            return new ComponentRecoveryReport(0, 1);
+        }
 
         var rootPrefix = "_update-backup-";
         var legacy = Directory
