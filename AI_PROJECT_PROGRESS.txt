@@ -3756,3 +3756,21 @@ ACTION 2026-10-08 A069
   Build #872 in_progress
   CodeQL #38 pending.
 - PR #85 remains unchanged on exact head 0bf7d663 and stays first in merge order.
+
+
+ACTION 2026-10-08 A070
+- PR #85 exact-head validation advanced on frozen head
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Build #870:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: SUCCESS
+  regression tests: in_progress.
+- CodeQL #36:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore from manager-owned feed: SUCCESS
+  Build application for CodeQL: in_progress.
+- Both exact-head checks have passed the manager-owned seed/restore architecture
+  after the release source-pinning changes.
+- PR #84 replacement checks #872/#38 have only just started on corrected head
+  6ed0c434 and do not affect #85 merge priority.
+- No PR #85 code change made.
