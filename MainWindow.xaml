@@ -159,6 +159,7 @@
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" Width="26"/><TextBlock Text="Advanced OptiScaler"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="▤" Width="26"/><TextBlock Text="OptiScaler log"/></StackPanel></ListBoxItem>
             <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="☰" Width="26"/><TextBlock Text="Application"/></StackPanel></ListBoxItem>
+            <ListBoxItem><StackPanel Orientation="Horizontal"><TextBlock Text="▣" Width="26"/><TextBlock Text="Hardware &amp; Profiles"/></StackPanel></ListBoxItem>
           </ListBox>
 
           <Border x:Name="DownloadProgressPanel"
@@ -2548,6 +2549,55 @@
               </StackPanel>
             </Grid>
           </Border></Grid></ScrollViewer></TabItem>
+
+        <!-- Hardware profile tab is appended to preserve all existing menu indices. -->
+        <TabItem>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid Margin="24">
+              <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                  <TextBlock Text="Hardware &amp; Profiles" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="Read-only hardware detection and capability-safe preferences"
+                             Style="{StaticResource SectionSubtitle}" Margin="0,4,0,18"/>
+                  <TextBlock Text="Hardware profile" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                  <ComboBox x:Name="HardwareProfileBox" SelectedIndex="0"
+                            MaxWidth="500" HorizontalAlignment="Left"
+                            SelectionChanged="HardwareProfile_Changed"
+                            ToolTip="AUTO detects your actual GPU and CPU. A manual preset never unlocks unsupported hardware features.">
+                    <ComboBoxItem Content="AUTO"/>
+                    <ComboBoxItem Content="RTX 5060 Ti 16GB + Ryzen 7 9700X"/>
+                  </ComboBox>
+                  <CheckBox x:Name="HardwareCompatibleCheck" Margin="0,15,0,10"
+                            Content="Compatible mode"
+                            Checked="HardwareProfile_Changed"
+                            Unchecked="HardwareProfile_Changed"
+                            ToolTip="Compatible mode conservatively disables optional Frame Generation and Neural Rendering while retaining supported Super Resolution."/>
+                  <TextBlock Text="Uncheck Compatible mode to use Normal mode."
+                             FontSize="11" Foreground="{StaticResource Muted}"
+                             TextWrapping="Wrap" Margin="0,0,0,14"/>
+                  <Button Content="Refresh hardware detection"
+                          HorizontalAlignment="Left" Style="{StaticResource CyanButton}"
+                          ToolTip="Recheck your GPU, CPU, memory, NVIDIA driver and graphics API loaders without modifying drivers."
+                          Click="RefreshHardwareProfile_Click"/>
+                  <TextBlock x:Name="HardwareProfileStatusText"
+                             Text="Hardware detection pending."
+                             TextWrapping="Wrap" Foreground="{StaticResource Accent2}"
+                             Margin="0,15,0,12"/>
+                  <Border Background="#0B121A" BorderBrush="#1E2C3A"
+                          BorderThickness="1" CornerRadius="9" Padding="12">
+                    <TextBlock x:Name="HardwareDetailsText"
+                               Text="No hardware scan completed yet."
+                               TextWrapping="Wrap" FontSize="12"/>
+                  </Border>
+                  <TextBlock Margin="0,12,0,0"
+                             Text="DirectX and Vulkan loader detection does not guarantee feature support. Game, driver and runtime compatibility are checked separately."
+                             Foreground="{StaticResource Muted}" FontSize="10"
+                             TextWrapping="Wrap"/>
+                </StackPanel>
+              </Border>
+            </Grid>
+          </ScrollViewer>
+        </TabItem>
       </TabControl>
     </Grid>
   </Grid>
