@@ -2551,3 +2551,23 @@ ACTION 2026-10-08 A018
   Build #864: in_progress
   CodeQL #30: queued
 - Resume point confirmed: validate the deterministic application-package root fix on this exact head before any merge.
+
+
+ACTION 2026-10-08 A019
+- Rechecked exact-head jobs for PR #81 head
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Build #864 and CodeQL #30 both obtained runners and entered checkout.
+- Build #864 still has deterministic application packaging as final validation step #17.
+- CodeQL #30 will validate the same manager-owned offline NuGet path independently.
+
+ACTION 2026-10-08 A020
+- Re-read tools/create-application-package.ps1 after the A016 Root fix.
+- Confirmed Root now defaults to empty and is resolved after parameter binding
+  from PSScriptRoot.
+- Confirmed deterministic package invariants remain:
+  fixed entry order,
+  ZIP timestamps normalized to 2-second ZIP precision,
+  exact entry-set verification,
+  README/LICENSE/THIRD_PARTY_NOTICES/DATA_PRIVACY included,
+  SHA-256 emitted after verification.
+- No additional code change made; exact CI execution remains authoritative.
