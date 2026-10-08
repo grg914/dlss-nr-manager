@@ -3808,3 +3808,20 @@ ACTION 2026-10-08 A073
   mergeable=true
   mergeable_state=clean.
 - Next action: squash-merge #85 with expected-head protection on 0bf7d663.
+
+
+ACTION 2026-10-08 A074
+- PR #85 was squash-merged with expected-head protection on
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- New main commit:
+  dca84beeed06fb46ae78524dc420ab8cf46b80f1
+- GitHub result: Pull Request successfully merged.
+- Production release source-pinning / fail-closed main revalidation is now part
+  of official main, together with journal history through A065 and the CodeQL
+  repository-settings baseline update.
+- Next actions:
+  validate post-merge Build/CodeQL/Runtime Seed Refresh on dca84bee;
+  verify the NuGet content-addressed seed now reports SKIP unchanged on the next
+  refresh when package content is identical;
+  reconcile PR #84 onto dca84bee so its scope-routing governance is additive to
+  the newly merged release-source-pinning governance rather than overwriting it.
