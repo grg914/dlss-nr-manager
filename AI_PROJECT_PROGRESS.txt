@@ -4271,3 +4271,44 @@ ACTION 2026-10-08 A096
   zero-upstream gate and is preparing the manager-owned NuGet feed;
   CodeQL #49 is also preparing the manager-owned NuGet feed;
   no failed step is reported.
+
+
+ACTION 2026-10-08 A097
+- PR #88 notify-only upstream issue wording fix completed Build #883 SUCCESS and
+  CodeQL #49 SUCCESS, reached mergeable_state=clean, and was squash-merged with
+  expected-head protection.
+- New main commit after #88:
+  80e366e765c366014e0053217adfaff68458443d.
+- Started feature branch feat/pc-clean-maintenance for the requested PC Clean
+  expansion.
+- Existing PC Cleanup architecture was reused rather than creating a duplicate menu.
+- Safe cleanup targets added/expanded:
+  Windows Explorer thumbnail/icon databases only through thumbcache_*.db and
+  iconcache_*.db top-level patterns;
+  NVIDIA per-driver DX/GL variants and ComputeCache;
+  AMD DxCache/DxcCache/GLCache/VkCache;
+  Intel ShaderCache.
+- Existing safe targets remain: current-user temp, Windows Temp, DirectX shader
+  cache and NVIDIA legacy NV_Cache.
+- Explicit exclusions remain and are shown in UI/docs: browser profiles, user
+  documents/downloads, registry, restore points, Recycle Bin, Prefetch, WinSxS
+  and Windows Update storage are not cleaned.
+- PcCleanupService now supports per-category filename patterns and non-recursive
+  cleanup so Windows Explorer cache cleanup cannot delete unrelated files from
+  the Explorer directory.
+- Security hardening added: cleanup roots that are reparse points/junctions are
+  rejected before scanning/deletion, preventing an allowed cache path from being
+  redirected outside the intended cleanup boundary.
+- Added WindowsRepairService and PC Cleanup UI action Run DISM + SFC:
+  explicit confirmation + UAC;
+  static UTF-16LE/EncodedCommand PowerShell payload with no user input;
+  DISM /Online /Cleanup-Image /RestoreHealth runs first;
+  SFC /scannow runs second even if DISM reports a failure;
+  UAC cancellation and nonzero repair exit states are reported cleanly.
+- Added FR/EN localization and README documentation for the new cleanup/repair
+  functions.
+- Added PcCleanupAndRepairTests covering default safe target inventory,
+  pattern-limited non-recursive deletion, DISM-before-SFC command order and UAC
+  encoded-command launch configuration.
+- Next action: linearly reconstruct feat/pc-clean-maintenance onto main 80e366e7,
+  synchronize this journal into the branch, then open the PR and validate Build + CodeQL.
