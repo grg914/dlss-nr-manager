@@ -37,7 +37,7 @@ public static class ManagedComponentRedownload
         // Guard managed directories against reparse-point redirects.
         foreach (var managedPath in paths)
         {
-            if (HasReparsePointOnPath(managedPath))
+            if (ManagedPathSafety.HasReparsePointOnPath(managedPath))
                 throw new IOException($"Unsafe component path: {managedPath}");
         }
 
@@ -69,8 +69,8 @@ public static class ManagedComponentRedownload
                 if (!entry.Existed)
                     continue;
 
-                if (HasReparsePointOnPath(entry.Path) ||
-                    HasReparsePointOnPath(entry.Backup))
+                if (ManagedPathSafety.HasReparsePointOnPath(entry.Path) ||
+                    ManagedPathSafety.HasReparsePointOnPath(entry.Backup))
                     throw new IOException("Component path redirected through a junction or symlink.");
 
                 Directory.Move(entry.Path, entry.Backup);
@@ -91,8 +91,8 @@ public static class ManagedComponentRedownload
             {
                 try
                 {
-                    if (HasReparsePointOnPath(entry.Path) ||
-                        HasReparsePointOnPath(entry.Backup))
+                    if (ManagedPathSafety.HasReparsePointOnPath(entry.Path) ||
+                        ManagedPathSafety.HasReparsePointOnPath(entry.Backup))
                         throw new IOException("Unsafe reparse point during rollback; backup retained.");
 
                     // If a move failed before installation began, do not
@@ -122,7 +122,7 @@ public static class ManagedComponentRedownload
         {
             try
             {
-                if (HasReparsePointOnPath(entry.Backup))
+                if (ManagedPathSafety.HasReparsePointOnPath(entry.Backup))
                     throw new IOException("Unsafe reparse point in old backup; manual cleanup required.");
                 Directory.Delete(entry.Backup, recursive: true);
             }
@@ -196,7 +196,7 @@ public static class ManagedComponentRedownload
             var parent = Path.GetDirectoryName(path);
             if (string.IsNullOrWhiteSpace(parent) || !Directory.Exists(parent))
                 continue;
-            if (HasReparsePointOnPath(path))
+            if (ManagedPathSafety.HasReparsePointOnPath(path))
             {
                 failed++;
                 AppLogger.Warn($"Skipped component recovery through junction or symlink: {path}");
@@ -303,7 +303,7 @@ public static class ManagedComponentRedownload
         mediaRoot = Path.GetFullPath(mediaRoot);
         if (!Directory.Exists(mediaRoot))
             return new ComponentRecoveryReport(0, 0);
-        if (HasReparsePointOnPath(mediaRoot))
+        if (ManagedPathSafety.HasReparsePointOnPath(mediaRoot))
         {
             AppLogger.Warn($"Skipped legacy media recovery through junction or symlink: {mediaRoot}");
             return new ComponentRecoveryReport(0, 1);
@@ -411,31 +411,6 @@ public static class ManagedComponentRedownload
         return new ComponentRecoveryReport(
             recovered.Restored,
             recovered.Failed + migrationFailed);
-    }
-
-    // A parent junction can redirect an apparently managed path outside the
-    // application's owned directories; inspect all existing ancestors.
-    private static bool HasReparsePointOnPath(string path)
-    {
-        var current = Path.GetFullPath(path);
-        while (!string.IsNullOrEmpty(current))
-        {
-            try
-            {
-                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                    return true;
-            }
-            catch (FileNotFoundException) { }
-            catch (DirectoryNotFoundException) { }
-
-            var parent = Path.GetDirectoryName(current);
-            if (string.IsNullOrEmpty(parent) ||
-                string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
-                break;
-            current = parent;
-        }
-
-        return false;
     }
 
     private static bool IsReparsePoint(string path) =>
