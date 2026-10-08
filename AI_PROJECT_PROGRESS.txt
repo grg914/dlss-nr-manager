@@ -4602,3 +4602,21 @@ ACTION 2026-10-08 A110
 - Build #891 and CodeQL #57 remain active in their manager-owned offline NuGet
   preparation stage with no failed step.
 - Open pull requests remain ZERO.
+
+
+ACTION 2026-10-08 A111
+- Verified the published runtime-seed-v1 distribution surface after PR #75 merge.
+- Manager-owned VLC assets are present and uploaded with expected GitHub digests:
+  vlc-3.0.24-win64.zip
+    size 82765861 bytes
+    sha256 fcf30850371ad10c9373cc4f0f4501e7dee49e3e9ae9f20c72fb2661a1ca6323;
+  vlc-3.0.24.tar.xz
+    size 27620304 bytes
+    sha256 e7cab503d1d7d5849b89d2cf0e1ee60d0ef6d012407791b644b9cfc0cc225fdf;
+  vlc-3.0.24-provenance.json
+    size 925 bytes
+    sha256 ce229db08c2c9d68b228903f8184619dd1a2742cc116552d15739e35c7a3b078.
+- Current main component-manifest generator contains the VLC Media Player entry,
+  confirming centralized Téléchargements metadata is wired into release manifests.
+- No runtime-seed asset timestamp changed during post-merge #28 VLC validation,
+  consistent with the SKIP unchanged digest-aware publication contract.
