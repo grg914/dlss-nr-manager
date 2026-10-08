@@ -64,9 +64,11 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-self-contained.ps1 -Strict -AllowLfsPointers
           if ($LASTEXITCODE -ne 0) { throw "Strict self-contained dependency audit failed." }
 
-      - name: Resolve release version
+      - name: Resolve release version and immutable tag source
         id: version
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           [xml]$project = Get-Content "DlssNrManager.csproj"
           $version = [string]$project.Project.PropertyGroup.Version
@@ -75,6 +77,30 @@ jobs:
           $tag = "v$version"
           if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne $tag) {
             throw "Release tag '${{ github.ref_name }}' does not match project version '$tag'."
+          }
+
+          $rows = @(gh api "repos/${{ github.repository }}/git/matching-refs/tags/$tag" | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0) { throw "Unable to inspect existing tag $tag." }
+          $tagRef = $rows | Where-Object { [string]$_.ref -eq "refs/tags/$tag" } | Select-Object -First 1
+
+          if ($tagRef) {
+            $tagCommit = [string]$tagRef.object.sha
+            $tagType = [string]$tagRef.object.type
+
+            if ($tagType -eq "tag") {
+              $tagObject = gh api "repos/${{ github.repository }}/git/tags/$tagCommit" | ConvertFrom-Json
+              if ($LASTEXITCODE -ne 0) { throw "Unable to resolve annotated tag $tag." }
+              $tagCommit = [string]$tagObject.object.sha
+              $tagType = [string]$tagObject.object.type
+            }
+
+            if ($tagType -ne "commit") {
+              throw "Stable tag $tag does not resolve to a commit."
+            }
+
+            if ($tagCommit -ne "$env:GITHUB_SHA") {
+              throw "Stable tag $tag already belongs to commit $tagCommit. Current source is $env:GITHUB_SHA. Stable releases are immutable; bump the application version."
+            }
           }
 
           "tag=$tag" >> $env:GITHUB_OUTPUT
@@ -114,9 +140,13 @@ jobs:
             throw "Published EXE version '$version' does not match release version '${{ steps.version.outputs.version }}'."
           }
 
-      - name: Create application ZIP
+      - name: Create deterministic application ZIP
         shell: pwsh
-        run: Compress-Archive -Path publish/DlssNrManager.exe -DestinationPath DlssNrManager-win-x64.zip -Force
+        run: |
+          $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
+          if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\create-application-package.ps1 -ExecutablePath "publish/DlssNrManager.exe" -OutputPath "DlssNrManager-win-x64.zip" -TimestampUtc "$createdAt"
+          if ($LASTEXITCODE -ne 0) { throw "Application ZIP generation failed." }
 
       - name: Download validated manager-owned runtime seed
         id: seed
@@ -278,7 +308,9 @@ jobs:
       - name: Generate trusted component manifest
         shell: pwsh
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-components-manifest.ps1 -AssetsDirectory release-assets -OutputPath release-assets/components-manifest.json
+          $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
+          if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-components-manifest.ps1 -AssetsDirectory release-assets -OutputPath release-assets/components-manifest.json -GeneratedAtUtc "$createdAt"
           if ($LASTEXITCODE -ne 0) { throw "Component manifest generation failed." }
 
       - name: Generate SPDX SBOM and release provenance
@@ -286,7 +318,7 @@ jobs:
         run: |
           $createdAt = (git show -s --format=%cI "${{ github.sha }}").Trim()
           if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp." }
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-sbom.ps1 -OutputPath release-assets/SBOM.spdx.json -SourceCommit "${{ github.sha }}" -CreatedAtUtc "$createdAt"
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-sbom.ps1 -OutputPath release-assets/SBOM.spdx.json -SourceCommit "${{ github.sha }}" -CreatedAtUtc "$createdAt" -ComponentManifestPath "release-assets/components-manifest.json"
           if ($LASTEXITCODE -ne 0) { throw "SBOM generation failed." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate-release-provenance.ps1 -Repository "${{ github.repository }}" -CommitSha "${{ github.sha }}" -Version "${{ steps.version.outputs.version }}" -ComponentManifestPath "release-assets/components-manifest.json" -GeneratedAtUtc "$createdAt" -OutputPath "release-assets/release-provenance.json"
           if ($LASTEXITCODE -ne 0) { throw "Release provenance generation failed." }
@@ -345,7 +377,7 @@ jobs:
 
           gh release view $tag --repo "${{ github.repository }}" *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --repo "${{ github.repository }}" --target main --title "DLSS NR Manager v$version" --generate-notes
+            gh release create $tag --repo "${{ github.repository }}" --target "$env:GITHUB_SHA" --title "DLSS NR Manager v$version" --generate-notes
             if ($LASTEXITCODE -ne 0) { throw "Unable to create release $tag." }
           }
 
