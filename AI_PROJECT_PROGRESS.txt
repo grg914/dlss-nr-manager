@@ -4152,3 +4152,17 @@ ACTION 2026-10-08 A090
 - PR #75 is not currently red; it is a distinct VSR-HDR/VLC feature. It overlaps
   several modern workflow/policy files and will be reconciled only after #77 is
   resolved, not closed as a duplicate.
+
+
+ACTION 2026-10-08 A091
+- Post-merge validation for cleanup PR #86 completed fully green on main
+  d0caf982692c73ea4759592d1a026ac9af0beb63.
+- Build #879: SUCCESS through regression tests, Windows single-file publish,
+  executable/icon verification and deterministic application packaging.
+- CodeQL #45: SUCCESS through offline restore, instrumented C# build, Analyze and
+  all post-analysis steps.
+- This confirms the closed-PR consolidation/recovered fixes introduced no main
+  regression.
+- PR #77 remains on frozen exact head
+  612c8e09745e6225f2808c7c323bb488eadb0bbe with Build #881 and CodeQL #47
+  active and no failed step reported.
