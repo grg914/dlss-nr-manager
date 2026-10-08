@@ -1,0 +1,41 @@
+name: Runtime Seed Writer Safety Tests
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/runtime-refresh.yml
+      - .github/workflows/nuget-seed.yml
+      - .github/workflows/runtime-seed-writer-safety.yml
+      - tools/package-approved-openmp.ps1
+      - tests/test_runtime_seed_writer_policy.py
+      - tests/test_openmp_redistribution_guard.py
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/runtime-refresh.yml
+      - .github/workflows/nuget-seed.yml
+      - .github/workflows/runtime-seed-writer-safety.yml
+      - tools/package-approved-openmp.ps1
+      - tests/test_runtime_seed_writer_policy.py
+      - tests/test_openmp_redistribution_guard.py
+
+permissions:
+  contents: read
+
+jobs:
+  verify-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          lfs: false
+      - name: Execute source-level producer and license guard tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_runtime_seed_writer_policy.py' -v
+          if [ -f tests/test_openmp_redistribution_guard.py ]; then
+            python3 -m unittest discover -s tests -p 'test_openmp_redistribution_guard.py' -v
+          fi
