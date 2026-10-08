@@ -90,6 +90,7 @@ public sealed class AiOriginDetectionService : IDisposable
 
     public void Reset()
     {
+        ManagedPathSafety.EnsureSafeForRemoval(RootDirectory);
         _primarySession?.Dispose();
         _primarySession = null;
         _secondarySession?.Dispose();
