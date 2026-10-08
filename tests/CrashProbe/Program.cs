@@ -21,7 +21,10 @@ using var helper = ExternalProcessTracker.Start(new ProcessStartInfo
 try
 {
     // Signals the parent xUnit test only AFTER production tracking started.
-    File.WriteAllText(args[0], helper.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    // Publish the ready marker atomically after closing the PID writer.
+    var stagingMarker = args[0] + ".writing";
+    File.WriteAllText(stagingMarker, helper.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    File.Move(stagingMarker, args[0]);
     await Task.Delay(TimeSpan.FromMinutes(2));
     return 0;
 }
