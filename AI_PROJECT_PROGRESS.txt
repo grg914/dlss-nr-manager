@@ -3979,3 +3979,27 @@ ACTION 2026-10-08 A082
   #78 is stale governance work that overlaps #81 but still contains some unique
   auxiliary policy/config files, so it must not be closed until useful unique
   content is selectively consolidated.
+
+
+ACTION 2026-10-08 A083
+- Created cleanup/stale-pr-consolidation from main 778bd9ca3972355435284687a3b4be7eb462de5d.
+- Consolidation commit:
+  52390f8d1d75f50b49a6c04ff955aa95084626f8.
+- Recovered the real lost change from closed PR #69:
+  FR/EN localization for the visible Minecraft non-renderer performance-pack label.
+- Selectively recovered useful stale governance/support content from #78/#80:
+  root .gitattributes;
+  GitHub bug/feature/security issue forms without hard label dependencies;
+  SUPPORT.md;
+  SOURCE_AVAILABILITY.md;
+  docs/DEPENDENCY_UPDATE_POLICY.md;
+  docs/THREAT_MODEL.md;
+  docs/RELEASE_CHECKLIST.md aligned with current governance/release architecture;
+  README links to those documents.
+- Intentionally did not restore stale #78/#80 workflow/release/runtime edits,
+  obsolete repository-policy verifier/release-metadata generator/FFmpeg source
+  packaging path, duplicate root notices, or Dependabot configuration.
+- Dependabot was omitted deliberately because generic NuGet/runtime automation
+  must first be reconciled with the manager-owned offline seed/update path.
+- This branch is intended to supersede stale governance PRs #78 and #80 after
+  validation; Local AI Studio PR #77 remains a real feature to rebase/fix separately.
