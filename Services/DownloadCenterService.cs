@@ -381,11 +381,46 @@ public sealed class DownloadCenterService
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        Remove(entry);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        await InstallAsync(
-            entry,
-            progress,
+        // AI Studio packages already stage, validate and atomically replace
+        // the selected model. In particular, do not remove a licensed model.
+        if (entry.Kind == DownloadCenterKind.AiStudioModel)
+        {
+            await InstallAsync(entry, progress, cancellationToken);
+            return;
+        }
+
+        var ownedDirectories = entry.Kind switch
+        {
+            DownloadCenterKind.MediaEngine => new[]
+            {
+                Path.Combine(_media.RootDirectory, "video2dlssnr"),
+                Path.Combine(_media.RootDirectory, "tools")
+            },
+            DownloadCenterKind.VlcRuntime => [_vlcRuntime.RootDirectory],
+            DownloadCenterKind.AiUpscale => [_aiUpscale.RootDirectory],
+            DownloadCenterKind.AiOriginDetector => [_aiOrigin.RootDirectory],
+            _ => throw new ArgumentOutOfRangeException(nameof(entry.Kind))
+        };
+
+        await ManagedComponentRedownload.ReplaceAsync(
+            ownedDirectories,
+            async token =>
+            {
+                if (entry.Kind == DownloadCenterKind.AiOriginDetector)
+                    await _aiOrigin.SetupAsync(progress, token, forceVerify: true);
+                else
+                    await InstallAsync(entry, progress, token);
+            },
+            () => entry.Kind switch
+            {
+                DownloadCenterKind.MediaEngine => _media.IsReady,
+                DownloadCenterKind.VlcRuntime => _vlcRuntime.IsReady,
+                DownloadCenterKind.AiUpscale => _aiUpscale.IsReady,
+                DownloadCenterKind.AiOriginDetector => _aiOrigin.IsReady,
+                _ => false
+            },
             cancellationToken);
     }
 
