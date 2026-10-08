@@ -1,5 +1,7 @@
 # Audit exhaustif des branches GitHub — 8 octobre 2026
 
+> **Archive historique, non inventaire actuel (R056).** Les chiffres ci-dessous correspondent à l'état observé avant nettoyage. La PR #129 a été fusionnée le 8 octobre 2026 (commit `d5221deb14e774723e1cde408d182146597d1770`). Son nettoyage a supprimé **84 branches GitHub**, confirmé indépendamment par la liste des références. Il reste **45 branches**, dont `main`, les PR #125/#128 et les anciennes releases. La branche `refactor/phase4-zero-upstream-production` a été préservée car référencée par `nuget-seed.yml`. Voir l'issue #124 (R054 et R055) et `docs/PROJECT_PROGRESS_R056.md` pour l'état post-nettoyage. Ne pas interpréter les tableaux historiques de ce document comme la liste actuelle des branches.
+
 **Dépôt :** `grg914/dlss-nr-manager` — **référence :** `main` commit `3e339572fba05f15fa89ba40161ad59b84e083dc` après fusion PR #122.
 
 Cet inventaire a été généré depuis les réponses GitHub API `/branches` et `/pulls?state=all` paginées. Il examine **toutes les références de branche** visibles lors de la lecture, et non seulement les PR ouvertes. **Présence de branche ne signifie pas fonctionnalité non fusionnée.** Une PR fusionnée (souvent par squash) reste détectée par `merged_at`, même si sa tête originale n'est plus un ancêtre direct de `main`.
