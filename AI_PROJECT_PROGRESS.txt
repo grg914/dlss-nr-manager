@@ -2646,3 +2646,14 @@ ACTION 2026-10-08 A025
 - Potential future optimization: reduce/partition the offline seed or introduce
   a trusted manager-owned reuse strategy, but do not alter this exact head
   before #864/#30 complete.
+
+
+ACTION 2026-10-08 A026
+- CodeQL #30 progressed on exact head
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9.
+- Prepare manager-owned offline NuGet feed: SUCCESS.
+- CodeQL #30 entered Restore from manager-owned feed.
+- This reconfirms the A008/A012 runtime-seed retry path on the final package-root
+  fix head, not only on the previous 0fe3c7f6 head.
+- Build #864 remains in its independent offline-feed preparation step.
+- No code change made.
