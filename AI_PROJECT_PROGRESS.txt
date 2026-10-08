@@ -2982,3 +2982,21 @@ ACTION 2026-10-08 A040
   dee722c3f5210da6bf268af6287f55cef4996489
 - Runtime Seed Refresh #22 on current main remains active only in Windows
   Streamline refresh and native ReShade build; no failed job is reported.
+
+
+ACTION 2026-10-08 A041
+- Follow-up branch now verifies full NuGet seed reproducibility, not only the
+  synthetic helper test.
+- build-nuget-offline-seed.ps1 creates the complete nuget-offline.zip twice
+  from the same validated feed, compares both SHA-256 values, and fails before
+  publication if any byte differs; the verification copy is then removed.
+- Commit: e182c69366e0e7835f2a2279ccd9ae680eb8d2d6.
+- Runtime Seed Refresh #22 native-runtime completed SUCCESS; only
+  windows-runtime / Refresh Streamline bundle remains active.
+- Read-only audit of publish-streamline-runtime.ps1 found another future
+  optimization target: STREAMLINE_RUNTIME.json is packaged with Compress-Archive
+  and the release asset is always uploaded with --clobber, even when logical
+  runtime inputs are unchanged. This can cause needless recompression/upload
+  and replacement races similar to the NuGet issue being fixed separately.
+- Active Streamline job logs are still unavailable while the job is running;
+  workflow step status remains authoritative and reports no failure.
