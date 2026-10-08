@@ -4467,3 +4467,26 @@ ACTION 2026-10-08 A104
   84aa4be916defd29137b92310651b1a274377dba.
 - Old Build #887 is intentionally superseded; a fresh exact-head Build + CodeQL
   must validate the final journal-synchronized head before merge.
+
+
+ACTION 2026-10-08 A105
+- Resumed after connection interruption on PR #75.
+- Current exact PR head is bebf94c3aaaba357e633e9ef3180d7b5fe51e7f1.
+- Build #887 failure was isolated to two stale DownloadManagerTests fixtures using
+  the pre-VLC DownloadCenterService constructor. The correction already exists in
+  commit 84aa4be916defd29137b92310651b1a274377dba and the journal-synchronized
+  head bebf94c3 includes it plus an assertion for the vlc-runtime download entry.
+- Fresh exact-head validation is Build #889 + CodeQL #55. Both have passed all
+  early checkout/toolchain/governance gates and are currently preparing their
+  manager-owned offline NuGet feeds; no failed step at this checkpoint.
+- Independently verified the pinned VLC source commit
+  6de05adcbaf2e8b85fe86aad4169393098628119 in grg914/vlc:
+  direct3d11.c defines d3d11-upscale-mode values linear/point/processor/super and
+  d3d11-hdr-mode values auto/never/always/generate;
+  the super path maps to NVIDIA RTX VSR through the NVIDIA video processor stream
+  extension when the adapter is NVIDIA;
+  d3d11_tonemap.cpp implements the NVIDIA TrueHDR stream extension for the
+  generate HDR path with NVIDIA driver support checks.
+- Therefore the VSR/HDR command-line switches emitted by VlcVideoEnhancementService
+  are grounded in the exact VLC source distributed by this project.
+- PR #75 remains mergeable=true and blocked only by required checks.
