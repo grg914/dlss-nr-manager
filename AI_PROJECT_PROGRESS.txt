@@ -2933,3 +2933,20 @@ ACTION 2026-10-08 A037
   867463fba9837d91135d73630fa17c915fe54324
 - Branch is not yet opened as a PR; current main post-merge workflows remain
   authoritative and are not disturbed by these branch-only commits.
+
+
+ACTION 2026-10-08 A038
+- Post-merge Build #865 completed SUCCESS on main commit d1da778d9af9.
+- Completed job log confirms the runtime-seed retry hardening was exercised in
+  a real concurrent refresh race:
+  attempt 1/4 observed runtime-seed-v1 temporarily without nuget-offline.zip
+  while refresh #22 replaced the asset;
+  the script retried the complete seed snapshot automatically;
+  attempt 2 validated nuget-offline.zip SHA-256
+  48c05a01cd74788d8bfb4a873fd8d60b205454e2f034cf91721c4f17e7b7160c.
+- Build #865 then completed:
+  37/37 regression tests passed;
+  deterministic application packaging passed with SHA-256
+  bc08991942b441599f15fd8dd7b4fff8326531c4796520b8f1dfab3722d9c779.
+- This is direct production-CI evidence that the bounded full-snapshot retry
+  protects consumers during manager-owned seed asset replacement.
