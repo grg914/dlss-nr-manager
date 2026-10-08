@@ -212,7 +212,10 @@ jobs:
             "OptiScaler-NR-*-vendored-win-x64.zip",
             "ReShade-Setup-*-vendored.zip",
             "temurin-25-jre-win-x64.zip",
-            "temurin-25-jre.json"
+            "temurin-25-jre.json",
+            "vlc-3.0.24-win64.zip",
+            "vlc-3.0.24.tar.xz",
+            "vlc-3.0.24-provenance.json"
           )
           & .\tools\download-runtime-seed.ps1 -Repository "${{ github.repository }}" -ReleaseTag "$env:RUNTIME_SEED_TAG" -Assets $assets -Destination "release-assets"
 
@@ -228,6 +231,21 @@ jobs:
           "streamline=$($streamline.Name)" >> $env:GITHUB_OUTPUT
           "optiscaler=$($optiscaler.Name)" >> $env:GITHUB_OUTPUT
           "reshade=$($reshade.Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Create deterministic VLC offline application bundle
+        shell: pwsh
+        run: |
+          $offline = "offline-vlc-package"
+          Remove-Item -LiteralPath $offline -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $offline | Out-Null
+          Copy-Item "publish/DlssNrManager.exe" (Join-Path $offline "DlssNrManager.exe") -Force
+          Copy-Item "release-assets/vlc-3.0.24-win64.zip" $offline -Force
+          Copy-Item "release-assets/vlc-3.0.24-provenance.json" $offline -Force
+          Copy-Item "release-assets/vlc-3.0.24.tar.xz" $offline -Force
+          $createdAt = (git show -s --format=%cI "${{ steps.source.outputs.sha }}").Trim()
+          if ([string]::IsNullOrWhiteSpace($createdAt)) { throw "Unable to resolve source commit timestamp for VLC offline bundle." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\create-deterministic-flat-zip.ps1 -InputDirectory $offline -OutputPath "DlssNrManager-vlc-offline-win-x64.zip" -TimestampUtc "$createdAt" -Compression Store
+          if ($LASTEXITCODE -ne 0) { throw "Deterministic VLC offline bundle generation failed." }
 
       - name: Materialize manager-owned LFS model content
         shell: pwsh
@@ -378,6 +396,7 @@ jobs:
           $files = @(
             "publish/DlssNrManager.exe",
             "DlssNrManager-win-x64.zip",
+            "DlssNrManager-vlc-offline-win-x64.zip",
             (Join-Path "release-assets" "${{ steps.optional.outputs.caustica }}"),
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
@@ -388,6 +407,9 @@ jobs:
             (Join-Path "release-assets" "${{ steps.seed.outputs.reshade }}"),
             "release-assets/temurin-25-jre-win-x64.zip",
             "release-assets/temurin-25-jre.json",
+            "release-assets/vlc-3.0.24-win64.zip",
+            "release-assets/vlc-3.0.24.tar.xz",
+            "release-assets/vlc-3.0.24-provenance.json",
             "release-assets/ai-origin-primary-int8.onnx",
             "release-assets/ai-origin-secondary-int8.onnx",
             "release-assets/realesrgan-x4plus.param",
@@ -450,6 +472,7 @@ jobs:
           $files = @(
             "publish/DlssNrManager.exe",
             "DlssNrManager-win-x64.zip",
+            "DlssNrManager-vlc-offline-win-x64.zip",
             "SHA256SUMS.txt",
             "release-assets/components-manifest.json",
             "release-assets/SBOM.spdx.json",
@@ -460,6 +483,9 @@ jobs:
             "release-assets/minecraft-runtime-26.2.zip",
             "release-assets/temurin-25-jre-win-x64.zip",
             "release-assets/temurin-25-jre.json",
+            "release-assets/vlc-3.0.24-win64.zip",
+            "release-assets/vlc-3.0.24.tar.xz",
+            "release-assets/vlc-3.0.24-provenance.json",
             "release-assets/ai-origin-primary-int8.onnx",
             "release-assets/ai-origin-secondary-int8.onnx",
             "release-assets/SPBRScandi.zip",
