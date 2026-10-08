@@ -2350,3 +2350,14 @@ ACTION 2026-10-08 A008
   including Build, CodeQL offline NuGet preparation and Release/runtime paths.
 - The fix intentionally preserves SHA-256 validation and post-download seed
   identity/digest consistency checks.
+
+
+ACTION 2026-10-08 A009
+- Rechecked PR #81 after runtime-seed retry fix.
+- New exact head:
+  0fe3c7f66a1aa7a6d74ef641bc4d17622c8be599
+- mergeable: true
+- mergeable_state: blocked only by checks/rules.
+- Build #862: pending
+- CodeQL #28: in_progress
+- Decision: freeze hardening branch again and validate this exact head.
