@@ -4514,3 +4514,208 @@ ACTION 2026-10-08 A106
 - PR #75 is the only remaining open pull request.
 - Next action: sync this journal-only update into #75, validate that final exact
   head, then squash-merge #75 and confirm zero open PRs + post-merge workflows.
+
+
+=== NOUVELLE DEMANDE : ROADMAP V4.0 (2026-10-08, PROMPT UTILISATEUR) ===
+Source: fichier prompt.txt fourni par l'utilisateur le 2026-10-08.
+Mode d'execution: etapes ordonnees, controle du resultat a chaque etape, conserver l'historique du journal, ne jamais declarer une validation non executee.
+
+STATUT ETAPE 0 - ENREGISTREMENT DE LA DEMANDE (2026-10-08)
+- Depot: grg914/dlss-nr-manager ; branche stable: main.
+- Head main au moment du controle: 2e1be8a20ea4efe0daabd6e0e06af1e591f253a3 (PR #91).
+- La PR #75 a ete integree depuis le dernier checkpoint A106; aucune PR ouverte au moment du controle.
+- Derniere release stable publiee: v3.2.0. La v4.0 n'est PAS encore preparee ni validee.
+- Derniers checks Build et CodeQL pour ce head: SUCCESS.
+- tests/DlssNrManager.Tests existe: 8 fichiers, dont 7 suites de tests C# et 1 .csproj.
+- 95 branches listees par l'API (premiere page); ne PAS toutes les fusionner aveuglement.
+- Ce checkpoint ne pretend pas que les demandes V4 sont implementees.
+
+PLAN ORDONNE DE TRAITEMENT (valider le resultat avant de cocher)
+[EN COURS] 0. Sauvegarder le prompt complet dans ce journal et verifier sa presence sur main.
+[A FAIRE] 1. Inventaire technique de main, branches non fusionnees, releases, pipeline et tests; comparer demandes aux fonctionnalites existantes.
+[A FAIRE] 2. Materiels et Profils: AUTO, profil RTX 5060 Ti 16GB/Ryzen 7 9700X, Normal/Compatible, detection du GPU/VRAM/CPU/RAM/pilote/API, serie RTX 20/30/40/50, reevaluation si changement. Ne pas supposer que le pilote 617.42 WHQL est celui installe: analyser une detection reelle.
+[A FAIRE] 3. Traductions FR/EN exhaustives, selecteur Parametres, infobulles contextualisees pour chaque option.
+[A FAIRE] 4. Politiques, licences, sources et mises a jour du Download Manager, centre de telechargements sans boutons doublons, verification externe des artefacts et versions; mises a jour facultatives.
+[A FAIRE] 5. Analyse du cycle de vie START/RUN/STOP/CLEANUP; arret controle des workers, processus enfants, GPU/RAM, serveurs, connexions, fichiers, downloads; conserver les dependances installees et ecrire les logs.
+[A FAIRE] 6. Structure de branches: conserver main stable; utiliser branches de fonctionnalite et PR avec CI; develop facultative seulement si vraiment justifiee. Traiter branches obsoletes apres comparaison, sans perte de code.
+[A FAIRE] 7. Tests unitaires et integration; validation tests/DlssNrManager.Tests et des inclusions dans le build et la release.
+[A FAIRE] 8. Audit final: crashes/logs, securite, performances, dependances, lifecycle, rollback, tests de regression et detection d'artefacts manquants.
+[A FAIRE] 9. Nettoyage justifie; documentation/README/CHANGELOG; preparation v4.0; controle exact de la release et resume fonctionnel.
+Critere: ne pas publier ni fusionner une version 4.0 non validee. En cas de coupure, reprendre a la premiere etape non cochee et verifier main avant toute ecriture.
+
+--- DEBUT DU PROMPT UTILISATEUR ORIGINAL (verbatim) ---
+ajouter un onglet Menu: Matériels et Profils 
+  - AUTO ;
+  - RTX 5060 Ti 16GB + Ryzen 7 9700X ;
+  - Normal / Compatible ;
+  - bouton de bascule ;
+  - détection GPU, architecture, VRAM, CPU, RAM, pilote, DirectX/Vulkan ;
+  - compatibilité RTX 20 / 30 / 40 / 50 ;
+  - adaptation aux fonctions réellement disponibles ;
+  - analyse spécifique de mon pilote actuel (617.42 WHQL) ;
+  - recalcul du profil lorsqu’un pilote ou matériel change.
+
+
+
+vérifier langues Français et anglais pour l ensemble de l application et choix dans un menu paramètre.
+ajouté une info bulle adaptée a la langue sélectionnée, brève et qui affiche description explicative courte quand la souris survol la case d une option.
+
+
+vérifier s’il manque des fichiers/politiques et  dépendances à ajouter a tout le projet et a Download Manager.
+vérifier que les fichier ou model téléchargé depuis leur source externe sont disponible.
+vérifier que tout ce que l appli dépend puisse être correctement mis a jour si nouvel version disponible sur source externe oficielle avec ajout bouton maj sélectionnable si maj détecté dans le centre de téléchargement mais pas obligatoire pour fonctionnement.
+
+verifier dossier tests/DlssNrManager.Tests
+vérifier que chaque fichier est au bon endroit et bien pull dans la version finale
+
+
+
+PROCESSUS ET FERMETURE
+
+Pour chaque outil lancé par l'application :
+
+vérifier :
+
+START
+↓
+RUN
+↓
+STOP
+↓
+CLEANUP
+
+Lorsque l'application se ferme :
+
+arrêter les workers
+
+arrêter les subprocess
+
+arrêter les serveurs locaux
+
+fermer les connexions
+
+libérer GPU
+
+libérer RAM
+
+fermer les fichiers
+
+arrêter les téléchargements
+
+nettoyer les ressources temporaires autres que les dépendances téléchargées
+
+écrire le log final
+
+Aucun processus enfant ne doit rester actif sauf si son fonctionnement permanent est explicitement prévu.
+
+
+En général, dans un projet GitHub avec plusieurs branches :
+
+main (ou master) → contient la version stable du projet.
+develop → peut contenir la version en cours de développement.
+feature/... → une branche par fonctionnalité ou tâche.
+bugfix/... → une branche pour corriger un bug.
+Quand une fonctionnalité est terminée, on fait généralement :
+
+feature/ma-fonctionnalite
+          ↓
+       develop
+          ↓
+         main
+Donc oui, les branches de travail sont généralement fusionnées à un moment donné, mais on ne fusionne pas toutes les branches directement dans main à la fin.
+
+Exemple
+Vous avez :
+
+main
+ └── develop
+      ├── feature/login
+      ├── feature/paiement
+      └── feature/profil
+Une fois feature/login terminée :
+
+feature/login → develop
+Puis feature/login peut être supprimée, puisqu'elle n'est plus nécessaire.
+
+Ensuite, quand develop est suffisamment stable :
+
+develop → main
+Les trois fonctionnalités se retrouvent alors dans main.
+
+À retenir : une branche feature est généralement temporaire. Elle sert à travailler séparément, puis elle est fusionnée dans la branche de développement/principale et peut être supprimée.
+
+donc fais le nécessaire pour obtenir l'application complète et fonctionnel https://github.com/grg914/dlss-nr-manager/branches/all
+
+
+- Finalisation 4.0
+  - audit global ;
+  - tests modules + intégration ;
+  - lifecycle/shutdown ;
+  - crashes/logs ;
+  - dépendances ;
+  - sécurité ;
+  - UI/UX ;
+  - mise à jour et rollback ;
+  - validation finale des fonctionnalités.
+
+ensuite
+effectuer un audit final
+
+effectuer les tests de régression
+
+vérifier les dépendances
+
+vérifier la sécurité
+
+vérifier les performances
+
+vérifier les processus
+
+vérifier l'arrêt complet
+
+nettoyer les éléments inutiles
+
+mettre à jour la documentation
+
+mettre à jour le README
+
+mettre à jour le CHANGELOG
+
+préparer la version
+
+vérifier que la dernière releases sois complète
+
+mettre à jour AI_PROJECT_PROGRESS.txt
+
+générer un résumé complet de l'application
+--- FIN DU PROMPT UTILISATEUR ORIGINAL ---
+
+
+ACTION 2026-10-08 V4-STEP-1: AUDIT INITIAL ET VERIFICATION DU DEPOT
+- Etape 0 TERMINEE: PR #92 fusionnee vers main apres Build et CodeQL SUCCESS.
+- Le prompt original du 2026-10-08 est present dans AI_PROJECT_PROGRESS.txt sur main; historique precedent conserve.
+- Main: v3.2.0 est la derniere release stable; aucune release v4.0 n'a ete creee.
+- Inventaire: Services/ 52 fichiers lors de l'audit; tests/DlssNrManager.Tests contient le csproj et 7 suites de tests preexistantes.
+- Menu production existant: 13 entrees; l'onglet Materiels et Profils est absent de main et fait l'objet de PR #93.
+- GPU existant: detection par registre NVIDIA / NVIDIA-SMI et garde des capacites RTX 20/30/40/50; manque dans main: VRAM, CPU, RAM, architecture, pilote, API et profils materiels complets.
+- Localisation existante: langues FR/EN dans Application et table de traduction; audit heuristique de MainWindow.xaml: 332 valeurs uniques texte/contenu/info-bulle, ~15 potentiellement non traduites. Plusieurs controles n'ont pas de ToolTip; exhaustivite a prouver en etape 3.
+- Download Center existant: install/remove/redownload, modal licence manuelle, VLC centralise, SHA-256 et gouvernance manager-owned; l'exhaustivite des mises a jour externes/fonctions est encore a verifier.
+- Lifecycle existant: ExternalProcessTracker + Windows Job Object KILL_ON_JOB_CLOSE, arret depuis App.OnExit et MainWindow.Closed. Une verification exhaustive des processus workers/AI Studio/VLC/FFmpeg reste a faire.
+- Politique upstream: manifeste de composants, depends lock, upstream-monitor quotidien, revisions pinnees, regles de licences et rollback documentees. Absence de verification de chaque URL/update en direct a ce stade.
+- 95 branches retournees par la premiere page du listing avant creation des branches de la demande; ne pas fusionner/supprimer sans comparer leur contenu.
+- Issues ouvertes lors de l'audit: #87, #82, #79, #76, #51.
+- Version pilote 617.42 WHQL: publication officielle NVIDIA le 2026-10-06; NVIDIA documente une anomalie possible du mode d'alimentation Prefer Maximum Performance. Ne pas confondre validation du numero officiel et detection locale.
+- Etape 1: audit initial documente, mais verification de toutes les branches, dependances, performances et tests de fin encore A FAIRE.
+
+ACTION 2026-10-08 V4-STEP-2: IMPLEMENTATION MATERIELS ET PROFILS EN VALIDATION
+- PR #93 sur branche feature/v4-hardware-profiles-20261008.
+- Nouvel onglet en FIN de menu (index 13), conservant les indices fixes VLC et Telechargements.
+- AUTO et preset RTX 5060 Ti 16GB + Ryzen 7 9700X; Mode Normal/Compatible via bascule; preferences locales persistantes.
+- Detection read-only GPU, generation/architecture RTX, VRAM, CPU, RAM, pilote NVIDIA, D3D12 runtime et Vulkan loader/ICD.
+- Pilote 617.42: information officielle WHQL, probleme connu, sans pretendre que ce pilote est installe sans sonde NVIDIA-SMI.
+- Acces NVIDIA-SMI par chemin Windows de confiance seulement; processus enfant supervise.
+- Refus de debloquer une capacite par preset manuel sur hardware non compatible.
+- Recalcul a la selection de l'onglet et au retour dans la fenetre; fingerprint du materiel/pilote.
+- FR/EN + info-bulles pour les nouvelles options; tests xUnit de choix/fallback et architecture.
+- STATUT: CODE COMMITTE, BUILD/CODEQL EN ATTENTE. PAS encore valide en execution sur Windows et PAS encore fusionne.
+- NE PAS annoncer version 4.0 disponible.
