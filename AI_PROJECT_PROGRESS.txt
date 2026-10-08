@@ -3695,3 +3695,17 @@ ACTION 2026-10-08 A067
   and is now auditing the manager-owned Streamline runtime seed.
 - CodeQL #36 completed checkout and is initializing CodeQL.
 - No PR #85 code change made; exact head remains frozen.
+
+
+ACTION 2026-10-08 A067
+- PR #84 exact-head Build #871 validated the A066 fix and the routing hardening:
+  Validate shell helper syntax: SUCCESS
+  Validate runtime refresh scope mapping: SUCCESS
+  Validate self-contained tooling: SUCCESS
+  Verify deterministic flat ZIP helper: SUCCESS
+  Validate repository governance: SUCCESS
+- Build #871 then passed SBOM, Minecraft Vulkan/NGX and Caustica/Scandi audits
+  and entered the Streamline runtime audit.
+- No failed Build step is reported.
+- CodeQL #37 is still awaiting/obtaining its runner at this checkpoint.
+- No further branch change made; exact head 5e23418 remains frozen.
