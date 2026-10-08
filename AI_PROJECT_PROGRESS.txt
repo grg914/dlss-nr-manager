@@ -3885,3 +3885,27 @@ ACTION 2026-10-08 A078
   CodeQL #39 in_progress;
   Runtime Seed Refresh #24 partially complete, with NuGet and Java already
   SUCCESS and NuGet SKIP-unchanged proof captured in A076.
+
+
+ACTION 2026-10-08 A079
+- Began read-only audit for the next runtime-asset reproducibility / skip-unchanged
+  hardening pass while PR #84 exact-head CI runs.
+- Confirmed current churn sources on main dca84bee:
+  Streamline uses Compress-Archive and unconditional gh release upload --clobber;
+  Minecraft runtime uses Compress-Archive and unconditional --clobber;
+  Real-ESRGAN runtime ZIP is assembled inline with Compress-Archive and uploaded
+  unconditionally;
+  OptiScaler and ReShade build scripts package with Compress-Archive and
+  runtime-refresh uploads them unconditionally;
+  FFmpeg packages with plain zip -9, inheriting source/output mtimes, then
+  runtime-refresh uploads unconditionally;
+  Temurin already computes changed from the upstream ZIP digest but still always
+  uploads both ZIP and metadata, while metadata contains refreshed_at_utc, so
+  an unchanged JRE still causes release churn.
+- This matches the digest/update evidence captured after #23/#24 and identifies
+  the next hardening direction after #84:
+  deterministic packaging where project-built archives are involved;
+  digest-aware SKIP unchanged publication for every mutable runtime-seed asset;
+  deterministic/stable Temurin metadata when upstream bytes/version are unchanged;
+  remote digest verification after any actual replacement.
+- No implementation change made while PR #84 is frozen on e39886fe.
