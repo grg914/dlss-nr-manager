@@ -2657,3 +2657,16 @@ ACTION 2026-10-08 A026
   fix head, not only on the previous 0fe3c7f6 head.
 - Build #864 remains in its independent offline-feed preparation step.
 - No code change made.
+
+
+ACTION 2026-10-08 A027
+- Exact-head CI advanced on both pipelines.
+- Build #864:
+  Prepare manager-owned offline NuGet feed: SUCCESS
+  Restore strictly from manager-owned feed: in_progress
+- CodeQL #30:
+  Restore from manager-owned feed: SUCCESS
+  Build application for CodeQL: in_progress
+- The final 3d6365a8 head has therefore passed the previously fragile
+  manager-owned seed download/validation path in both Build and CodeQL.
+- No code change made.
