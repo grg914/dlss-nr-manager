@@ -61,9 +61,13 @@ public sealed class GpuDetectionService
     {
         try
         {
-            using var process = Process.Start(new ProcessStartInfo
+            var executable = NvidiaSmiLocator.FindInstalled();
+            if (executable == null)
+                return [];
+
+            using var process = ExternalProcessTracker.Start(new ProcessStartInfo
             {
-                FileName = "nvidia-smi.exe",
+                FileName = executable,
                 Arguments = "--query-gpu=name --format=csv,noheader",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -71,18 +75,9 @@ public sealed class GpuDetectionService
                 CreateNoWindow = true
             });
 
-            if (process == null)
-                return [];
-
             if (!process.WaitForExit(3000))
             {
-                try
-                {
-                    if (!process.HasExited)
-                        process.Kill(entireProcessTree: true);
-                }
-                catch { }
-
+                ExternalProcessTracker.Kill(process);
                 return [];
             }
 

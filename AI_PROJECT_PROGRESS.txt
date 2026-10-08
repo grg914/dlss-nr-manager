@@ -4784,3 +4784,13 @@ ACTION 2026-10-08 V4-RECOVERY R006 - PR #94 VALIDEE ET FUSIONNEE
 - La branche PR #96 est synchronisee avec ce main et garde tous les checkpoints R001 a R005 + la section PR #94 de main, sans ecrasement du journal.
 - Etape suivante exacte: valider Build et CodeQL sur le head reconcile de PR #96, corriger les erreurs si presentes, ne PAS supprimer l'ancienne version lors d'un echec de redownload.
 - L'issue #95 reste ouverte, faute de crash-recovery persistant et de validation sur le poste reel.
+
+
+ACTION 2026-10-08 V4-SECURITY S001 - GPU NVIDIA-SMI EXECUTION TRUST
+- Branche security/v4-trusted-gpu-probing base main 97eacd2269340af71099f09c96e4d773b778fb65 creee sans modifier PR #97 ou PR #98.
+- Ancien GpuDetectionService lancait Process.Start("nvidia-smi.exe") avec resolution PATH; risque de charger un executable homonyme non approuve et de laisser un enfant non suivi.
+- Correction: NvidiaSmiLocator.FindInstalled depuis System32 NVIDIA-SMI ou ProgramFiles/NVIDIA Corporation/NVSMI seulement (aucun PATH); GpuDetectionService passe par ExternalProcessTracker.Start et Kill pour nettoyage enfant.
+- HardwareProfileService deja hardened est refactorise pour partager exactement la meme politique de chemins et eviter divergence.
+- Deux tests unitaires: chemin absolu NVIDIA attendu et resolver retourne seulement un chemin allowlist existant.
+- Pas de changement de capacites RTX ni des réglages utilisateur; si NVIDIA-SMI introuvable dans les emplacements approuves, registre GPU demeure un fallback et la sonde ne lance aucun binaire inconnu.
+- A FAIRE: ouvrir PR, Build/CodeQL Windows, fusion apres synchronisation avec main et autres PR; journal d'action mis a jour ici.
