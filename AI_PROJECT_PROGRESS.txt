@@ -3789,3 +3789,12 @@ ACTION 2026-10-08 A071
 - CodeQL #36 remains in Analyze on the same exact head.
 - PR #84 corrected head 6ed0c434 is independently revalidating under #872/#38
   and remains second in merge order.
+
+
+ACTION 2026-10-08 A072
+- PR #85 exact-head CodeQL #36 security Analyze completed SUCCESS on
+  0bf7d6631200ee692801bb2f16f31574cfd9694e.
+- Offline feed, restore, instrumented C# build, Analyze and post-analysis steps
+  are all SUCCESS; only final checkout cleanup remained at this checkpoint.
+- Build #870 is already fully SUCCESS on the same exact head.
+- No code change made; next action is final CodeQL completion + PR merge-state check.
