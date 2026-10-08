@@ -112,8 +112,25 @@ if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1
 }
 
 $sha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+$verificationZip = "$zip.repro-check"
+Remove-Item -LiteralPath $verificationZip -Force -ErrorAction SilentlyContinue
+try {
+    & (Join-Path $PSScriptRoot "create-deterministic-flat-zip.ps1") `
+        -InputDirectory $feed `
+        -OutputPath $verificationZip `
+        -TimestampUtc $deterministicArchiveTimestamp `
+        -Compression Store
+
+    $verificationSha256 = (Get-FileHash -LiteralPath $verificationZip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($verificationSha256 -ne $sha256) {
+        throw "Offline NuGet seed is not reproducible. First SHA-256: $sha256; second SHA-256: $verificationSha256"
+    }
+}
+finally {
+    Remove-Item -LiteralPath $verificationZip -Force -ErrorAction SilentlyContinue
+}
 Write-Host "Offline NuGet seed generated with $($manifest.packages.Count) packages: $zip"
-Write-Host "Deterministic seed SHA-256: $sha256"
+Write-Host "Deterministic seed SHA-256 verified twice: $sha256"
 if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
     "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
     "package_count=$($manifest.packages.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
