@@ -2526,3 +2526,14 @@ ACTION 2026-10-08 A016
   fails with a clear message if PSScriptRoot itself cannot be resolved.
 - Goal: compatibility across Windows PowerShell 5.1 and PowerShell 7 invocation.
 - This change restarts PR #81 checks; exact-head validation is required again.
+
+
+ACTION 2026-10-08 A017
+- Rechecked PR #81 after deterministic package root fix.
+- Exact head:
+  3d6365a8fafc6bd773ec29585bcc8bee996f62e9
+- mergeable: true
+- mergeable_state: blocked only by pending checks.
+- Build #864: pending
+- CodeQL #30: pending
+- Branch frozen for exact-head validation.
