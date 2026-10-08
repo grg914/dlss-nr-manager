@@ -1,0 +1,10 @@
+# Repository-wide ownership
+* @grg914
+
+# Security/release/dependency policy
+/.github/ @grg914
+/tools/ @grg914
+/third_party/DEPENDENCIES.lock.json @grg914
+/third_party/UPSTREAMS.json @grg914
+/SECURITY.md @grg914
+/THIRD_PARTY_NOTICES.md @grg914
