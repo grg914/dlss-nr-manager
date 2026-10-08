@@ -4747,3 +4747,9 @@ ACTION 2026-10-08 V4-RECOVERY R004 - GARDE SUPPLEMENTAIRE SWAP TRANSACTIONNEL
 - Rappels: ne pas supprimer dossiers utilisateurs; les sauvegardes sont retenues si rollback echoue.
 - Cette verification est une revue statique, PAS une validation de crash ni de concurrence multi-processus.
 - Etape a suivre: lancer CI et tester rollback. 
+
+ACTION 2026-10-08 V4-RECOVERY R005 - REVUE COMPILATION
+- PR #96 ouverte sur issue #95; les tests d'integration sont encore en attente.
+- Revue preventive: utilisation explicite du type string[] pour le switch C# contenant plusieurs expressions de collection; evite inference fragile d'une collection expression sans type cible.
+- Aucun changement d'API public du gestionnaire de telechargement; aucune modification des boutons.
+- Point de reprise: CI Build + CodeQL requis sur le nouveau head, suivi de synchronisation avec main apres PR #94.
