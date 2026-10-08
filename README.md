@@ -43,6 +43,19 @@ The Minecraft installer now resolves Caustica only from **DLSS NR Manager releas
 
 A literal zero-external-toolchain build is not possible: Windows, GPU drivers, Minecraft, Java/MSVC/Vulkan tooling and license-restricted NVIDIA SDK inputs remain external prerequisites. NVIDIA/DLSS is therefore treated as a local-only build input rather than blindly vendored into the public repository.
 
+## Repository security, licensing and data policies
+
+Project-wide policies are documented and enforced in CI:
+
+- [Security policy](SECURITY.md)
+- [Contributing rules](CONTRIBUTING.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [Privacy and data handling](docs/PRIVACY_AND_DATA.md)
+- [Download and runtime policy](docs/DOWNLOAD_RUNTIME_POLICY.md)
+- [Release security and provenance](docs/RELEASE_SECURITY.md)
+
+`tools/verify-repository-policy.ps1` verifies required policy files, immutable dependency refs, SHA-pinned GitHub Actions, ignored local-only SDK material and release provenance/checksum invariants.
+
 ## Download
 
 Use the latest GitHub Release for the Windows x64 single-file build. Current releases publish:
