@@ -31,7 +31,7 @@ Design references are kept under:
 - `docs/mockups/dlssnrmanager-menu/index.html` — interactive browser reference
 - `docs/mockups/dlssnrmanager-menu/MainWindow_DlssNrManager_Menu_Mockup.xaml` — WPF layout reference
 
-The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, AI-origin detection, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
+The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, VSR-HDR Vidéo, AI-origin detection, AI Studio local, Downloads, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
 
 ## Self-contained monorepo migration
 
@@ -306,6 +306,15 @@ Safe, explicit cache analysis and cleanup inspired by system-cleaner workflows:
 - **Run DISM + SFC** starts an explicit elevated repair sequence: `DISM /Online /Cleanup-Image /RestoreHealth` followed by `sfc /scannow`
 
 The cleaner intentionally does **not** touch browser profiles, documents, downloads, registry entries, restore points, Recycle Bin data, Prefetch, WinSxS or Windows Update storage.
+
+### VSR-HDR Vidéo
+
+- VLC 3.0.24 Direct3D11 playback with independently selectable NVIDIA VSR, artifact-reduction request, RTX Video HDR / TrueHDR, x1/x2/x4 window scale and fullscreen
+- Real-time playback never rewrites the source video
+- VLC installation, removal and redownload are centralized in **Téléchargements**; the VSR-HDR page only links to that manager
+- **Restore HD Vidéo** can combine Neural Rendering, conservative artifact cleanup and Real-ESRGAN x2/x4 processing into a new file saved in the selected folder
+- VLC is mirrored as a manager-owned external runtime with matching source/provenance and a deterministic `DlssNrManager-vlc-offline-win-x64.zip` bundle
+- Runtime setup prefers a bundled offline asset, then the latest stable DLSS NR Manager release, then the manager-owned `runtime-seed-v1`; application runtime never downloads VLC directly from VideoLAN
 
 ### Media Neural Rendering, AI Upscale and AI-origin detection
 
