@@ -26,7 +26,13 @@ jobs:
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: Real-ESRGAN-vendored-win-x64
-          path: build-realesrgan/Release/realesrgan-ncnn-vulkan.exe
+          path: |
+            build-realesrgan/Release/realesrgan-ncnn-vulkan.exe
+            build-realesrgan/Release/LICENSE-Real-ESRGAN.txt
+            build-realesrgan/Release/LICENSE-ncnn.txt
+            build-realesrgan/Release/LICENSE-libwebp.txt
+            build-realesrgan/Release/SOURCE-Real-ESRGAN.json
+            build-realesrgan/Release/README-Real-ESRGAN.md
           if-no-files-found: error
 
   optiscaler:
