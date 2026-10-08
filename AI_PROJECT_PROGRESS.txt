@@ -4719,3 +4719,17 @@ ACTION 2026-10-08 V4-STEP-2: IMPLEMENTATION MATERIELS ET PROFILS EN VALIDATION
 - FR/EN + info-bulles pour les nouvelles options; tests xUnit de choix/fallback et architecture.
 - STATUT: CODE COMMITTE, BUILD/CODEQL EN ATTENTE. PAS encore valide en execution sur Windows et PAS encore fusionne.
 - NE PAS annoncer version 4.0 disponible.
+
+
+ACTION 2026-10-08 V4-STEP-2: VALIDATION ET FUSION
+- PR #93 (head 2d90d0edd285027162bb45b9c30357b5fca151f9) : Build SUCCESS, CodeQL SUCCESS.
+- CI Windows: 69 tests xUnit passes, 0 echec, 0 ignore; publication single-file Windows x64 reussie.
+- Merge squash dans main: e34dd3040b1674fa5f6262e45ed60b3a73cf4eda.
+- Verification sur PC RTX 5060 Ti reel non effectuee ; controles automatises uniquement.
+
+ACTION 2026-10-08 V4-STEP-3: INFOBULLES OPTIONS FR/EN (PR EN PREPARATION)
+- Branche feature/v4-localized-option-tooltips depuis main e34dd304.
+- 51 controles nommes (CheckBox, ComboBox, Slider) couverts par infobulle explicative dediee ; le CheckBox dynamique PC Cleanup reprend Details en liaison.
+- Ajout de 48 descriptions anglais/francais a UiLocalizationService ; les trois infobulles preexistantes sont conservees.
+- Un test de regression inspecte le XAML reel et verifie l'aller-retour FR/EN des infobulles nommees.
+- STATUT: attend Build/CodeQL et revue avant fusion. Les autres etiquettes, boutons et valeurs dynamiques de l'application ne sont pas encore garantis totalement bilingues ; audit a poursuivre.
