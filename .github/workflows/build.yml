@@ -75,7 +75,8 @@ jobs:
             "tools/build-nuget-offline-seed.ps1",
             "tools/verify-repository-governance.ps1",
             "tools/generate-sbom.ps1",
-            "tools/generate-release-provenance.ps1"
+            "tools/generate-release-provenance.ps1",
+            "tools/create-application-package.ps1"
           )
 
           foreach ($path in $paths) {
