@@ -3020,3 +3020,23 @@ ACTION 2026-10-08 A042
   Refresh Streamline bundle active; all other jobs are SUCCESS.
 - Next: synchronize this live journal into the follow-up branch once, then open
   the PR and freeze its exact head for Build/CodeQL validation.
+
+
+ACTION 2026-10-08 A043
+- Synchronized AI_PROJECT_PROGRESS.txt through A042 into
+  hardening/deterministic-nuget-seed exactly once before CI validation.
+- Follow-up branch journal-sync commit:
+  c2300164d481502785894e429370a327edf81ff1
+- Opened PR #83:
+  hardening: make NuGet runtime seed reproducible
+  https://github.com/grg914/dlss-nr-manager/pull/83
+- Exact PR head frozen for validation:
+  c2300164d481502785894e429370a327edf81ff1
+- GitHub REST now reports mergeable=true, mergeable_state=blocked only by checks.
+- Exact-head checks started:
+  Build #866 (run 37716330015)
+  CodeQL #32 (run 37716329811)
+- Both jobs obtained runners and entered checkout.
+- Runtime Seed Refresh #22 on current main still has only windows-runtime /
+  Refresh Streamline bundle active; all other refresh jobs remain SUCCESS.
+- No further change will be made to PR #83 head unless CI exposes a defect.
