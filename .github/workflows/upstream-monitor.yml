@@ -183,34 +183,34 @@ jobs:
           "branch=$branch" >> $env:GITHUB_OUTPUT
           "pr_number=$pr" >> $env:GITHUB_OUTPUT
 
-      - name: Record restricted updates
+      - name: Record notify-only updates requiring manual review
         if: steps.refresh.outputs.notify_ids != ''
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ids = "${{ steps.refresh.outputs.notify_ids }}"
-          "Restricted/manual upstream updates detected: $ids" >> $env:GITHUB_STEP_SUMMARY
+          "Notify-only upstream updates requiring manual review: $ids" >> $env:GITHUB_STEP_SUMMARY
 
-          $title = "[upstream] restricted update: $ids"
+          $title = "[upstream] manual review update: $ids"
           $existing = gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number" |
             Select-Object -First 1
 
           if ([string]::IsNullOrWhiteSpace($existing)) {
             $body = @"
-          A newer upstream revision was detected for a dependency that cannot be automatically promoted because it crosses a license-restricted/local build boundary.
+          A newer upstream revision was detected for a dependency configured as notify-only.
 
           Dependency ids: $ids
 
-          No restricted NVIDIA SDK/runtime material was downloaded into the public repository and no production asset was changed automatically.
+          Notify-only means automatic promotion is intentionally disabled. The reason may be license restrictions, required local build inputs, model/runtime quality validation, or compatibility/regression testing. No production asset was changed automatically.
 
-          Resolve this by supplying the required licensed input locally, rebuilding the affected manager-owned runtime, validating signatures/hashes, then updating the corresponding lock.
+          Review the dependency's policy entry in third_party/UPSTREAMS.json, validate the required build/runtime/license conditions, then update the corresponding lock and manager-owned runtime through the normal protected PR path.
           "@
             gh issue create --repo "${{ github.repository }}" --title $title --body $body
-            if ($LASTEXITCODE -ne 0) { throw "Unable to create restricted upstream update issue." }
+            if ($LASTEXITCODE -ne 0) { throw "Unable to create notify-only upstream review issue." }
           }
           else {
-            Write-Host "Restricted upstream issue #$existing is already open."
+            Write-Host "Notify-only upstream review issue #$existing is already open."
           }
 
   validate-windows:
