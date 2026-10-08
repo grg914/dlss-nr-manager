@@ -53,6 +53,9 @@ Project-wide policies are documented and enforced in CI:
 - [Privacy and data handling](docs/PRIVACY_AND_DATA.md)
 - [Download and runtime policy](docs/DOWNLOAD_RUNTIME_POLICY.md)
 - [Release security and provenance](docs/RELEASE_SECURITY.md)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Dependency update policy](docs/DEPENDENCY_UPDATE_POLICY.md)
+- [Component distribution policy](manifests/component-policy.json)
 
 `tools/verify-repository-policy.ps1` verifies required policy files, immutable dependency refs, SHA-pinned GitHub Actions, ignored local-only SDK material and release provenance/checksum invariants.
 
