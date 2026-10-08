@@ -4995,14 +4995,15 @@ public partial class MainWindow : Window
             ? $"{mib / 1024d:0.0} GiB"
             : L("Unknown", "Inconnue");
         var driverNote = snapshot.NvidiaDriverVersion == "617.42"
-            ? L("Driver 617.42 detected; WHQL status not verified by this scan.",
-                "Pilote 617.42 détecté ; statut WHQL non vérifié par cette analyse.")
+            ? L(
+                "NVIDIA 617.42 WHQL (6 Oct 2026) • NVIDIA reports a known issue: Prefer Maximum Performance mode may not apply correctly. Actual installed version detected through NVIDIA-SMI.",
+                "NVIDIA 617.42 WHQL (6 oct. 2026) • Problème connu signalé par NVIDIA : le mode Performances maximales peut ne pas s'appliquer correctement. Version installée détectée par NVIDIA-SMI.")
             : L("Driver information is read from NVIDIA-SMI when available.",
                 "La version du pilote provient de NVIDIA-SMI lorsqu'il est disponible.");
 
         HardwareDetailsText.Text = string.Join(Environment.NewLine, new[]
         {
-            $"{L("GPU", "GPU")}: {snapshot.Gpu.Name} ({snapshot.Gpu.Generation})",
+            $"{L("GPU", "GPU")}: {snapshot.Gpu.Name} ({snapshot.Gpu.Generation}, {snapshot.GpuArchitecture})",
             $"{L("VRAM", "VRAM")}: {vram}",
             $"{L("CPU", "CPU")}: {snapshot.CpuName} ({snapshot.CpuArchitecture})",
             $"{L("RAM", "RAM")}: {ram}",
