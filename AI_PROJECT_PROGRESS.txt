@@ -1,3 +1,10 @@
+CHECKPOINT R036 (2026-10-08) - FIX CONFLIT ASSEMBLY CRASH PROBE
+- CodeQL #117 sur head eff8b95a85107fe238f30bc7d60ad8f18621952b: SUCCESS run 37835835029.
+- Build #117 run 37835835222 FAILURE pendant Run regression tests: erreurs CS0433 dans ExternalProcessTrackerTests (l'assembly de test et l'assembly CrashProbe exposent toutes deux ExternalProcessTracker apres inclusion source). L'echec est de COMPILATION; le test d'arret brutal n'a PAS ete execute et ne doit pas etre declare valide.
+- Correctif commit 412ef3ea83e8fe7003d3255d42aaf80485a125a6: ProjectReference de CrashProbe dans DlssNrManager.Tests.csproj avec Aliases="CrashProbe" pour isoler ses types tout en conservant le dll dans le repertoire de test. Nouveau Build/CodeQL obligatoire et verification que crash test execute effectivement sous Windows.
+- Ne pas cacher echec ni desactiver test, ne pas fermer issue #95. PR #117 active, PR #115/116 anciennes a fermer seulement apres merge. Release 4.0 BLOQUEE.
+PROCHAINE ACTION: verifier CI head apres checkpoint, diagnostiquer echec eventuel dans logs Windows, verifier publication x64 et tests, puis merger si vert et main a jour.
+
 CHECKPOINT R035 (2026-10-08) - CONSOLIDATION APRES MERGE #114 / FIX NETSDK1151
 - PR #114 fusionnee dans main: commit 2f8dc722a501e14f8b2f76b949402d66a574cfa2, Build 37833994094 SUCCESS (120 tests passed, 0 failed / skipped, Windows x64), CodeQL 37833994120 SUCCESS. Ancienne PR #113 fermee en tant que remplacee.
 - Branche actuelle security/v4-crash-and-safe-removal-reconciled construite depuis main apres #114: porte ensemble les tests de crash Windows de #115 et protections des suppressions de #116. Fusion UNIQUEMENT apres nouveaux Build + CodeQL.
