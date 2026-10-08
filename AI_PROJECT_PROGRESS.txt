@@ -1,3 +1,18 @@
+CHECKPOINT R023 (2026-10-08) - TEST WINDOWS PROCESS LIFECYCLE
+- Ajout tests/DlssNrManager.Tests/ExternalProcessTrackerTests.cs: lance le binaire Windows system32 ping.exe puis ExternalProcessTracker.Kill et exige WaitForExit, finally Kill meme si test echoue. Test d'arret normal, PAS preuve d'arret brutal de l'application ni GPU.
+- PR #110 contient aussi protections de liens/jonctions et checkpoints R021/R022. Nouveau head et Build/CodeQL requis avant fusion.
+- Issue #111: bouton mise a jour optionnelle dans Download Center toujours manquant et documente.
+PROCHAINE ACTION: CI Windows et CodeQL sur head final #110; verifier absence de processus orphelin et terminer vrais tests manager KILL/crash avant v4.0.
+
+CHECKPOINT R022 (2026-10-08) - AUDIT PROMPT.TXT MATERIEL / FR-EN / DOWNLOAD CENTER
+- HardwareProfileService contient AUTO, RTX 5060 Ti/9700X, Normal/Compatible; detecte GPU, CPU, RAM, VRAM, pilote NVIDIA-SMI de confiance, D3D12 et Vulkan; empreinte de profil inclut pilote et hardware. MainWindow recalcule au demarrage, manuellement et apres activation si derniere sonde > 5 minutes. Validation Windows reelle non realisee.
+- Controle statique des tooltips MainWindow.xaml: 60 tooltips, 57 textes explicatifs ont une entree FR dans UiLocalizationService; 3 autres sont binding Details et chemins %LOCALAPPDATA%. Cela ne valide pas l'affichage runtime ni l'ensemble des textes dynamiques.
+- DownloadCenterService ne presente pas de champ version disponible ni de mise a jour version-aware et MainWindow.xaml offre Installer, Retelecharger, Supprimer, Actualiser. Exigence prompt.txt MANQUANTE: bouton Mettre a jour optionnel avec source officielle/manifest valide et rollback, sans doublon. Issue #111 creee, encore OUVERTE.
+- PR #108 (R019 README) et #109 (CHANGELOG) en CI; PR #110 guard symlink/junction en CI. Ne pas fusionner ni declarer ces etapes terminees avant Build+CodeQL verts sur commit exact.
+PROCHAINE ACTION: verifier CI et fusion des PR par ordre, puis implementer issue #111 dans une branche isolee avec versioning/manifest et tests, tout en conservant la politique de licences.
+
+CHECKPOINT R021 (2026-10-08) - PR en cours: security/v4-recovery-parent-reparse-guard. Audit confirme qu'un parent symlink/junction pouvait rediriger un chemin de rollback; ajout de garde-fous install, rollback, recovery et legacy media, plus tests de non-destruction avec lien symbolique si la plateforme l'autorise. PAS FUSIONNE, CI BUILD + CODEQL OBLIGATOIRES. Ne pas publier v4.0. Prochaine action: verifier CI de la PR, corriger tout echec, fusionner si vert puis tester crash/kill sous Windows reel.
+
 CHECKPOINT R019 (2026-10-08) - AUDIT FINALISATION V4 / README
 - PR #106 (checkpoint R018) toujours sous verification GitHub Build/CodeQL au moment du controle; ne pas fusionner avant checks SUCCESS sur head courant.
 - Inspection du code main: ExternalProcessTracker utilise un Windows Job Object KILL_ON_JOB_CLOSE et traque les enfants, mais ce mecanisme ne prouve pas un test sur Windows avec crash/kill effectif.

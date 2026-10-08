@@ -127,6 +127,67 @@ public sealed class ManagedComponentRedownloadTests : IDisposable
         Assert.Equal("old", File.ReadAllText(Path.Combine(target, "engine.txt")));
     }
 
+    [Fact]
+    public async Task Junction_parent_is_rejected_before_replacement()
+    {
+        var external = Path.Combine(_root, "unmanaged");
+        Directory.CreateDirectory(external);
+        File.WriteAllText(Path.Combine(external, "keep.txt"), "user data");
+        var link = Path.Combine(_root, "linked");
+        if (!TryCreateDirectorySymlink(link, external))
+            return; // Some Windows CI accounts lack the symlink privilege.
+
+        var executed = false;
+        await Assert.ThrowsAsync<IOException>(() =>
+            ManagedComponentRedownload.ReplaceAsync(
+                [Path.Combine(link, "runtime")],
+                _ =>
+                {
+                    executed = true;
+                    return Task.CompletedTask;
+                },
+                () => true));
+
+        Assert.False(executed);
+        Assert.Equal("user data", File.ReadAllText(Path.Combine(external, "keep.txt")));
+        Assert.False(Directory.Exists(Path.Combine(external, "runtime")));
+    }
+
+    [Fact]
+    public void Junction_parent_is_rejected_during_startup_recovery()
+    {
+        var external = Path.Combine(_root, "unmanaged");
+        Directory.CreateDirectory(external);
+        var target = Path.Combine(external, "runtime");
+        var backup = target + ".dlssnr-redownload-backup-" + Guid.NewGuid().ToString("N");
+        Directory.CreateDirectory(backup);
+        File.WriteAllText(Path.Combine(backup, "keep.txt"), "previous");
+
+        var link = Path.Combine(_root, "linked");
+        if (!TryCreateDirectorySymlink(link, external))
+            return;
+
+        var result = ManagedComponentRedownload.RecoverOwnedBackups(
+            [Path.Combine(link, "runtime")]);
+
+        Assert.Equal(0, result.Restored);
+        Assert.Equal(1, result.Failed);
+        Assert.False(Directory.Exists(target));
+        Assert.Equal("previous", File.ReadAllText(Path.Combine(backup, "keep.txt")));
+    }
+
+    private static bool TryCreateDirectorySymlink(string link, string target)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(link, target);
+            return true;
+        }
+        catch (UnauthorizedAccessException) { return false; }
+        catch (IOException) { return false; }
+        catch (PlatformNotSupportedException) { return false; }
+    }
+
     private string CreateOldRuntime()
     {
         var path = Path.Combine(_root, "runtime");

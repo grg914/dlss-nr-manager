@@ -93,6 +93,34 @@ public sealed class ManualModelDirectorySwapTests : IDisposable
         Assert.Equal("keep-license", File.ReadAllText(Path.Combine(license, "accepted.json")));
     }
 
+    [Fact]
+    public void Symlink_parent_does_not_redirect_manual_import()
+    {
+        var unmanaged = Path.Combine(_root, "user-owned");
+        Directory.CreateDirectory(unmanaged);
+        var target = Path.Combine(unmanaged, "model");
+        var stage = target + ".staging-" + Guid.NewGuid().ToString("N");
+        Directory.CreateDirectory(target);
+        Directory.CreateDirectory(stage);
+        File.WriteAllText(Path.Combine(target, "weights.bin"), "old");
+        File.WriteAllText(Path.Combine(stage, "weights.bin"), "new");
+        var link = Path.Combine(_root, "redirect");
+
+        try { Directory.CreateSymbolicLink(link, unmanaged); }
+        catch (UnauthorizedAccessException) { return; }
+        catch (IOException) { return; }
+        catch (PlatformNotSupportedException) { return; }
+
+        Assert.Throws<InvalidDataException>(() =>
+            ManualModelDirectorySwap.ReplaceStaged(
+                Path.Combine(link, Path.GetFileName(stage)),
+                Path.Combine(link, "model")));
+
+        Assert.Equal("old", File.ReadAllText(Path.Combine(target, "weights.bin")));
+        Assert.Equal("new", File.ReadAllText(Path.Combine(stage, "weights.bin")));
+        Assert.Empty(Directory.GetDirectories(unmanaged, "model.backup-*"));
+    }
+
     private (string Staging, string Target) CreateFolders()
     {
         var target = Path.Combine(_root, "model");
