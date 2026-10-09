@@ -26,7 +26,7 @@ public sealed class MediaReleaseSnapshotTests
         Assert.True(start >= 0 && end > start);
 
         var setup = source[start..end];
-        Assert.Equal(1, Regex.Matches(setup, @"await GetJsonAsync\(").Count);
+        Assert.Single(Regex.Matches(setup, @"await GetJsonAsync\(").Cast<Match>());
         Assert.Contains("FindAsset(managerRelease!, ProcessorAsset)", setup);
         Assert.Contains("FindAsset(managerRelease!, FfmpegAsset)", setup);
 
