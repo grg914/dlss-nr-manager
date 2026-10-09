@@ -279,27 +279,41 @@ $manifest = [ordered]@{
 }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $package "STREAMLINE_RUNTIME.json") -Encoding UTF8
 
-if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
-Compress-Archive -Path (Join-Path $package "*") -DestinationPath $zip -Force
+# Archive metadata must not depend on the current clock or ZIP input mtimes.
+# The manager-owned package always contains the same pinned SDK inputs and
+# verified Neural Rendering pair until the source lock/reviewed hashes change.
+$deterministicZip = Join-Path $PSScriptRoot "create-deterministic-flat-zip.ps1"
+$zipTimestampUtc = "2000-01-01T00:00:00Z"
+& $deterministicZip -InputDirectory $package -OutputPath $zip `
+    -TimestampUtc $zipTimestampUtc -Compression Optimal
 if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1MB) {
     throw "Manager-owned Streamline runtime package was not generated correctly."
 }
 
-$packageHash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-Write-Host "Uploading $zip to $Repository release $ReleaseTag..."
-& gh release upload $ReleaseTag $zip --repo $Repository --clobber
-if ($LASTEXITCODE -ne 0) { throw "Streamline runtime release upload failed." }
-
-$managerJson = & gh api "repos/$Repository/releases/tags/$ReleaseTag"
-if ($LASTEXITCODE -ne 0) { throw "Unable to verify manager release after Streamline upload." }
-$manager = $managerJson | ConvertFrom-Json
-$remote = @($manager.assets) | Where-Object { $_.name -eq ([IO.Path]::GetFileName($zip)) } | Select-Object -First 1
-if (-not $remote) { throw "Uploaded manager-owned Streamline runtime asset was not found." }
-if ([long]$remote.size -ne (Get-Item -LiteralPath $zip).Length) { throw "Remote Streamline asset size mismatch." }
-if ($remote.digest -and ([string]$remote.digest).StartsWith("sha256:")) {
-    $remoteHash = ([string]$remote.digest).Substring(7).ToLowerInvariant()
-    if ($remoteHash -ne $packageHash) { throw "Remote Streamline asset digest mismatch." }
+# Repackage the exact same inputs independently and require byte-for-byte
+# reproducibility before considering any publication.
+$verifyZip = Join-Path $work "streamline-verify.zip"
+try {
+    & $deterministicZip -InputDirectory $package -OutputPath $verifyZip `
+        -TimestampUtc $zipTimestampUtc -Compression Optimal
+    $packageHash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+    $verifyHash = (Get-FileHash -LiteralPath $verifyZip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($packageHash -ne $verifyHash) {
+        throw "Streamline runtime ZIP is not reproducible for identical inputs."
+    }
+}
+finally {
+    Remove-Item -LiteralPath $verifyZip -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Published manager-owned Streamline runtime bundle: $($remote.name)"
+# The existing Streamline guard verifies the two pinned Neural Rendering DLLs
+# and the NVIDIA signature before any manager-owned asset is uploaded.
+& (Join-Path $PSScriptRoot "verify-streamline-runtime-asset.ps1") -ZipPath $zip
+
+# Never clobber the canonical asset. If it differs, the shared publisher
+# creates a content-addressed staging asset, leaving existing consumers alone.
+& (Join-Path $PSScriptRoot "publish-append-only-release-zip.ps1") `
+    -Path $zip -Repository $Repository -ReleaseTag $ReleaseTag
+
+Write-Host "Verified deterministic manager-owned Streamline runtime bundle: $([IO.Path]::GetFileName($zip))"
 Write-Host "SHA-256: $packageHash"
