@@ -44,6 +44,13 @@ public sealed class MinecraftIntegrationService
     private const string ManagerRepository = "grg914/dlss-nr-manager";
     private const string MinecraftRuntimeAsset =
         "minecraft-runtime-26.2.zip";
+    internal const string ValidatedSpbrScandiAsset = "SPBRScandi.zip";
+    internal const string ValidatedSpbrScandiSha256 =
+        "1bb19e99208e8826eabf7775fa06353e78a6ea449d43f12cd9d26eacf5bd9177";
+
+    internal static bool IsValidatedSpbrScandiAsset(string name, string? sha256) =>
+        name.Equals(ValidatedSpbrScandiAsset, StringComparison.Ordinal) &&
+        string.Equals(sha256, ValidatedSpbrScandiSha256, StringComparison.OrdinalIgnoreCase);
     private const string JavaRuntimeAsset =
         "temurin-25-jre-win-x64.zip";
     private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
@@ -743,23 +750,14 @@ public sealed class MinecraftIntegrationService
                     "resourcepacks");
                 Directory.CreateDirectory(resourcePacks);
 
-                var spbrProject =
-                    new MinecraftProject(
-                        "SPBR LabPBR",
-                        "spbr",
-                        "spbr");
-
                 try
                 {
-                    var spbr = await InstallBundledMinecraftProjectAsync(
+                    var spbr = await InstallValidatedSpbrScandiAsync(
                         instance.RootDirectory,
                         resourcePacks,
                         backup,
-                        spbrProject,
-                        loader: null,
                         progress,
-                        cancellationToken,
-                        requireReleaseBuild: true);
+                        cancellationToken);
 
                     managedDestinations.Add(spbr.InstalledPath);
                     installed.Add(spbr);
@@ -774,13 +772,13 @@ public sealed class MinecraftIntegrationService
                         backup,
                         instance.RootDirectory,
                         resourcePacks,
-                        spbrProject.FileToken,
-                        spbrProject.FabricModId);
+                        "spbr",
+                        "spbr");
 
                     AppLogger.Warn(
-                        $"Optional Minecraft resource pack SPBR was skipped: {ex.Message}");
+                        $"Optional Minecraft resource pack SPBRScandi was skipped: {ex.Message}");
                     progress?.Report(
-                        $"Optional SPBR LabPBR skipped: {ex.Message}");
+                        $"Optional SPBRScandi pack skipped: {ex.Message}");
                 }
             }
 
@@ -980,6 +978,66 @@ public sealed class MinecraftIntegrationService
         {
             TryDelete(temp);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// The user-facing Scandi LabPBR option must install the manager-owned,
+    /// SHA-pinned SPBRScandi.zip release asset, NOT the generic SPBR runtime
+    /// bundle dependency. Keep staging separate from live resourcepacks so
+    /// no working pack is removed before integrity verification succeeds.
+    /// </summary>
+    private async Task<MinecraftComponentResult> InstallValidatedSpbrScandiAsync(
+        string minecraftRoot,
+        string resourcePacks,
+        string backup,
+        IProgress<string>? progress,
+        CancellationToken cancellationToken)
+    {
+        var release = await FindReleaseAsync(
+            ManagerRepository,
+            candidate => candidate.Assets.Any(asset =>
+                asset.Name.Equals(ValidatedSpbrScandiAsset, StringComparison.Ordinal)),
+            includePrerelease: false,
+            cancellationToken);
+
+        var asset = SelectAsset(release,
+            name => name.Equals(ValidatedSpbrScandiAsset, StringComparison.Ordinal));
+
+        if (!IsValidatedSpbrScandiAsset(asset.Name, asset.Sha256))
+        {
+            throw new InvalidDataException(
+                "Manager-owned SPBRScandi release asset is not the validated SHA-256 version.");
+        }
+
+        var destination = Path.Combine(resourcePacks, ValidatedSpbrScandiAsset);
+        var staging = destination + ".staged";
+        TryDelete(staging);
+
+        try
+        {
+            await DownloadAssetAsync(asset, staging, progress, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await BackupMatchingFileAsync(
+                minecraftRoot,
+                resourcePacks,
+                backup,
+                "spbr",
+                "spbr",
+                staging,
+                cancellationToken);
+
+            File.Move(staging, destination, true);
+            return new MinecraftComponentResult(
+                "SPBRScandi LabPBR",
+                release.Tag,
+                destination,
+                ManagerRepository);
+        }
+        finally
+        {
+            TryDelete(staging);
         }
     }
 
