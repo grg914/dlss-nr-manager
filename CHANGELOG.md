@@ -5,13 +5,21 @@ All notable release changes should be recorded here. This file distinguishes **m
 ## [Unreleased] — 4.0 readiness (not shipped)
 
 
+
+### Latest six-stage completion checkpoint (2026-10-09)
+- Stage 1 completed: protected signed #386 merged `ed77e0e2fbde9b833c8fd6ec82e36b0caffe4794`; superseded source drafts #382/#383 closed with append-only history preserved.
+- Stage 2 incomplete #111: optional version receipts and validated immutable newer packages for VLC, Real-ESRGAN, AI-origin not yet supported; media and permitted model updates already work, no raw upstream install.
+- Stage 3 source hardening staged #389 signed `03a256c8fa1d34c9e79f70f4b1dc9d739be8a03d` (NOT MERGED; CI pending): cancel explicit update/official source version lookups at exit; physical Windows / GPU / file locks #95 still needed.
+- Stage 4 licensed OpenMP gate exists in `runtime-refresh.yml` but operator redistribution rights and actual Real-ESRGAN acceptance #79 unresolved; source reachability not binary verification.
+- Stage 5 device-level GPU/RAM/VRAM/performance and shutdown acceptance pending; stage 6 v4 packaging not yet authorized. Project/release remain 3.2.0; latest v3.2.0 29 digest-bearing release assets lack `SBOM.spdx.json` and `release-provenance.json`, which current release workflow generates for future releases.
+
 ### 2026-10-09 protected stable source and remaining audit gates
 
 - Protected [#375](https://github.com/grg914/dlss-nr-manager/pull/375) integrated mandatory full SHA-256 and canonical asset allowlisting for executable manager updates; [#377](https://github.com/grg914/dlss-nr-manager/pull/377) integrated crash-recoverable VLC GUID/legacy backups. Both underwent signed exact-head Build/CodeQL and protected squash; #377 Build had 234/234 xUnit. [#380](https://github.com/grg914/dlss-nr-manager/pull/380) preserved the signed B01/B02 evidence in shared coordination journals.
 - Reopened [#111](https://github.com/grg914/dlss-nr-manager/issues/111): only selected media/redistributable models offer validated opt-in Update; other managed components require authoritative version receipts, allowlisted promoted assets, and rollback tests. Read-only upstream discoveries must not silently install anything.
 - Confirmed 25/25 locked public GitHub commit references currently exist and published `v3.2.0` has 29 non-empty assets with GitHub SHA-256 digest metadata. Binary bytes, real Windows runtime, model downloads and GPU performance remain **unverified**.
 - Published `v3.2.0` lacks standalone `SBOM.spdx.json` and `release-provenance.json` assets despite the current release workflow generating them for future publications; these are explicit v4 packaging checks, not grounds to mutate an immutable older release.
-- FR/EN static and cached dynamic Download Center labels are addressed in [draft #382](https://github.com/grg914/dlss-nr-manager/pull/382) (**not yet merged or accepted** at this checkpoint). Physical Windows/RTX shutdown and recovery [#95](https://github.com/grg914/dlss-nr-manager/issues/95), Microsoft OpenMP legal provenance or omission [#79](https://github.com/grg914/dlss-nr-manager/issues/79), end-to-end source/model validation, FR/EN visual acceptance and final release controls remain outstanding. No v4.0 tag or assets published.
+- FR/EN static and dynamic Download Center labels were integrated in **signed protected [#386](https://github.com/grg914/dlss-nr-manager/pull/386)**, exact signed-head Windows Build **244/244 xUnit** and CodeQL SUCCESS; 11/11 blob identity and deterministic package validation. Physical Windows/RTX shutdown and recovery [#95](https://github.com/grg914/dlss-nr-manager/issues/95), Microsoft OpenMP legal provenance or omission [#79](https://github.com/grg914/dlss-nr-manager/issues/79), end-to-end source/model validation, FR/EN visual acceptance and final release controls remain outstanding. No v4.0 tag or assets published.
 
 
 
