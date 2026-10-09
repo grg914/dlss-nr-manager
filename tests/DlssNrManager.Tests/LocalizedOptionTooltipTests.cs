@@ -132,4 +132,38 @@ public sealed class LocalizedOptionTooltipTests
             Assert.NotEqual(french, UiLocalizationService.Translate(french, "en"));
         }
     }
+    [Theory]
+    [InlineData("Media engine ready.", "Moteur média prêt.")]
+    [InlineData("Media engine not installed • manage it from Downloads.", "Moteur média non installé • gérez-le depuis Téléchargements.")]
+    [InlineData("AI Upscale engine ready.", "Moteur d'agrandissement IA prêt.")]
+    [InlineData("AI Upscale engine installed • local verification pending.", "Moteur d'agrandissement IA installé • vérification locale en attente.")]
+    [InlineData("AI Upscale engine not installed • manage it from Downloads.", "Moteur d'agrandissement IA non installé • gérez-le depuis Téléchargements.")]
+    [InlineData("AI origin detector ready.", "Détecteur d'origine IA prêt.")]
+    [InlineData("AI origin detector installed • local verification pending.", "Détecteur d'origine IA installé • vérification locale en attente.")]
+    [InlineData("AI origin detector not installed • manage it from Downloads.", "Détecteur d'origine IA non installé • gérez-le depuis Téléchargements.")]
+    public void Initial_media_detection_statuses_are_bilingual(
+        string english, string french)
+    {
+        Assert.Equal(french, UiLocalizationService.Translate(english, "fr"));
+        Assert.Equal(english, UiLocalizationService.Translate(french, "en"));
+    }
+
+    [Fact]
+    public void Startup_media_statuses_do_not_mix_French_labels_into_English()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null &&
+               !File.Exists(Path.Combine(dir.FullName, "DlssNrManager.csproj")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+        var source = File.ReadAllText(Path.Combine(dir!.FullName, "MainWindow.xaml.cs"));
+        var start = source.IndexOf("MediaStatusText.Text = _media.IsReady", StringComparison.Ordinal);
+        var end = source.IndexOf("_cleanupItems = _pcCleanup.CreateDefaultItems()", start, StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start);
+        var statuses = source[start..end];
+        Assert.Equal(3, statuses.Split("manage it from Downloads.", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain("manage it from Téléchargements", statuses);
+        Assert.Contains("AI Upscale engine installed • local verification pending.", statuses);
+    }
+
 }

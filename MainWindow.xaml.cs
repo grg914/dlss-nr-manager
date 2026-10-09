@@ -173,7 +173,7 @@ public partial class MainWindow : Window
 
         MediaStatusText.Text = _media.IsReady
             ? "Media engine ready."
-            : "Media engine not installed • manage it from Téléchargements.";
+            : "Media engine not installed • manage it from Downloads.";
         RefreshVlcEnhancementStatus();
         RefreshVideoEnhancementOptionStates();
 
@@ -182,13 +182,13 @@ public partial class MainWindow : Window
             ? "AI Upscale engine ready."
             : _aiUpscale.IsInstalled
                 ? "AI Upscale engine installed • local verification pending."
-                : "AI Upscale engine not installed • manage it from Téléchargements.";
+                : "AI Upscale engine not installed • manage it from Downloads.";
 
         AiOriginStatusText.Text = _aiOrigin.IsReady
             ? "AI origin detector ready."
             : _aiOrigin.IsInstalled
                 ? "AI origin detector installed • local verification pending."
-                : "AI origin detector not installed • manage it from Téléchargements.";
+                : "AI origin detector not installed • manage it from Downloads.";
 
         _cleanupItems = _pcCleanup.CreateDefaultItems();
         PcCleanupList.ItemsSource = _cleanupItems;
