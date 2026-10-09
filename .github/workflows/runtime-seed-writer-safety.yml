@@ -18,6 +18,7 @@ on:
       - tools/package-approved-openmp.ps1
       - tests/test_runtime_seed_writer_policy.py
       - tests/test_openmp_redistribution_guard.py
+      - tests/test_openmp_redist_ps51.ps1
   push:
     branches: [main]
     paths:
@@ -36,6 +37,7 @@ on:
       - tools/package-approved-openmp.ps1
       - tests/test_runtime_seed_writer_policy.py
       - tests/test_openmp_redistribution_guard.py
+      - tests/test_openmp_redist_ps51.ps1
 
 permissions:
   contents: read
@@ -87,4 +89,9 @@ jobs:
           $zip = Join-Path $work 'temurin-25-jre-win-x64.zip'
           [IO.Compression.ZipFile]::CreateFromDirectory($directory, $zip)
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\test_legacy_ps51_seed_zip.ps1 -ZipPath $zip -PublisherPath .\tools\publish-append-only-runtime-seed.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify licensed REDIST path handling under Windows PowerShell 5.1
+        shell: pwsh
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\test_openmp_redist_ps51.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

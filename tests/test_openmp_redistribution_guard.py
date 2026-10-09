@@ -19,6 +19,8 @@ class OpenMpRedistributionGuardTests(unittest.TestCase):
         self.assertIn("VC/Redist/MSVC", self.helper)
         self.assertIn("debug_nonredist", self.helper)
         self.assertIn("Get-AuthenticodeSignature", self.helper)
+        self.assertIn("Get-DescendantRelativePath", self.helper)
+        self.assertNotIn("[IO.Path]::GetRelativePath(", self.helper)
 
     def test_digest_and_provenance_required(self):
         self.assertIn("Get-FileHash", self.helper)

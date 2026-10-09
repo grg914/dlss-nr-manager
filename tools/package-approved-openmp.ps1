@@ -6,6 +6,22 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Windows PowerShell 5.1 runs on .NET Framework and does not expose
+# [IO.Path]::GetRelativePath (available in modern .NET only).
+function Get-DescendantRelativePath {
+    param(
+        [Parameter(Mandatory=$true)][string]$RootDirectory,
+        [Parameter(Mandatory=$true)][string]$CandidatePath
+    )
+    $fullRoot = [IO.Path]::GetFullPath($RootDirectory).TrimEnd([char[]]@([char]92, [char]47))
+    $fullCandidate = [IO.Path]::GetFullPath($CandidatePath)
+    $prefix = $fullRoot + [IO.Path]::DirectorySeparatorChar
+    if (-not $fullCandidate.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "OpenMP REDIST candidate is outside the approved Visual Studio directory."
+    }
+    return $fullCandidate.Substring($prefix.Length).Replace('\', '/')
+}
+
 # This guard is intentionally fail-closed. Redistributing a DLL copied from
 # Windows System32 does NOT prove the producer holds an eligible VS license.
 # Only the *licensed* build/release operator may enable this flag after
@@ -30,7 +46,7 @@ if (!(Test-Path -LiteralPath $redist -PathType Container)) {
 # Exclude non-distributable debug-only and wrong-architecture paths.
 $candidates = @(Get-ChildItem -LiteralPath $redist -File -Filter 'vcomp140.dll' -Recurse |
     Where-Object {
-        $relative = [IO.Path]::GetRelativePath($redist, $_.FullName).Replace('\', '/')
+        $relative = Get-DescendantRelativePath -RootDirectory $redist -CandidatePath $_.FullName
         $relative -match '^[0-9][^/]*/x64/Microsoft\.VC[^/]*\.OpenMP/vcomp140\.dll$' -and
         $relative -notmatch '(?i)debug_nonredist|onecore'
     } | Sort-Object FullName -Descending)
@@ -57,7 +73,7 @@ if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvar
 $meta = [ordered]@{
     filename = 'vcomp140.dll'
     source = 'licensed Visual Studio VC/Redist/MSVC/x64'
-    source_path = [IO.Path]::GetRelativePath($root, $source.FullName).Replace('\', '/')
+    source_path = (Get-DescendantRelativePath -RootDirectory $root -CandidatePath $source.FullName)
     file_version = $version
     sha256 = $sha
     authenticode_status = 'Valid'
