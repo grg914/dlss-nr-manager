@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "metadata_type": "github-draft-staging-asset-lock",
+  "status": "STAGING_ONLY_NOT_INSTALLABLE",
+  "repository": "grg914/dlss-nr-manager",
+  "release": {
+    "tag": "ai-studio-assets-staging-20261009",
+    "draft": true,
+    "release_id": 408045888,
+    "html_url": "https://github.com/grg914/dlss-nr-manager/releases/tag/untagged-66445eed3f939d788b2f",
+    "observed_target_branch": "feature/v4.5-ai-studio-reconciled-signed-20261009"
+  },
+  "asset_count": 13,
+  "total_asset_bytes": 14456229310,
+  "source_pins": {
+    "7zr.exe": {
+      "repository": "ip7z/7zip",
+      "release_tag": "26.04",
+      "verification": "SHA-256 matched official GitHub release digest"
+    },
+    "ComfyUI_windows_portable_nvidia.7z": {
+      "repository": "Comfy-Org/ComfyUI",
+      "release_tag": "v0.39.0",
+      "verification": "SHA-256 matched official GitHub release digest"
+    },
+    "image_flux2_klein_text_to_image.json": {
+      "repository": "Comfy-Org/workflow_templates",
+      "revision": "8be1f8c4b5af2d550d70922a23b79cee599e1f3e",
+      "path": "templates/image_flux2_klein_text_to_image.json",
+      "verification": "SHA-256 matched immutable upstream source"
+    },
+    "image_flux2_klein_image_edit_4b_distilled.json": {
+      "repository": "Comfy-Org/workflow_templates",
+      "revision": "8be1f8c4b5af2d550d70922a23b79cee599e1f3e",
+      "path": "templates/image_flux2_klein_image_edit_4b_distilled.json",
+      "verification": "SHA-256 matched immutable upstream source"
+    }
+  },
+  "assets": [
+    {
+      "name": "7zr.exe",
+      "bytes": 602624,
+      "github_asset_sha256": "256feca8e274e5da655e2a284fabafd9f554365eb164862089dacd4e8276d282",
+      "uploaded": true
+    },
+    {
+      "name": "ComfyUI_windows_portable_nvidia.7z",
+      "bytes": 2003629308,
+      "github_asset_sha256": "3dca347842ed1c6c833105fafb1669284685a3e54df41578d5f94bcc898ae039",
+      "uploaded": true
+    },
+    {
+      "name": "flux-2-klein-4b-fp8.7z.001",
+      "bytes": 1992294400,
+      "github_asset_sha256": "973ff1616a261cdd0391b24990670c1780ceba7c12c07d4f835c7686212050db",
+      "uploaded": true
+    },
+    {
+      "name": "flux-2-klein-4b-fp8.7z.002",
+      "bytes": 1992294400,
+      "github_asset_sha256": "271344919f509f4e90810bd594d361a5bb547dfddf6c23153556bdd071bb5254",
+      "uploaded": true
+    },
+    {
+      "name": "flux-2-klein-4b-fp8.7z.003",
+      "bytes": 86035890,
+      "github_asset_sha256": "469ffa919839ba4d340a7ad9f491ea3db127e5e1fc9aee135c695458770a3fcc",
+      "uploaded": true
+    },
+    {
+      "name": "flux2-vae.safetensors",
+      "bytes": 336211292,
+      "github_asset_sha256": "868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3",
+      "uploaded": true
+    },
+    {
+      "name": "image_flux2_klein_image_edit_4b_distilled.json",
+      "bytes": 109330,
+      "github_asset_sha256": "2f6ea7cfd3f1d7b0628ac648c4a1090e912ea0f30b7c80a625c9831043bc7b32",
+      "uploaded": true
+    },
+    {
+      "name": "image_flux2_klein_text_to_image.json",
+      "bytes": 69872,
+      "github_asset_sha256": "8bb879856e54765b6c3ed219181e855981d8d10cfd19acff836603d9b56e838f",
+      "uploaded": true
+    },
+    {
+      "name": "qwen_3_4b.7z.001",
+      "bytes": 1992294400,
+      "github_asset_sha256": "15d9561cf73849694689ed4555ef2849845dfb3274aabf533fafd5d10200ee85",
+      "uploaded": true
+    },
+    {
+      "name": "qwen_3_4b.7z.002",
+      "bytes": 1992294400,
+      "github_asset_sha256": "c6397d3acab85e850118973ce33014b36d8b3edd2662dd71e7b07436962d937d",
+      "uploaded": true
+    },
+    {
+      "name": "qwen_3_4b.7z.003",
+      "bytes": 1992294400,
+      "github_asset_sha256": "c2e42aad966ad6940bd68d77aa341ead6e474fc1b86f1c640263fdbe4c33e1cc",
+      "uploaded": true
+    },
+    {
+      "name": "qwen_3_4b.7z.004",
+      "bytes": 1992294400,
+      "github_asset_sha256": "ec1fb559c2ab576d1a1fabe8e3946635cf315d47724e414e95ecfab1524cd02a",
+      "uploaded": true
+    },
+    {
+      "name": "qwen_3_4b.7z.005",
+      "bytes": 75804594,
+      "github_asset_sha256": "26a50773f544cfd70377058892c89437ed85688baab29f9518100754fd59ae68",
+      "uploaded": true
+    }
+  ],
+  "limitations": [
+    "GitHub draft releases are not a public application download feed.",
+    "Digest checks for FLUX.2 and Qwen numbered 7-Zip volumes cover uploaded parts, not original extracted model bytes or model licensing.",
+    "These volumes are NOT compatible with AiStudioPackageService ZIP64 raw .partNNN manifest protocol without verified repackage.",
+    "ComfyUI UI workflow JSON is not an executable API prompt graph; the FP8 model requires workflow adaptation and execution review.",
+    "No source, binary, license or GPU-inference validation is implied by this staging lock.",
+    "Never promote or publish a runtime/model update automatically from this lock."
+  ]
+}
