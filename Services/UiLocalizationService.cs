@@ -10,6 +10,15 @@ public static class UiLocalizationService
 
     private static readonly Entry[] Entries =
     [
+        // v4: startup/runtime statuses must localize in both languages.
+        new("Media engine ready.", "Moteur média prêt."),
+        new("Media engine not installed • manage it from Downloads.", "Moteur média non installé • gérez-le depuis Téléchargements."),
+        new("AI Upscale engine ready.", "Moteur d'agrandissement IA prêt."),
+        new("AI Upscale engine installed • local verification pending.", "Moteur d'agrandissement IA installé • vérification locale en attente."),
+        new("AI Upscale engine not installed • manage it from Downloads.", "Moteur d'agrandissement IA non installé • gérez-le depuis Téléchargements."),
+        new("AI origin detector ready.", "Détecteur d'origine IA prêt."),
+        new("AI origin detector installed • local verification pending.", "Détecteur d'origine IA installé • vérification locale en attente."),
+        new("AI origin detector not installed • manage it from Downloads.", "Détecteur d'origine IA non installé • gérez-le depuis Téléchargements."),
         // v4.0: French-first WPF literals must also render correctly in English.
         new("Official tool versions", "Versions officielles des outils"),
         new("Compare official repositories against tracked sources (without automatic installation).", "Comparer les dépôts officiels aux sources suivies (sans installation automatique)."),
