@@ -112,28 +112,28 @@
       "category": "video-player-runtime",
       "distribution": "manager-owned release with corresponding source obligations",
       "integrity": "SHA-256",
-      "status": "feature-branch"
+      "status": "active"
     },
     {
       "id": "ai-studio-runtime",
       "category": "ai-runtime",
       "distribution": "manager-owned release",
       "integrity": "manifest+SHA-256",
-      "status": "planned/feature-branch"
+      "status": "integrated-partial"
     },
     {
       "id": "ai-studio-models-permissive",
       "category": "ai-model",
       "distribution": "manager-owned dedicated releases",
       "integrity": "chunk manifest+reconstructed SHA-256",
-      "status": "planned/feature-branch"
+      "status": "integrated-partial"
     },
     {
       "id": "ai-studio-models-restricted",
       "category": "ai-model",
       "distribution": "user-supplied after official license/access",
       "integrity": "managed local import",
-      "status": "planned/feature-branch"
+      "status": "integrated-manual-only"
     }
   ]
 }
