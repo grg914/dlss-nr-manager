@@ -8,7 +8,7 @@
                         "path":  "Caustica-RTX",
                         "url":  "https://github.com/grg914/Caustica-RTX.git",
                         "ref":  "27575c2ecf8578ca908a49c5d484ff3cc1ed0c7a",
-                        "redistribution":  "GPL-3.0 source; preserve license"
+                        "redistribution":  "LGPL-3.0-or-later project-owned source; bundled third-party and NVIDIA binaries retain their respective licenses"
                     },
                     {
                         "id":  "streamline",
