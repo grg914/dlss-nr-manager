@@ -134,6 +134,59 @@ public sealed class MinecraftExperimentalJarImportTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
+    [Fact]
+    public void CorruptReceiptHidesAutomaticRestoreAndRetainsBothJars()
+    {
+        var root = TempRoot();
+        try
+        {
+            var stable = Path.Combine(root, "mods", "caustica-stable.jar");
+            File.WriteAllText(stable, "existing Caustica");
+            var source = Path.Combine(root, "experiment.jar");
+            MakeFakeJar(source);
+            var importer = new MinecraftExperimentalJarImportService(Sha256(source));
+            importer.Import(root, source);
+            Assert.True(importer.CanRestore(root));
+
+            var backup = Path.Combine(root, ".dlss-nr-manager-backups", "caustica-experimental");
+            File.WriteAllText(Path.Combine(backup, "receipt.json"), "{corrupt");
+            Assert.True(importer.IsImported(root));
+            Assert.True(importer.HasInterruptedImport(root));
+            Assert.False(importer.CanRestore(root));
+            Assert.ThrowsAny<Exception>(() => importer.Restore(root));
+            Assert.True(File.Exists(Path.Combine(backup, "original.jar")));
+            Assert.True(File.Exists(Path.Combine(root, "mods", MinecraftExperimentalJarImportService.ExperimentalJarName)));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void ForgedSourceCommitInReceiptBlocksRestore()
+    {
+        var root = TempRoot();
+        try
+        {
+            var stable = Path.Combine(root, "mods", "caustica-stable.jar");
+            File.WriteAllText(stable, "existing Caustica");
+            var source = Path.Combine(root, "experiment.jar");
+            MakeFakeJar(source);
+            var importer = new MinecraftExperimentalJarImportService(Sha256(source));
+            importer.Import(root, source);
+
+            var receiptPath = Path.Combine(root, ".dlss-nr-manager-backups", "caustica-experimental", "receipt.json");
+            File.WriteAllText(receiptPath,
+                File.ReadAllText(receiptPath).Replace(
+                    MinecraftExperimentalJarImportService.BuildCommit,
+                    new string('f', 40), StringComparison.Ordinal));
+            Assert.False(importer.CanRestore(root));
+            Assert.True(importer.HasInterruptedImport(root));
+            Assert.Throws<InvalidDataException>(() => importer.Restore(root));
+            Assert.Equal("existing Caustica",
+                File.ReadAllText(Path.Combine(root, ".dlss-nr-manager-backups", "caustica-experimental", "original.jar")));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     private static string TempRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "DlssNrManagerCausticaCI-" + Guid.NewGuid().ToString("N"));
