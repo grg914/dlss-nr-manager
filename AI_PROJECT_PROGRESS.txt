@@ -1,3 +1,12 @@
+CHECKPOINT R086 (2026-10-09) - #123 IMMUTABLE NUGET PUBLISHER + GIT-PINNED CONSUMER
+- Stacked draft PR #139 adds tools/publish-immutable-nuget-seed.ps1: verifies non-empty ZIP with manifest.json and .nupkg, exact local SHA-256 and published GitHub digest/size, no --clobber; changed releases are staged as nuget-offline.sha256-<sha>.zip while canonical asset remains available. Both NuGet producer workflows use the same helper and concurrency group.
+- Live GitHub release runtime-seed-v1 current canonical nuget-offline.zip metadata: size 264155302, SHA256 c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e. Recorded exactly in new Git-tracked manifests/runtime-seed-assets.json.
+- tools/prepare-offline-dotnet.ps1 now resolves only its reviewed pinned asset name and tag, validates SHA256 and size again after download and before extraction; immutable filename full-hash must match pin. Version promotion becomes a reviewed Git manifest commit, not deleting live release assets.
+- Added PowerShell fake-GitHub simulation tests for initial upload, idempotence, changed-content staging, conflicting SHA rejection, invalid ZIP; tests/test_runtime_seed_writer_policy.py now covers source and manifest contracts. docs/IMMUTABLE_NUGET_SEED.md documents review, rollback and remaining scope.
+- #123 remains open: Real-ESRGAN, FFmpeg, and other publishers still have --clobber; NuGet staging and pinning requires final CI and Windows validation. PR #139 is stacked on unmerged PR #138; never merge until #138 merged and #139 retargeted and Build/CodeQL on final head successful.
+- Other v4 release gates: #111 more optional updates, #124 branch audits, #79 OpenMP legal approval, #82 ruleset administrative change, #95 real Windows/NVIDIA/power-loss recovery. No v4 release.
+NEXT: finish PR138 CI, reconcile PR139 onto main, validate mocked test/Build/CodeQL, then continue remaining immutable publishers and v4 issues.
+
 CHECKPOINT R085 (2026-10-09) - #123 IMMUTABLE NUGET STAGING (STACKED DRAFT)
 - PR137 squash merged main e6922e32fa6b5aee356d5e9cd526ad94b63150cc after Build and CodeQL SUCCESS on 969acf1f3fcdbf1191f74b39c9989c77bbdfb57b.
 - PR138 branch reconciled with this main as two-parent commit cc0df09899e7a87b346c8338c3553f0fd5a3b985; diff from main limited to video seed no-clobber plus R083/R084 journal. Build/CodeQL still underway at this checkpoint; security tests succeeded.
