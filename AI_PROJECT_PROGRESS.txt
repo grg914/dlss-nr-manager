@@ -1,3 +1,20 @@
+CHECKPOINT R084 (2026-10-09) - MERGED PR137 AND SYNCHRONIZED PR138
+- PR137 Build + CodeQL SUCCESS on HEAD 969acf1f3fcdbf1191f74b39c9989c77bbdfb57b; squash merge to main e6922e32fa6b5aee356d5e9cd526ad94b63150cc.
+- PR138 base advanced: preserve R083 and all preexisting main R082/R081/R080 journal, as well as main downloader metadata guards, while applying only the intended runtime-refresh video asset --clobber removal. PR138 requires NEW CI on exact reconciled head before merge.
+- Step #123 remains partially implemented. Immutable versioned publication and manifest promotion plus tests not completed. No v4 release.
+NEXT: validate PR138 on revised head; progress #123 without deleting live assets.
+
+CHECKPOINT R083 (2026-10-09) - SIX-ISSUE V4 SEQUENTIAL RESUMPTION / #123 VIDEO SEED
+- PR #137 metadata validation still pending Build+CodeQL on HEAD 969acf1f3fcdbf1191f74b39c9989c77bbdfb57b; no unsafe merge.
+- #123: audited runtime-refresh workflow video2dlssnr_release.zip path. Existing-asset check already skips uploading, so using --clobber on the missing-asset path is unnecessary. Removed --clobber for this one upload in branch fix/v4-runtime-seed-preserve-video-asset. Does not resolve remaining writers or guarantee atomic manifest promotion. Build+CodeQL required before merge.
+- #111: media+AI Studio optional updates already integrated, remaining components and FR/EN regression acceptance remain open.
+- #124: divergence audit requires semantic preservation of 6 important unmatched branches; no deletions authorized without proof.
+- #79: Real-ESRGAN OpenMP redistribution remains gated by explicit license/provenance approval. Never silently add System32 DLL.
+- #82: repository ruleset Protect main still requires admin-access update to add Analyze C#; the GitHub App connection lacks this action.
+- #95: physical Windows/NVIDIA, interruption, backup restoration and TOCTOU acceptance are unverified; issue stays open.
+- No v4.0 release authorized. Progress on #123 is partial and intentionally preserves existing readers and filenames.
+NEXT: validate new PR checks, complete remaining publisher/consumer migration, then #111/#124; obtain human approvals/tests for #79/#82/#95.
+
 CHECKPOINT R082 (2026-10-09) - PR137 DOWNLOADER RESTORED FROM CLEAN MAIN
 - PR #137 head b9e582fc6d36c1354960009dbc9b69cecfe80acd: Build 37865258172 FAILED in Validate self-contained tooling; CodeQL was in progress at investigation time. Build log: Unexpected token ')' in tools/download-runtime-seed.ps1.
 - Root cause: malformed prior patch left multiple duplicated downloader blocks after the legitimate file ending (805 lines versus 164 clean main lines). Earlier R081 parser repair did not remove trailing corruption.

@@ -166,7 +166,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
           gh release download --repo "${{ github.repository }}" --pattern "video2dlssnr_release.zip" --dir $dir
           if ($LASTEXITCODE -ne 0) { throw "Unable to copy manager-owned video runtime from latest stable release." }
-          gh release upload $env:RUNTIME_SEED_TAG (Join-Path $dir "video2dlssnr_release.zip") --repo "${{ github.repository }}" --clobber
+          # The asset is absent by the check above; never delete an existing one.
+          gh release upload $env:RUNTIME_SEED_TAG (Join-Path $dir "video2dlssnr_release.zip") --repo "${{ github.repository }}"
           if ($LASTEXITCODE -ne 0) { throw "Unable to publish video runtime into runtime seed." }
 
   native-runtime:
