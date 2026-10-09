@@ -27,6 +27,8 @@ public partial class MainWindow : Window
     private readonly ReShadeService _reshade = new();
     private readonly ComponentUpdateService _components = new();
     private readonly OfficialUpstreamUpdateService _officialUpdates = new();
+    private readonly AiStudioOfficialComfyUiDownloadService _officialComfyUiDownloads;
+    private AiStudioOfficialComfyUiAsset? _selectedOfficialComfyUiAsset;
     private bool _checkingOfficialUpdates;
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
@@ -112,6 +114,7 @@ public partial class MainWindow : Window
             _aiStudio,
             _aiOrigin,
             _vlcRuntime);
+        _officialComfyUiDownloads = new AiStudioOfficialComfyUiDownloadService(_aiStudio.Root);
 
         AppVersionText.Text = $"Version v{AppIdentity.VersionString}";
         SoftwareRenderingButton.Content =
@@ -4646,12 +4649,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OfficialUpdateList_SelectionChanged(
+    private async void OfficialUpdateList_SelectionChanged(
         object sender, SelectionChangedEventArgs e)
     {
         var item = OfficialUpdateList.SelectedItem as OfficialUpdateDisplay;
+        _selectedOfficialComfyUiAsset = null;
+        DownloadOfficialComfyUiButton.IsEnabled = false;
         OpenOfficialUpstreamButton.IsEnabled = item != null;
-        if (item == null)
+        if (item is null)
         {
             OfficialUpdateDetailsText.Text = "";
             return;
@@ -4659,12 +4664,92 @@ public partial class MainWindow : Window
 
         OfficialUpdateDetailsText.Text =
             item.Update.Source.Repository + "\n" +
-            L("Pinned project reference: ", "Référence épinglée du projet : ") +
+            L("Pinned source: ", "Source épinglée : ") +
             (item.Update.Source.LockedTag ?? item.Update.Source.LockedRef) + "\n" +
-            L("Promotion policy: ", "Politique de validation : ") +
+            L("Promotion: ", "Validation : ") +
             item.Update.Source.Promotion + "\n" +
-            L("Upstream discovery does not authorize an installation. Only approved manager-owned packages can be installed.",
-              "La détection amont n'autorise aucune installation. Seuls les packages approuvés du Manager peuvent être installés.");
+            L("Checking a source never authorizes installation.",
+              "Une vérification de source n'autorise jamais une installation.");
+
+        // Only ComfyUI has an identified official Windows NVIDIA portable binary.
+        // The other AI upstreams expose source revisions, not installable packages.
+        if (item.Update.Source.Id != "ai-studio-comfyui")
+            return;
+
+        try
+        {
+            var asset = await _officialComfyUiDownloads.FindLatestAsync();
+            if (!ReferenceEquals(OfficialUpdateList.SelectedItem, item))
+                return;
+
+            if (asset is null)
+            {
+                OfficialUpdateDetailsText.Text += "\n" + L(
+                    "No verified official Windows portable asset found.",
+                    "Aucune archive Windows officielle vérifiable trouvée.");
+                return;
+            }
+
+            _selectedOfficialComfyUiAsset = asset;
+            var gib = asset.Size / (1024d * 1024 * 1024);
+            OfficialUpdateDetailsText.Text += "\n" +
+                L($"Official NVIDIA archive {asset.Tag}: {gib:0.00} GiB (SHA-256 published). Download to staging only.",
+                  $"Archive NVIDIA officielle {asset.Tag} : {gib:0.00} Gio (SHA-256 publié). Téléchargement en préparation uniquement.");
+            DownloadOfficialComfyUiButton.IsEnabled = _downloadCenterCts is null;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("Official ComfyUI asset lookup unavailable: " + ex.GetType().Name);
+            if (ReferenceEquals(OfficialUpdateList.SelectedItem, item))
+                OfficialUpdateDetailsText.Text += "\n" + L(
+                    "Official asset lookup unavailable; existing runtime unchanged.",
+                    "Recherche de l'archive indisponible ; runtime existant inchangé.");
+        }
+    }
+
+    private async void DownloadOfficialComfyUi_Click(
+        object sender, RoutedEventArgs e)
+    {
+        if (_downloadCenterCts != null || _selectedOfficialComfyUiAsset is not { } asset ||
+            OfficialUpdateList.SelectedItem is not OfficialUpdateDisplay item ||
+            item.Update.Source.Id != "ai-studio-comfyui")
+            return;
+
+        _downloadCenterCts = new CancellationTokenSource();
+        DownloadCenterCancelButton.Visibility = Visibility.Visible;
+        DownloadOfficialComfyUiButton.IsEnabled = false;
+        RefreshDownloadCenterButtons();
+        try
+        {
+            var path = await _officialComfyUiDownloads.StageAsync(
+                asset,
+                new Progress<string>(message => OfficialUpdateStatusText.Text = message),
+                _downloadCenterCts.Token);
+            OfficialUpdateStatusText.Text = L(
+                $"Verified archive staged (not installed): {path}",
+                $"Archive vérifiée préparée (non installée) : {path}");
+        }
+        catch (OperationCanceledException)
+        {
+            OfficialUpdateStatusText.Text = L(
+                "Official download cancelled; active runtime unchanged.",
+                "Téléchargement officiel annulé ; runtime actif inchangé.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("Official ComfyUI staging failed: " + ex.GetType().Name);
+            OfficialUpdateStatusText.Text = L(
+                $"Official download failed: {ex.Message}",
+                $"Échec du téléchargement officiel : {ex.Message}");
+        }
+        finally
+        {
+            _downloadCenterCts.Dispose();
+            _downloadCenterCts = null;
+            DownloadCenterCancelButton.Visibility = Visibility.Collapsed;
+            DownloadOfficialComfyUiButton.IsEnabled = _selectedOfficialComfyUiAsset != null;
+            RefreshDownloadCenterButtons();
+        }
     }
 
     private void OpenOfficialUpstream_Click(
