@@ -140,6 +140,11 @@ public static class UiLocalizationService
         new("Permanent export currently targets a standard encoded video. NVIDIA VSR / RTX Video HDR are display-time effects and are not falsely baked into the file.", "L’export permanent produit actuellement une vidéo encodée standard. NVIDIA VSR / RTX Video HDR sont des effets d’affichage et ne sont pas faussement intégrés au fichier."),
         new("AI Detection", "Détection IA"),
         new("Local AI Studio", "AI Studio local"),
+        // V4.5 native Studio quick-mode controls (one English/French pair per displayed mode).
+        new("Text-to-Image", "Texte vers image"),
+        new("Image-to-Image", "Image vers image"),
+        new("Text-to-Video", "Texte vers vidéo"),
+        new("Video-to-Video", "Vidéo vers vidéo"),
         new("Downloads", "Téléchargements"),
         new("Manage in Downloads", "Gérer dans Téléchargements"),
         new("Selected component", "Composant sélectionné"),

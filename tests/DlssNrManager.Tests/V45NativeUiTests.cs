@@ -36,5 +36,16 @@ public sealed class V45NativeUiTests
             (string?)element.Attribute("Source") == "assets/branding/logo.png");
         Assert.Equal("assets/branding/app.ico",
             (string?)document.Root?.Attribute("Icon"));
+    [Theory]
+    [InlineData("Text-to-Image", "Texte vers image")]
+    [InlineData("Image-to-Image", "Image vers image")]
+    [InlineData("Text-to-Video", "Texte vers vidéo")]
+    [InlineData("Video-to-Video", "Vidéo vers vidéo")]
+    public void Quick_mode_buttons_are_bilingual(string english, string french)
+    {
+        Assert.Equal(french, UiLocalizationService.Translate(english, "fr"));
+        Assert.Equal(english, UiLocalizationService.Translate(french, "en"));
+    }
+
     }
 }
