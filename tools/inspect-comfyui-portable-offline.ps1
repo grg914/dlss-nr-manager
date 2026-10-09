@@ -150,8 +150,7 @@ try {
             $sha = [Security.Cryptography.SHA256]::Create()
             try {
                 $size = $stream.Length
-                $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).
-                    Replace('-', '').ToLowerInvariant()
+                $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
             } finally {
                 $sha.Dispose()
                 $stream.Dispose()
