@@ -104,3 +104,11 @@ No one-click "Fix 617.42", "FPS boost", guaranteed compatibility badge, per-game
 Design is done when this document has been reviewed against current repo and linked to GPT B/C handoff. **Feature is NOT implemented.** P0 implementation is done only after read-only click-driven UI/service, exact-head CI passing, FR/EN tests, offline/no-admin/unknown-driver tests and real Windows acceptance. Any observed power/performance issue remains NVIDIA/vendor-owned unless a separately validated reversible mitigation exists.
 
 External references were checked 2026-10-09. Revalidate NVIDIA's known-issue status and the current latest driver on every future user-facing release/issue-label update; no evergreen automatic "latest driver" claim.
+
+## 9. Official first-party source ledger — design follow-up (2026-10-09)
+
+For verified official NVIDIA and Microsoft evidence, precise CLI query prototypes, Windows WDDM limitations, CPU delta normalization, device identity ambiguity, safe UX wording, threat model and CI acceptance cases, see [NVIDIA_DRIVER_HEALTH_V45_OFFICIAL_REFERENCES.md](NVIDIA_DRIVER_HEALTH_V45_OFFICIAL_REFERENCES.md).
+
+Source-confirmed points: NVIDIA lists [6007998] for 617.42 as *may not apply maximum-performance mode correctly*, not proof of a particular desktop/GPU failure or supported repair; nvidia-smi reports sampled counters with unsupported values on some configurations; Microsoft CPU utilization requires two stable process-time observations; NVIDIA App already provides optional in-game FPS and 1% low statistics. **Do not infer actual game FPS, driver causality or persistent load from a short idle snapshot.**
+
+No third-party framework, native NVIDIA SDK, auto-rollback, DRS mutation, cache deletion, background polling or new benchmark is approved. This is documentation only. Last source recheck: 2026-10-09. Main inspected for document update: 0d9c05556528b633a52619932b3fa36da8e122fc.
