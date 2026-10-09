@@ -10,6 +10,16 @@ public static class UiLocalizationService
 
     private static readonly Entry[] Entries =
     [
+        // v4.0: French-first WPF literals must also render correctly in English.
+        new("Never output HDR", "Jamais sortir en HDR"),
+        new("Official tool versions", "Versions officielles des outils"),
+        new("Compare official repositories against tracked sources (without automatic installation).", "Comparer les dépôts officiels aux sources suivies (sans installation automatique)."),
+        new("Check official versions", "Vérifier versions officielles"),
+        new("View official repository", "Voir le dépôt officiel"),
+        new("On-demand check only.", "Contrôle à la demande uniquement."),
+        new("Download confirmation is required above 1 GB.", "Confirmation obligatoire au-delà de 1 Go."),
+        new("GAME", "JEU"),
+        new("0 % • 0.0 MB/s • calculating…", "0 % • 0,0 Mo/s • calcul…"),
         new("Navigation", "Navigation"),
         new("Search every fixed local drive for supported game installations. This can take longer.", "Recherche les jeux sur tous les disques locaux fixes. L'analyse peut être plus longue."),
         new("Automatically locate the validated manager-owned Neural Rendering runtime when compatible.", "Recherche automatiquement le runtime Neural Rendering validé et géré par l'application lorsqu'il est compatible."),

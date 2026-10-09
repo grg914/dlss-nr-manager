@@ -41,4 +41,44 @@ public sealed class LocalizedOptionTooltipTests
         Assert.Equal("en", UiLocalizationService.NormalizeLanguage("en-US"));
         Assert.Equal("en", UiLocalizationService.NormalizeLanguage("de-CH"));
     }
+
+    [Theory]
+    [InlineData("Jamais sortir en HDR", "Never output HDR")]
+    [InlineData("Versions officielles des outils", "Official tool versions")]
+    [InlineData("Comparer les dépôts officiels aux sources suivies (sans installation automatique).", "Compare official repositories against tracked sources (without automatic installation).")]
+    [InlineData("Vérifier versions officielles", "Check official versions")]
+    [InlineData("Voir le dépôt officiel", "View official repository")]
+    [InlineData("Contrôle à la demande uniquement.", "On-demand check only.")]
+    [InlineData("GAME", "JEU")]
+    public void French_first_static_labels_translate_both_ways(
+        string french, string english)
+    {
+        Assert.Equal(english, UiLocalizationService.Translate(french, "en"));
+        Assert.Equal(french, UiLocalizationService.Translate(english, "fr"));
+    }
+
+    [Fact]
+    public void French_first_labels_are_present_in_the_Wpf_markup()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "MainWindow.markup.xml");
+        var document = XDocument.Load(path);
+        var attributes = document.Descendants()
+            .SelectMany(node => node.Attributes())
+            .Where(attribute => attribute.Name.LocalName is "Text" or "Content")
+            .Select(attribute => attribute.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var french in new[]
+        {
+            "Jamais sortir en HDR",
+            "Versions officielles des outils",
+            "Vérifier versions officielles",
+            "Voir le dépôt officiel",
+            "Contrôle à la demande uniquement."
+        })
+        {
+            Assert.Contains(french, attributes);
+            Assert.NotEqual(french, UiLocalizationService.Translate(french, "en"));
+        }
+    }
 }
