@@ -1,3 +1,10 @@
+CHECKPOINT R088 (2026-10-09) - PR139 RETARGETED MAIN / FINAL CI REQUIRED
+- PR139 two-parent reconciliation b0fc78b3c1a094baa73eacf2d4212f5e2004c3f0 after PR138 squash main 518f5cfd220d1da2b6f0fa9b5a9ff3133eb0ad6f; Git comparison shows only intended immutable NuGet publisher, pinned manifest, tests/docs and journal files. PR139 base changed from PR138 branch to main, mergeable but remains DRAFT pending CI.
+- NuGet canonical Git pin uses recorded release SHA-256 c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e and size 264155302; immutable revisions are staged without --clobber. Fake GitHub integration tests succeeded on earlier branch revision; test on FINAL head again.
+- A new PR head commit is needed after retargeting to trigger the default GitHub pull_request synchronize CodeQL event, since merely editing the PR base may not schedule CodeQL. Do not merge without explicit CodeQL SUCCESS, Build SUCCESS, Writer Safety SUCCESS on final SHA.
+- #123 remains OPEN for other publishers and end-to-end immutable adoption. v4 release remains blocked by #111/#124/#79/#82/#95 and physical acceptance.
+NEXT: verify final workflow runs, mark ready and squash merge PR139 only when final exact head passes all checks.
+
 CHECKPOINT R087 (2026-10-09) - PR138 MERGED / PR139 MAIN RECONCILIATION
 - PR138 head cc0df09899e7a87b346c8338c3553f0fd5a3b985: Build SUCCESS, CodeQL SUCCESS, Runtime Seed Writer Safety Tests SUCCESS; squash merge main 518f5cfd220d1da2b6f0fa9b5a9ff3133eb0ad6f.
 - Git trees of PR138 head and squash main match exactly (61f95a420d99b2fcada4ac0930e7461f79405755). Preserve PR139 immutable NuGet staging and Git manifest pin on top, avoid force-push or wholesale file replacement.
