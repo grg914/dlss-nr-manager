@@ -2027,12 +2027,15 @@ public partial class MainWindow : Window
         MinecraftUpdateManagedButton.IsEnabled = installed && !ExperimentalMinecraftCausticaSelected() && !experimentalImported;
         MinecraftImportExperimentalJarButton.IsEnabled =
             instance != null && ExperimentalMinecraftCausticaSelected() && !experimentalImported;
-        MinecraftRestoreExperimentalJarButton.IsEnabled = experimentalImported;
+        MinecraftRestoreExperimentalJarButton.IsEnabled =
+            instance != null && _minecraftExperimentalJar.CanRestore(instance.RootDirectory);
 
         MinecraftExperimentalJarImportStatusText.Text = UiLocalizationService.Translate(
-            experimentalImported
-                ? "Experimental CI build imported. Restore previous Caustica before using managed updates."
-                : "CI test build: ReSTIR PR #30, DLSS SDK 310.7.0; experimental import only.",
+            instance != null && _minecraftExperimentalJar.HasInterruptedImport(instance.RootDirectory)
+                ? "Unresolved experimental Caustica backup: managed installs are blocked. Preserve the backup and inspect the Minecraft mods folder before manual recovery."
+                : experimentalImported
+                    ? "Experimental CI build imported. Restore previous Caustica before using managed updates."
+                    : "CI test build: ReSTIR PR #30, DLSS SDK 310.7.0; experimental import only.",
             _uiLanguage);
         MinecraftAllowPrereleaseCheck.IsChecked = !ExperimentalMinecraftCausticaSelected();
 
