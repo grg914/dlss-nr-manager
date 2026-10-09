@@ -286,20 +286,8 @@ if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 1
 }
 
 $packageHash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-Write-Host "Uploading $zip to $Repository release $ReleaseTag..."
-& gh release upload $ReleaseTag $zip --repo $Repository --clobber
-if ($LASTEXITCODE -ne 0) { throw "Streamline runtime release upload failed." }
+& (Join-Path $PSScriptRoot "publish-append-only-runtime-seed.ps1") `
+    -Path $zip -Repository $Repository -ReleaseTag $ReleaseTag -OnChanged Reject
 
-$managerJson = & gh api "repos/$Repository/releases/tags/$ReleaseTag"
-if ($LASTEXITCODE -ne 0) { throw "Unable to verify manager release after Streamline upload." }
-$manager = $managerJson | ConvertFrom-Json
-$remote = @($manager.assets) | Where-Object { $_.name -eq ([IO.Path]::GetFileName($zip)) } | Select-Object -First 1
-if (-not $remote) { throw "Uploaded manager-owned Streamline runtime asset was not found." }
-if ([long]$remote.size -ne (Get-Item -LiteralPath $zip).Length) { throw "Remote Streamline asset size mismatch." }
-if ($remote.digest -and ([string]$remote.digest).StartsWith("sha256:")) {
-    $remoteHash = ([string]$remote.digest).Substring(7).ToLowerInvariant()
-    if ($remoteHash -ne $packageHash) { throw "Remote Streamline asset digest mismatch." }
-}
-
-Write-Host "Published manager-owned Streamline runtime bundle: $($remote.name)"
+Write-Host "Verified manager-owned Streamline runtime bundle: $([IO.Path]::GetFileName($zip))"
 Write-Host "SHA-256: $packageHash"
