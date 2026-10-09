@@ -77,6 +77,63 @@ public sealed class MinecraftExperimentalJarImportTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
+    [Fact]
+    public void InterruptedImportWithoutReceiptBlocksReinstallAndKeepsOriginalBackup()
+    {
+        var root = TempRoot();
+        try
+        {
+            var originalPath = Path.Combine(root, "mods", "caustica-stable.jar");
+            File.WriteAllText(originalPath, "previous stable jar");
+            var backup = Path.Combine(root, ".dlss-nr-manager-backups", "caustica-experimental");
+            Directory.CreateDirectory(backup);
+            var backedUp = Path.Combine(backup, "original.jar");
+            File.Move(originalPath, backedUp);
+
+            var source = Path.Combine(root, "import.jar");
+            MakeFakeJar(source);
+            var importer = new MinecraftExperimentalJarImportService(Sha256(source));
+
+            Assert.True(importer.IsImported(root));
+            Assert.True(importer.HasInterruptedImport(root));
+            Assert.False(importer.CanRestore(root));
+            Assert.Throws<IOException>(() => importer.Import(root, source));
+            Assert.Equal("previous stable jar", File.ReadAllText(backedUp));
+            Assert.False(File.Exists(originalPath));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void UnexpectedFilesInExperimentalBackupPreventRestoreWithoutDeletingUserFiles()
+    {
+        var root = TempRoot();
+        try
+        {
+            var stable = Path.Combine(root, "mods", "caustica-stable.jar");
+            File.WriteAllText(stable, "previous stable jar");
+            var source = Path.Combine(root, "test-source.jar");
+            MakeFakeJar(source);
+            var importer = new MinecraftExperimentalJarImportService(Sha256(source));
+            importer.Import(root, source);
+            var backup = Path.Combine(root, ".dlss-nr-manager-backups", "caustica-experimental");
+            var unrelatedFile = Path.Combine(backup, "my-notes.txt");
+            File.WriteAllText(unrelatedFile, "preserve this file");
+
+            Assert.True(importer.CanRestore(root));
+            Assert.Throws<InvalidDataException>(() => importer.Restore(root));
+            Assert.Equal("preserve this file", File.ReadAllText(unrelatedFile));
+            Assert.False(File.Exists(stable));
+            Assert.True(importer.IsImported(root));
+
+            File.Delete(unrelatedFile);
+            importer.Restore(root);
+            Assert.False(importer.IsImported(root));
+            Assert.Equal("previous stable jar", File.ReadAllText(stable));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     private static string TempRoot()
     {
         var root = Path.Combine(Path.GetTempPath(), "DlssNrManagerCausticaCI-" + Guid.NewGuid().ToString("N"));
