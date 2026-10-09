@@ -14,6 +14,10 @@ The original tables below are a historical snapshot. Live GitHub state takes pre
 
 Before **each new GPT A intervention/work session**, re-read **all three** `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` from live GitHub, verify the current main/PR/CI state, and update all three with minimal fact-checked checkpoints using a dedicated conflict-safe branch/PR. Preserve every existing GPT B/C entry; never clobber shared files or write directly to protected main. This is an owner request, not authorization to bypass review, signature, CI or serialized merge rules.
 
+### 2026-10-09 GPT A CI addendum
+
+Exact-head Manager [#319](https://github.com/grg914/dlss-nr-manager/pull/319) `78a24c9e5bcdfe7d99091b1d5fcb5ec52006cbb5`: Windows Build [37953997832](https://github.com/grg914/dlss-nr-manager/actions/runs/37953997832) **SUCCESS (198/198 xUnit)**, deterministic packaging, zero-upstream policy. Still **DRAFT/UNMERGED**, no independent review/hardware RTX acceptance and no separate CodeQL confirmed for #319. Coordination Draft [#320](https://github.com/grg914/dlss-nr-manager/pull/320) uses append-only/checkpoint edits to all three documents; exact-head Build/CodeQL **PENDING** at checkpoint. Serialize any protected main merge with GPT B/C.
+
 ## Shared sources and precedence
 
 1. Read the latest `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` on GitHub.
