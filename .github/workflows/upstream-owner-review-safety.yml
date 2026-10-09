@@ -1,0 +1,30 @@
+name: Upstream Owner Review Safety
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/upstream-monitor.yml'
+      - 'tests/test_upstream_owner_review_gate.py'
+      - '.github/workflows/upstream-owner-review-safety.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upstream-monitor.yml'
+      - 'tests/test_upstream_owner_review_gate.py'
+      - '.github/workflows/upstream-owner-review-safety.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-owner-review:
+    name: Verify upstream owner review gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          lfs: false
+      - name: Require manual supply-chain promotion
+        run: python3 -m unittest discover -s tests -p 'test_upstream_owner_review_gate.py' -v
