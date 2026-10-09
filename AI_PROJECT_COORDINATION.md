@@ -10,6 +10,10 @@
 
 The original tables below are a historical snapshot. Live GitHub state takes precedence. Manager draft stack: [#311](https://github.com/grg914/dlss-nr-manager/pull/311) → [#316](https://github.com/grg914/dlss-nr-manager/pull/316) → [#319](https://github.com/grg914/dlss-nr-manager/pull/319); all open/unmerged. Exact-head Build SUCCESS for all three, CodeQL SUCCESS confirmed for #311 only; hardware RTX/Vulkan, owner review, signature and remaining gates **not approved**. Caustica experimental [#28](https://github.com/grg914/Caustica-RTX/pull/28), [#29](https://github.com/grg914/Caustica-RTX/pull/29), [#30](https://github.com/grg914/Caustica-RTX/pull/30) also open/draft, CI successful, not production-validated. The #30 JAR is a pinned offline personal-test artifact, **not** approved for stable distribution. GPT A will audit recovery and verification before any merge. Never mix GPT B/C lanes or issue parallel main merges.
 
+## Owner-required GPT A pre-intervention protocol (2026-10-09)
+
+Before **each new GPT A intervention/work session**, re-read **all three** `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` from live GitHub, verify the current main/PR/CI state, and update all three with minimal fact-checked checkpoints using a dedicated conflict-safe branch/PR. Preserve every existing GPT B/C entry; never clobber shared files or write directly to protected main. This is an owner request, not authorization to bypass review, signature, CI or serialized merge rules.
+
 ## Shared sources and precedence
 
 1. Read the latest `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` on GitHub.
