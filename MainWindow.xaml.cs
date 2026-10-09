@@ -4748,11 +4748,14 @@ public partial class MainWindow : Window
 
         // Local registry check only; never downloads or installs system software.
         var vcRuntime = VcRedistX64Detector.Detect();
+        var version = vcRuntime.Version is { Length: > 0 }
+            ? $" ({vcRuntime.Version})"
+            : "";
         VcRedistX64StatusText.Text = vcRuntime.State switch
         {
             VcRedistX64State.Installed => L(
-                $"Microsoft Visual C++ v14 x64: installed{(vcRuntime.Version == null ? "" : $" ({vcRuntime.Version})")}.",
-                $"Microsoft Visual C++ v14 x64 : installé{(vcRuntime.Version == null ? "" : $" ({vcRuntime.Version})")}."),
+                $"Microsoft Visual C++ v14 x64: installed{version}.",
+                $"Microsoft Visual C++ v14 x64 : installé{version}."),
             VcRedistX64State.NotDetected => L(
                 "Microsoft Visual C++ v14 x64: not detected on this PC (required only by some native components).",
                 "Microsoft Visual C++ v14 x64 : non détecté sur ce PC (nécessaire seulement pour certains modules natifs)."),
@@ -4760,7 +4763,6 @@ public partial class MainWindow : Window
                 "Microsoft Visual C++ v14 x64: local detection unavailable.",
                 "Microsoft Visual C++ v14 x64 : détection locale indisponible.")
         };
-
     }
 
     private async void DownloadCenterList_SelectionChanged(
