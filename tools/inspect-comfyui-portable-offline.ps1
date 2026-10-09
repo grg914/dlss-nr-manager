@@ -74,7 +74,7 @@ try {
             if ($members -gt 120000 -or
                 ($member -ne $safeRoot -and -not $member.StartsWith("$safeRoot/", [StringComparison]::Ordinal)) -or
                 $member.StartsWith('/') -or $member.Contains(':') -or
-                $member.ToCharArray() | Where-Object { [char]::IsControl($_) }) {
+                [regex]::IsMatch($member, '[\x00-\x1F\x7F]')) {
                 throw "Unexpected archive entry path: $member"
             }
             $segments = $member.Split('/')
@@ -138,9 +138,10 @@ try {
         source_repository = "Comfy-Org/ComfyUI"
         source_tag = "v0.39.0"
         archive_name = "ComfyUI_windows_portable_nvidia.7z"
-        archive_sha256 = ([IO.Path]::GetFileName($archive) | ForEach-Object {
-            [string](@($lock.assets | Where-Object name -EQ $_)[0].github_asset_sha256)
-        })
+        archive_sha256 = [string](
+            @($lock.assets | Where-Object {
+                $_.name -ceq "ComfyUI_windows_portable_nvidia.7z"
+            })[0].github_asset_sha256)
         file_count = $inventory.Count
         total_expanded_bytes = $expanded
         files = @($inventory)
