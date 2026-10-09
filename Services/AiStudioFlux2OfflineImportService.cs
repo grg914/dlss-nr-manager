@@ -95,6 +95,14 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
             ManagedPathSafety.HasReparsePointOnPath(target))
             throw new IOException("Offline package path crosses an unexpected junction or symlink.");
 
+        var freeNeeded = RequiredFreeSpaceBytes(manifest.Archive.Size);
+        var diskRoot = Path.GetPathRoot(Path.GetFullPath(studio.Root))
+            ?? throw new IOException("Unable to identify AI Studio target disk.");
+        var disk = new DriveInfo(diskRoot);
+        if (!disk.IsReady || disk.AvailableFreeSpace < freeNeeded)
+            throw new IOException(
+                $"Insufficient free disk space. AI Studio needs at least {freeNeeded / 1073741824d:0.0} GiB temporarily for verified ZIP64 reconstruction and model extraction.");
+
         await LargeDownloadApprovalHub.EnsureApprovedAsync(
             model.DisplayName, manifest.Archive.Size,
             "Import of local offline ZIP64 package; no network access.",
@@ -239,6 +247,18 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Conservative staging allowance: reconstructed ZIP plus extracted FP8,
+    /// Qwen and VAE files, plus 1 GiB for metadata/filesystem overhead.
+    /// The source package itself already occupies disk and is not counted again.
+    /// </summary>
+    public static long RequiredFreeSpaceBytes(long archiveSize)
+    {
+        if (archiveSize <= 0 || archiveSize > (long.MaxValue - 1073741824L) / 2)
+            throw new ArgumentOutOfRangeException(nameof(archiveSize));
+        return checked(archiveSize * 2 + 1073741824L);
     }
 
     private static async Task VerifyExtractedFilesAsync(
