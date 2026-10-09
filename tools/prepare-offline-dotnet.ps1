@@ -16,15 +16,45 @@ $config = Join-Path $work "NuGet.Config"
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $seed, $feed, $packages | Out-Null
 
+# The Git-tracked manifest is the atomic promotion pointer. Downloading a
+# newly staged release asset is forbidden until its exact digest is reviewed.
+$pinPath = Join-Path $Root "manifests/runtime-seed-assets.json"
+if (-not (Test-Path -LiteralPath $pinPath)) {
+    throw "Missing Git-tracked runtime seed asset pin manifest."
+}
+$pins = Get-Content -LiteralPath $pinPath -Raw | ConvertFrom-Json
+if ([int]$pins.schema -ne 1 -or [string]$pins.release_tag -cne $ReleaseTag) {
+    throw "Unsupported runtime seed pin manifest or release tag mismatch."
+}
+$pinName = [string]$pins.nuget_offline.asset_name
+$pinSha = [string]$pins.nuget_offline.sha256
+$pinSize = [long]$pins.nuget_offline.size
+if ($pinName -cnotmatch '^nuget-offline(?:\.sha256-[0-9a-f]{64})?\.zip$' -or
+    $pinSha -cnotmatch '^[0-9a-f]{64}$' -or $pinSize -le 0) {
+    throw "Runtime seed NuGet pin is invalid or unsafe."
+}
+if ($pinName -match '\.sha256-([0-9a-f]{64})\.zip$' -and $Matches[1] -cne $pinSha) {
+    throw "Content-addressed NuGet asset name does not match the pinned digest."
+}
+
 $downloadArgs = @{
     Repository = $Repository
     ReleaseTag = $ReleaseTag
-    Assets = @("nuget-offline.zip")
+    Assets = @($pinName)
     Destination = $seed
 }
 & (Join-Path $PSScriptRoot "download-runtime-seed.ps1") @downloadArgs
 
-Expand-Archive -LiteralPath (Join-Path $seed "nuget-offline.zip") -DestinationPath $feed -Force
+$pinnedArchive = Join-Path $seed $pinName
+if (-not (Test-Path -LiteralPath $pinnedArchive)) {
+    throw "Pinned offline NuGet seed archive is missing."
+}
+if ([long](Get-Item -LiteralPath $pinnedArchive).Length -ne $pinSize -or
+    (Get-FileHash -LiteralPath $pinnedArchive -Algorithm SHA256).Hash.ToLowerInvariant() -cne $pinSha) {
+    throw "Pinned offline NuGet seed size/SHA-256 mismatch."
+}
+Expand-Archive -LiteralPath $pinnedArchive -DestinationPath $feed -Force
+
 $manifestPath = Join-Path $feed "manifest.json"
 if (!(Test-Path -LiteralPath $manifestPath)) { throw "Offline NuGet seed has no manifest.json." }
 
