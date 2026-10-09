@@ -1943,6 +1943,11 @@
                             Click="RedownloadDownloadCenter_Click"/>
                   </StackPanel>
 
+                  <Button x:Name="ImportOfflineFlux2Button"
+                          Content="Importer pack FLUX.2 hors ligne (ZIP64 vérifié)"
+                          ToolTip="Choisir le manifeste .manifest.json et ses parties .partNNN déjà présents sur ce PC"
+                          IsEnabled="False" Margin="0,8,0,8"
+                          Click="ImportOfflineFlux2_Click"/>
                   <Button x:Name="DownloadCenterRemoveButton"
                           Content="Supprimer"
                           IsEnabled="False"
