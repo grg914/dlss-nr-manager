@@ -552,9 +552,11 @@ public sealed class LocalAiStudioService
         var french =
             UiLocalizationService.NormalizeLanguage(language) == "fr";
 
-        var installed = IsModelInstalled(model)
-            ? french ? "Installé" : "Installed"
-            : french ? "Non installé" : "Not installed";
+        // Directory presence only means local files were found; it does not
+        // authenticate weights or authorize a model/runtime for inference.
+        var localFiles = IsModelInstalled(model)
+            ? french ? "Fichiers détectés (non vérifiés)" : "Files detected (unverified)"
+            : french ? "Fichiers absents" : "Files not found";
 
         var distribution = model.ManagerOwnedRedistributionAllowed
             ? french
@@ -564,7 +566,7 @@ public sealed class LocalAiStudioService
                 ? "acceptation manuelle de la licence requise"
                 : "manual license acceptance required";
 
-        return $"{installed} • {model.License} • {distribution}";
+        return $"{localFiles} • {model.License} • {distribution}";
     }
 
     public AiStudioJob QueueJob(
