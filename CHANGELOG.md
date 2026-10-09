@@ -4,6 +4,17 @@ All notable release changes should be recorded here. This file distinguishes **m
 
 ## [Unreleased] — 4.0 readiness (not shipped)
 
+
+### 2026-10-09 protected stable source and remaining audit gates
+
+- Protected [#375](https://github.com/grg914/dlss-nr-manager/pull/375) integrated mandatory full SHA-256 and canonical asset allowlisting for executable manager updates; [#377](https://github.com/grg914/dlss-nr-manager/pull/377) integrated crash-recoverable VLC GUID/legacy backups. Both underwent signed exact-head Build/CodeQL and protected squash; #377 Build had 234/234 xUnit. [#380](https://github.com/grg914/dlss-nr-manager/pull/380) preserved the signed B01/B02 evidence in shared coordination journals.
+- Reopened [#111](https://github.com/grg914/dlss-nr-manager/issues/111): only selected media/redistributable models offer validated opt-in Update; other managed components require authoritative version receipts, allowlisted promoted assets, and rollback tests. Read-only upstream discoveries must not silently install anything.
+- Confirmed 25/25 locked public GitHub commit references currently exist and published `v3.2.0` has 29 non-empty assets with GitHub SHA-256 digest metadata. Binary bytes, real Windows runtime, model downloads and GPU performance remain **unverified**.
+- Published `v3.2.0` lacks standalone `SBOM.spdx.json` and `release-provenance.json` assets despite the current release workflow generating them for future publications; these are explicit v4 packaging checks, not grounds to mutate an immutable older release.
+- FR/EN static and cached dynamic Download Center labels are addressed in [draft #382](https://github.com/grg914/dlss-nr-manager/pull/382) (**not yet merged or accepted** at this checkpoint). Physical Windows/RTX shutdown and recovery [#95](https://github.com/grg914/dlss-nr-manager/issues/95), Microsoft OpenMP legal provenance or omission [#79](https://github.com/grg914/dlss-nr-manager/issues/79), end-to-end source/model validation, FR/EN visual acceptance and final release controls remain outstanding. No v4.0 tag or assets published.
+
+
+
 ### Merged and CI-validated changes (2026-10-08)
 - PR #99: restrict NVIDIA-SMI execution to trusted installed locations and track helper processes.
 - PR #100: unify media update rollback and conservative recovery of legacy media backups.
