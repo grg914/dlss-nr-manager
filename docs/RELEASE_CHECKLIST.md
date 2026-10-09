@@ -21,7 +21,7 @@ Use this checklist before promoting a production release.
 - [ ] Runtime seed downloads validate GitHub SHA-256 digests.
 - [ ] Restricted/native signer requirements pass where applicable.
 - [ ] Stable release immutability checks pass.
-- [ ] OptiScaler native DLL and ZIP reproducibility is assessed against two clean pinned-toolchain builds, with per-file SHA-256 and canonical immutable seed comparison; conflicting asset names are never overwritten (#161).
+- [ ] Existing OptiScaler DLL/ZIP are taken from the approved, pinned runtime seed with verified GitHub digest, file SHA-256, source/license provenance and supported Windows runtime behavior. Do not rebuild native DLLs unless the source or approved runtime must change; never overwrite an immutable same-name asset (#161).
 - [ ] Approved video2dlssnr and FFmpeg release/asset IDs and SHA-256 are pinned throughout the update transaction and committed receipt, with no mixed-release install (#111).
 - [ ] Automated release source still equals current `main` immediately before publication.
 
