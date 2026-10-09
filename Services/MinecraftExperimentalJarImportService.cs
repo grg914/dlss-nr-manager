@@ -35,8 +35,27 @@ public sealed class MinecraftExperimentalJarImportService
            File.Exists(ReceiptPath(minecraftRoot));
 
     public bool CanRestore(string minecraftRoot)
-        => Directory.Exists(BackupDirectory(minecraftRoot)) &&
-           File.Exists(ReceiptPath(minecraftRoot));
+    {
+        var backup = BackupDirectory(minecraftRoot);
+        var receiptPath = ReceiptPath(minecraftRoot);
+        if (!Directory.Exists(backup) || !File.Exists(receiptPath))
+            return false;
+
+        try
+        {
+            RequirePlainDirectory(backup);
+            RequirePlainFile(receiptPath);
+            _ = ReadValidatedReceipt(receiptPath);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or JsonException or ArgumentException)
+        {
+            // An interrupted/corrupt receipt needs manual recovery, not an
+            // apparently available automatic restore action.
+            return false;
+        }
+    }
 
     public bool HasInterruptedImport(string minecraftRoot)
         => IsImported(minecraftRoot) && !CanRestore(minecraftRoot);
@@ -130,12 +149,7 @@ public sealed class MinecraftExperimentalJarImportService
         RequirePlainDirectory(backup);
         RequirePlainFile(receiptPath);
 
-        var receipt = JsonSerializer.Deserialize<Receipt>(File.ReadAllText(receiptPath))
-            ?? throw new InvalidDataException("Invalid experimental import receipt.");
-        if (Path.GetFileName(receipt.OriginalName) != receipt.OriginalName
-            || !receipt.ExperimentalName.Equals(ExperimentalJarName, StringComparison.Ordinal)
-            || !receipt.ExperimentalSha256.Equals(_approvedSha256, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("Experimental Caustica receipt is not valid.");
+        var receipt = ReadValidatedReceipt(receiptPath);
 
         var original = Path.Combine(mods, receipt.OriginalName);
         var experimental = Path.Combine(mods, ExperimentalJarName);
@@ -194,6 +208,23 @@ public sealed class MinecraftExperimentalJarImportService
             if (File.Exists(temporary))
                 File.Delete(temporary);
         }
+    }
+
+    private Receipt ReadValidatedReceipt(string receiptPath)
+    {
+        var receipt = JsonSerializer.Deserialize<Receipt>(File.ReadAllText(receiptPath))
+            ?? throw new InvalidDataException("Invalid experimental import receipt.");
+        if (string.IsNullOrWhiteSpace(receipt.OriginalName)
+            || Path.GetFileName(receipt.OriginalName) != receipt.OriginalName
+            || string.IsNullOrWhiteSpace(receipt.OriginalSha256)
+            || receipt.OriginalSha256.Length != 64
+            || !receipt.OriginalSha256.All(Uri.IsHexDigit)
+            || receipt.ExperimentalName != ExperimentalJarName
+            || !string.Equals(receipt.ExperimentalSha256, _approvedSha256, StringComparison.OrdinalIgnoreCase)
+            || receipt.SourceCommit != BuildCommit
+            || receipt.DlssSdkVersion != DlssSdkBuildVersion)
+            throw new InvalidDataException("Experimental Caustica receipt is not valid.");
+        return receipt;
     }
 
     private void ValidatePinnedJar(string jarPath)
