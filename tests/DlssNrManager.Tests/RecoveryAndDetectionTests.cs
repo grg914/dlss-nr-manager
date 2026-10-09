@@ -295,6 +295,33 @@ public sealed class RecoveryAndDetectionTests : IDisposable
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("sha256:1234")]
+    [InlineData("sha256:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")]
+    [InlineData("sha512:9a8e1eb945cf9438b6f78350db1f0c8e3e4383e72db7415212dbfd6234ae6")]
+    public void Manager_owned_optiscaler_requires_full_sha256_digest(string? digest)
+    {
+        using var json = System.Text.Json.JsonDocument.Parse(
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                assets = new[]
+                {
+                    new
+                    {
+                        name = "OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip",
+                        browser_download_url =
+                            "https://github.com/grg914/dlss-nr-manager/releases/download/runtime-seed-v1/OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip",
+                        digest
+                    }
+                }
+            }));
+
+        Assert.Null(GitHubReleaseService.TryGetManagerOwnedOptiScaler(
+            json.RootElement));
+    }
+
+    [Theory]
     [InlineData("fr", "fr")]
     [InlineData("fr-CH", "fr")]
     [InlineData("en", "en")]
