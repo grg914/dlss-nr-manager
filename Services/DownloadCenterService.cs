@@ -21,7 +21,8 @@ public sealed record DownloadCenterEntry(
     bool CanInstallAutomatically,
     string Details,
     string? ModelId = null,
-    bool RequiresLicenseAcceptance = false)
+    bool RequiresLicenseAcceptance = false,
+    bool HasIncompleteFiles = false)
 {
     public override string ToString()
         => $"{DisplayName} • {Status}";
@@ -128,8 +129,11 @@ public sealed class DownloadCenterService
         foreach (var model in
                  LocalAiStudioService.Models)
         {
-            var installed =
-                _aiStudio.IsModelInstalled(model);
+            var presence = LocalAiStudioService.InspectModelFiles(
+                model, _aiStudio.GetModelDirectory(model));
+            var installed = presence ==
+                AiStudioLocalModelState.FilesPresentUnverified;
+            var incomplete = presence == AiStudioLocalModelState.Incomplete;
 
             entries.Add(
                 new DownloadCenterEntry(
@@ -141,6 +145,10 @@ public sealed class DownloadCenterService
                         ? (UiLocalizationService.NormalizeLanguage(language) == "fr"
                             ? "Fichiers présents (non vérifiés)"
                             : "Files present (not verified)")
+                        : incomplete
+                            ? (UiLocalizationService.NormalizeLanguage(language) == "fr"
+                                ? "Fichiers incomplets (non installés)"
+                                : "Incomplete files (not installed)")
                         : model.ManagerOwnedRedistributionAllowed
                             ? T("Available if package is published")
                             : T("Manual installation required"),
@@ -150,7 +158,8 @@ public sealed class DownloadCenterService
                     model.ManagerOwnedRedistributionAllowed,
                     T(model.Notes),
                     model.Id,
-                    !model.ManagerOwnedRedistributionAllowed));
+                    !model.ManagerOwnedRedistributionAllowed,
+                    incomplete));
         }
 
         return entries
