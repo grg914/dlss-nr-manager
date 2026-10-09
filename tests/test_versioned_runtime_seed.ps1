@@ -111,6 +111,15 @@ try {
     [IO.Compression.ZipFile]::CreateFromDirectory($folder, $package)
     & $publisher -Path $package -Repository "grg914/dlss-nr-manager"
     Assert-True (@($global:FakeAssets).Count -eq 1) "ReShade package was not published."
+    $reShadeCanonical = $global:FakeAssets[0].digest
+    Set-Content -LiteralPath (Join-Path $folder "OptiScaler.dll") -Value "reshade-rebuilt"
+    Remove-Item -LiteralPath $package -Force
+    [IO.Compression.ZipFile]::CreateFromDirectory($folder, $package)
+    $reshadeHash = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant()
+    & $publisher -Path $package -Repository "grg914/dlss-nr-manager" -OnChanged StageImmutable
+    Assert-True (@($global:FakeAssets).Count -eq 2) "ReShade changed content was not staged."
+    Assert-True ($global:FakeAssets[1].name -ceq "ReShade-Setup-v7.0-dev-vendored.sha256-$reshadeHash.zip") "ReShade staged name is not SHA-addressed."
+    Assert-True ($global:FakeAssets[0].digest -ceq $reShadeCanonical) "ReShade canonical was replaced."
 
     Write-Host "PASS: canonical idempotence, immutable stage/idempotence, corrupted metadata rejection, failed upload, corrupt ZIP, both names."
 }
