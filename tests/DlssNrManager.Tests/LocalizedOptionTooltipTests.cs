@@ -96,10 +96,11 @@ public sealed class LocalizedOptionTooltipTests
     {
         var path = Path.Combine(AppContext.BaseDirectory, "MainWindow.markup.xml");
         var document = XDocument.Load(path);
-        var rules = Assert.Single(document.Descendants()
-            .Select(node => (string?)node.Attribute("Text"))
-            .Where(value => value != null &&
-                value.StartsWith("• Plus de 1 Go :", StringComparison.Ordinal)));
+        var rules = Assert.Single(
+            document.Descendants()
+                .Select(node => (string?)node.Attribute("Text")),
+            value => value != null &&
+                value.StartsWith("• Plus de 1 Go :", StringComparison.Ordinal));
 
         var english = UiLocalizationService.Translate(rules!, "en");
         Assert.NotEqual(rules, english);

@@ -5446,3 +5446,8 @@ CHECKPOINT GPT B — 2026-10-09 — v4.0 FINALIZATION AUDIT / FR-EN STATIC LABEL
 - Source candidate is pending its own exact-head Windows Build/xUnit and CodeQL, signed protected staging, and postmerge comparison; do not label this checkpoint merged until proof exists.
 
 - Further bilingual bug confirmed: switching language did not rebind localized Download Center rows or cached official-source update labels. This candidate now refreshes both from existing local objects without network calls; adds a source-level regression guard. Total four new test methods in this PR. Exact-current-head Build/CodeQL pending.
+
+CHECKPOINT GPT B — 2026-10-09 — PR #382 EXACT-HEAD BUILD FAILURE TRIAGE (append-only)
+- Source head `b2da747830078b4f7225baf00f6134a31c926e9c` Build run 37986826548 failed during xUnit compilation, NOT a failing runtime test: LocalizedOptionTooltipTests.cs line 99 xUnit2031 (Assert.Single(collection.Where(...)) rejected with TreatWarningsAsErrors=true). Offline restore of main/test/CrashProbe projects and the app C# build succeeded earlier in this CI job.
+- Applied the narrow recommended fix: Assert.Single(enumerable, predicate) overload, preserving test semantics. This is a new PR #382 branch revision; old-head failed CI cannot count as successful validation. Exact-new-head Build and CodeQL plus signed protected promotion are mandatory. No change to Download Center network/install logic, driver/runtime packages or stable main.
+- Previous checkpoints, successful protected PR #375/#377 integration, issue #95 real Windows/RTX test, issue #79 Microsoft OpenMP provenance, reopened #111 broader optional per-component updates, and separate v4.5/4.6 GPT A/C lanes remain unchanged.
