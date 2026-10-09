@@ -36,6 +36,8 @@ public sealed class V45NativeUiTests
             (string?)element.Attribute("Source") == "assets/branding/logo.png");
         Assert.Equal("assets/branding/app.ico",
             (string?)document.Root?.Attribute("Icon"));
+    }
+
     [Theory]
     [InlineData("Text-to-Image", "Texte vers image")]
     [InlineData("Image-to-Image", "Image vers image")]
@@ -45,7 +47,5 @@ public sealed class V45NativeUiTests
     {
         Assert.Equal(french, UiLocalizationService.Translate(english, "fr"));
         Assert.Equal(english, UiLocalizationService.Translate(french, "en"));
-    }
-
     }
 }
