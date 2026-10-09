@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "release_tag": "runtime-seed-v1",
+  "nuget_offline": {
+    "asset_name": "nuget-offline.zip",
+    "size": 264155302,
+    "sha256": "c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e"
+  }
+}
