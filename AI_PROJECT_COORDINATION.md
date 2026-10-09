@@ -45,6 +45,9 @@ These are planning defaults, not claims of exclusive ownership. Always inspect c
 5. **After merge:** verify GitHub reports merged, re-read `main`, update coordination/journals through a focused subsequent PR when appropriate. Do not close an issue unless its acceptance criteria are satisfied.
 6. **Branch cleanup:** delete only branches whose changes are explicitly superseded, or whose exact tree/ancestry is proven safe; squash merge alone does **not** prove branch semantic equivalence.
 7. If CI, permissions or human/device validation blocks a step, leave it **pending** with the precise blocker. Never claim a release, binary provenance or real RTX benchmark without evidence.
+8. **Serialize protected main merges across A/B/C:** only one conversation may issue a squash merge at a time. Immediately before merging, verify the live `main` SHA, candidate base, signed HEAD, required exact-head checks, and review threads. Other conversations must not merge to `main` concurrently.
+9. **Verify ancestry after every merge:** re-fetch live `main` and compare the returned merge SHA as `base` to `main` as `head`. The merge SHA must be identical to, or an ancestor of, the live main commit; also verify relevant file blobs/content. A PR being marked `merged` is **not** sufficient. If the history diverges, halt further merges and reconcile the missing changes through a new signed, protected PR. Never reset or force-push `main`. See [#233](https://github.com/grg914/dlss-nr-manager/issues/233).
+
 
 ## Next handoff
 
