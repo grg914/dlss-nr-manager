@@ -68,6 +68,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _permanentVideoCts;
     private CancellationTokenSource? _aiOriginCts;
     private CancellationTokenSource? _downloadCenterCts;
+    private int _downloadDetailsRevision;
     private MediaUpdateAvailability _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
     private bool _checkingDownloadCenterUpdates;
     private MediaUpdateAvailability _modelUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
@@ -836,7 +837,7 @@ public partial class MainWindow : Window
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
-        var enableNeuralRendering = _gpuCapabilities.NeuralRendering;
+        var enableNeuralRendering = CaptureGameNvidiaSelection().NeuralRendering;
 
         if (enableNeuralRendering &&
             (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath)))
@@ -952,6 +953,8 @@ public partial class MainWindow : Window
         {
             var advanced = CaptureAdvancedSettings();
             SetBusy(true);
+            // The profile and user choices must still apply at execution.
+            enableNeuralRendering &= CaptureGameNvidiaSelection().NeuralRendering;
 
             var backup = await _installer.InstallAsync(
                 gameDir,
@@ -974,11 +977,10 @@ public partial class MainWindow : Window
 
                     var staged = await _genericNvidiaRuntime.StageManagerOwnedAsync(
                         gameDir,
-                        new GenericNvidiaFeatureSelection(
-                            _gpuCapabilities.SuperResolution,
-                            _gpuCapabilities.FrameGeneration,
-                            _gpuCapabilities.IsSupportedRtx,
-                            enableNeuralRendering),
+                        CaptureGameNvidiaSelection() with
+                        {
+                            NeuralRendering = enableNeuralRendering
+                        },
                         resourceProgress,
                         trackForManualCleanup: false);
 
@@ -1338,14 +1340,14 @@ public partial class MainWindow : Window
 
         try
         {
-            var capabilities = GpuCapabilityService.Evaluate(_gpu);
+            var effectiveSelection = CaptureGameNvidiaSelection();
             var gameDir = GamePathBox.Text;
             var state = await Task.Run(() =>
                 _installer.Inspect(gameDir, _gpu.Generation));
             await Task.Run(() => _installer.ApplyPreset(
                 gameDir,
                 GetSelectedWorkingScale(),
-                capabilities.NeuralRendering &&
+                effectiveSelection.NeuralRendering &&
                 state.RuntimePresent &&
                 state.RuntimeHashValid));
             MessageBox.Show(
@@ -2518,11 +2520,14 @@ public partial class MainWindow : Window
     }
 
     private GenericNvidiaFeatureSelection CaptureGameNvidiaSelection()
-        => new(
-            GameDlssSrCheck.IsChecked == true,
-            GameDlssFgCheck.IsChecked == true,
-            GameDlssReflexCheck.IsChecked == true,
-            GameDlssNrCheck.IsChecked == true);
+        => GameNvidiaSelectionPolicy.Effective(
+            _gpu,
+            CurrentHardwarePreferences().Mode,
+            new GenericNvidiaFeatureSelection(
+                GameDlssSrCheck.IsChecked == true,
+                GameDlssFgCheck.IsChecked == true,
+                GameDlssReflexCheck.IsChecked == true,
+                GameDlssNrCheck.IsChecked == true));
 
     private void SelectGameDlssZip_Click(object sender, RoutedEventArgs e)
     {
@@ -4747,9 +4752,9 @@ public partial class MainWindow : Window
 
     private async Task RefreshDownloadCenterSelectionAsync()
     {
-        var entry =
-            SelectedDownloadCenterEntry();
-
+        // An old response must never overwrite details for a newer selection.
+        var revision = ++_downloadDetailsRevision;
+        var entry = SelectedDownloadCenterEntry();
         if (entry == null)
         {
             DownloadCenterDetailsText.Text =
@@ -4763,15 +4768,21 @@ public partial class MainWindow : Window
 
         try
         {
-            DownloadCenterDetailsText.Text =
-                await _downloadCenter.GetDetailsAsync(
-                    entry,
-                    _uiLanguage);
+            var details = await _downloadCenter.GetDetailsAsync(entry, _uiLanguage);
+            if (revision != _downloadDetailsRevision ||
+                SelectedDownloadCenterEntry()?.Id != entry.Id)
+                return;
+
+            DownloadCenterDetailsText.Text = details;
         }
         catch (Exception ex)
         {
+            if (revision != _downloadDetailsRevision ||
+                SelectedDownloadCenterEntry()?.Id != entry.Id)
+                return;
+
             DownloadCenterDetailsText.Text =
-                $"{entry.DisplayName}\n\n{L("Remote details unavailable", "Détails distants indisponibles")} : {ex.Message}";
+                $"{entry.DisplayName}\n\n{L("Local details unavailable", "Détails locaux indisponibles")} : {ex.Message}";
         }
 
         RefreshDownloadCenterButtons();
