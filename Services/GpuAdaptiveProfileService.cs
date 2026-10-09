@@ -74,7 +74,7 @@ public static class GpuAdaptiveProfileService
 
         return new GpuAdaptiveRecommendation(
             mode, goal, preset, sr, fg, reflex, nr,
-            capabilities.MultiFrameGeneration && fg,
+            capabilities.MultiFrameGeneration,
             "DLSS SR mode is a recommendation only; applying it depends on the game's supported integration. " +
             "FG, MFG and NR also require game/runtime verification. NVIDIA driver and Control Panel settings are never changed.");
     }
