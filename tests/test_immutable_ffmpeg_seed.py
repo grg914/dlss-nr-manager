@@ -83,7 +83,7 @@ class ImmutableFfmpegSeedTests(unittest.TestCase):
         initial = self.make_zip("initial")
         self.assertEqual(0, self.run_publisher().returncode)
         self.assertEqual(1, len(self.assets()))
-        self.assertEqual("nu" if False else "ffmpeg-dlssnr-win-x64.zip", self.assets()[0]["name"])
+        self.assertEqual("ffmpeg-dlssnr-win-x64.zip", self.assets()[0]["name"])
         self.assertEqual("sha256:" + initial, self.assets()[0]["digest"])
         self.assertEqual(0, self.run_publisher().returncode)
         self.assertEqual(1, len(self.assets()))
