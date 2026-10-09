@@ -127,10 +127,10 @@ public sealed class NvidiaDriverHealthService
 
         if (!OperatingSystem.IsWindows())
             notes.Add("Windows-only NVIDIA diagnostics are unavailable on this OS.");
-        else if (hardware?.Gpu.IsNvidia != true)
-            notes.Add("A supported NVIDIA GPU has not been confirmed.");
         else
         {
+            // A stale registry snapshot must not prevent a fresh read-only
+            // NVIDIA-SMI probe; unknown GPU identity remains fail-closed.
             var executable = NvidiaSmiLocator.FindInstalled();
             if (executable == null)
                 notes.Add("Trusted-location nvidia-smi.exe was not found. GPU telemetry is unavailable.");
@@ -140,7 +140,11 @@ public sealed class NvidiaDriverHealthService
                     await QueryAsync(executable, IdentityQuery, cancellationToken), 3);
                 smi = identity.Count > 0;
                 if (!smi)
+                {
                     notes.Add("NVIDIA-SMI identity query failed; cached hardware details may be incomplete.");
+                    if (hardware?.Gpu.IsNvidia != true)
+                        notes.Add("A supported NVIDIA GPU has not been confirmed.");
+                }
                 else
                 {
                     var candidates = identity.Where(row =>
