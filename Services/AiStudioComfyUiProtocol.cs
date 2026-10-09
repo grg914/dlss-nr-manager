@@ -84,6 +84,46 @@ public static class AiStudioComfyUiProtocol
         }
     }
 
+    /// <summary>
+    /// Constructs a trusted FLUX.2 4B FP8 TEXT-TO-IMAGE API request from
+    /// bounded typed inputs, NOT arbitrary user-provided ComfyUI node JSON.
+    /// Pure transformation only; it does not submit, launch or approve a GPU
+    /// process. The general-purpose untrusted graph policy remains unchanged.
+    /// </summary>
+    public static bool TryCreateReviewedFlux2TextSubmission(
+        string? prompt,
+        AiStudioImageSettings? settings,
+        out string? submissionJson)
+    {
+        submissionJson = null;
+        if (prompt is null || settings is null)
+            return false;
+
+        try
+        {
+            var graphJson = AiStudioFlux2Fp8WorkflowService.BuildTextToImage(
+                prompt, settings);
+            if (Encoding.UTF8.GetByteCount(graphJson) > MaxWorkflowBytes)
+                return false;
+
+            using var graph = JsonDocument.Parse(
+                graphJson, new JsonDocumentOptions { MaxDepth = 24 });
+            // Graph is constructed entirely in code with exactly these 13
+            // reviewed nodes. No caller-supplied class_type is ever accepted.
+            if (graph.RootElement.ValueKind != JsonValueKind.Object ||
+                graph.RootElement.EnumerateObject().Count() != 13)
+                return false;
+
+            submissionJson = JsonSerializer.Serialize(
+                new { prompt = graph.RootElement });
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or JsonException)
+        {
+            return false;
+        }
+    }
+
     public static bool TryReadPromptId(string? responseJson, out Guid promptId)
     {
         promptId = default;
