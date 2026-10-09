@@ -778,6 +778,24 @@
                              TextWrapping="Wrap"
                              Margin="0,0,0,8"/>
 
+                  <Border Background="#0F1925" BorderBrush="#263746" BorderThickness="1"
+                          CornerRadius="7" Padding="10" Margin="0,4,0,12">
+                    <StackPanel>
+                      <CheckBox x:Name="MinecraftRestirOptionCheck"
+                                Content="ReSTIR DI (experimental)"
+                                IsChecked="False" IsEnabled="False"
+                                ToolTip="Requires an already-installed experimental Caustica JAR exposing lights.restir-di. Does not download or replace the renderer."/>
+                      <TextBlock x:Name="MinecraftRestirStatusText"
+                                 Text="Select an instance to check experimental ReSTIR compatibility."
+                                 Foreground="{StaticResource Warning}" FontSize="10"
+                                 TextWrapping="Wrap" Margin="0,6,0,8"/>
+                      <Button x:Name="MinecraftRestirApplyButton"
+                              Content="Apply ReSTIR option" IsEnabled="False"
+                              HorizontalAlignment="Left"
+                              Click="ApplyMinecraftRestir_Click"/>
+                    </StackPanel>
+                  </Border>
+
                   <StackPanel>
                     <StackPanel Orientation="Horizontal">
                       <CheckBox x:Name="MinecraftInstallFabricApiCheck"
