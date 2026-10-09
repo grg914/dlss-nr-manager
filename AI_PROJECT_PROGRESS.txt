@@ -1,3 +1,35 @@
+CHECKPOINT R088 (2026-10-09) - PR139 RETARGETED MAIN / FINAL CI REQUIRED
+- PR139 two-parent reconciliation b0fc78b3c1a094baa73eacf2d4212f5e2004c3f0 after PR138 squash main 518f5cfd220d1da2b6f0fa9b5a9ff3133eb0ad6f; Git comparison shows only intended immutable NuGet publisher, pinned manifest, tests/docs and journal files. PR139 base changed from PR138 branch to main, mergeable but remains DRAFT pending CI.
+- NuGet canonical Git pin uses recorded release SHA-256 c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e and size 264155302; immutable revisions are staged without --clobber. Fake GitHub integration tests succeeded on earlier branch revision; test on FINAL head again.
+- A new PR head commit is needed after retargeting to trigger the default GitHub pull_request synchronize CodeQL event, since merely editing the PR base may not schedule CodeQL. Do not merge without explicit CodeQL SUCCESS, Build SUCCESS, Writer Safety SUCCESS on final SHA.
+- #123 remains OPEN for other publishers and end-to-end immutable adoption. v4 release remains blocked by #111/#124/#79/#82/#95 and physical acceptance.
+NEXT: verify final workflow runs, mark ready and squash merge PR139 only when final exact head passes all checks.
+
+CHECKPOINT R087 (2026-10-09) - PR138 MERGED / PR139 MAIN RECONCILIATION
+- PR138 head cc0df09899e7a87b346c8338c3553f0fd5a3b985: Build SUCCESS, CodeQL SUCCESS, Runtime Seed Writer Safety Tests SUCCESS; squash merge main 518f5cfd220d1da2b6f0fa9b5a9ff3133eb0ad6f.
+- Git trees of PR138 head and squash main match exactly (61f95a420d99b2fcada4ac0930e7461f79405755). Preserve PR139 immutable NuGet staging and Git manifest pin on top, avoid force-push or wholesale file replacement.
+- PR139 mock GitHub / writer safety tests SUCCESS on prior head; latest Build and CodeQL must be rerun after main reconciliation, and tests must pass on exact final head. Previous success on an older commit does not authorize merge.
+- #123 still blocked by other publishers with destructive --clobber and lack of their pinned manifest migration. #111/#124/#79/#82/#95 remain open. v4 release NOT authorized.
+NEXT: retarget PR139 to main; verify source diff, final Build/CodeQL/safety CI, then guarded merge if complete.
+
+CHECKPOINT R086 (2026-10-09) - #123 IMMUTABLE NUGET PUBLISHER + GIT-PINNED CONSUMER
+- Stacked draft PR #139 adds tools/publish-immutable-nuget-seed.ps1: verifies non-empty ZIP with manifest.json and .nupkg, exact local SHA-256 and published GitHub digest/size, no --clobber; changed releases are staged as nuget-offline.sha256-<sha>.zip while canonical asset remains available. Both NuGet producer workflows use the same helper and concurrency group.
+- Live GitHub release runtime-seed-v1 current canonical nuget-offline.zip metadata: size 264155302, SHA256 c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e. Recorded exactly in new Git-tracked manifests/runtime-seed-assets.json.
+- tools/prepare-offline-dotnet.ps1 now resolves only its reviewed pinned asset name and tag, validates SHA256 and size again after download and before extraction; immutable filename full-hash must match pin. Version promotion becomes a reviewed Git manifest commit, not deleting live release assets.
+- Added PowerShell fake-GitHub simulation tests for initial upload, idempotence, changed-content staging, conflicting SHA rejection, invalid ZIP; tests/test_runtime_seed_writer_policy.py now covers source and manifest contracts. docs/IMMUTABLE_NUGET_SEED.md documents review, rollback and remaining scope.
+- #123 remains open: Real-ESRGAN, FFmpeg, and other publishers still have --clobber; NuGet staging and pinning requires final CI and Windows validation. PR #139 is stacked on unmerged PR #138; never merge until #138 merged and #139 retargeted and Build/CodeQL on final head successful.
+- Other v4 release gates: #111 more optional updates, #124 branch audits, #79 OpenMP legal approval, #82 ruleset administrative change, #95 real Windows/NVIDIA/power-loss recovery. No v4 release.
+NEXT: finish PR138 CI, reconcile PR139 onto main, validate mocked test/Build/CodeQL, then continue remaining immutable publishers and v4 issues.
+
+CHECKPOINT R085 (2026-10-09) - #123 IMMUTABLE NUGET STAGING (STACKED DRAFT)
+- PR137 squash merged main e6922e32fa6b5aee356d5e9cd526ad94b63150cc after Build and CodeQL SUCCESS on 969acf1f3fcdbf1191f74b39c9989c77bbdfb57b.
+- PR138 branch reconciled with this main as two-parent commit cc0df09899e7a87b346c8338c3553f0fd5a3b985; diff from main limited to video seed no-clobber plus R083/R084 journal. Build/CodeQL still underway at this checkpoint; security tests succeeded.
+- Stacked branch fix/v4-immutable-nuget-seed-staging adds tools/publish-immutable-nuget-seed.ps1 and routes both nuget-seed.yml and runtime-refresh.yml NuGet publisher to it. New revisions stage nuget-offline.sha256-<fullhash>.zip without deleting pinned nuget-offline.zip. Exact local SHA-256 and size must match published GitHub metadata; conflicts fail closed.
+- Existing consumers retain their original canonical name, so a validated Git-pinned manifest/consumer switch is still required for updating NuGet seeds. This is intentionally a transition, NOT complete #123 acceptance. Other --clobber publishers remain; Real-ESRGAN license gate remains.
+- Tests/test_runtime_seed_writer_policy.py now asserts append-only NuGet wiring, SHA-256 checks and retention of old canonical files. CI not yet validated. Stacked PR must be reconciled against merged PR138 before merge into main.
+- #111, #124, #79, #82, #95 remain blockers. No v4 release or automatic restricted-license distribution.
+NEXT: finish PR138 Build/CodeQL, merge only if green; retarget/reconcile staged NuGet PR, validate its latest Build/CodeQL and tests. Then migrate remaining publishers and verified manifest consumers.
+
 CHECKPOINT R084 (2026-10-09) - MERGED PR137 AND SYNCHRONIZED PR138
 - PR137 Build + CodeQL SUCCESS on HEAD 969acf1f3fcdbf1191f74b39c9989c77bbdfb57b; squash merge to main e6922e32fa6b5aee356d5e9cd526ad94b63150cc.
 - PR138 base advanced: preserve R083 and all preexisting main R082/R081/R080 journal, as well as main downloader metadata guards, while applying only the intended runtime-refresh video asset --clobber removal. PR138 requires NEW CI on exact reconciled head before merge.
