@@ -4972,12 +4972,14 @@ public partial class MainWindow : Window
 
         await RunDownloadCenterOperationAsync(
             entry,
-            redownload: true);
+            redownload: true,
+            requireVerifiedUpdate: isModelUpdate);
     }
 
     private async Task RunDownloadCenterOperationAsync(
         DownloadCenterEntry entry,
-        bool redownload)
+        bool redownload,
+        bool requireVerifiedUpdate = false)
     {
         if (entry.RequiresLicenseAcceptance)
         {
@@ -5032,7 +5034,7 @@ public partial class MainWindow : Window
                         entry,
                         progress,
                         _downloadCenterCts.Token,
-                        requireVerifiedUpdate: isModelUpdate);
+                        requireVerifiedUpdate: requireVerifiedUpdate);
                 }
             }
             else
