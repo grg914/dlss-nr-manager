@@ -99,18 +99,18 @@ public sealed class AiStudioRuntimeIntegrityTests
     public async Task Rejects_duplicate_manifest_members_case_insensitively()
     {
         using var fixture = new RuntimeFixture();
+        fixture.WriteManifest("python/python.exe", "fixture");
+        var firstFile = new AiStudioRuntimeFile(
+            "python/python.exe",
+            7,
+            HashService.Sha256(Path.Combine(fixture.Root, "python", "python.exe")));
         var manifest = new AiStudioRuntimeManifest(1, "ai-studio-runtime-win-x64", "1.0",
-            [
-                new AiStudioRuntimeFile("python/python.exe", 0, new string('a', 64)),
-                new AiStudioRuntimeFile("Python/PYTHON.exe", 0, new string('a', 64))
-            ]);
+            [firstFile, firstFile with { Path = "Python/PYTHON.exe" }]);
         var pin = fixture.WriteRawManifest(manifest);
 
         var result = await AiStudioRuntimeIntegrityService.VerifyAsync(fixture.Root, pin);
 
-        // First valid file is missing, so duplicate-check coverage requires
-        // the first member to exist and match before reaching the second.
-        Assert.Equal(AiStudioRuntimeIntegrityStatus.MissingFile, result.Status);
+        Assert.Equal(AiStudioRuntimeIntegrityStatus.InvalidManifest, result.Status);
     }
 
     [Fact]
