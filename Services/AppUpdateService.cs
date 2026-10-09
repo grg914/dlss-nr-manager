@@ -24,6 +24,13 @@ public sealed class AppUpdateService
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // A hashless or non-canonical update must not create a staging folder
+        // or start a download even if a caller bypassed release discovery.
+        if (!ManagerUpdateAssetPolicy.IsCanonicalAssetName(release.AssetName) ||
+            !ManagerUpdateAssetPolicy.IsValidSha256(release.Sha256))
+            throw new InvalidDataException(
+                "Application update refused: canonical asset name and full SHA-256 digest are required.");
+
         var processPath = Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(processPath) || !File.Exists(processPath))
             throw new InvalidOperationException(
@@ -121,23 +128,12 @@ public sealed class AppUpdateService
                             "The downloaded update package is unexpectedly small.");
                     }
 
-                    if (!string.IsNullOrWhiteSpace(release.Sha256))
-                    {
-                        progress?.Report("Verifying update SHA-256…");
+                    progress?.Report("Verifying update SHA-256…");
 
-                        var actual =
-                            await HashService.Sha256Async(
-                                temp,
-                                token);
-
-                        if (!actual.Equals(
-                                release.Sha256,
-                                StringComparison.OrdinalIgnoreCase))
-                        {
-                            throw new InvalidDataException(
-                                $"Update SHA-256 mismatch. Expected {release.Sha256}, got {actual}.");
-                        }
-                    }
+                    var actual = await HashService.Sha256Async(temp, token);
+                    if (!actual.Equals(release.Sha256, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException(
+                            $"Update SHA-256 mismatch. Expected {release.Sha256}, got {actual}.");
                 },
                 cancellationToken,
                 attempts: 3);
