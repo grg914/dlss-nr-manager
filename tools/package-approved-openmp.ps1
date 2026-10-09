@@ -73,7 +73,7 @@ if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvar
 $meta = [ordered]@{
     filename = 'vcomp140.dll'
     source = 'licensed Visual Studio VC/Redist/MSVC/x64'
-    source_path = Get-DescendantRelativePath -RootDirectory $root -CandidatePath $source.FullName
+    source_path = (Get-DescendantRelativePath -RootDirectory $root -CandidatePath $source.FullName)
     file_version = $version
     sha256 = $sha
     authenticode_status = 'Valid'
