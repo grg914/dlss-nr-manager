@@ -3817,6 +3817,10 @@ public partial class MainWindow : Window
                 AutoUpdateComponentsCheck.IsChecked == true));
 
         _localization?.Apply();
+        // Entries and upstream result labels are data objects, not WPF text
+        // nodes; rebuild them locally for the newly selected language.
+        RefreshDownloadCenter();
+        RelocalizeOfficialUpdateList();
 
         AppLogger.Info(
             "UI language changed to " + _uiLanguage + ".");
@@ -4612,6 +4616,50 @@ public partial class MainWindow : Window
         public override string ToString() => Label;
     }
 
+
+    private string FormatOfficialUpdateLabel(OfficialUpstreamResult result)
+    {
+        var status = result.State switch
+        {
+            OfficialUpstreamState.NewVersion =>
+                L("new official version", "nouvelle version officielle"),
+            OfficialUpstreamState.SourceChanged =>
+                L("source revision changed", "révision source différente"),
+            OfficialUpstreamState.UpToDate =>
+                L("tracked source current", "source suivie inchangée"),
+            OfficialUpstreamState.ReviewRequired =>
+                L("manual review needed", "vérification manuelle nécessaire"),
+            _ => L("unavailable", "indisponible")
+        };
+        var latest = string.IsNullOrWhiteSpace(result.RemoteReference)
+            ? "" : " • " + result.RemoteReference;
+        return result.Source.Id + " — " + status + latest;
+    }
+
+    private void RelocalizeOfficialUpdateList()
+    {
+        // A language change must never trigger an upstream fetch.
+        if (OfficialUpdateList.ItemsSource is not
+            IEnumerable<OfficialUpdateDisplay> existing)
+            return;
+
+        var selectedId =
+            (OfficialUpdateList.SelectedItem as OfficialUpdateDisplay)?
+                .Update.Source.Id;
+        var results = existing.Select(item => item.Update).ToArray();
+        var items = results.Select(result =>
+            new OfficialUpdateDisplay(result, FormatOfficialUpdateLabel(result)))
+            .ToArray();
+        OfficialUpdateList.ItemsSource = items;
+        OfficialUpdateList.SelectedItem = items.FirstOrDefault(
+            item => item.Update.Source.Id == selectedId);
+
+        var count = results.Count(result => result.RequiresReview);
+        OfficialUpdateStatusText.Text = L(
+            $"{count} official changes to review out of {results.Length} tracked sources. Installing updates still requires validated manager-owned packages.",
+            $"{count} modifications officielles à examiner sur {results.Length} sources suivies. L'installation exige des packages validés par le Manager.");
+    }
+
     private async void CheckOfficialUpstreamUpdates_Click(
         object sender, RoutedEventArgs e)
     {
@@ -4628,24 +4676,8 @@ public partial class MainWindow : Window
         {
             var results = await _officialUpdates.CheckAsync();
             var items = results.Select(result =>
-            {
-                var status = result.State switch
-                {
-                    OfficialUpstreamState.NewVersion =>
-                        L("new official version", "nouvelle version officielle"),
-                    OfficialUpstreamState.SourceChanged =>
-                        L("source revision changed", "révision source différente"),
-                    OfficialUpstreamState.UpToDate =>
-                        L("tracked source current", "source suivie inchangée"),
-                    OfficialUpstreamState.ReviewRequired =>
-                        L("manual review needed", "vérification manuelle nécessaire"),
-                    _ => L("unavailable", "indisponible")
-                };
-                var latest = string.IsNullOrWhiteSpace(result.RemoteReference)
-                    ? "" : " • " + result.RemoteReference;
-                return new OfficialUpdateDisplay(
-                    result, result.Source.Id + " — " + status + latest);
-            }).OrderByDescending(x => x.Update.RequiresReview)
+                new OfficialUpdateDisplay(result, FormatOfficialUpdateLabel(result)))
+                .OrderByDescending(x => x.Update.RequiresReview)
               .ThenBy(x => x.Update.Source.Id, StringComparer.OrdinalIgnoreCase)
               .ToArray();
 
