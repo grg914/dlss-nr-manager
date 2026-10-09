@@ -58,6 +58,25 @@ public sealed class ProcessLaunchPolicyTests
     }
 
     [Fact]
+    public void Windows_shutdown_probe_never_retargets_a_reused_process_id()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null &&
+               !File.Exists(Path.Combine(directory.FullName, "DlssNrManager.csproj")))
+            directory = directory.Parent;
+
+        Assert.NotNull(directory);
+        var source = File.ReadAllText(Path.Combine(
+            directory!.FullName, "tools", "verify-v4-windows-process-cleanup.ps1"));
+
+        Assert.Contains("$manager.Kill()", source);
+        Assert.Contains("$manager.WaitForExit(", source);
+        Assert.DoesNotContain("Stop-Process -Id $pidManager", source);
+        Assert.DoesNotContain("Get-Process -Id $pidManager", source);
+        Assert.DoesNotContain("Wait-Process -Id $pidManager", source);
+    }
+
+    [Fact]
     public void Tracker_rejects_shell_launched_child_processes()
     {
         // UseShellExecute can detach a process from this manager; it must not
