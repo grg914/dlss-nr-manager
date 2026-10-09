@@ -154,21 +154,38 @@ public sealed class ComponentUpdateService
 
         var remote = await GetRemoteStateAsync(cancellationToken);
 
-        // The approved release can change between the read-only Download
-        // Center check and the user's confirmation. Never use forceRefresh
-        // as permission to install an older/unverified media runtime.
-        if (forceRefresh && !IsConfirmedMediaUpgrade(local, remote, media.IsReady))
+        // Both entry points (automatic startup and user-confirmed Download
+        // Center updates) must reject older or unverified remote releases.
+        // A changed fingerprint alone never establishes a newer version.
+        if (media.IsReady)
         {
-            if (EvaluateMediaUpdate(local, remote, media.IsReady) ==
-                MediaUpdateAvailability.UpToDate)
+            var availability = EvaluateMediaUpdate(local, remote, installed: true);
+            if (availability == MediaUpdateAvailability.UpToDate)
             {
-                progress?.Report("Manager-owned components are already up to date.");
-                return false;
+                progress?.Report("Manager-owned media components are already up to date.");
+                return false; // Keep the locally verified receipt; never save older remote state.
             }
 
+            if (availability != MediaUpdateAvailability.UpdateAvailable)
+            {
+                if (!forceRefresh)
+                {
+                    progress?.Report(
+                        "Automatic media update skipped: release or installation receipt is not verified.");
+                    return false; // Auto-check cannot replace a working, unverified install.
+                }
+
+                throw new InvalidOperationException(
+                    "The confirmed media update is no longer a validated upgrade. " +
+                    "Refresh Downloads to review the current release.");
+            }
+        }
+        else if (forceRefresh)
+        {
+            // A confirmed update requires an installed runtime. Use the
+            // separate Install/Repair action when the runtime is missing.
             throw new InvalidOperationException(
-                "The confirmed media update is no longer a validated upgrade. " +
-                "Refresh Téléchargements to review the current release.");
+                "The media engine is not installed. Use Install or Repair instead of Update.");
         }
 
         var hasManifestFingerprint =
