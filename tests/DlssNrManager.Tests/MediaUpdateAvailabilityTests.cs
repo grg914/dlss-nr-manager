@@ -84,6 +84,111 @@ public sealed class MediaUpdateAvailabilityTests
                 State(OldFingerprint, null), State(NewFingerprint), true));
     }
 
+    [Theory]
+    [InlineData("v3.1.1", "v3.2.0", true)]
+    [InlineData("v3.2.0", "v3.2.0", false)]
+    [InlineData("v3.3.0", "v3.2.0", false)]
+    [InlineData("v3.2", "v3.2.0", false)]
+    [InlineData("v3.2.0.0", "v3.2", false)]
+    [InlineData("v3.2.0", "v3.3.0-rc1", false)]
+    public void Explicit_media_upgrade_must_be_revalidated_at_install_time(
+        string localTag,
+        string remoteTag,
+        bool expected)
+    {
+        Assert.Equal(expected, ComponentUpdateService.IsConfirmedMediaUpgrade(
+            State(OldFingerprint, localTag),
+            State(NewFingerprint, remoteTag),
+            installed: true));
+    }
+
+    [Fact]
+    public void Explicit_media_upgrade_rejects_unknown_versions_and_missing_install()
+    {
+        Assert.False(ComponentUpdateService.IsConfirmedMediaUpgrade(
+            null, State(NewFingerprint, "v3.2.0"), installed: true));
+        Assert.False(ComponentUpdateService.IsConfirmedMediaUpgrade(
+            State(OldFingerprint, "v3.1.1"),
+            State(null, "v3.2.0"), installed: true));
+        Assert.False(ComponentUpdateService.IsConfirmedMediaUpgrade(
+            State(OldFingerprint, "v3.1.1"),
+            State(NewFingerprint, "v3.2.0"), installed: false));
+    }
+
+    [Fact]
+    public void Equivalent_stable_media_tags_must_not_offer_an_update()
+    {
+        Assert.Equal(MediaUpdateAvailability.UpToDate,
+            ComponentUpdateService.EvaluateMediaUpdate(
+                State(OldFingerprint, "v3.2"),
+                State(NewFingerprint, "v3.2.0"), installed: true));
+    }
+
+    [Fact]
+    public void Automatic_media_update_must_validate_version_before_replacement_and_receipt()
+    {
+        // Verify the safety decision cannot be bypassed by the automatic
+        // startup entry point, even while the pure comparison tests pass.
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null &&
+               !File.Exists(Path.Combine(directory.FullName, "DlssNrManager.csproj")))
+            directory = directory.Parent;
+
+        Assert.NotNull(directory);
+        var source = File.ReadAllText(Path.Combine(
+            directory!.FullName, "Services", "ComponentUpdateService.cs"));
+        var method = source.IndexOf(
+            "public async Task<bool> EnsureMediaToolsLatestAsync(",
+            StringComparison.Ordinal);
+        Assert.True(method >= 0);
+        var body = source[method..];
+
+        var guard = body.IndexOf("if (media.IsReady)", StringComparison.Ordinal);
+        var validate = body.IndexOf(
+            "var availability = EvaluateMediaUpdate(local, remote, installed: true);",
+            StringComparison.Ordinal);
+        var reject = body.IndexOf(
+            "if (availability != MediaUpdateAvailability.UpdateAvailable)",
+            StringComparison.Ordinal);
+        var replace = body.IndexOf("await media.UpdateToolsAsync(", StringComparison.Ordinal);
+        var receipt = body.IndexOf("SaveState(remote", StringComparison.Ordinal);
+
+        Assert.True(guard >= 0 && validate > guard && reject > validate);
+        Assert.True(replace > reject && receipt > replace);
+    }
+
+    [Fact]
+    public void Only_confirmed_Download_Center_updates_require_previously_installed_media()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null &&
+               !File.Exists(Path.Combine(directory.FullName, "DlssNrManager.csproj")))
+            directory = directory.Parent;
+
+        Assert.NotNull(directory);
+        var source = File.ReadAllText(Path.Combine(
+            directory!.FullName, "MainWindow.xaml.cs"));
+
+        // Preserve the general Check Updates command's existing bootstrap path
+        // while refusing to turn a confirmed update into an unexpected install.
+        var genericStart = source.IndexOf(
+            "private async void CheckComponentUpdates_Click(",
+            StringComparison.Ordinal);
+        var downloadStart = source.IndexOf(
+            "private async Task RunDownloadCenterOperationAsync(",
+            StringComparison.Ordinal);
+        Assert.True(genericStart >= 0);
+        Assert.True(downloadStart >= 0);
+        var genericBody = source.Substring(genericStart, 1000);
+        Assert.Contains("forceRefresh: true", genericBody);
+        Assert.DoesNotContain("requireInstalledForUpdate:", genericBody);
+
+        var confirmedCall = source.IndexOf(
+            "requireInstalledForUpdate: true", downloadStart,
+            StringComparison.Ordinal);
+        Assert.True(confirmedCall > downloadStart);
+    }
+
     private static ComponentState State(string? fingerprint, string? releaseTag = "v3.1.1") =>
         new("manager:123", 456, DateTimeOffset.UtcNow, fingerprint, releaseTag);
 }
