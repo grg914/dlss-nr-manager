@@ -12,6 +12,19 @@ A native Windows manager for installing, diagnosing and maintaining the experime
 
 Current application source version: **v3.2.0** (as declared in `DlssNrManager.csproj`). This is not a claim that v4.0 is released.
 
+## v4.0 acceptance status (unreleased; source audit 2026-10-09)
+
+The stable `main` contains protected signed fixes [#375](https://github.com/grg914/dlss-nr-manager/pull/375) (mandatory full SHA-256 and allowlisted manager update packages) and [#377](https://github.com/grg914/dlss-nr-manager/pull/377) (transactional VLC backup recovery). Exact-head Build/CodeQL passed **234/234 xUnit** at that milestone; these CI tests are **not** physical Windows/RTX validation. The application and the latest public release still identify as `v3.2.0`; no `v4.0` release has been published.
+
+- **FR/EN:** WPF localization exists; [#382](https://github.com/grg914/dlss-nr-manager/pull/382) is a separate **draft** fixing confirmed French-first labels and cached Download Center/official-source rows after a language change. Do not describe the entire UI as accepted without Windows visual and error-path checks.
+- **Downloads:** optional verified **Update / Mettre à jour** is supported for the media engine and eligible manager-owned AI Studio model packages. For the remaining eligible components, version receipts and verified promotion are still incomplete ([#111](https://github.com/grg914/dlss-nr-manager/issues/111), reopened). The official upstream checker is deliberately read-only. A newer GitHub tag is *not* authorization to install unreviewed binaries or restricted model weights.
+- **Dependencies:** the audit verified that all **25 public GitHub source commit references** in the project lock are retrievable at their exact SHAs. The latest public app release `v3.2.0` reports 29 non-empty assets with GitHub SHA-256 digest metadata; this does **not** prove byte-level downloads, execution, compatibility or license permission. Restricted NVIDIA SDK and model licenses retain their existing manual/notify-only gates.
+- **Processes:** app-owned FFmpeg, Real-ESRGAN, VLC, Java and diagnostic helpers use `ExternalProcessTracker`, Windows Job Objects and lifecycle cancellation. Interactive Windows/Explorer/game/installer hand-offs and the self-updater are documented exceptions. Real-device shutdown, VRAM release, interrupted downloads and rollback acceptance are still required ([#95](https://github.com/grg914/dlss-nr-manager/issues/95)).
+- **Packaging:** the current release workflow generates `SBOM.spdx.json` and `release-provenance.json`, but neither is attached to the published `v3.2.0` release; verify both in the **future** v4 release together with `SHA256SUMS.txt`, `components-manifest.json`, signatures and FR/EN behavior. Microsoft OpenMP `vcomp140.dll` redistribution/legal proof or safe exclusion remains blocked by [#79](https://github.com/grg914/dlss-nr-manager/issues/79).
+
+The detailed matrix and evidence boundaries are in [docs/V4_FINALIZATION_AUDIT_2026-10-09.md](docs/V4_FINALIZATION_AUDIT_2026-10-09.md). Tests under `tests/` are built by the Windows CI but are correctly excluded from the published single-file runtime.
+
+
 > Supports automatic candidate detection across **Steam, Epic, GOG, itch.io, Ubisoft Connect, EA App, Xbox App and Battle.net**, with generation-aware support for NVIDIA GeForce RTX 20/30/40/50 GPUs, manager-owned validated NVIDIA runtime bundles, PC software/driver update checks and safe Windows/NVIDIA cache cleanup.
 
 ## Screenshots

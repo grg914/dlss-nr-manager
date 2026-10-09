@@ -41,4 +41,95 @@ public sealed class LocalizedOptionTooltipTests
         Assert.Equal("en", UiLocalizationService.NormalizeLanguage("en-US"));
         Assert.Equal("en", UiLocalizationService.NormalizeLanguage("de-CH"));
     }
+
+    [Theory]
+    [InlineData("Ne jamais sortir en HDR", "Never output HDR")]
+    [InlineData("Versions officielles des outils", "Official tool versions")]
+    [InlineData("Comparer les dépôts officiels aux sources suivies (sans installation automatique).", "Compare official repositories against tracked sources (without automatic installation).")]
+    [InlineData("Vérifier versions officielles", "Check official versions")]
+    [InlineData("Voir le dépôt officiel", "View official repository")]
+    [InlineData("Contrôle à la demande uniquement.", "On-demand check only.")]
+    [InlineData("JEU", "GAME")]
+    public void French_first_static_labels_translate_both_ways(
+        string french, string english)
+    {
+        Assert.Equal(english, UiLocalizationService.Translate(french, "en"));
+        Assert.Equal(french, UiLocalizationService.Translate(english, "fr"));
+    }
+
+
+
+    [Fact]
+    public void Language_change_refreshes_local_download_and_upstream_rows()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null &&
+               !File.Exists(Path.Combine(root.FullName, "DlssNrManager.csproj")))
+            root = root.Parent;
+        Assert.NotNull(root);
+
+        var source = File.ReadAllText(Path.Combine(root!.FullName, "MainWindow.xaml.cs"));
+        var begin = source.IndexOf(
+            "private void LanguageSelector_SelectionChanged(",
+            StringComparison.Ordinal);
+        var end = source.IndexOf(
+            "private void ToggleSoftwareRendering_Click(",
+            begin, StringComparison.Ordinal);
+        Assert.True(begin >= 0 && end > begin);
+        var handler = source[begin..end];
+        Assert.Contains("RefreshDownloadCenter();", handler);
+        Assert.Contains("RelocalizeOfficialUpdateList();", handler);
+        Assert.DoesNotContain("CheckOfficialUpstreamUpdates_Click(", handler);
+
+        var localRefresh = source.IndexOf(
+            "private void RelocalizeOfficialUpdateList()", StringComparison.Ordinal);
+        var networkHandler = source.IndexOf(
+            "private async void CheckOfficialUpstreamUpdates_Click(",
+            StringComparison.Ordinal);
+        Assert.True(localRefresh >= 0 && networkHandler > localRefresh);
+        Assert.DoesNotContain("await _officialUpdates.CheckAsync()",
+            source[localRefresh..networkHandler]);
+    }
+
+    [Fact]
+    public void French_first_download_rules_are_bilingual()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "MainWindow.markup.xml");
+        var document = XDocument.Load(path);
+        var rules = Assert.Single(
+            document.Descendants()
+                .Select(node => (string?)node.Attribute("Text")),
+            value => value != null &&
+                value.StartsWith("• Plus de 1 Go :", StringComparison.Ordinal));
+
+        var english = UiLocalizationService.Translate(rules!, "en");
+        Assert.NotEqual(rules, english);
+        Assert.Contains("SHA-256 verified before installation.", english);
+        Assert.Equal(rules, UiLocalizationService.Translate(english, "fr"));
+    }
+
+    [Fact]
+    public void French_first_labels_are_present_in_the_Wpf_markup()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "MainWindow.markup.xml");
+        var document = XDocument.Load(path);
+        var attributes = document.Descendants()
+            .SelectMany(node => node.Attributes())
+            .Where(attribute => attribute.Name.LocalName is "Text" or "Content")
+            .Select(attribute => attribute.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var french in new[]
+        {
+            "Ne jamais sortir en HDR",
+            "Versions officielles des outils",
+            "Vérifier versions officielles",
+            "Voir le dépôt officiel",
+            "Contrôle à la demande uniquement."
+        })
+        {
+            Assert.Contains(french, attributes);
+            Assert.NotEqual(french, UiLocalizationService.Translate(french, "en"));
+        }
+    }
 }
