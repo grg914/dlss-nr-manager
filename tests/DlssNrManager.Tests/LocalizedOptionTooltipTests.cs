@@ -57,6 +57,23 @@ public sealed class LocalizedOptionTooltipTests
         Assert.Equal(french, UiLocalizationService.Translate(english, "fr"));
     }
 
+
+    [Fact]
+    public void French_first_download_rules_are_bilingual()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "MainWindow.markup.xml");
+        var document = XDocument.Load(path);
+        var rules = Assert.Single(document.Descendants()
+            .Select(node => (string?)node.Attribute("Text"))
+            .Where(value => value != null &&
+                value.StartsWith("• Plus de 1 Go :", StringComparison.Ordinal)));
+
+        var english = UiLocalizationService.Translate(rules!, "en");
+        Assert.NotEqual(rules, english);
+        Assert.Contains("SHA-256 is verified", english);
+        Assert.Equal(rules, UiLocalizationService.Translate(english, "fr"));
+    }
+
     [Fact]
     public void French_first_labels_are_present_in_the_Wpf_markup()
     {

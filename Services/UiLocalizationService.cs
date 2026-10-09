@@ -17,7 +17,7 @@ public static class UiLocalizationService
         new("Check official versions", "Vérifier versions officielles"),
         new("View official repository", "Voir le dépôt officiel"),
         new("On-demand check only.", "Contrôle à la demande uniquement."),
-        new("Download confirmation is required above 1 GB.", "Confirmation obligatoire au-delà de 1 Go."),
+        new("• Above 1 GB: confirmation is required before downloading.\n• Large models: the application has no total-size limit; GitHub assets use chunks.\n• SHA-256 is verified before installation.\n• Local removal is available at any time.", "• Plus de 1 Go : confirmation obligatoire avant téléchargement.\n• Gros modèles : taille totale illimitée côté app, transport en chunks GitHub.\n• SHA-256 vérifié avant installation.\n• Suppression locale possible à tout moment."),
         new("GAME", "JEU"),
         new("0 % • 0.0 MB/s • calculating…", "0 % • 0,0 Mo/s • calcul…"),
         new("Navigation", "Navigation"),
