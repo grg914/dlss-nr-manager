@@ -1669,7 +1669,8 @@
                                          Foreground="{StaticResource Muted}"
                                          FontSize="10"/>
                               <ComboBox x:Name="AiStudioResolutionBox"
-                                        Width="170" SelectedIndex="0">
+                                        Width="170" SelectedIndex="0"
+                                        ToolTip="Select the output resolution and image aspect ratio for FLUX.2 FP8.">
                                 <ComboBoxItem Content="1024 × 1024 · 1:1"/>
                                 <ComboBoxItem Content="1024 × 576 · 16:9"/>
                                 <ComboBoxItem Content="576 × 1024 · 9:16"/>
@@ -1682,7 +1683,8 @@
                                          Foreground="{StaticResource Muted}"
                                          FontSize="10"/>
                               <ComboBox x:Name="AiStudioStepsBox"
-                                        Width="85" SelectedIndex="0">
+                                        Width="85" SelectedIndex="0"
+                                        ToolTip="Select the number of FLUX.2 sampling steps; higher values take longer.">
                                 <ComboBoxItem Content="4"/>
                                 <ComboBoxItem Content="8"/>
                                 <ComboBoxItem Content="12"/>
@@ -1695,6 +1697,7 @@
                                          FontSize="10"/>
                               <TextBox x:Name="AiStudioSeedBox"
                                        Width="152" Text="Auto"
+                                       ToolTip="Use Auto for a new random seed, or enter a fixed positive integer for repeatable settings."
                                        MaxLength="16"/>
                             </StackPanel>
                           </WrapPanel>
