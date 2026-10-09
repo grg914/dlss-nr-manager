@@ -134,3 +134,10 @@ NEXT: assess CI of PR #141/#142/#143/#144 on exact SHA, reconcile branches befor
 - Before intervention reread main `b37d92ba801a9a30854e6f38552e475702742f6c` and all three GitHub journals; **current** main changed only after safely merging #324. GPT A's separate #325 draft overlaps shared documentation and must be reconciled, not overwritten. GPT A/C branches untouched.
 - Open release gates #95 actual interrupted recovery/rollback and offline behavior, #79 allowed OpenMP REDIST license/provenance+functional acceptance. #111 is CLOSED; #161 optional native reproducibility does not require rebuilding already validated OptiScaler DLLs. v4 not released; published version still v3.2.0.
 - This follow-up journal amendment remains **draft/unmerged** until exact signed SHA Build + CodeQL and protected squash; do not report these new text entries as landed before merge.
+
+
+## B-V4-20261009-06 — Host VC++ x64 redistributable detection proposal (DRAFT)
+
+- Reread live main + three coordination journals; source base `ddd57336d7f2784d7699a1f2ab32fe49c4684fc9`. Created local-operator folder `third_party-local/microsoft/` with README only and `.gitignore` already excludes the installer binary. No real `.exe` was committed or manufactured.
+- Implemented optional offline, read-only x64 VC++ v14 registry installed/version status with FR/EN Downloads UI and deterministic pure-value tests. It neither downloads/installs Microsoft software nor manages NVIDIA GPU drivers, and never changes the separate Real-ESRGAN OpenMP legal gate #79.
+- This is an unmerged source proposal pending exact-head Windows Build/CodeQL, signed staging, reviews and protected squash; no runtime/driver ownership or hardware acceptance claimed.
