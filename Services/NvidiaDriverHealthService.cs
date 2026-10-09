@@ -304,6 +304,25 @@ public sealed class NvidiaDriverHealthService
         return text.ToString();
     }
 
+    private static string TranslateNote(string note) => note switch
+    {
+        "Windows-only NVIDIA diagnostics are unavailable on this OS." =>
+            "Le diagnostic NVIDIA est réservé à Windows.",
+        "A supported NVIDIA GPU has not been confirmed." =>
+            "Aucune carte NVIDIA compatible n'a été confirmée.",
+        "Trusted-location nvidia-smi.exe was not found. GPU telemetry is unavailable." =>
+            "NVIDIA-SMI introuvable dans les emplacements autorisés ; mesures GPU indisponibles.",
+        "NVIDIA-SMI identity query failed; cached hardware details may be incomplete." =>
+            "Identification NVIDIA-SMI impossible ; les données matérielles précédentes peuvent être incomplètes.",
+        "Multiple GPUs or unmatched identity: per-GPU data cannot be attributed safely." =>
+            "Plusieurs GPU ou identité différente : attribution des mesures impossible.",
+        "Optional GPU measurements are missing or cannot be tied to one device." =>
+            "Mesures GPU facultatives indisponibles ou non attribuables à une seule carte.",
+        "GPU UUID unavailable; optional measurements were not attributed." =>
+            "UUID GPU indisponible ; mesures facultatives non attribuées.",
+        _ => note
+    };
+
     public static string Format(NvidiaDriverHealthReport report, bool french)
     {
         string Label(string en, string fr) => french ? fr : en;
@@ -314,6 +333,10 @@ public sealed class NvidiaDriverHealthService
         var rows = new List<string>
         {
             Label("Read-only NVIDIA driver diagnosis", "Diagnostic NVIDIA en lecture seule"),
+            Label("Captured (UTC): ", "Mesuré (UTC) : ") +
+                report.CapturedAtUtc.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+            Label("NVIDIA-SMI available: ", "NVIDIA-SMI disponible : ") +
+                (report.NvidiaSmiAvailable ? Label("Yes", "Oui") : Label("No", "Non")),
             Label("GPU: ", "GPU : ") + report.GpuName,
             Label("Driver: ", "Pilote : ") + report.DriverVersion,
             Label("GPU utilization: ", "Utilisation GPU : ") + Num(report.GpuUtilization, "%"),
@@ -334,7 +357,10 @@ public sealed class NvidiaDriverHealthService
         if (report.AmbiguousGpu)
             rows.Add(Label("Multiple GPU identity ambiguous.", "Attribution ambiguë entre plusieurs GPU."));
         foreach (var note in report.Notes)
-            rows.Add(Label("Note: ", "Note : ") + note);
+            rows.Add(Label("Note: ", "Note : ") + (french ? TranslateNote(note) : note));
+        rows.Add(Label(
+            "Suggested manual steps: compare the same game scene and graphics settings using NVIDIA App's FPS/1% low overlay; consult NVIDIA's official driver guidance if regression persists.",
+            "Conseils manuels : comparer la même scène de jeu et les mêmes réglages avec les FPS/1 % low de NVIDIA App ; consulter l'aide officielle NVIDIA si la baisse persiste."));
         rows.Add(Label(
             "No driver settings, profiles, clocks, services or caches were changed. A short idle snapshot cannot measure gaming FPS.",
             "Aucun réglage pilote, profil, fréquence, service ou cache modifié. Une mesure au repos ne mesure pas les FPS en jeu."));
