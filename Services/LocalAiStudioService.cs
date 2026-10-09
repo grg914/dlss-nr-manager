@@ -71,6 +71,10 @@ public sealed record AiStudioJob(
 {
     // Optional to preserve deserialization of existing queued job JSON files.
     public AiStudioImageSettings? ImageSettings { get; init; }
+
+    // Optional v4.6 lifecycle fields; old queued-job JSON stays readable.
+    public DateTimeOffset? UpdatedAt { get; init; }
+    public string? ResultFile { get; init; }
 }
 
 public sealed class LocalAiStudioService
@@ -736,7 +740,7 @@ public sealed class LocalAiStudioService
             ImageSettings = imageSettings
         };
 
-        File.WriteAllText(
+        AtomicFile.WriteAllText(
             Path.Combine(JobsRoot, $"{job.Id:N}.json"),
             JsonSerializer.Serialize(job, JsonOptions));
 
