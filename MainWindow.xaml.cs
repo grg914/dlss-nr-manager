@@ -68,6 +68,9 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _permanentVideoCts;
     private CancellationTokenSource? _aiOriginCts;
     private CancellationTokenSource? _downloadCenterCts;
+    private CancellationTokenSource? _downloadUpdateCheckCts;
+    private CancellationTokenSource? _officialUpdateCheckCts;
+    private bool _isClosed;
     private int _downloadDetailsRevision;
     private MediaUpdateAvailability _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
     private bool _checkingDownloadCenterUpdates;
@@ -192,6 +195,9 @@ public partial class MainWindow : Window
 
         Closed += (_, _) =>
         {
+            _isClosed = true;
+            try { _downloadUpdateCheckCts?.Cancel(); } catch { }
+            try { _officialUpdateCheckCts?.Cancel(); } catch { }
             DownloadProgressHub.Changed -= OnDownloadProgressChanged;
             LargeDownloadApprovalHub.ApprovalRequested = null;
             try { _mediaOperationCts?.Cancel(); } catch { }
@@ -4538,9 +4544,11 @@ public partial class MainWindow : Window
         RoutedEventArgs e)
     {
         RefreshDownloadCenter();
-        if (_downloadCenterCts != null || _checkingDownloadCenterUpdates)
+        if (_isClosed || _downloadCenterCts != null || _checkingDownloadCenterUpdates)
             return;
 
+        using var lookupCts = new CancellationTokenSource();
+        _downloadUpdateCheckCts = lookupCts;
         _checkingDownloadCenterUpdates = true;
         _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
         _modelUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
@@ -4553,7 +4561,9 @@ public partial class MainWindow : Window
                 "Checking validated media component versions…",
                 "Vérification des versions validées du moteur média…");
 
-            _mediaUpdateStatus = await _components.CheckMediaUpdateAsync(_media);
+            _mediaUpdateStatus = await _components.CheckMediaUpdateAsync(_media, lookupCts.Token);
+            lookupCts.Token.ThrowIfCancellationRequested();
+            if (_isClosed) return;
             DownloadCenterStatusText.Text = _mediaUpdateStatus switch
             {
                 MediaUpdateAvailability.UpdateAvailable => L(
@@ -4575,7 +4585,9 @@ public partial class MainWindow : Window
             if (selected is { Kind: DownloadCenterKind.AiStudioModel,
                               IsInstalled: true, CanInstallAutomatically: true })
             {
-                _modelUpdateStatus = await _downloadCenter.CheckAiStudioModelUpdateAsync(selected);
+                _modelUpdateStatus = await _downloadCenter.CheckAiStudioModelUpdateAsync(selected, lookupCts.Token);
+                lookupCts.Token.ThrowIfCancellationRequested();
+                if (_isClosed) return;
                 _modelUpdateEntryId = selected.Id;
                 DownloadCenterStatusText.Text = _modelUpdateStatus switch
                 {
@@ -4594,6 +4606,13 @@ public partial class MainWindow : Window
                 };
             }
         }
+        catch (OperationCanceledException) when (lookupCts.IsCancellationRequested)
+        {
+            if (!_isClosed)
+                DownloadCenterStatusText.Text = L(
+                    "Version check cancelled.",
+                    "Vérification des versions annulée.");
+        }
         catch (Exception ex)
         {
             _mediaUpdateStatus = MediaUpdateAvailability.UnknownRemoteVersion;
@@ -4605,8 +4624,10 @@ public partial class MainWindow : Window
         }
         finally
         {
+            _downloadUpdateCheckCts = null;
             _checkingDownloadCenterUpdates = false;
-            RefreshDownloadCenterButtons();
+            if (!_isClosed)
+                RefreshDownloadCenterButtons();
         }
     }
 
@@ -4663,9 +4684,11 @@ public partial class MainWindow : Window
     private async void CheckOfficialUpstreamUpdates_Click(
         object sender, RoutedEventArgs e)
     {
-        if (_checkingOfficialUpdates)
+        if (_isClosed || _checkingOfficialUpdates)
             return;
 
+        using var lookupCts = new CancellationTokenSource();
+        _officialUpdateCheckCts = lookupCts;
         _checkingOfficialUpdates = true;
         CheckOfficialUpstreamUpdatesButton.IsEnabled = false;
         OfficialUpdateStatusText.Text = L(
@@ -4674,7 +4697,9 @@ public partial class MainWindow : Window
 
         try
         {
-            var results = await _officialUpdates.CheckAsync();
+            var results = await _officialUpdates.CheckAsync(lookupCts.Token);
+            lookupCts.Token.ThrowIfCancellationRequested();
+            if (_isClosed) return;
             var items = results.Select(result =>
                 new OfficialUpdateDisplay(result, FormatOfficialUpdateLabel(result)))
                 .OrderByDescending(x => x.Update.RequiresReview)
@@ -4687,6 +4712,13 @@ public partial class MainWindow : Window
                 $"{count} official changes to review out of {results.Count} tracked sources. Installing updates still requires validated manager-owned packages.",
                 $"{count} modifications officielles à examiner sur {results.Count} sources suivies. L'installation exige des packages validés par le Manager.");
         }
+        catch (OperationCanceledException) when (lookupCts.IsCancellationRequested)
+        {
+            if (!_isClosed)
+                OfficialUpdateStatusText.Text = L(
+                    "Official source check cancelled.",
+                    "Vérification des sources officielles annulée.");
+        }
         catch (Exception ex)
         {
             AppLogger.Warn("Official source check unavailable: " + ex.Message);
@@ -4696,8 +4728,10 @@ public partial class MainWindow : Window
         }
         finally
         {
+            _officialUpdateCheckCts = null;
             _checkingOfficialUpdates = false;
-            CheckOfficialUpstreamUpdatesButton.IsEnabled = true;
+            if (!_isClosed)
+                CheckOfficialUpstreamUpdatesButton.IsEnabled = true;
         }
     }
 
