@@ -49,29 +49,5 @@ jobs:
             }
           }
 
-          # Skip an identical artifact: --clobber first removes the existing
-          # release asset and creates a transient no-asset window for readers.
-          $path = "build-local/nuget-offline.zip"
-          $localHash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-          $localSize = (Get-Item -LiteralPath $path).Length
-          $release = gh api "repos/${{ github.repository }}/releases/tags/$env:RUNTIME_SEED_TAG" | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { throw "Unable to inspect runtime seed before publishing NuGet." }
-          $asset = @($release.assets) | Where-Object { $_.name -eq "nuget-offline.zip" } | Select-Object -First 1
-          if ($asset -and [long]$asset.size -eq [long]$localSize -and
-              [string]$asset.digest -eq "sha256:$localHash") {
-            Write-Host "SKIP unchanged NuGet seed ($localHash)."
-          }
-          else {
-            if ($asset -and [string]::IsNullOrWhiteSpace([string]$asset.digest)) {
-              throw "Existing NuGet asset has no GitHub digest; refusing unsafe clobber."
-            }
-            gh release upload $env:RUNTIME_SEED_TAG $path --repo "${{ github.repository }}" --clobber
-            if ($LASTEXITCODE -ne 0) { throw "Failed to publish manager-owned offline NuGet feed." }
-            $updated = gh api "repos/${{ github.repository }}/releases/tags/$env:RUNTIME_SEED_TAG" | ConvertFrom-Json
-            if ($LASTEXITCODE -ne 0) { throw "Unable to verify NuGet seed after upload." }
-            $uploaded = @($updated.assets) | Where-Object { $_.name -eq "nuget-offline.zip" } | Select-Object -First 1
-            if (-not $uploaded -or [long]$uploaded.size -ne [long]$localSize -or
-                [string]$uploaded.digest -ne "sha256:$localHash") {
-              throw "Published NuGet seed failed exact size + GitHub SHA-256 verification."
-            }
-          }
+          # Append-only publish; retain canonical asset until validated promotion.
+          & ./tools/publish-immutable-nuget-seed.ps1 -Path "build-local/nuget-offline.zip" -ReleaseTag $env:RUNTIME_SEED_TAG -Repository "${{ github.repository }}"
