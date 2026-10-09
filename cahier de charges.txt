@@ -1,3 +1,7 @@
+DÉCISION DE PÉRIMÈTRE — 9 OCTOBRE 2026
+NVCleanstall et le module de benchmark complet sont retirés des objectifs d'intégration de DLSS NR Manager 4.0. Ne pas créer de parcours utilisateur, de bouton ou d'installation spécifiques à NVCleanstall, ni de moteur/page/campagne de benchmark intégré complet.
+À conserver : détection directe du pilote NVIDIA même sans NVIDIA App, profils matériels RTX, overlay FPS/frametime OptiScaler existant, diagnostics et contrôles manuels ponctuels de fluidité, stabilité et qualité d'image. Les observations manuelles A/B nécessaires à la validation technique ne constituent pas une fonctionnalité benchmark de l'application.
+
 1.Je veux que tu vérifies précisément mon installation et mes fichiers afin de déterminer si la version de Caustica que j’utilise est bien ma version compilée et corrigée, et non la version originale de base de Caustica.
 
 Fichier principal à vérifier
@@ -361,7 +365,7 @@ Si tu ne peux pas mesurer précisément le coût FPS d'un réglage sur ma machin
 
 "À mesurer sur ta configuration"
 
-et propose une méthode de benchmark permettant de mesurer précisément la différence.
+et propose une comparaison manuelle indicative, sans module de benchmark intégré.
 
 Je veux notamment comparer :
 
@@ -377,13 +381,9 @@ Minecraft + configuration Qualité.
 
 Compare ensuite :
 
-FPS moyen ;
+FPS moyen si observable ;
 
-1% low ;
-
-0.1% low ;
-
-frametime ;
+frametime si observable ;
 
 utilisation GPU ;
 
@@ -2710,7 +2710,6 @@ Analyse :
 - restauration
 - diagnostics
 - logs
-- benchmark
 - détection des erreurs
 - sélection automatique du meilleur chemin
 
@@ -3325,7 +3324,6 @@ avec :
 - Neural Rendering
 - logs
 - diagnostics
-- benchmark
 
 Ne pas installer plusieurs couches incompatibles en même temps.
 
@@ -3533,61 +3531,13 @@ X GB
 Mais l'overlay doit être désactivable.
 
 ==================================================
-28. BENCHMARK
+28. OBSERVATION DES PERFORMANCES (SANS OUTIL DÉDIÉ)
 ==================================================
 
-Créer un benchmark intégré.
-
-Comparer :
-
-Native
-DLSS
-DLSS5
-OptiScaler
-Feeder
-RenoDX
-Multipass
-
-Mesurer :
-
-FPS
-1% low
-0.1% low
-frame time
-GPU usage
-VRAM
-CPU usage
-neural cost
-latence si mesurable
-
-Résultat :
-
-Native :
-82 FPS
-
-DLSS :
-112 FPS
-
-DLSS5 :
-108 FPS
-
-DLSS5 + Neural :
-102 FPS
-
-OptiScaler :
-105 FPS
-
-Puis recommander :
-
-DLSS5
-
-ou :
-
-OptiScaler
-
-selon les mesures réelles.
-
-NE PAS INVENTER LES CHIFFRES.
+Conserver l'overlay FPS/frametime déjà présent dans OptiScaler et les diagnostics existants.
+Pour vérifier une régression, comparer manuellement fluidité et stabilité dans les mêmes conditions sur le matériel réel.
+Aucun module de benchmark complet, ni collecte détaillée automatique, ni bouton Benchmark à créer.
+Ne jamais inventer de mesures.
 
 ==================================================
 29. FRAME COST MANAGER
@@ -3818,7 +3768,6 @@ AI / Neural Rendering Manager
 ├── RayReconstruction
 ├── Routes
 ├── Diagnostics
-├── Benchmark
 ├── Backup
 ├── Restore
 └── Logs
@@ -3854,8 +3803,6 @@ Boutons :
 [ INSTALL ]
 
 [ TEST ]
-
-[ BENCHMARK ]
 
 [ RESTORE ]
 
@@ -3900,7 +3847,6 @@ Je veux que tu recherches si les deux projets possèdent des fonctions que mon a
 - sélection automatique
 - test automatique
 - diagnostic automatique
-- benchmark
 - gestion des versions DLSS
 - gestion des DLL
 - sauvegarde
@@ -5767,8 +5713,6 @@ GeForce Experience
 
 installation personnalisée
 
-NVCleanstall / NVClean
-
 installation minimale
 
 installation sans NVIDIA App
@@ -5829,7 +5773,7 @@ Detection:
 OK
 
 Driver Installation:
-STANDARD / NVCLEANSTALL / UNKNOWN
+DÉTECTÉ / INCONNU
 
 Ne jamais dépendre de la présence de NVIDIA App.
 
@@ -5949,8 +5893,6 @@ recherche web
 recherche multimodale
 
 diagnostics
-
-benchmark
 
 hardware profiles
 
@@ -6074,8 +6016,6 @@ Profiles
 Monitoring
 
 TOOLS
-Benchmark
-
 Diagnostics
 
 Logs
@@ -6845,8 +6785,6 @@ diagnostics
 
 logs
 
-benchmark
-
 backup/restore
 
 sécurité
@@ -7017,8 +6955,6 @@ Graph
 Reports
 
 Tools
-Benchmark
-
 Diagnostics
 
 Backup
@@ -7067,8 +7003,6 @@ dépendances présentes
 NVIDIA détecté
 
 pilote détecté
-
-NVCleanstall compatible
 
 GPU détecté
 
@@ -7707,10 +7641,6 @@ frametime
 
 FPS moyen
 
-1% low
-
-0.1% low
-
 latence
 
 Créer un profil :
@@ -7842,32 +7772,9 @@ latence
 
 Et si possible des screenshots identiques.
 
-21. BENCHMARK
-Créer un benchmark Far Cry 2.
-
-Scénarios :
-
-intérieur
-
-extérieur
-
-végétation
-
-conduite
-
-combat
-
-scène chargée
-
-Pour chaque scénario :
-
-Average FPS
-1% Low
-0.1% Low
-Frametime
-GPU usage
-VRAM
-CPU usage
+21. COMPARAISON A/B MANUELLE
+Observer la stabilité, la fluidité et la qualité d'image dans des scènes comparables.
+Utiliser éventuellement les mesures ponctuelles FPS/frametime existantes, sans module de benchmark ni campagne automatisée.
 
 22. QUALITÉ D'IMAGE
 Analyser spécialement :
@@ -8079,9 +7986,6 @@ Frame Generation :
 Debug:
 [ OFF / ON ]
 
-Benchmark:
-[ RUN ]
-
 Backup:
 [ RESTORE ]
 
@@ -8158,7 +8062,7 @@ PHASE 11
 Optimisation
 
 PHASE 12
-Benchmark
+Contrôles manuels de fluidité et de stabilité
 
 PHASE 13
 A/B test
