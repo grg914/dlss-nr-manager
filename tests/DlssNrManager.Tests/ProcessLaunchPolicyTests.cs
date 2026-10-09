@@ -51,10 +51,13 @@ public sealed class ProcessLaunchPolicyTests
         // These are user-visible game/folder launches and two detached tasks
         // (app-data deletion, opened folders), never managed GPU helpers.
         var windowCode = File.ReadAllText(Path.Combine(root, "MainWindow.xaml.cs"));
-        // One additional deliberate shell hand-off opens a validated official
-        // GitHub source in the user's browser; it is not a manager-owned helper.
+        // Reviewed user-click shell hand-offs open the official GitHub source
+        // and the official NVIDIA driver-support page in a browser.
+        // Neither launches a manager-owned GPU helper; new calls remain audited.
         Assert.Contains("OpenOfficialUpstream_Click", windowCode);
-        Assert.Equal(8, Regex.Matches(windowCode, @"\bProcess\s*\.\s*Start\s*\(").Count);
+        Assert.Contains("OpenNvidiaDriverGuidance_Click", windowCode);
+        Assert.Contains("NvidiaDriverHealthService.NvidiaSupportUrl", windowCode);
+        Assert.Equal(9, Regex.Matches(windowCode, @"\bProcess\s*\.\s*Start\s*\(").Count);
     }
 
     [Fact]

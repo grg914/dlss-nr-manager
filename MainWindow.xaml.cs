@@ -40,6 +40,10 @@ public partial class MainWindow : Window
     private HardwareSnapshot? _hardwareSnapshot;
     private bool _hardwareProfileControlsReady;
     private bool _hardwareProbeBusy;
+    private readonly NvidiaDriverHealthService _driverHealth = new();
+    private NvidiaDriverHealthReport? _lastDriverHealthReport;
+    private CancellationTokenSource? _driverHealthCts;
+    private bool _driverHealthBusy;
     private bool _initialStartupComplete;
     private DateTimeOffset _lastHardwareProbe = DateTimeOffset.MinValue;
 
@@ -198,6 +202,7 @@ public partial class MainWindow : Window
             try { _permanentVideoCts?.Cancel(); } catch { }
             try { _aiOriginCts?.Cancel(); } catch { }
             try { _downloadCenterCts?.Cancel(); } catch { }
+            try { _driverHealthCts?.Cancel(); } catch { }
             try { ExternalProcessTracker.Shutdown(); } catch { }
             _mediaOperationCts?.Dispose();
             _permanentVideoCts?.Dispose();
@@ -3817,6 +3822,10 @@ public partial class MainWindow : Window
                 AutoUpdateComponentsCheck.IsChecked == true));
 
         _localization?.Apply();
+        if (_lastDriverHealthReport != null)
+            NvidiaDriverHealthText.Text = NvidiaDriverHealthService.Format(
+                _lastDriverHealthReport,
+                UiLocalizationService.NormalizeLanguage(_uiLanguage) == "fr");
 
         AppLogger.Info(
             "UI language changed to " + _uiLanguage + ".");
@@ -5314,6 +5323,111 @@ public partial class MainWindow : Window
             $"Neural Rendering: {decision.AllowsNeuralRendering}",
             driverNote
         });
+    }
+
+
+    private async void DiagnoseNvidiaDriver_Click(object sender, RoutedEventArgs e)
+    {
+        if (_driverHealthBusy)
+            return;
+
+        _driverHealthBusy = true;
+        _lastDriverHealthReport = null;
+        NvidiaDriverExportButton.IsEnabled = false;
+        NvidiaDriverDiagnoseButton.IsEnabled = false;
+        NvidiaDriverHealthText.Text = L(
+            "Reading local NVIDIA diagnostics without changing settings…",
+            "Lecture du diagnostic NVIDIA local sans modifier les réglages…");
+        var request = new CancellationTokenSource();
+        _driverHealthCts = request;
+        try
+        {
+            // The existing hardware probe is shared with the v4 stable profile.
+            // This operation never writes hardware preferences or game options.
+            var snapshot = _hardwareSnapshot ??
+                await Task.Run(_hardwareProfiles.Detect, request.Token);
+            var report = await _driverHealth.DiagnoseAsync(snapshot, request.Token);
+            if (!IsLoaded || request.IsCancellationRequested)
+                return;
+
+            _lastDriverHealthReport = report;
+            NvidiaDriverHealthText.Text = NvidiaDriverHealthService.Format(
+                report, UiLocalizationService.NormalizeLanguage(_uiLanguage) == "fr");
+            NvidiaDriverExportButton.IsEnabled = true;
+        }
+        catch (OperationCanceledException)
+        {
+            if (IsLoaded)
+                NvidiaDriverHealthText.Text = L("Diagnosis cancelled.", "Diagnostic annulé.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("NVIDIA driver health read-only diagnostic failed: " + ex.Message);
+            if (IsLoaded)
+                NvidiaDriverHealthText.Text = L(
+                    "Unable to complete NVIDIA diagnosis. No system settings were changed.",
+                    "Diagnostic NVIDIA impossible. Aucun réglage système n'a été modifié.");
+        }
+        finally
+        {
+            if (ReferenceEquals(_driverHealthCts, request))
+                _driverHealthCts = null;
+            request.Dispose();
+            _driverHealthBusy = false;
+            if (IsLoaded)
+                NvidiaDriverDiagnoseButton.IsEnabled = true;
+        }
+    }
+
+    private void OpenNvidiaDriverGuidance_Click(object sender, RoutedEventArgs e)
+    {
+        // Network access occurs only if the user explicitly clicks the link.
+        var url = _lastDriverHealthReport?.HasVendorNotice == true
+            ? NvidiaDriverHealthService.KnownIssueUrl
+            : NvidiaDriverHealthService.NvidiaSupportUrl;
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("Unable to open official NVIDIA guidance: " + ex.Message);
+            MessageBox.Show(
+                L("Unable to open the NVIDIA page.", "Ouverture de la page NVIDIA impossible."),
+                "NVIDIA Driver Health", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    private async void ExportNvidiaDriverReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastDriverHealthReport is not { } report)
+            return;
+
+        var dialog = new SaveFileDialog
+        {
+            Title = L("Export NVIDIA driver health report", "Exporter le rapport de santé NVIDIA"),
+            Filter = "Text files (*.txt)|*.txt",
+            FileName = "nvidia-driver-health.txt",
+            DefaultExt = ".txt",
+            AddExtension = true,
+            OverwritePrompt = true
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var content = NvidiaDriverHealthService.Format(
+                report, UiLocalizationService.NormalizeLanguage(_uiLanguage) == "fr");
+            await File.WriteAllTextAsync(dialog.FileName, content);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Warn("NVIDIA health report export failed: " + ex.Message);
+            MessageBox.Show(
+                L("Could not export the local report.", "Export du rapport local impossible."),
+                "NVIDIA Driver Health", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private string L(
