@@ -2616,6 +2616,29 @@
                              Text="DirectX and Vulkan loader detection does not guarantee feature support. Game, driver and runtime compatibility are checked separately."
                              Foreground="{StaticResource Muted}" FontSize="10"
                              TextWrapping="Wrap"/>
+                  <Separator Margin="0,20,0,15"/>
+                  <TextBlock Text="NVIDIA Driver Health" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="On-demand offline diagnosis. Corrections are guided, never automatic."
+                             Style="{StaticResource SectionSubtitle}" Margin="0,4,0,12"/>
+                  <WrapPanel Margin="0,0,0,12">
+                    <Button x:Name="NvidiaDriverDiagnoseButton"
+                            Content="Diagnose &amp; Fix (guided)"
+                            Click="DiagnoseNvidiaDriver_Click"
+                            Style="{StaticResource CyanButton}"
+                            Margin="0,0,8,8"
+                            ToolTip="Measure GPU and NVIDIA process activity without changing any driver or system settings."/>
+                    <Button Content="Official NVIDIA guidance"
+                            Click="OpenNvidiaDriverGuidance_Click" Margin="0,0,8,8"
+                            ToolTip="Open the official NVIDIA driver help page only on request."/>
+                    <Button x:Name="NvidiaDriverExportButton" Content="Export local report"
+                            IsEnabled="False" Margin="0,0,0,8"
+                            Click="ExportNvidiaDriverReport_Click"
+                            ToolTip="Save the last NVIDIA diagnosis locally without uploading data."/>
+                  </WrapPanel>
+                  <TextBlock x:Name="NvidiaDriverHealthText"
+                             Text="No driver health diagnosis has been run."
+                             TextWrapping="Wrap" FontSize="12"
+                             Foreground="{StaticResource Muted}"/>
                 </StackPanel>
               </Border>
             </Grid>
