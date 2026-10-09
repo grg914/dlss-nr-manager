@@ -28,8 +28,18 @@ public sealed class MinecraftExperimentalJarImportService
     internal MinecraftExperimentalJarImportService(string approvedSha256)
         => _approvedSha256 = approvedSha256;
 
+    // A backup without a receipt means the import was interrupted. Treat it as
+    // active so managed installs cannot overwrite recoverable user data.
     public bool IsImported(string minecraftRoot)
-        => File.Exists(ReceiptPath(minecraftRoot));
+        => Directory.Exists(BackupDirectory(minecraftRoot)) ||
+           File.Exists(ReceiptPath(minecraftRoot));
+
+    public bool CanRestore(string minecraftRoot)
+        => Directory.Exists(BackupDirectory(minecraftRoot)) &&
+           File.Exists(ReceiptPath(minecraftRoot));
+
+    public bool HasInterruptedImport(string minecraftRoot)
+        => IsImported(minecraftRoot) && !CanRestore(minecraftRoot);
 
     public void Import(string minecraftRoot, string sourceJar)
     {
@@ -133,6 +143,17 @@ public sealed class MinecraftExperimentalJarImportService
         RequirePlainFile(backedUp);
         RequirePlainFile(experimental);
 
+        // A manager-owned backup is never a general cleanup directory.
+        // Stop before any live-file changes if unrelated files were added.
+        var expected = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "original.jar", ReceiptName
+        };
+        if (Directory.EnumerateFileSystemEntries(backup)
+                .Any(item => !expected.Contains(Path.GetFileName(item))))
+            throw new InvalidDataException(
+                "Unexpected files in the Caustica experimental backup. Refusing to modify or delete them.");
+
         if (File.Exists(original) || !Sha256(backedUp).Equals(receipt.OriginalSha256, StringComparison.OrdinalIgnoreCase)
             || !Sha256(experimental).Equals(receipt.ExperimentalSha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Caustica JARs changed since import. Refusing an unsafe overwrite.");
@@ -161,8 +182,12 @@ public sealed class MinecraftExperimentalJarImportService
                 throw;
             }
 
+            // Remove only manager-owned files; never recursively delete an
+            // instance backup directory containing unexpected user data.
+            File.Delete(backedUp);
+            File.Delete(savedExperiment);
             File.Delete(receiptPath);
-            Directory.Delete(backup, recursive: true);
+            Directory.Delete(backup, recursive: false);
         }
         finally
         {
