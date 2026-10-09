@@ -97,6 +97,17 @@ public sealed class ComponentUpdateService
                 : MediaUpdateAvailability.UpdateAvailable;
     }
 
+    /// <summary>
+    /// A confirmed Download Center update must be revalidated against the
+    /// latest remote manifest at execution time, not just when the UI offered it.
+    /// </summary>
+    public static bool IsConfirmedMediaUpgrade(
+        ComponentState? local,
+        ComponentState remote,
+        bool installed) =>
+        EvaluateMediaUpdate(local, remote, installed) ==
+        MediaUpdateAvailability.UpdateAvailable;
+
     private static bool TryParseStableManagerVersion(string? tag, out Version parsed)
     {
         parsed = new Version(0, 0);
@@ -114,7 +125,13 @@ public sealed class ComponentUpdateService
             candidate is null)
             return false;
 
-        parsed = candidate;
+        // Missing System.Version fields compare as -1. Treat v3.2,
+        // v3.2.0 and v3.2.0.0 as the same stable release tag.
+        parsed = new Version(
+            candidate.Major,
+            candidate.Minor,
+            Math.Max(0, candidate.Build),
+            Math.Max(0, candidate.Revision));
         return true;
     }
 
@@ -136,6 +153,23 @@ public sealed class ComponentUpdateService
         }
 
         var remote = await GetRemoteStateAsync(cancellationToken);
+
+        // The approved release can change between the read-only Download
+        // Center check and the user's confirmation. Never use forceRefresh
+        // as permission to install an older/unverified media runtime.
+        if (forceRefresh && !IsConfirmedMediaUpgrade(local, remote, media.IsReady))
+        {
+            if (EvaluateMediaUpdate(local, remote, media.IsReady) ==
+                MediaUpdateAvailability.UpToDate)
+            {
+                progress?.Report("Manager-owned components are already up to date.");
+                return false;
+            }
+
+            throw new InvalidOperationException(
+                "The confirmed media update is no longer a validated upgrade. " +
+                "Refresh Téléchargements to review the current release.");
+        }
 
         var hasManifestFingerprint =
             !string.IsNullOrWhiteSpace(remote.MediaFingerprint);
