@@ -13,10 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  actions: write
+  contents: read
 
 concurrency:
   group: upstream-dependency-sync
@@ -24,6 +21,12 @@ concurrency:
 
 jobs:
   prepare:
+    # Only this job can publish a review branch/PR/issue and dispatch Build.
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
     runs-on: windows-latest
     outputs:
       changed: ${{ steps.refresh.outputs.changed }}
@@ -150,8 +153,8 @@ jobs:
           - complete source snapshot vendored
           - restricted NVIDIA DLSS SDK remains notify-only
           - Windows/Linux refresh validation must pass
-          - repository-required PR Build check must pass
-          - merge is performed through the protected-main PR path
+          - repository-required PR Build and CodeQL checks must pass
+          - owner manually reviews and merges; workflow cannot auto-merge
           - production release consumes manager-owned assets only
           "@
 
@@ -284,9 +287,14 @@ jobs:
   promote:
     needs: [prepare, validate-windows, validate-linux]
     if: needs.prepare.outputs.changed == 'true'
+    # The review reporting job MUST NOT have GitHub write permission to merge.
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
     runs-on: ubuntu-latest
     steps:
-      - name: Promote validated dependency update
+      - name: Report validated dependency update for manual owner review
         id: promote
         env:
           GH_TOKEN: ${{ github.token }}
@@ -297,10 +305,11 @@ jobs:
           ids="${{ needs.prepare.outputs.changed_ids }}"
 
           if [ -n "$pr" ]; then
-            echo "Waiting for repository-required checks on PR #$pr..."
-            gh pr checks "$pr" --repo "${{ github.repository }}" --required --watch --interval 15
-            gh pr merge "$pr" --repo "${{ github.repository }}" --squash --delete-branch
-            echo "promoted=true" >> "$GITHUB_OUTPUT"
+            # Passing CI is necessary, not sufficient for third-party approval.
+            echo "::notice::Validated upstream PR #$pr awaits explicit owner review and manual squash merge."
+            echo "Upstream dependency PR #$pr ($ids) is READY FOR OWNER REVIEW only; nothing was merged." >> "$GITHUB_STEP_SUMMARY"
+            echo "Review pinned SHAs, source diffs, licensing and Build/CodeQL before manually merging via GitHub." >> "$GITHUB_STEP_SUMMARY"
+            echo "promoted=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -327,7 +336,7 @@ jobs:
           3. Merge with squash.
           4. The main push will trigger Runtime Seed Refresh automatically.
 
-          To restore fully autonomous promotion, enable the GitHub repository setting that allows GitHub Actions to create pull requests, or provide a dedicated credential with equivalent scoped permission.
+          Automatic merging is intentionally disabled. The owner must review and manually merge a signed PR; granting Actions permission to create pull requests does not allow auto-promotion.
           EOF
 
           existing="$(gh issue list --repo "${{ github.repository }}" --state open --search "$title in:title" --json number,title --jq '.[] | select(.title == "[upstream] validated branch awaiting PR") | .number' | head -n 1)"
@@ -341,15 +350,3 @@ jobs:
           echo "Validated branch `$branch` is intentionally left pending because Actions cannot create the required PR." >> "$GITHUB_STEP_SUMMARY"
           echo "promoted=false" >> "$GITHUB_OUTPUT"
 
-      - name: Refresh manager-owned runtime seed after automatic merge
-        if: steps.promote.outputs.promoted == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # GITHUB_TOKEN-generated repository events do not recursively start push workflows.
-          # Explicit workflow_dispatch is therefore required only for this automatic merge path.
-          gh workflow run runtime-refresh.yml --repo "${{ github.repository }}" --ref main -f changed_ids="${{ needs.prepare.outputs.changed_ids }}"
-          if [ $? -ne 0 ]; then
-            echo "::error::Validated dependency PR merged, but Runtime Seed Refresh dispatch failed."
-            exit 1
-          fi
