@@ -7,6 +7,22 @@ namespace DlssNrManager.Services;
 /// FP8 component names. The upstream UI JSON is a reference, not an API graph.
 /// Pure/offline: DOES NOT submit jobs, start Python, or authorize inference.
 /// </summary>
+public sealed record AiStudioImageSettings(
+    int Width, int Height, int Steps, long Seed)
+{
+    public void Validate()
+    {
+        if (Width is < 256 or > 2048 ||
+            Height is < 256 or > 2048 ||
+            Width % 16 != 0 || Height % 16 != 0 ||
+            (long)Width * Height > 2048L * 2048 ||
+            Steps is < 1 or > 32 ||
+            Seed is < 0 or > 1_125_899_906_842_623)
+            throw new ArgumentOutOfRangeException(
+                nameof(Width), "Unsupported FLUX.2 FP8 generation settings.");
+    }
+}
+
 public static class AiStudioFlux2Fp8WorkflowService
 {
     public const string ModelName = "flux-2-klein-4b-fp8.safetensors";
@@ -14,12 +30,16 @@ public static class AiStudioFlux2Fp8WorkflowService
     public const string VaeName = "flux2-vae.safetensors";
 
     public static string BuildTextToImage(
-        string prompt, int width = 1024, int height = 1024, long seed = 42)
-        => Build(prompt, null, width, height, seed);
+        string prompt, int width = 1024, int height = 1024,
+        long seed = 42, int steps = 4)
+        => Build(prompt, null, new AiStudioImageSettings(width, height, steps, seed));
+
+    public static string BuildTextToImage(string prompt, AiStudioImageSettings settings)
+        => Build(prompt, null, settings);
 
     public static string BuildImageEdit(
         string prompt, string importedImageName,
-        int width = 1024, int height = 1024, long seed = 42)
+        int width = 1024, int height = 1024, long seed = 42, int steps = 4)
     {
         if (string.IsNullOrWhiteSpace(importedImageName) ||
             importedImageName.Length > 120 ||
@@ -33,23 +53,21 @@ public static class AiStudioFlux2Fp8WorkflowService
                 "Image edits require an approved, already-imported ComfyUI input filename.",
                 nameof(importedImageName));
         }
-        return Build(prompt, importedImageName, width, height, seed);
+        return Build(prompt, importedImageName,
+            new AiStudioImageSettings(width, height, steps, seed));
     }
 
     private static string Build(
-        string prompt, string? inputName,
-        int width, int height, long seed)
+        string prompt, string? inputName, AiStudioImageSettings settings)
     {
         if (string.IsNullOrWhiteSpace(prompt) ||
             prompt.Length > 2048 ||
             prompt.Any(c => char.IsControl(c) && c is not '\r' and not '\n' and not '\t'))
             throw new ArgumentException("Prompt is empty or out of bounds.", nameof(prompt));
-        if (width is < 256 or > 2048 || height is < 256 or > 2048 ||
-            width % 16 != 0 || height % 16 != 0 ||
-            (long)width * height > 2048L * 2048 ||
-            seed is < 0 or > 1_125_899_906_842_623)
-            throw new ArgumentOutOfRangeException(
-                nameof(width), "Unreviewed FLUX.2 FP8 image dimensions/seed.");
+        ArgumentNullException.ThrowIfNull(settings);
+        settings.Validate();
+        var (width, height, steps, seed) =
+            (settings.Width, settings.Height, settings.Steps, settings.Seed);
 
         static object[] Ref(string id) => [id, 0];
         static object Node(string name, object inputs) => new { class_type = name, inputs };
@@ -62,7 +80,7 @@ public static class AiStudioFlux2Fp8WorkflowService
             ["4"] = Node("CLIPTextEncode", new { clip = Ref("2"), text = prompt }),
             ["5"] = Node("ConditioningZeroOut", new { conditioning = Ref("4") }),
             ["6"] = Node("EmptyFlux2LatentImage", new { width, height, batch_size = 1 }),
-            ["7"] = Node("Flux2Scheduler", new { steps = 4, width, height }),
+            ["7"] = Node("Flux2Scheduler", new { steps, width, height }),
             ["8"] = Node("RandomNoise", new { noise_seed = seed }),
             ["9"] = Node("KSamplerSelect", new { sampler_name = "euler" }),
             ["10"] = Node("CFGGuider", new
