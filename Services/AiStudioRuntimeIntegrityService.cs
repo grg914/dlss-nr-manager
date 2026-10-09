@@ -115,10 +115,23 @@ public static class AiStudioRuntimeIntegrityService
                 if (!File.Exists(fullPath))
                     return Result(AiStudioRuntimeIntegrityStatus.MissingFile);
 
-                if (new FileInfo(fullPath).Length != entry.Size)
+                // Open one handle for both checks and do not share write/delete
+                // access on Windows while the validated bytes are being hashed.
+                // HashService.Sha256Async is intentionally not used here because
+                // its general-purpose share mode permits concurrent writers.
+                await using var fileStream = new FileStream(
+                    fullPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize: 128 * 1024,
+                    options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+                if (fileStream.Length != entry.Size)
                     return Result(AiStudioRuntimeIntegrityStatus.FileHashMismatch);
 
-                var actualHash = await HashService.Sha256Async(fullPath, cancellationToken);
+                var actualHash = Convert.ToHexString(
+                    await System.Security.Cryptography.SHA256.HashDataAsync(
+                        fileStream, cancellationToken));
                 if (!actualHash.Equals(entry.Sha256, StringComparison.OrdinalIgnoreCase))
                     return Result(AiStudioRuntimeIntegrityStatus.FileHashMismatch);
             }
