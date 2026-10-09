@@ -20,7 +20,7 @@ The Caustica lockfile previously described its source as GPL-3.0; its exact vend
 | --- | --- | --- |
 | Microsoft OpenMP / Real-ESRGAN, issue #79 | Evidence of permitted redistributable `vcomp140.dll` source, signed x64 REDIST origin, version/hash, operator license authorization and physical Windows test | Keep the existing fail-closed REDIST gate. Either approve the appropriate licensed Microsoft package/DLL with provenance or keep OpenMP packaging disabled; **never** copy untracked System32 files |
 | Win11 / RTX reliability, issue #95 | On-device crash/kill/restart, file-lock/junction, interrupted redownload and rollback acceptance | Complete code/CI gates first, then operator Windows acceptance before releasing v4.0; synthetic tests are insufficient |
-| Offline startup, GPT B branch #324 | Last-mile offline release probe/runtime behavior | Owner GPT B handles exact-head Build/CodeQL and protected merge. No additional browser/network adapter package is needed |
+| Offline startup, GPT B PR #324 | Protected-merged as `dddd9ac76a9108a7607331966f9148245a23e686`; exact-head Build/CodeQL passed and 194 tests passed | Code integration completed. **Physical Windows disconnected-network acceptance remains**; no new network adapter/dependency package is needed |
 | Historical branches, issue #124 | Semantic branch cleanup to exclude unmerged or superseded code | Audit branches and approved consumers; no blanket forks or sync |
 | OptiScaler native reproducibility, issue #161 | Future native rebuild and canonical archive comparison | Already-approved pinned runtime exists; no new native toolchain or binary rebuild needed just to ship unchanged v4 |
 | Experimental ReSTIR PRs #311 → #316 → #319 | Draft integration, separate SDK provenance and RTX validation | **Out of v4 stable release path** until reviewed and tested; do not publish its CI JAR on the stable channel |
@@ -35,7 +35,7 @@ The Caustica lockfile previously described its source as GPL-3.0; its exact vend
 
 ## Before declaring v4.0 complete
 
-1. Preserve `main` and immutable approved release assets while GPT B finishes v4 reliability/rollback and offline source checks.
+1. Preserve `main` and immutable approved release assets. GPT B's offline startup source fix is merged; physical disconnected-network, process-lifecycle and rollback tests are still outstanding. Refer to `docs/V4_RC_ACCEPTANCE_HANDOFF.md`.
 2. Record operator-approved Microsoft REDIST provenance or keep affected OpenMP redistribution disabled.
 3. Complete release checklist: README/version, exact reviewed signed source SHA, Windows Build/CodeQL, xUnit, offline deterministic package/SBOM, hashes/manifest, FR/EN, source/third-party notices, rollback and Windows device evidence.
 4. Promote **only** an approved v4 source to a new immutable `v4.0.0` release after those gates. Do not change version/tag early, bypass CI rulesets, or merge GPT A/C experimental branches to accelerate publication.
