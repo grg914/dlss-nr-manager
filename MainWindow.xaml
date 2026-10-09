@@ -1994,6 +1994,11 @@
                           ToolTip="Choisir le manifeste .manifest.json et ses parties .partNNN déjà présents sur ce PC"
                           IsEnabled="False" Margin="0,8,0,8"
                           Click="ImportOfflineFlux2_Click"/>
+                  <Button x:Name="VerifyOfflineFlux2Button"
+                          Content="Vérifier l'intégrité de FLUX.2 installé (lecture ≈ 12 Go)"
+                          ToolTip="Calcul manuel des empreintes SHA-256 locales ; aucune connexion requise"
+                          IsEnabled="False" Margin="0,0,0,8"
+                          Click="VerifyOfflineFlux2_Click"/>
                   <Button x:Name="DownloadCenterRemoveButton"
                           Content="Supprimer"
                           IsEnabled="False"
