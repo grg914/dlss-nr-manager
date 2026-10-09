@@ -43,3 +43,11 @@
 - Branch: `feature/v4.5-ai-studio-job-preflight-20261009` (based on main 05a8b4c).
 - Planned files: a read-only preflight service, xUnit tests, non-executing Jobs UI diagnostic, this roadmap, and a minimal coordination update.
 - Build and CodeQL: PENDING until exact-head CI finishes. No physical GPU/inference validation or signed release is claimed.
+
+## 2026-10-09 integrated P0/P1 checkpoint
+
+- **P0 — source implemented, not released:** the read-only diagnostic is integrated in the AI Studio Jobs list; original P0 signed head `aa03da26127db8d6740da0034c03cc4b3d6166ba` passed Build, Analyze C# and CodeQL. The presence of model/runtime files never grants execution readiness.
+- **P1 — integrity prerequisite only, not installer:** `AiStudioRuntimeIntegrityService` validates an independently pinned manifest, schema, paths and file hashes without downloads or executable launches. Signed head `0f7a5fcc69d88286eeab484bf3d99481d19fe115` passed Build, Analyze C# and CodeQL. Its manifest is now read, hashed and deserialized from the same bounded byte snapshot.
+- **Unified staging:** source branch `feature/v4.5-ai-studio-foundations-combined-20261009` combines both modules and one append-only C001–C004 journal; no change to `AI_PROJECT_COORDINATION.md`. Combined exact-head Windows Build, Analyze C# and CodeQL must pass before GitHub signing or an eventual new Draft.
+- **Still required for actual local AI generation:** approved immutable manager-owned Python/wheelhouse/CUDA artifacts and licenses, transactional isolated installation/rollback, reviewed ComfyUI/Diffusers executors, safe local process lifecycle, UI progress/cancel and physical GPU/VRAM compatibility tests. Do not interpret the current source as AI inference-ready.
+- **Parallel ownership:** GPT A's Minecraft/Caustica experimental rendering and GPT B's stable v4.0/supply chain/Download Center remain separate and must be revalidated against fresh `main` before any feature release.
