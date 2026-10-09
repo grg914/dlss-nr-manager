@@ -145,3 +145,6 @@ NEXT: assess CI of PR #141/#142/#143/#144 on exact SHA, reconcile branches befor
 - Verified starting main: `a2c26427505e7b1740768de07075a42a619be5b6`, three shared docs read. Separate branch `feature/gpt-a-v4.5-adaptive-gpu-profiles-20261009`.
 - GPU-capability-aware AUTO/Manual/Compatible recommendations and persistent choices; quality goal is advisory only, MFG eligibility is not automatic activation, Neural Rendering is opt-in. No NVIDIA Control Panel/App or driver profiles modified, no DLL/runtime/package changes.
 - GPT B owns v4 installer/Compatible P1 fix; must reconcile actual install pathway before v4.5 integration. GPT C AI Studio changes untouched. No protected main merge authorized; Build, xUnit, CodeQL, real Windows RTX validation pending.
+
+### GPT A GPU profile draft addendum — PR #353 (2026-10-09)
+- Draft-only minimal fail-closed generic NVIDIA selection/Install_Click guard was subsequently added to avoid bypassing AUTO/Manual/Compatible UI preferences. It is **not** a stable v4 installer fix; GPT B must inspect and reconcile the overlapping integration before protected v4.5 merge. No NVIDIA Control Panel/driver/global GPU settings writes. Build/CodeQL and physical hardware checks on final head remain PENDING.
