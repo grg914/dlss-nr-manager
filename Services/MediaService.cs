@@ -101,23 +101,40 @@ public sealed class MediaService
         Directory.CreateDirectory(ProcessorDirectory);
         Directory.CreateDirectory(ToolsDirectory);
 
-        if (!IsUsableFile(ProcessorExe, 64 * 1024))
+        var needsProcessor = !IsUsableFile(ProcessorExe, 64 * 1024);
+        var needsFfmpeg = !IsUsableFile(FfmpegExe, 1024 * 1024) ||
+                          !IsUsableFile(FfprobeExe, 1024 * 1024);
+
+        // Resolve both archives against one release snapshot. Do not fetch
+        // /releases/latest again between component downloads: a release
+        // change could otherwise mix artifacts from different versions.
+        using var managerRelease = needsProcessor || needsFfmpeg
+            ? await GetJsonAsync(ManagerLatestReleaseApi, cancellationToken)
+            : null;
+        var processorAsset = needsProcessor
+            ? FindAsset(managerRelease!, ProcessorAsset)
+            : null;
+        var ffmpegAsset = needsFfmpeg
+            ? FindAsset(managerRelease!, FfmpegAsset)
+            : null;
+
+        if (needsProcessor && processorAsset == null)
+            throw new InvalidOperationException(
+                $"Latest DLSS NR Manager release has no {ProcessorAsset} asset.");
+        if (needsFfmpeg && ffmpegAsset == null)
+            throw new InvalidOperationException(
+                $"Latest DLSS NR Manager release has no {FfmpegAsset} asset.");
+        if (needsProcessor && string.IsNullOrWhiteSpace(processorAsset!.Sha256))
+            throw new InvalidDataException(
+                $"Manager-owned video2dlssnr asset {ProcessorAsset} has no SHA-256 digest.");
+        if (needsFfmpeg && string.IsNullOrWhiteSpace(ffmpegAsset!.Sha256))
+            throw new InvalidDataException(
+                $"Manager-owned FFmpeg asset {FfmpegAsset} has no SHA-256 digest.");
+
+        if (needsProcessor)
         {
             progress?.Report("Downloading manager-owned video2dlssnr…");
-            using var managerRelease = await GetJsonAsync(
-                ManagerLatestReleaseApi,
-                cancellationToken);
-
-            var asset = FindAsset(managerRelease, ProcessorAsset)
-                ?? throw new InvalidOperationException(
-                    $"Latest DLSS NR Manager release has no {ProcessorAsset} asset. " +
-                    "Bootstrap the validated video runtime before using media processing.");
-
-            if (string.IsNullOrWhiteSpace(asset.Sha256))
-            {
-                throw new InvalidDataException(
-                    $"Manager-owned video2dlssnr asset {ProcessorAsset} has no SHA-256 digest.");
-            }
+            var asset = processorAsset!;
 
             var zip = Path.Combine(RootDirectory, ProcessorAsset);
             var extract = Path.Combine(
@@ -159,20 +176,10 @@ public sealed class MediaService
             }
         }
 
-        if (!IsUsableFile(FfmpegExe, 1024 * 1024) ||
-            !IsUsableFile(FfprobeExe, 1024 * 1024))
+        if (needsFfmpeg)
         {
             progress?.Report("Downloading manager-owned FFmpeg…");
-            var release = await GetJsonAsync(FfmpegApi, cancellationToken);
-            var asset = FindAsset(release, FfmpegAsset)
-                ?? throw new InvalidOperationException(
-                    $"Latest DLSS NR Manager release has no {FfmpegAsset} asset.");
-
-            if (string.IsNullOrWhiteSpace(asset.Sha256))
-            {
-                throw new InvalidDataException(
-                    $"Manager-owned FFmpeg asset {FfmpegAsset} has no SHA-256 digest.");
-            }
+            var asset = ffmpegAsset!;
 
             var zip = Path.Combine(RootDirectory, FfmpegAsset);
             var temp = Path.Combine(RootDirectory, "ffmpeg-extract");
