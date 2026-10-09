@@ -785,8 +785,18 @@
                             SelectedIndex="0"
                             SelectionChanged="MinecraftCausticaChannelBox_SelectionChanged"
                             ToolTip="Stable installs verified Caustica from the Manager release. Experimental controls an already installed local ReSTIR build; the Manager will not download experimental JARs.">
-                    <ComboBoxItem Content="Stable (Manager release)"/>
-                    <ComboBoxItem Content="Experimental (locally installed build)"/>
+                    <ComboBoxItem>
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Stable (Manager release)"/>
+                        <TextBlock x:Name="MinecraftCausticaStableVersionText" Text=" • checking version…"/>
+                      </StackPanel>
+                    </ComboBoxItem>
+                    <ComboBoxItem>
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Experimental (locally installed build)"/>
+                        <TextBlock x:Name="MinecraftCausticaExperimentalVersionText" Text=" • not installed"/>
+                      </StackPanel>
+                    </ComboBoxItem>
                   </ComboBox>
                   <TextBlock x:Name="MinecraftCausticaChannelInfoText"
                              Text="Stable: verified Manager release only."
