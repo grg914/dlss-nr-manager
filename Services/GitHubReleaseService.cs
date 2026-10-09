@@ -388,76 +388,9 @@ public sealed class GitHubReleaseService
                 "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest",
                 cancellationToken);
 
-            var tag = doc.RootElement.GetProperty("tag_name").GetString();
-            var htmlUrl = doc.RootElement.GetProperty("html_url").GetString();
-
-            if (string.IsNullOrWhiteSpace(tag) ||
-                string.IsNullOrWhiteSpace(htmlUrl))
-                return null;
-
-            var normalized = tag.Trim().TrimStart('v', 'V');
-            if (!Version.TryParse(normalized, out var version))
-                return null;
-
-            if (!doc.RootElement.TryGetProperty("assets", out var assets) ||
-                assets.ValueKind != JsonValueKind.Array)
-                return null;
-
-            var candidates = new List<(string Name, string Url, string? Sha256, int Rank)>();
-
-            foreach (var asset in assets.EnumerateArray())
-            {
-                var name = asset.TryGetProperty("name", out var nameElement)
-                    ? nameElement.GetString() ?? ""
-                    : "";
-                var url = asset.TryGetProperty("browser_download_url", out var urlElement)
-                    ? urlElement.GetString() ?? ""
-                    : "";
-
-                if (string.IsNullOrWhiteSpace(name) ||
-                    string.IsNullOrWhiteSpace(url))
-                    continue;
-
-                var rank =
-                    name.Equals("DlssNrManager.exe", StringComparison.OrdinalIgnoreCase) ? 0 :
-                    name.Equals("DlssNrManager-win-x64.zip", StringComparison.OrdinalIgnoreCase) ? 1 :
-                    name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? 2 :
-                    name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? 3 :
-                    100;
-
-                if (rank >= 100)
-                    continue;
-
-                string? sha256 = null;
-                if (asset.TryGetProperty("digest", out var digestElement))
-                {
-                    var digest = digestElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(digest) &&
-                        digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        sha256 = digest["sha256:".Length..];
-                    }
-                }
-
-                candidates.Add((name, url, sha256, rank));
-            }
-
-            var selected = candidates
-                .OrderBy(x => x.Rank)
-                .ThenBy(x => x.Name.Length)
-                .FirstOrDefault();
-
-            if (string.IsNullOrWhiteSpace(selected.Name) ||
-                string.IsNullOrWhiteSpace(selected.Url))
-                return null;
-
-            return new ManagerReleaseInfo(
-                version,
-                tag,
-                htmlUrl,
-                selected.Name,
-                selected.Url,
-                selected.Sha256);
+            // Never offer an executable update without a canonical asset
+            // and an explicit, valid SHA-256 digest from this release.
+            return ManagerUpdateAssetPolicy.SelectRelease(doc.RootElement);
         }
         catch (Exception ex)
         {
