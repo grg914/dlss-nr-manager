@@ -7,6 +7,10 @@ public sealed class OfficialUpstreamUpdateTests
 {
     [Theory]
     [InlineData("v2.14.1", "v2.14.2", OfficialUpstreamState.NewVersion)]
+    [InlineData("v1.2", "v1.2.0", OfficialUpstreamState.UpToDate)]
+    [InlineData("v1.2.0.0", "v1.2", OfficialUpstreamState.UpToDate)]
+    [InlineData("v1.2", "v1.2.1", OfficialUpstreamState.NewVersion)]
+    [InlineData("v1.2.1", "v1.2", OfficialUpstreamState.ReviewRequired)]
     [InlineData("v2.14.1", "v2.14.1", OfficialUpstreamState.UpToDate)]
     [InlineData("n9.0.2", "n9.0.1", OfficialUpstreamState.ReviewRequired)]
     [InlineData("v1.2.0", "malicious-latest", OfficialUpstreamState.ReviewRequired)]
