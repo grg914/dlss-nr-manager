@@ -2,11 +2,16 @@ name: Delete Verified Merged PR Branch
 
 # Executes trusted base-branch code only; never checks out or runs PR head.
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/delete-merged-pr-branch.yml'
+      - 'tools/delete-merged-pr-head.py'
+      - 'tests/test_delete_merged_pr_head.py'
   pull_request_target:
     types: [closed]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 concurrency:
@@ -14,7 +19,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-cleanup-policy:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Run read-only, mocked cleanup safety tests
+        run: |
+          python3 -m py_compile tools/delete-merged-pr-head.py
+          python3 -m unittest discover -s tests -p 'test_delete_merged_pr_head.py' -v
+
   delete-merged-same-repo-head:
+    permissions:
+      contents: write
+      pull-requests: read
     if: >-
       github.repository == 'grg914/dlss-nr-manager' &&
       github.event.pull_request.merged == true &&
