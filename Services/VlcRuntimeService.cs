@@ -55,6 +55,11 @@ public sealed class VlcRuntimeService
 
     public void Reset()
     {
+        if (Directory.Exists(RootDirectory + ".backup") ||
+            File.Exists(RootDirectory + ".backup"))
+            throw new IOException(
+                "An unresolved VLC backup is present. Resolve it before removing the runtime.");
+
         ManagedPathSafety.EnsureSafeForRemoval(RootDirectory);
         TryDeleteDirectory(RootDirectory);
 
@@ -71,6 +76,13 @@ public sealed class VlcRuntimeService
     {
         progress?.Report(
             "Checking manager-owned VLC runtime…");
+
+        // Recover interrupted installs before deciding whether to reinstall.
+        var recovered = ManagedComponentRedownload.RecoverOwnedBackups([RootDirectory]);
+        var legacy = ManagedComponentRedownload.RecoverLegacyVlcBackup(RootDirectory);
+        if (recovered.Failed != 0 || legacy.Failed != 0)
+            throw new IOException(
+                "Unresolved VLC backup: previous and partial copies were retained for manual recovery.");
 
         if (IsReady)
         {
@@ -105,6 +117,7 @@ public sealed class VlcRuntimeService
         var extract = Path.Combine(
             work,
             "extract");
+        var staged = RootDirectory + ".staged-" + Guid.NewGuid().ToString("N");
 
         try
         {
@@ -172,44 +185,39 @@ public sealed class VlcRuntimeService
                 ?? throw new InvalidDataException(
                     "Unable to resolve the extracted VLC runtime root.");
 
-            var staged = RootDirectory + ".staged-" +
-                         Guid.NewGuid().ToString("N");
-
-            TryDeleteDirectory(staged);
             CopyDirectory(sourceRoot, staged);
 
-            var backup = RootDirectory + ".backup";
-            TryDeleteDirectory(backup);
-
-            if (Directory.Exists(RootDirectory))
-                Directory.Move(RootDirectory, backup);
-
-            try
-            {
-                Directory.Move(staged, RootDirectory);
-                TryDeleteDirectory(backup);
-            }
-            catch
-            {
-                TryDeleteDirectory(RootDirectory);
-
-                if (Directory.Exists(backup))
-                    Directory.Move(backup, RootDirectory);
-
-                throw;
-            }
-
-            if (!IsReady)
-            {
-                throw new InvalidDataException(
-                    "VLC installation completed but vlc.exe is not usable.");
-            }
+            // The shared GUID-backup transaction is recovered at startup.
+            await ManagedComponentRedownload.ReplaceAsync(
+                [RootDirectory],
+                token =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    Directory.Move(staged, RootDirectory);
+                    return Task.CompletedTask;
+                },
+                () => IsReady,
+                cancellationToken);
 
             progress?.Report(
                 "Manager-owned VLC 3.0.24 ready.");
         }
         finally
         {
+            // A failed copy may leave a staged sibling; never follow a junction.
+            if (Directory.Exists(staged))
+            {
+                try
+                {
+                    ManagedPathSafety.EnsureSafeForRemoval(staged);
+                    TryDeleteDirectory(staged);
+                }
+                catch (IOException error)
+                {
+                    AppLogger.Warn($"Unsafe VLC staging folder preserved: {staged}. {error.Message}");
+                }
+            }
+
             TryDeleteDirectory(work);
         }
     }
