@@ -157,40 +157,36 @@ public sealed class DownloadCenterService
             .ToArray();
     }
 
-    public async Task<string> GetDetailsAsync(
+    /// <summary>
+    /// Selection details are local-only. GitHub release discovery happens
+    /// exclusively via an explicit version/update action or installation.
+    /// </summary>
+    public Task<string> GetDetailsAsync(
         DownloadCenterEntry entry,
         string language = "en",
         CancellationToken cancellationToken = default)
     {
-        string T(string value) =>
-            UiLocalizationService.Translate(
-                value,
-                language);
+        cancellationToken.ThrowIfCancellationRequested();
+        string T(string value) => UiLocalizationService.Translate(value, language);
+
         if (entry.Kind != DownloadCenterKind.AiStudioModel ||
             string.IsNullOrWhiteSpace(entry.ModelId))
         {
-            return
+            return Task.FromResult(
                 $"{entry.DisplayName}\n" +
                 $"{T("Category")}: {entry.Category}\n" +
                 $"{T("Status")}: {entry.Status}\n" +
                 $"{T("License")}: {entry.License}\n" +
                 $"{T("Size")}: {entry.SizeLabel}\n\n" +
-                entry.Details;
+                entry.Details);
         }
 
-        var model =
-            LocalAiStudioService.Models.First(
-                x => x.Id == entry.ModelId);
-
+        var model = LocalAiStudioService.Models.First(x => x.Id == entry.ModelId);
         if (!model.ManagerOwnedRedistributionAllowed)
         {
-            var info =
-                AiStudioLicenseAcceptanceService.GetInfo(model);
-
-            var accepted =
-                _licenseAcceptances.IsAccepted(model);
-
-            return
+            var info = AiStudioLicenseAcceptanceService.GetInfo(model);
+            var accepted = _licenseAcceptances.IsAccepted(model);
+            return Task.FromResult(
                 $"{model.DisplayName}\n" +
                 $"{T("Status")}: {entry.Status}\n" +
                 $"{T("License")}: {model.License}\n" +
@@ -198,33 +194,21 @@ public sealed class DownloadCenterService
                 $"{T("Distribution from your Releases")}: {T("NO")}\n" +
                 $"{T("Installation")}: {T("Import files obtained from the official source after accepting the license.")}\n" +
                 $"{T("Official source")}: {info?.OfficialModelUrl ?? model.Repository}\n\n" +
-                T(model.Notes);
+                T(model.Notes));
         }
 
-        var package =
-            await _aiPackages.FindLatestPackageAsync(
-                model.Id,
-                cancellationToken);
-
-        var size =
-            package == null
-                ? T("Manager-owned package not published")
-                : FormatBytes(
-                    package.Manifest.Archive.Size,
-                    language);
-
-        var version =
-            package?.Manifest.Version
-            ?? "—";
-
-        return
+        // The signed receipt describes the already-installed local package.
+        // Unknown remote versions/sizes are never guessed from a prior release.
+        var receipt = _aiPackages.ReadInstalledReceipt(model);
+        var french = UiLocalizationService.NormalizeLanguage(language) == "fr";
+        return Task.FromResult(
             $"{model.DisplayName}\n" +
             $"{T("Status")}: {entry.Status}\n" +
             $"{T("License")}: {model.License}\n" +
-            $"{T("Package version")}: {version}\n" +
-            $"{T("Download/reconstruction size")}: {size}\n" +
-            $"Release: {package?.Tag ?? "—"}\n\n" +
-            T(model.Notes);
+            $"{(french ? "Version locale" : "Local version")}: {receipt?.Version ?? "—"}\n" +
+            $"{T("Size")}: {entry.SizeLabel}\n" +
+            $"{(french ? "Version distante : utiliser Actualiser" : "Remote version: use Refresh")}\n\n" +
+            T(model.Notes));
     }
 
     public async Task<MediaUpdateAvailability> CheckAiStudioModelUpdateAsync(
