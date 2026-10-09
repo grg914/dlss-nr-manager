@@ -60,3 +60,8 @@ These are planning defaults, not claims of exclusive ownership. Always inspect c
 - **Lane B:** after this shared docs checkpoint is protected-merged, reconcile #318 on the live main, ensure fresh signed exact-head Build/CodeQL before protected squash; then prepare **on-device** no-Internet, Windows process cleanup, rollback and Real-ESRGAN acceptance. No unnecessary native OptiScaler compilation.
 - **Lane C:** proceed with independently reviewed, isolated v4.5 AI Studio Python/ComfyUI work; require on-device offline inference proof, no automatic v4.0 integration.
 - **All three:** recheck real main and all three documents before next intervention and after each signed squash. Never rely on this snapshot as a synchronization lock.
+
+
+## GPT B — Optional Microsoft VC++ host detection (2026-10-09, DRAFT)
+
+- Proposed isolated v4 change: create **tracked instructions only** at `third_party-local/microsoft/README.md` (local `vc_redist.x64.exe` stays ignored), read-only x64 Visual C++ v14 registry detection in Downloads with FR/EN status; no installer execution, NVIDIA driver handling, auto-download or OpenMP redistribution permission. A green source CI and signed protected merge are required before calling this integrated. Separate GPT A #334/#335 and GPT C experimental lanes remain untouched.
