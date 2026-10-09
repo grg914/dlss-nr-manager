@@ -6,6 +6,10 @@
 >
 > **Snapshot:** 2026-10-09. Observed `main` SHA: `9421c71a6b995ad53d7b0134d64f2f6eab0ed313` (**refresh before every change**).
 
+## Latest verified GPT A handoff (2026-10-09 / GPT A / verified live main f8fc1d65448f150c27736f31a07131200dca6e63)
+
+The original tables below are a historical snapshot. Live GitHub state takes precedence. Manager draft stack: [#311](https://github.com/grg914/dlss-nr-manager/pull/311) → [#316](https://github.com/grg914/dlss-nr-manager/pull/316) → [#319](https://github.com/grg914/dlss-nr-manager/pull/319); all open/unmerged. Exact-head Build SUCCESS for all three, CodeQL SUCCESS confirmed for #311 only; hardware RTX/Vulkan, owner review, signature and remaining gates **not approved**. Caustica experimental [#28](https://github.com/grg914/Caustica-RTX/pull/28), [#29](https://github.com/grg914/Caustica-RTX/pull/29), [#30](https://github.com/grg914/Caustica-RTX/pull/30) also open/draft, CI successful, not production-validated. The #30 JAR is a pinned offline personal-test artifact, **not** approved for stable distribution. GPT A will audit recovery and verification before any merge. Never mix GPT B/C lanes or issue parallel main merges.
+
 ## Shared sources and precedence
 
 1. Read the latest `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` on GitHub.
