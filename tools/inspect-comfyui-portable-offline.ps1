@@ -111,24 +111,56 @@ try {
         throw "Extracted ComfyUI portable layout does not match listing."
     }
 
-    # We do not bundle model weights here. Inventory all runtime files for
-    # independent binary and redistribution review before signing any pin.
-    $files = @(Get-ChildItem -LiteralPath $portable -File -Recurse -Force)
-    $inventory = [System.Collections.Generic.List[object]]::new()
-    foreach ($file in $files) {
-        if (($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-            throw "Portable runtime contains a redirected file: $($file.FullName)"
-        }
-        $relative = $file.FullName.Substring($portable.Length + 1).Replace('\', '/')
-        $inventory.Add([ordered]@{
-            path = $relative
-            size = [int64]$file.Length
-            sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-        })
+    # Windows PowerShell 5.1 Get-ChildItem -Recurse cannot reliably enumerate
+    # Torch's deeply nested license tree (> MAX_PATH). Use extended Win32 paths
+    # through .NET, and refuse reparse points BEFORE descending into a directory.
+    # This stays entirely offline and never executes any extracted Python.
+    $portableFull = [IO.Path]::GetFullPath($portable).TrimEnd('\')
+    $rootLong = if ($portableFull.StartsWith('\\', [StringComparison]::Ordinal)) {
+        '\\?\UNC\' + $portableFull.Substring(2)
+    } else {
+        '\\?\' + $portableFull
     }
-    foreach ($dir in @(Get-ChildItem -LiteralPath $portable -Directory -Recurse -Force)) {
-        if (($dir.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-            throw "Portable runtime contains a redirected directory: $($dir.FullName)"
+    if (([IO.File]::GetAttributes($rootLong) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Portable root is redirected."
+    }
+    $inventory = [System.Collections.Generic.List[object]]::new()
+    $pending = [System.Collections.Generic.Stack[string]]::new()
+    $pending.Push($rootLong)
+    $seenEntries = 0
+    while ($pending.Count -gt 0) {
+        $directory = $pending.Pop()
+        foreach ($entry in [IO.Directory]::EnumerateFileSystemEntries($directory)) {
+            $seenEntries++
+            if ($seenEntries -gt 120000) {
+                throw "Portable runtime has too many extracted files or directories."
+            }
+            $attributes = [IO.File]::GetAttributes($entry)
+            if (($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Portable runtime contains a redirected entry: $entry"
+            }
+            if (($attributes -band [IO.FileAttributes]::Directory) -ne 0) {
+                $pending.Push($entry)
+                continue
+            }
+            $relative = $entry.Substring($rootLong.Length).TrimStart('\').Replace('\', '/')
+            $stream = [IO.FileStream]::new(
+                $entry, [IO.FileMode]::Open, [IO.FileAccess]::Read,
+                [IO.FileShare]::Read, 131072, [IO.FileOptions]::SequentialScan)
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try {
+                $size = $stream.Length
+                $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).
+                    Replace('-', '').ToLowerInvariant()
+            } finally {
+                $sha.Dispose()
+                $stream.Dispose()
+            }
+            $inventory.Add([ordered]@{
+                path = $relative
+                size = [int64]$size
+                sha256 = $hash
+            })
         }
     }
 
