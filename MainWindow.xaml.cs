@@ -4881,9 +4881,13 @@ public partial class MainWindow : Window
             (entry.CanInstallAutomatically ||
              entry.RequiresLicenseAcceptance);
 
+        // Keep removal available for a failed/empty AI Studio import; an
+        // incomplete model must never be displayed as installed.
         DownloadCenterRemoveButton.IsEnabled =
             !busy &&
-            entry.IsInstalled;
+            (entry.IsInstalled ||
+             (entry.Kind == DownloadCenterKind.AiStudioModel &&
+              entry.HasIncompleteFiles));
 
         DownloadCenterRedownloadButton.IsEnabled =
             !busy &&

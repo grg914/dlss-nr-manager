@@ -26,6 +26,14 @@ public enum AiStudioModelTier
     Compatibility
 }
 
+/// <summary>Cheap local file-presence preflight, not an SHA or license approval.</summary>
+public enum AiStudioLocalModelState
+{
+    Missing,
+    Incomplete,
+    FilesPresentUnverified
+}
+
 public sealed record AiStudioTaskChoice(
     AiStudioTaskKind Task,
     string Label,
@@ -336,8 +344,122 @@ public sealed class LocalAiStudioService
             Sanitize(model.Id));
 
     public bool IsModelInstalled(AiStudioModelDescriptor model)
-        => Directory.Exists(
-            GetModelDirectory(model));
+        => InspectModelFiles(model, GetModelDirectory(model)) ==
+            AiStudioLocalModelState.FilesPresentUnverified;
+
+    /// <summary>
+    /// Cheap, bounded disk-metadata preflight: a directory alone, README, and
+    /// an interrupted FLUX.2 extraction are NOT complete local model files.
+    /// Does not read/hash large weights or authorize inference.
+    /// </summary>
+    public static AiStudioLocalModelState InspectModelFiles(
+        AiStudioModelDescriptor model, string directory)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        if (!Directory.Exists(directory))
+            return AiStudioLocalModelState.Missing;
+
+        try
+        {
+            if (ManagedPathSafety.HasReparsePointOnPath(directory))
+                return AiStudioLocalModelState.Incomplete;
+
+            var weightsPresent = model.Id == "flux2-klein-4b"
+                ? HasCompleteFlux2Fp8FileSet(directory)
+                : HasAnyRecognizedWeightFile(directory);
+            if (!weightsPresent)
+                return AiStudioLocalModelState.Incomplete;
+
+            // Restricted/manual-license imports intentionally have no receipt.
+            // Only manager-owned installations require their commit receipt.
+            if (model.ManagerOwnedRedistributionAllowed &&
+                !HasValidManagerReceipt(model, directory))
+                return AiStudioLocalModelState.Incomplete;
+
+            return AiStudioLocalModelState.FilesPresentUnverified;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or JsonException or ArgumentException)
+        {
+            return AiStudioLocalModelState.Incomplete;
+        }
+    }
+
+    private static bool HasCompleteFlux2Fp8FileSet(string directory)
+    {
+        foreach (var relative in new[]
+        {
+            "diffusion_models/flux-2-klein-4b-fp8.safetensors",
+            "text_encoders/qwen_3_4b.safetensors",
+            "vae/flux2-vae.safetensors"
+        })
+        {
+            var path = Path.Combine(directory, relative.Replace('/',
+                Path.DirectorySeparatorChar));
+            if (ManagedPathSafety.HasReparsePointOnPath(path) ||
+                !File.Exists(path) || new FileInfo(path).Length == 0)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool HasAnyRecognizedWeightFile(string directory)
+    {
+        // No recursive symlink traversal or bulk hashing during UI refresh.
+        var pending = new Stack<(string Path, int Depth)>();
+        pending.Push((directory, 0));
+        var scanned = 0;
+        while (pending.Count != 0 && scanned < 2048)
+        {
+            var (current, depth) = pending.Pop();
+            if (ManagedPathSafety.HasReparsePointOnPath(current))
+                continue;
+
+            foreach (var path in Directory.EnumerateFileSystemEntries(current))
+            {
+                if (++scanned > 2048)
+                    return false;
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    continue;
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    if (depth < 5)
+                        pending.Push((path, depth + 1));
+                    continue;
+                }
+
+                if (new FileInfo(path).Length <= 0)
+                    continue;
+                if (Path.GetExtension(path).ToLowerInvariant() is
+                    ".safetensors" or ".ckpt" or ".pt" or ".pth" or
+                    ".bin" or ".gguf" or ".onnx")
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool HasValidManagerReceipt(
+        AiStudioModelDescriptor model, string directory)
+    {
+        var path = Path.Combine(directory, AiStudioPackageService.LocalReceiptFile);
+        if (ManagedPathSafety.HasReparsePointOnPath(path) ||
+            !File.Exists(path) || new FileInfo(path).Length is <= 0 or > 8192)
+            return false;
+
+        var receipt = JsonSerializer.Deserialize<AiStudioPackageReceipt>(
+            File.ReadAllText(path));
+        return receipt is not null &&
+               receipt.PackageId == model.Id &&
+               Version.TryParse(receipt.Version, out _) &&
+               receipt.ReleaseTag ==
+                   $"ai-studio-{model.Id}-{receipt.Version}" &&
+               receipt.ArchiveSha256 is { Length: 64 } &&
+               receipt.ArchiveSha256.All(Uri.IsHexDigit);
+    }
 
     public void RemoveModel(
         AiStudioModelDescriptor model)
@@ -556,11 +678,16 @@ public sealed class LocalAiStudioService
         var french =
             UiLocalizationService.NormalizeLanguage(language) == "fr";
 
-        // Directory presence only means local files were found; it does not
-        // authenticate weights or authorize a model/runtime for inference.
-        var localFiles = IsModelInstalled(model)
-            ? french ? "Fichiers détectés (non vérifiés)" : "Files detected (unverified)"
-            : french ? "Fichiers absents" : "Files not found";
+        // A directory alone is never an installation. Hash approval remains
+        // opt-in because the real model weights can exceed 12 GiB.
+        var localFiles = InspectModelFiles(model, GetModelDirectory(model)) switch
+        {
+            AiStudioLocalModelState.FilesPresentUnverified =>
+                french ? "Fichiers détectés (non vérifiés)" : "Files detected (unverified)",
+            AiStudioLocalModelState.Incomplete =>
+                french ? "Fichiers incomplets (non installés)" : "Incomplete files (not installed)",
+            _ => french ? "Fichiers absents" : "Files not found"
+        };
 
         var distribution = model.ManagerOwnedRedistributionAllowed
             ? french
