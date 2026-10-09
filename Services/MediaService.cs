@@ -121,10 +121,13 @@ public sealed class MediaService
 
         if (approvedRelease != null)
         {
-            var actualTag = managerRelease?.RootElement.TryGetProperty(
-                "tag_name", out var releaseTag) == true
-                ? releaseTag.GetString()
-                : null;
+            string? actualTag = null;
+            if (managerRelease != null &&
+                managerRelease.RootElement.TryGetProperty("tag_name", out var releaseTag) &&
+                releaseTag.ValueKind == JsonValueKind.String)
+            {
+                actualTag = releaseTag.GetString();
+            }
             if (processorAsset == null || ffmpegAsset == null ||
                 !IsApprovedMediaSelection(
                     approvedRelease, actualTag, processorAsset.Id, ffmpegAsset.Id))
