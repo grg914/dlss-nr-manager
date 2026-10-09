@@ -139,7 +139,8 @@ public sealed class ComponentUpdateService
         MediaService media,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default,
-        bool forceRefresh = false)
+        bool forceRefresh = false,
+        bool requireInstalledForUpdate = false)
     {
         var local = LoadState();
         if (!forceRefresh &&
@@ -180,12 +181,13 @@ public sealed class ComponentUpdateService
                     "Refresh Downloads to review the current release.");
             }
         }
-        else if (forceRefresh)
+        else if (requireInstalledForUpdate)
         {
-            // A confirmed update requires an installed runtime. Use the
-            // separate Install/Repair action when the runtime is missing.
+            // Only the Download Center's confirmed Update action requires
+            // the previously installed runtime to still exist. The general
+            // Check Updates command may bootstrap missing media tools.
             throw new InvalidOperationException(
-                "The media engine is not installed. Use Install or Repair instead of Update.");
+                "The media engine is no longer installed. Use Install or Repair instead of Update.");
         }
 
         var hasManifestFingerprint =
