@@ -259,6 +259,11 @@ public sealed class OfficialUpstreamUpdateService
         using var stream = typeof(OfficialUpstreamUpdateService)
             .Assembly.GetManifestResourceStream(name)
             ?? throw new InvalidOperationException("Missing bundled upstream catalog: " + name);
-        return JsonDocument.Parse(stream);
+        // DEPENDENCIES.lock.json is stored with a UTF-8 BOM by the lock
+        // writer. Decode text before parsing; raw UTF-8 JSON readers may
+        // reject the BOM as an invalid initial token.
+        using var reader = new StreamReader(
+            stream, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        return JsonDocument.Parse(reader.ReadToEnd());
     }
 }
