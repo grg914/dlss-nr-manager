@@ -112,42 +112,12 @@ try {
 
     Write-Host "Publishing manager-owned VLC runtime + corresponding source to $Repository $ReleaseTag..."
 
-    $releaseJson = & gh api "repos/$Repository/releases/tags/$ReleaseTag"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to inspect manager-owned release before VLC publication."
-    }
-
-    $release = $releaseJson | ConvertFrom-Json
-
+    # VLC inputs already include an upstream version in each asset name.
+    # Reject changed bytes under that same name rather than deleting a
+    # released archive. A new version uses a new, reviewed filename.
     foreach ($file in @($runtime, $source, $provenance)) {
-        $name = [IO.Path]::GetFileName($file)
-        $localDigest = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
-        $existing = @($release.assets) | Where-Object { [string]$_.name -eq $name } | Select-Object -First 1
-        $existingDigest = if ($existing -and ([string]$existing.digest).StartsWith("sha256:")) {
-            ([string]$existing.digest).Substring(7).ToLowerInvariant()
-        } else { "" }
-
-        if ($existingDigest -eq $localDigest) {
-            Write-Host "SKIP unchanged manager-owned $name ($localDigest)."
-        }
-        else {
-            & gh release upload $ReleaseTag $file --repo $Repository --clobber
-            if ($LASTEXITCODE -ne 0) { throw "Unable to upload $file." }
-
-            $releaseJson = & gh api "repos/$Repository/releases/tags/$ReleaseTag"
-            if ($LASTEXITCODE -ne 0) { throw "Unable to re-read manager-owned release after publishing $name." }
-            $release = $releaseJson | ConvertFrom-Json
-        }
-
-        $remote = @($release.assets) | Where-Object { [string]$_.name -eq $name } | Select-Object -First 1
-        if (-not $remote -or -not ([string]$remote.digest).StartsWith("sha256:")) {
-            throw "Published VLC asset $name has no GitHub SHA-256 digest."
-        }
-
-        $remoteDigest = ([string]$remote.digest).Substring(7).ToLowerInvariant()
-        if ($remoteDigest -ne $localDigest) {
-            throw "Remote VLC asset digest mismatch for $name. Local=$localDigest Remote=$remoteDigest"
-        }
+        & (Join-Path $PSScriptRoot "publish-append-only-runtime-seed.ps1") `
+            -Path $file -Repository $Repository -ReleaseTag $ReleaseTag -OnChanged Reject
     }
 
     Write-Host "Published and verified manager-owned VLC $Version runtime/source/provenance."

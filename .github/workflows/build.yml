@@ -116,6 +116,7 @@ jobs:
             "tools/download-runtime-seed.ps1",
             "tools/publish-immutable-nuget-seed.ps1",
             "tools/publish-versioned-runtime-seed.ps1",
+            "tools/publish-append-only-runtime-seed.ps1",
             "tools/prepare-offline-dotnet.ps1",
             "tools/build-nuget-offline-seed.ps1",
             "tools/verify-repository-governance.ps1",
