@@ -15,8 +15,8 @@ The SR Quality/Balanced/Performance text is **advisory**, not a game graphics-se
 ## Ownership, coordination and release gates
 
 - **GPT A** owns this isolated pure recommendation service, persistence migration, localized Hardware & Profiles UI, tests and documentation in `feature/gpt-a-v4.5-adaptive-gpu-profiles-20261009`.
-- **GPT B** owns v4.0 `Install_Click` and runtime-staging enforcement (P1: Compatible and SR/FG/Reflex checkbox selections must be honored); do not copy overlapping installer code into the experimental v4.5 PR. Confirm B's final validated implementation before integration of the adaptive UI.
+- **GPT B** owns the stable v4.0 `Install_Click` / runtime-staging P1 fixes. This isolated v4.5 draft adds a minimal fail-closed selection gate in `CaptureGameNvidiaSelection` and `Install_Click` to prevent the new AUTO/Manual/Compatible mode from being bypassed. **GPT B must review and reconcile that overlap with the final signed stable installer changes before integration**; do not overwrite B's branch.
 - **GPT C** owns unrelated AI Studio v4.5 stacked PRs and should not edit these GPU-profile files concurrently.
 - Preserve the stable release, existing security checks, source locks, external download behavior and legacy rollback/installer tests.
 
-**Verification:** GitHub Build/xUnit/CodeQL on the draft head to be recorded after runs. No physical Windows RTX, per-game frame pacing, VRAM budget control or panel-of-control integration is claimed. No release or protected merge authorized.
+**Verification:** GitHub Build/xUnit/CodeQL on the final draft head to be recorded after runs. No physical Windows RTX, per-game frame pacing, VRAM budget control or panel-of-control integration is claimed. No release or protected merge authorized.
