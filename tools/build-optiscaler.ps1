@@ -118,13 +118,29 @@ if (Test-Path -LiteralPath $sourceMetadata) {
     Copy-Item -LiteralPath $sourceMetadata -Destination (Join-Path $licenseDir "SOURCE-OptiScaler.json") -Force
 }
 
-if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
-Compress-Archive -Path (Join-Path $packageDestination "*") -DestinationPath $zip -Force
+# Normalize entry order, nested paths and ZIP timestamps. Keep the immutable
+# publisher responsible for any same-version conflict (never overwrite release).
+& (Join-Path $PSScriptRoot "create-deterministic-flat-zip.ps1") `
+    -InputDirectory $packageDestination `
+    -OutputPath $zip `
+    -TimestampUtc "1980-01-01T00:00:00Z" `
+    -Compression Optimal -Recursive
 
 if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 256KB) {
     throw "OptiScaler release package was not generated correctly."
 }
 
+# The next CI collision can now be attributed to individual rebuilt files
+# rather than guessing whether the ZIP metadata or native binary changed.
+$packageFiles = @(Get-ChildItem -LiteralPath $packageDestination -Recurse -File | Sort-Object FullName)
+foreach ($packageFile in $packageFiles) {
+    $relative = $packageFile.FullName.Substring($packageDestination.Length).TrimStart([char]92, [char]47).Replace('\', '/')
+    $fileHash = (Get-FileHash -LiteralPath $packageFile.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Host "OptiScaler package input: $relative SHA256=$fileHash size=$($packageFile.Length)"
+}
+$zipHash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+Write-Host "OptiScaler package ZIP SHA256=$zipHash size=$((Get-Item -LiteralPath $zip).Length)"
+Write-Host "OptiScaler MSBuild: $msbuild"
 Write-Host "Vendored OptiScaler build verified: $optiDll ($dllSize bytes)"
 Write-Host "OptiScaler source version: $tag"
 Write-Host "OptiScaler package: $zip"
