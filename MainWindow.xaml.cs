@@ -1988,7 +1988,7 @@ public partial class MainWindow : Window
 
         MinecraftCausticaChannelInfoText.Text = state.Available
             ? UiLocalizationService.Translate("Experimental: installed local build (no automatic download).", _uiLanguage)
-                + " " + (state.ModVersion ?? "unknown version")
+                + " " + (state.ModVersion ?? UiLocalizationService.Translate("unknown version", _uiLanguage))
                 + " • " + state.JarName
                 + " • " + UiLocalizationService.Translate("Build SDK version not attested.", _uiLanguage)
             : UiLocalizationService.Translate(
