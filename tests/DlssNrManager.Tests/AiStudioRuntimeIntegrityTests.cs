@@ -123,6 +123,31 @@ public sealed class AiStudioRuntimeIntegrityTests
         Assert.Equal(AiStudioRuntimeIntegrityStatus.InvalidManifest, result.Status);
     }
 
+    [Theory]
+    [InlineData("python/CON")]
+    [InlineData("python/con.txt")]
+    [InlineData("python/NUL.dll")]
+    [InlineData("python/prn")]
+    [InlineData("LPT9/output.bin")]
+    [InlineData("COM1")]
+    [InlineData("COM¹.exe")]
+    [InlineData("python/bad?.dll")]
+    [InlineData("python/a*b.dll")]
+    [InlineData("python/quote\".dll")]
+    [InlineData("python/bad|name.dll")]
+    [InlineData("python/bad<name.dll")]
+    [InlineData("python/bad>name.dll")]
+    [InlineData("python/line\nfeed.dll")]
+    public async Task Rejects_windows_reserved_or_invalid_member_paths(string memberPath)
+    {
+        using var fixture = new RuntimeFixture();
+        var pin = fixture.WriteManifest(memberPath, "fixture", makeFile: false);
+
+        var result = await AiStudioRuntimeIntegrityService.VerifyAsync(fixture.Root, pin);
+
+        Assert.Equal(AiStudioRuntimeIntegrityStatus.InvalidManifest, result.Status);
+    }
+
     [Fact]
     public async Task Rejects_duplicate_manifest_members_case_insensitively()
     {
