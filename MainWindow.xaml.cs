@@ -277,6 +277,8 @@ public partial class MainWindow : Window
                 "Checking tested Caustica RTX build…";
 
             var build = await _minecraft.GetLatestCausticaBuildLabelAsync();
+            MinecraftCausticaStableVersionText.Text =
+                build == null ? " • unavailable" : " • " + build;
 
             MinecraftCausticaBuildText.Text =
                 build == null
@@ -290,6 +292,7 @@ public partial class MainWindow : Window
 
             MinecraftCausticaBuildText.Text =
                 "Caustica RTX build: check unavailable";
+            MinecraftCausticaStableVersionText.Text = " • unavailable";
         }
     }
 
@@ -1973,6 +1976,15 @@ public partial class MainWindow : Window
         if (MinecraftCausticaChannelInfoText == null)
             return;
 
+        var instance = SelectedMinecraftInstance();
+        var state = instance == null
+            ? new MinecraftRestirState(false, false, "Select a Minecraft Java instance first.")
+            : _minecraftRestir.Inspect(instance.RootDirectory);
+
+        MinecraftCausticaExperimentalVersionText.Text = state.Available
+            ? " • " + (state.ModVersion ?? state.JarName)
+            : " • " + UiLocalizationService.Translate("not installed", _uiLanguage);
+
         if (!ExperimentalMinecraftCausticaSelected())
         {
             MinecraftCausticaChannelInfoText.Text = UiLocalizationService.Translate(
@@ -1980,11 +1992,6 @@ public partial class MainWindow : Window
                 _uiLanguage);
             return;
         }
-
-        var instance = SelectedMinecraftInstance();
-        var state = instance == null
-            ? new MinecraftRestirState(false, false, "Select a Minecraft Java instance first.")
-            : _minecraftRestir.Inspect(instance.RootDirectory);
 
         MinecraftCausticaChannelInfoText.Text = state.Available
             ? UiLocalizationService.Translate("Experimental: installed local build (no automatic download).", _uiLanguage)
