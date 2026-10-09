@@ -1,0 +1,33 @@
+name: FFmpeg Runtime Seed Safety
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/runtime-refresh.yml'
+      - '.github/workflows/ffmpeg-seed-safety.yml'
+      - 'tools/publish-immutable-ffmpeg-seed.sh'
+      - 'tests/test_immutable_ffmpeg_seed.py'
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/runtime-refresh.yml'
+      - '.github/workflows/ffmpeg-seed-safety.yml'
+      - 'tools/publish-immutable-ffmpeg-seed.sh'
+      - 'tests/test_immutable_ffmpeg_seed.py'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: FFmpeg append-only publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Validate FFmpeg publisher shell syntax
+        run: bash -n tools/publish-immutable-ffmpeg-seed.sh
+      - name: Exercise FFmpeg publishing with mocked GitHub CLI
+        run: python3 -m unittest discover -s tests -p 'test_immutable_ffmpeg_seed.py' -v

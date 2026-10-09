@@ -1,3 +1,15 @@
+CHECKPOINT R090 (2026-10-09) - PR139 MERGED / PR140 RECONCILED
+- PR139 Build, CodeQL and Runtime Seed Writer Safety Tests SUCCESS on 269393c2a4667af91a86ee98189d5266483d1a1b; squash merged to main 18252ebfbe766bc5610e5738c4af456372327caf. NuGet append-only publisher and Git-pinned consumer are now on main.
+- Reconcile PR140 FFmpeg append-only staging on top of current main, preserving PR139 NuGet workflow changes and full R088 journal while retaining PR140 R089 and its shell publisher, mock tests and CI workflow.
+- Issue #123 remains open: other --clobber publishers and consumer pin migration for FFmpeg/others still outstanding. Verify Build+CodeQL+FFmpeg safety+writer safety on PR140 FINAL head; no v4 release.
+
+CHECKPOINT R089 (2026-10-09) - ISSUE #123 VERIFIED APPEND-ONLY FFMPEG SEED DRAFT
+- PR137 merged: validated runtime seed downloader metadata; PR138 merged: video seed path no unnecessary destructive --clobber. PR139 remains DRAFT pending latest Build and CodeQL on head 269393c2a4667af91a86ee98189d5266483d1a1b; mocked NuGet writer safety SUCCESS.
+- New independent branch fix/v4-immutable-ffmpeg-seed-staging based on current main: replace FFmpeg release upload --clobber in runtime-refresh.yml with tools/publish-immutable-ffmpeg-seed.sh. When canonical content differs, add ffmpeg-dlssnr-win-x64.sha256-<localhash>.zip instead of deleting canonical; skip verified identical revisions. Verify archive via unzip and require ffmpeg.exe + ffprobe.exe, use GitHub digest+size; fail on conflicting/corrupt assets and cancelled/failed upload, never use --clobber.
+- tests/test_immutable_ffmpeg_seed.py uses a mocked gh API/upload, tests original/pinned canonical preservation, identical idempotence, SHA-addressed staging, conflicting digests, corrupt archives, failed uploads and post-upload missing metadata. .github/workflows/ffmpeg-seed-safety.yml runs shell syntax checks and simulated tests in GitHub Actions.
+- This is intentionally STAGING ONLY. Existing consumers continue using the canonical FFmpeg asset until a reviewed, pinned manifest migration and real Windows acceptance. Real-ESRGAN OpenMP redistribution remains blocked pending license provenance. #123 and v4 release remain open, as do #111/#124/#79/#82/#95.
+NEXT: review exact FFmpeg PR CI; merge only after Build+CodeQL+FFmpeg safety tests all succeed on final SHA; then promote immutable asset references only after tested review.
+
 CHECKPOINT R088 (2026-10-09) - PR139 RETARGETED MAIN / FINAL CI REQUIRED
 - PR139 two-parent reconciliation b0fc78b3c1a094baa73eacf2d4212f5e2004c3f0 after PR138 squash main 518f5cfd220d1da2b6f0fa9b5a9ff3133eb0ad6f; Git comparison shows only intended immutable NuGet publisher, pinned manifest, tests/docs and journal files. PR139 base changed from PR138 branch to main, mergeable but remains DRAFT pending CI.
 - NuGet canonical Git pin uses recorded release SHA-256 c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e and size 264155302; immutable revisions are staged without --clobber. Fake GitHub integration tests succeeded on earlier branch revision; test on FINAL head again.
