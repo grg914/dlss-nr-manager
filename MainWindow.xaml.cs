@@ -844,7 +844,8 @@ public partial class MainWindow : Window
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
-        var enableNeuralRendering = _gpuCapabilities.NeuralRendering;
+        var selectedNvidiaFeatures = CaptureGameNvidiaSelection();
+        var enableNeuralRendering = selectedNvidiaFeatures.NeuralRendering;
 
         if (enableNeuralRendering &&
             (string.IsNullOrWhiteSpace(_runtimePath) || !File.Exists(_runtimePath)))
@@ -982,11 +983,7 @@ public partial class MainWindow : Window
 
                     var staged = await _genericNvidiaRuntime.StageManagerOwnedAsync(
                         gameDir,
-                        new GenericNvidiaFeatureSelection(
-                            _gpuCapabilities.SuperResolution,
-                            _gpuCapabilities.FrameGeneration,
-                            _gpuCapabilities.IsSupportedRtx,
-                            enableNeuralRendering),
+                        selectedNvidiaFeatures,
                         resourceProgress,
                         trackForManualCleanup: false);
 
@@ -2526,11 +2523,20 @@ public partial class MainWindow : Window
     }
 
     private GenericNvidiaFeatureSelection CaptureGameNvidiaSelection()
-        => new(
-            GameDlssSrCheck.IsChecked == true,
-            GameDlssFgCheck.IsChecked == true,
-            GameDlssReflexCheck.IsChecked == true,
-            GameDlssNrCheck.IsChecked == true);
+    {
+        var snapshot = _hardwareSnapshot ?? new HardwareSnapshot(
+            _gpu, "Unknown CPU", 0, null, "Unknown", false, false, "Unknown");
+        var recommendation = GpuAdaptiveProfileService.Evaluate(
+            snapshot, CurrentHardwarePreferences());
+
+        // Apply the user choice AND the detected capability gates, even if
+        // a checkbox is programmatically checked while disabled.
+        return new GenericNvidiaFeatureSelection(
+            recommendation.SuperResolution && GameDlssSrCheck.IsChecked == true,
+            recommendation.FrameGeneration && GameDlssFgCheck.IsChecked == true,
+            recommendation.Reflex && GameDlssReflexCheck.IsChecked == true,
+            recommendation.NeuralRendering && GameDlssNrCheck.IsChecked == true);
+    }
 
     private void SelectGameDlssZip_Click(object sender, RoutedEventArgs e)
     {
