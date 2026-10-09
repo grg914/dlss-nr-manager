@@ -212,7 +212,7 @@ public sealed class VlcRuntimeService
                     ManagedPathSafety.EnsureSafeForRemoval(staged);
                     TryDeleteDirectory(staged);
                 }
-                catch (IOException error)
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
                 {
                     AppLogger.Warn($"Unsafe VLC staging folder preserved: {staged}. {error.Message}");
                 }
