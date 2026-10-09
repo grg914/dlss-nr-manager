@@ -134,7 +134,7 @@ if (!(Test-Path -LiteralPath $zip) -or (Get-Item -LiteralPath $zip).Length -lt 2
 # rather than guessing whether the ZIP metadata or native binary changed.
 $packageFiles = @(Get-ChildItem -LiteralPath $packageDestination -Recurse -File | Sort-Object FullName)
 foreach ($packageFile in $packageFiles) {
-    $relative = $packageFile.FullName.Substring($packageDestination.Length).TrimStart([char]92, [char]47).Replace('\', '/')
+    $relative = $packageFile.FullName.Substring($packageDestination.Length).TrimStart([char[]]@([char]92, [char]47)).Replace('\', '/')
     $fileHash = (Get-FileHash -LiteralPath $packageFile.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     Write-Host "OptiScaler package input: $relative SHA256=$fileHash size=$($packageFile.Length)"
 }
