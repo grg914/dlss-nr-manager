@@ -153,6 +153,25 @@ public static class AiStudioRuntimeIntegrityService
             segment.Length is > 0 and <= 200 &&
             segment is not "." and not ".." &&
             !segment.EndsWith('.') &&
-            !segment.EndsWith(' '));
+            !segment.EndsWith(' ') &&
+            !segment.Any(c => char.IsControl(c) || "<>:\"|?*".Contains(c)) &&
+            !IsReservedWindowsDeviceName(segment));
+    }
+
+    // Windows reserves device names even when a file extension is appended.
+    // Treat manifests consistently before File.Exists or hashing is attempted.
+    private static bool IsReservedWindowsDeviceName(string segment)
+    {
+        var stem = segment.Split('.')[0];
+        if (stem.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("NUL", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return stem.Length == 4 &&
+               (stem.StartsWith("COM", StringComparison.OrdinalIgnoreCase) ||
+                stem.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)) &&
+               "123456789¹²³".Contains(stem[3]);
     }
 }
