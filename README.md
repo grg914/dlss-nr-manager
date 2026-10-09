@@ -31,7 +31,17 @@ Design references are kept under:
 - `docs/mockups/dlssnrmanager-menu/index.html` — interactive browser reference
 - `docs/mockups/dlssnrmanager-menu/MainWindow_DlssNrManager_Menu_Mockup.xaml` — WPF layout reference
 
-The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, VSR-HDR Vidéo, AI-origin detection, AI Studio local, Downloads, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log and Application. Each page has its own vertical scroll area, while the left menu stays fixed.
+The production menu exposes focused pages for Games & DLSS, Minecraft RTX, Media Neural, VSR-HDR Vidéo, AI-origin detection, AI Studio local, Downloads, PC Update Center, PC Cleanup, Diagnostics, Advanced OptiScaler, OptiScaler log, Application, and Hardware & Profiles. Each page has its own vertical scroll area, while the left menu stays fixed.
+
+## Verified historical baseline and v4 work in progress
+
+The durable progress journal `AI_PROJECT_PROGRESS.txt` was first added on **2026-10-07**. The pre-journal `README.md` at commit `0f8eb7c` already documented the Games & DLSS/OptiScaler manager, Minecraft RTX/Caustica, Media Neural/AI Upscale, AI-origin detection, PC Update and PC Cleanup, transaction recovery, security and the production WinToys-inspired `DlssNrManager Menu`. These are **pre-v4 features**, not features invented by the new journal. The later v3.2.0 source adds further UI and localization improvements.
+
+See [AI_PROJECT_PROGRESS2.txt](AI_PROJECT_PROGRESS2.txt) for the chronological pre-journal reconstruction and the `prompt.txt`/roadmap/specification traceability matrix. This continuation records both implemented code and outstanding **v4.0 release gates**; the presence of an option in the WPF interface does not prove NVIDIA hardware/runtime acceptance.
+
+The current production source exposes a **Hardware & Profiles** page (AUTO, RTX 5060 Ti 16GB / Ryzen 7 9700X, Normal/Compatible, device/driver detection), centralized Downloads, local AI Studio model/job management, and VSR-HDR Video. Real AI Studio inference execution, optional updates for every downloadable component, some immutable runtime publishers and real Windows/NVIDIA acceptance are not complete.
+
+**Scope exclusions confirmed 2026-10-09:** no dedicated NVCleanstall integration or full integrated benchmark is planned. Existing NVIDIA driver detection, RTX profiles and the OptiScaler FPS/frametime overlay remain supported. These exclusions are recorded in the specification update PR #143 until merged.
 
 ## Self-contained monorepo migration
 
