@@ -101,36 +101,9 @@ if ($size -lt 1MB) {
 $sha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Host "Local package: $zip"
 Write-Host "SHA-256: $sha256"
-Write-Host "Uploading to $Repository release $ReleaseTag..."
-
-& gh release upload $ReleaseTag $zip --repo $Repository --clobber
-if ($LASTEXITCODE -ne 0) {
-    throw "GitHub release upload failed."
-}
-
-$releaseJson = & gh api "repos/$Repository/releases/tags/$ReleaseTag"
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($releaseJson)) {
-    throw "Unable to verify release $ReleaseTag after upload."
-}
-
-$release = $releaseJson | ConvertFrom-Json
-$asset = @($release.assets) |
-    Where-Object { $_.name -eq "video2dlssnr_release.zip" } |
-    Select-Object -First 1
-
-if (-not $asset) {
-    throw "Uploaded video2dlssnr_release.zip was not found in release $ReleaseTag."
-}
-
-if ([long]$asset.size -ne $size) {
-    throw "Remote video2dlssnr asset size mismatch. Local=$size Remote=$($asset.size)"
-}
-
-if ($asset.digest -and ([string]$asset.digest).StartsWith("sha256:")) {
-    $remoteDigest = ([string]$asset.digest).Substring(7).ToLowerInvariant()
-    if ($remoteDigest -ne $sha256) {
-        throw "Remote video2dlssnr SHA-256 mismatch. Local=$sha256 Remote=$remoteDigest"
-    }
-}
-
-Write-Host "Published and verified video2dlssnr_release.zip on $Repository $ReleaseTag."
+Write-Host "Publishing verified video2dlssnr asset without overwriting any existing release asset..."
+& (Join-Path $PSScriptRoot "publish-append-only-release-zip.ps1") `
+    -Path $zip `
+    -Repository $Repository `
+    -ReleaseTag $ReleaseTag `
+    -MinimumSizeBytes 1MB
