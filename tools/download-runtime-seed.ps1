@@ -36,6 +36,640 @@ function Resolve-SeedAssets {
             $name = [string]$asset.name
             if ($seen.ContainsKey($name)) { continue }
 
+            if ($name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*
+            $digest = [string]$asset.digest
+            if ([string]::IsNullOrWhiteSpace($url) -or -not $url.StartsWith("https://github.com/$Repository/releases/download/", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Unexpected manager-owned asset URL for '$name': $url"
+            }
+            if ($digest -notmatch '^(?i:sha256):[0-9a-fA-F]{64}
+                throw "Manager-owned seed asset '$name' has no GitHub SHA-256 digest."
+            }
+
+            $selected += [pscustomobject]@{
+                Name = $name
+                Id = [string]$asset.id
+                Url = $url
+                Digest = $digest.ToLowerInvariant()
+            }
+            $seen[$name] = $true
+        }
+    }
+
+    return @($selected)
+}
+
+$downloaded = @()
+$completed = $false
+for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
+    $attemptFiles = @()
+    $attemptTemporaryPaths = @()
+    $retryReason = $null
+
+    try {
+        $release = Get-SeedRelease
+        $selectedAssets = @(Resolve-SeedAssets -Release $release)
+
+        foreach ($asset in $selectedAssets) {
+            $destinationPath = Join-Path $destinationRoot $asset.Name
+            $temporaryPath = "$destinationPath.download.$attempt.$([Guid]::NewGuid().ToString('N'))"
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            $attemptTemporaryPaths += $temporaryPath
+
+            Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri $asset.Url -OutFile $temporaryPath
+
+            $expected = $asset.Digest.Substring(7)
+            $actual = (Get-FileHash -LiteralPath $temporaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+                $retryReason = "Seed asset '$($asset.Name)' changed while downloading. Snapshot expected $expected, downloaded $actual."
+                break
+            }
+
+            $attemptFiles += [pscustomobject]@{
+                Name = $asset.Name
+                Id = $asset.Id
+                Digest = $asset.Digest
+                TemporaryPath = $temporaryPath
+                DestinationPath = $destinationPath
+                Sha256 = $actual
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($retryReason)) {
+            $confirmedRelease = Get-SeedRelease
+            foreach ($entry in $attemptFiles) {
+                $confirmedMatches = @($confirmedRelease.assets | Where-Object { [string]$_.name -eq $entry.Name })
+                if ($confirmedMatches.Count -ne 1) {
+                    $retryReason = "Seed asset '$($entry.Name)' changed identity while validating the download snapshot."
+                    break
+                }
+
+                $confirmed = $confirmedMatches[0]
+                if ([string]$confirmed.id -ne $entry.Id -or ([string]$confirmed.digest).ToLowerInvariant() -ne $entry.Digest) {
+                    $retryReason = "Seed asset '$($entry.Name)' was replaced while the download snapshot was in progress."
+                    break
+                }
+            }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($retryReason)) {
+            foreach ($temporaryPath in $attemptTemporaryPaths) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($attempt -ge $ConsistencyRetries) {
+                throw "Manager-owned runtime seed did not remain stable after $ConsistencyRetries attempts. Last reason: $retryReason"
+            }
+
+            Write-Warning "$retryReason Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+            if ($ConsistencyRetryDelaySeconds -gt 0) { Start-Sleep -Seconds $ConsistencyRetryDelaySeconds }
+            continue
+        }
+
+        foreach ($entry in $attemptFiles) {
+            Move-Item -LiteralPath $entry.TemporaryPath -Destination $entry.DestinationPath -Force
+            $downloaded += $entry.DestinationPath
+            Write-Host "Validated manager-owned seed asset: $($entry.Name) ($($entry.Sha256))"
+        }
+
+        $completed = $true
+        break
+    }
+    catch {
+        $caught = $_
+        foreach ($temporaryPath in $attemptTemporaryPaths) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($attempt -ge $ConsistencyRetries) {
+            throw
+        }
+
+        Write-Warning "Manager-owned runtime seed attempt $attempt/$ConsistencyRetries failed: $($caught.Exception.Message) Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+        if ($ConsistencyRetryDelaySeconds -gt 0) {
+            Start-Sleep -Seconds $ConsistencyRetryDelaySeconds
+        }
+        continue
+    }
+}
+
+if (-not $completed) {
+    throw "Manager-owned runtime seed download did not complete."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
+    "directory=$destinationRoot" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "assets=$($downloaded -join ';')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+}
+ -or $name -eq '.' -or $name -eq '..') {
+                throw "Invalid manager-owned seed asset filename: $name"
+            }
+            if ([string]$asset.id -notmatch '^[0-9]+
+            $digest = [string]$asset.digest
+            if ([string]::IsNullOrWhiteSpace($url) -or -not $url.StartsWith("https://github.com/$Repository/releases/download/", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Unexpected manager-owned asset URL for '$name': $url"
+            }
+            if ([string]::IsNullOrWhiteSpace($digest) -or -not $digest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Manager-owned seed asset '$name' has no GitHub SHA-256 digest."
+            }
+
+            $selected += [pscustomobject]@{
+                Name = $name
+                Id = [string]$asset.id
+                Url = $url
+                Digest = $digest.ToLowerInvariant()
+            }
+            $seen[$name] = $true
+        }
+    }
+
+    return @($selected)
+}
+
+$downloaded = @()
+$completed = $false
+for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
+    $attemptFiles = @()
+    $attemptTemporaryPaths = @()
+    $retryReason = $null
+
+    try {
+        $release = Get-SeedRelease
+        $selectedAssets = @(Resolve-SeedAssets -Release $release)
+
+        foreach ($asset in $selectedAssets) {
+            $destinationPath = Join-Path $destinationRoot $asset.Name
+            $temporaryPath = "$destinationPath.download.$attempt.$([Guid]::NewGuid().ToString('N'))"
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            $attemptTemporaryPaths += $temporaryPath
+
+            Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri $asset.Url -OutFile $temporaryPath
+
+            $expected = $asset.Digest.Substring(7)
+            $actual = (Get-FileHash -LiteralPath $temporaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+                $retryReason = "Seed asset '$($asset.Name)' changed while downloading. Snapshot expected $expected, downloaded $actual."
+                break
+            }
+
+            $attemptFiles += [pscustomobject]@{
+                Name = $asset.Name
+                Id = $asset.Id
+                Digest = $asset.Digest
+                TemporaryPath = $temporaryPath
+                DestinationPath = $destinationPath
+                Sha256 = $actual
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($retryReason)) {
+            $confirmedRelease = Get-SeedRelease
+            foreach ($entry in $attemptFiles) {
+                $confirmedMatches = @($confirmedRelease.assets | Where-Object { [string]$_.name -eq $entry.Name })
+                if ($confirmedMatches.Count -ne 1) {
+                    $retryReason = "Seed asset '$($entry.Name)' changed identity while validating the download snapshot."
+                    break
+                }
+
+                $confirmed = $confirmedMatches[0]
+                if ([string]$confirmed.id -ne $entry.Id -or ([string]$confirmed.digest).ToLowerInvariant() -ne $entry.Digest) {
+                    $retryReason = "Seed asset '$($entry.Name)' was replaced while the download snapshot was in progress."
+                    break
+                }
+            }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($retryReason)) {
+            foreach ($temporaryPath in $attemptTemporaryPaths) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($attempt -ge $ConsistencyRetries) {
+                throw "Manager-owned runtime seed did not remain stable after $ConsistencyRetries attempts. Last reason: $retryReason"
+            }
+
+            Write-Warning "$retryReason Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+            if ($ConsistencyRetryDelaySeconds -gt 0) { Start-Sleep -Seconds $ConsistencyRetryDelaySeconds }
+            continue
+        }
+
+        foreach ($entry in $attemptFiles) {
+            Move-Item -LiteralPath $entry.TemporaryPath -Destination $entry.DestinationPath -Force
+            $downloaded += $entry.DestinationPath
+            Write-Host "Validated manager-owned seed asset: $($entry.Name) ($($entry.Sha256))"
+        }
+
+        $completed = $true
+        break
+    }
+    catch {
+        $caught = $_
+        foreach ($temporaryPath in $attemptTemporaryPaths) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($attempt -ge $ConsistencyRetries) {
+            throw
+        }
+
+        Write-Warning "Manager-owned runtime seed attempt $attempt/$ConsistencyRetries failed: $($caught.Exception.Message) Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+        if ($ConsistencyRetryDelaySeconds -gt 0) {
+            Start-Sleep -Seconds $ConsistencyRetryDelaySeconds
+        }
+        continue
+    }
+}
+
+if (-not $completed) {
+    throw "Manager-owned runtime seed download did not complete."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
+    "directory=$destinationRoot" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "assets=$($downloaded -join ';')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+}
+) {
+                throw "Manager-owned seed asset '$name' has no valid numeric GitHub asset ID."
+            }
+
+            $url = [string]$asset.browser_download_url
+            $digest = [string]$asset.digest
+            if ([string]::IsNullOrWhiteSpace($url) -or -not $url.StartsWith("https://github.com/$Repository/releases/download/", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Unexpected manager-owned asset URL for '$name': $url"
+            }
+            if ([string]::IsNullOrWhiteSpace($digest) -or -not $digest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Manager-owned seed asset '$name' has no GitHub SHA-256 digest."
+            }
+
+            $selected += [pscustomobject]@{
+                Name = $name
+                Id = [string]$asset.id
+                Url = $url
+                Digest = $digest.ToLowerInvariant()
+            }
+            $seen[$name] = $true
+        }
+    }
+
+    return @($selected)
+}
+
+$downloaded = @()
+$completed = $false
+for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
+    $attemptFiles = @()
+    $attemptTemporaryPaths = @()
+    $retryReason = $null
+
+    try {
+        $release = Get-SeedRelease
+        $selectedAssets = @(Resolve-SeedAssets -Release $release)
+
+        foreach ($asset in $selectedAssets) {
+            $destinationPath = Join-Path $destinationRoot $asset.Name
+            $temporaryPath = "$destinationPath.download.$attempt.$([Guid]::NewGuid().ToString('N'))"
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            $attemptTemporaryPaths += $temporaryPath
+
+            Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri $asset.Url -OutFile $temporaryPath
+
+            $expected = $asset.Digest.Substring(7)
+            $actual = (Get-FileHash -LiteralPath $temporaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+                $retryReason = "Seed asset '$($asset.Name)' changed while downloading. Snapshot expected $expected, downloaded $actual."
+                break
+            }
+
+            $attemptFiles += [pscustomobject]@{
+                Name = $asset.Name
+                Id = $asset.Id
+                Digest = $asset.Digest
+                TemporaryPath = $temporaryPath
+                DestinationPath = $destinationPath
+                Sha256 = $actual
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($retryReason)) {
+            $confirmedRelease = Get-SeedRelease
+            foreach ($entry in $attemptFiles) {
+                $confirmedMatches = @($confirmedRelease.assets | Where-Object { [string]$_.name -eq $entry.Name })
+                if ($confirmedMatches.Count -ne 1) {
+                    $retryReason = "Seed asset '$($entry.Name)' changed identity while validating the download snapshot."
+                    break
+                }
+
+                $confirmed = $confirmedMatches[0]
+                if ([string]$confirmed.id -ne $entry.Id -or ([string]$confirmed.digest).ToLowerInvariant() -ne $entry.Digest) {
+                    $retryReason = "Seed asset '$($entry.Name)' was replaced while the download snapshot was in progress."
+                    break
+                }
+            }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($retryReason)) {
+            foreach ($temporaryPath in $attemptTemporaryPaths) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($attempt -ge $ConsistencyRetries) {
+                throw "Manager-owned runtime seed did not remain stable after $ConsistencyRetries attempts. Last reason: $retryReason"
+            }
+
+            Write-Warning "$retryReason Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+            if ($ConsistencyRetryDelaySeconds -gt 0) { Start-Sleep -Seconds $ConsistencyRetryDelaySeconds }
+            continue
+        }
+
+        foreach ($entry in $attemptFiles) {
+            Move-Item -LiteralPath $entry.TemporaryPath -Destination $entry.DestinationPath -Force
+            $downloaded += $entry.DestinationPath
+            Write-Host "Validated manager-owned seed asset: $($entry.Name) ($($entry.Sha256))"
+        }
+
+        $completed = $true
+        break
+    }
+    catch {
+        $caught = $_
+        foreach ($temporaryPath in $attemptTemporaryPaths) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($attempt -ge $ConsistencyRetries) {
+            throw
+        }
+
+        Write-Warning "Manager-owned runtime seed attempt $attempt/$ConsistencyRetries failed: $($caught.Exception.Message) Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+        if ($ConsistencyRetryDelaySeconds -gt 0) {
+            Start-Sleep -Seconds $ConsistencyRetryDelaySeconds
+        }
+        continue
+    }
+}
+
+if (-not $completed) {
+    throw "Manager-owned runtime seed download did not complete."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
+    "directory=$destinationRoot" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "assets=$($downloaded -join ';')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+}
+) {
+                throw "Manager-owned seed asset '$name' has no GitHub SHA-256 digest."
+            }
+
+            $selected += [pscustomobject]@{
+                Name = $name
+                Id = [string]$asset.id
+                Url = $url
+                Digest = $digest.ToLowerInvariant()
+            }
+            $seen[$name] = $true
+        }
+    }
+
+    return @($selected)
+}
+
+$downloaded = @()
+$completed = $false
+for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
+    $attemptFiles = @()
+    $attemptTemporaryPaths = @()
+    $retryReason = $null
+
+    try {
+        $release = Get-SeedRelease
+        $selectedAssets = @(Resolve-SeedAssets -Release $release)
+
+        foreach ($asset in $selectedAssets) {
+            $destinationPath = Join-Path $destinationRoot $asset.Name
+            $temporaryPath = "$destinationPath.download.$attempt.$([Guid]::NewGuid().ToString('N'))"
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            $attemptTemporaryPaths += $temporaryPath
+
+            Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri $asset.Url -OutFile $temporaryPath
+
+            $expected = $asset.Digest.Substring(7)
+            $actual = (Get-FileHash -LiteralPath $temporaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+                $retryReason = "Seed asset '$($asset.Name)' changed while downloading. Snapshot expected $expected, downloaded $actual."
+                break
+            }
+
+            $attemptFiles += [pscustomobject]@{
+                Name = $asset.Name
+                Id = $asset.Id
+                Digest = $asset.Digest
+                TemporaryPath = $temporaryPath
+                DestinationPath = $destinationPath
+                Sha256 = $actual
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($retryReason)) {
+            $confirmedRelease = Get-SeedRelease
+            foreach ($entry in $attemptFiles) {
+                $confirmedMatches = @($confirmedRelease.assets | Where-Object { [string]$_.name -eq $entry.Name })
+                if ($confirmedMatches.Count -ne 1) {
+                    $retryReason = "Seed asset '$($entry.Name)' changed identity while validating the download snapshot."
+                    break
+                }
+
+                $confirmed = $confirmedMatches[0]
+                if ([string]$confirmed.id -ne $entry.Id -or ([string]$confirmed.digest).ToLowerInvariant() -ne $entry.Digest) {
+                    $retryReason = "Seed asset '$($entry.Name)' was replaced while the download snapshot was in progress."
+                    break
+                }
+            }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($retryReason)) {
+            foreach ($temporaryPath in $attemptTemporaryPaths) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($attempt -ge $ConsistencyRetries) {
+                throw "Manager-owned runtime seed did not remain stable after $ConsistencyRetries attempts. Last reason: $retryReason"
+            }
+
+            Write-Warning "$retryReason Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+            if ($ConsistencyRetryDelaySeconds -gt 0) { Start-Sleep -Seconds $ConsistencyRetryDelaySeconds }
+            continue
+        }
+
+        foreach ($entry in $attemptFiles) {
+            Move-Item -LiteralPath $entry.TemporaryPath -Destination $entry.DestinationPath -Force
+            $downloaded += $entry.DestinationPath
+            Write-Host "Validated manager-owned seed asset: $($entry.Name) ($($entry.Sha256))"
+        }
+
+        $completed = $true
+        break
+    }
+    catch {
+        $caught = $_
+        foreach ($temporaryPath in $attemptTemporaryPaths) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($attempt -ge $ConsistencyRetries) {
+            throw
+        }
+
+        Write-Warning "Manager-owned runtime seed attempt $attempt/$ConsistencyRetries failed: $($caught.Exception.Message) Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+        if ($ConsistencyRetryDelaySeconds -gt 0) {
+            Start-Sleep -Seconds $ConsistencyRetryDelaySeconds
+        }
+        continue
+    }
+}
+
+if (-not $completed) {
+    throw "Manager-owned runtime seed download did not complete."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
+    "directory=$destinationRoot" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "assets=$($downloaded -join ';')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+}
+ -or $name -eq '.' -or $name -eq '..') {
+                throw "Invalid manager-owned seed asset filename: $name"
+            }
+            if ([string]$asset.id -notmatch '^[0-9]+
+            $digest = [string]$asset.digest
+            if ([string]::IsNullOrWhiteSpace($url) -or -not $url.StartsWith("https://github.com/$Repository/releases/download/", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Unexpected manager-owned asset URL for '$name': $url"
+            }
+            if ([string]::IsNullOrWhiteSpace($digest) -or -not $digest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Manager-owned seed asset '$name' has no GitHub SHA-256 digest."
+            }
+
+            $selected += [pscustomobject]@{
+                Name = $name
+                Id = [string]$asset.id
+                Url = $url
+                Digest = $digest.ToLowerInvariant()
+            }
+            $seen[$name] = $true
+        }
+    }
+
+    return @($selected)
+}
+
+$downloaded = @()
+$completed = $false
+for ($attempt = 1; $attempt -le $ConsistencyRetries; $attempt++) {
+    $attemptFiles = @()
+    $attemptTemporaryPaths = @()
+    $retryReason = $null
+
+    try {
+        $release = Get-SeedRelease
+        $selectedAssets = @(Resolve-SeedAssets -Release $release)
+
+        foreach ($asset in $selectedAssets) {
+            $destinationPath = Join-Path $destinationRoot $asset.Name
+            $temporaryPath = "$destinationPath.download.$attempt.$([Guid]::NewGuid().ToString('N'))"
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            $attemptTemporaryPaths += $temporaryPath
+
+            Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri $asset.Url -OutFile $temporaryPath
+
+            $expected = $asset.Digest.Substring(7)
+            $actual = (Get-FileHash -LiteralPath $temporaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+                $retryReason = "Seed asset '$($asset.Name)' changed while downloading. Snapshot expected $expected, downloaded $actual."
+                break
+            }
+
+            $attemptFiles += [pscustomobject]@{
+                Name = $asset.Name
+                Id = $asset.Id
+                Digest = $asset.Digest
+                TemporaryPath = $temporaryPath
+                DestinationPath = $destinationPath
+                Sha256 = $actual
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($retryReason)) {
+            $confirmedRelease = Get-SeedRelease
+            foreach ($entry in $attemptFiles) {
+                $confirmedMatches = @($confirmedRelease.assets | Where-Object { [string]$_.name -eq $entry.Name })
+                if ($confirmedMatches.Count -ne 1) {
+                    $retryReason = "Seed asset '$($entry.Name)' changed identity while validating the download snapshot."
+                    break
+                }
+
+                $confirmed = $confirmedMatches[0]
+                if ([string]$confirmed.id -ne $entry.Id -or ([string]$confirmed.digest).ToLowerInvariant() -ne $entry.Digest) {
+                    $retryReason = "Seed asset '$($entry.Name)' was replaced while the download snapshot was in progress."
+                    break
+                }
+            }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($retryReason)) {
+            foreach ($temporaryPath in $attemptTemporaryPaths) {
+                Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($attempt -ge $ConsistencyRetries) {
+                throw "Manager-owned runtime seed did not remain stable after $ConsistencyRetries attempts. Last reason: $retryReason"
+            }
+
+            Write-Warning "$retryReason Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+            if ($ConsistencyRetryDelaySeconds -gt 0) { Start-Sleep -Seconds $ConsistencyRetryDelaySeconds }
+            continue
+        }
+
+        foreach ($entry in $attemptFiles) {
+            Move-Item -LiteralPath $entry.TemporaryPath -Destination $entry.DestinationPath -Force
+            $downloaded += $entry.DestinationPath
+            Write-Host "Validated manager-owned seed asset: $($entry.Name) ($($entry.Sha256))"
+        }
+
+        $completed = $true
+        break
+    }
+    catch {
+        $caught = $_
+        foreach ($temporaryPath in $attemptTemporaryPaths) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($attempt -ge $ConsistencyRetries) {
+            throw
+        }
+
+        Write-Warning "Manager-owned runtime seed attempt $attempt/$ConsistencyRetries failed: $($caught.Exception.Message) Retrying the complete seed snapshot ($($attempt + 1)/$ConsistencyRetries)."
+        if ($ConsistencyRetryDelaySeconds -gt 0) {
+            Start-Sleep -Seconds $ConsistencyRetryDelaySeconds
+        }
+        continue
+    }
+}
+
+if (-not $completed) {
+    throw "Manager-owned runtime seed download did not complete."
+}
+
+if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
+    "directory=$destinationRoot" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    "assets=$($downloaded -join ';')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+}
+) {
+                throw "Manager-owned seed asset '$name' has no valid numeric GitHub asset ID."
+            }
+
             $url = [string]$asset.browser_download_url
             $digest = [string]$asset.digest
             if ([string]::IsNullOrWhiteSpace($url) -or -not $url.StartsWith("https://github.com/$Repository/releases/download/", [StringComparison]::OrdinalIgnoreCase)) {
