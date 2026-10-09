@@ -4111,6 +4111,8 @@ public partial class MainWindow : Window
 
         if (AiStudioMaskBox != null)
             AiStudioMaskBox.IsEnabled = usesMask;
+
+        RefreshFluxImageSettingsVisibility();
     }
 
     private void AiStudioModelBox_SelectionChanged(
@@ -4118,6 +4120,19 @@ public partial class MainWindow : Window
         SelectionChangedEventArgs e)
     {
         RefreshSelectedAiStudioModelDetails();
+        RefreshFluxImageSettingsVisibility();
+    }
+
+    private void RefreshFluxImageSettingsVisibility()
+    {
+        if (AiStudioImageOptionsPanel is null)
+            return;
+
+        var task = SelectedAiStudioTask()?.Task;
+        var visible = SelectedAiStudioModel()?.Id == "flux2-klein-4b" &&
+            task is (AiStudioTaskKind.TextToImage or AiStudioTaskKind.ImageToImage);
+        AiStudioImageOptionsPanel.Visibility =
+            visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void RefreshSelectedAiStudioModelDetails()
@@ -4287,6 +4302,55 @@ public partial class MainWindow : Window
             ? _aiStudio.OutputsRoot
             : AiStudioOutputBox.Text;
 
+        AiStudioImageSettings? imageSettings = null;
+        if (model.Id == "flux2-klein-4b" &&
+            task.Task is (AiStudioTaskKind.TextToImage or AiStudioTaskKind.ImageToImage))
+        {
+            var (width, height) = AiStudioResolutionBox.SelectedIndex switch
+            {
+                1 => (1024, 576),
+                2 => (576, 1024),
+                3 => (1024, 768),
+                4 => (768, 768),
+                _ => (1024, 1024)
+            };
+            var steps = AiStudioStepsBox.SelectedIndex switch
+            {
+                1 => 8,
+                2 => 12,
+                3 => 20,
+                _ => 4
+            };
+            var seedInput = (AiStudioSeedBox.Text ?? "").Trim();
+            long seed;
+            if (seedInput.Length == 0 ||
+                seedInput.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+                seed = System.Security.Cryptography.RandomNumberGenerator.GetInt32(1, int.MaxValue);
+            else if (!long.TryParse(
+                         seedInput,
+                         System.Globalization.NumberStyles.None,
+                         System.Globalization.CultureInfo.InvariantCulture,
+                         out seed))
+            {
+                MessageBox.Show(
+                    L("Seed must be Auto or a positive integer.",
+                      "La seed doit être Auto ou un entier positif."),
+                    "AI Studio local", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            imageSettings = new AiStudioImageSettings(width, height, steps, seed);
+            try
+            {
+                imageSettings.Validate();
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                MessageBox.Show(ex.Message, "AI Studio local",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
         var job = _aiStudio.QueueJob(
             task.Task,
             model,
@@ -4298,7 +4362,8 @@ public partial class MainWindow : Window
             string.IsNullOrWhiteSpace(AiStudioMaskBox.Text)
                 ? null
                 : AiStudioMaskBox.Text,
-            output);
+            output,
+            imageSettings);
 
         AiStudioStatusText.Text =
             L(
@@ -4325,7 +4390,11 @@ public partial class MainWindow : Window
         AiStudioJobList.ItemsSource =
             _aiStudio.LoadJobs()
                 .Select(x =>
-                    $"{x.CreatedAt.LocalDateTime:g} • {x.Task} • {x.ModelId} • {x.Status} • {preflight.Inspect(x).Describe(_uiLanguage)} • {x.Id:N}")
+                    $"{x.CreatedAt.LocalDateTime:g} • {x.Task} • {x.ModelId} • {x.Status}" +
+                    (x.ImageSettings is null
+                        ? ""
+                        : $" • {x.ImageSettings.Width}×{x.ImageSettings.Height} • {x.ImageSettings.Steps} steps • seed {x.ImageSettings.Seed}") +
+                    $" • {preflight.Inspect(x).Describe(_uiLanguage)} • {x.Id:N}")
                 .ToArray();
     }
 
