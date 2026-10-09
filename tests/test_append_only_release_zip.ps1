@@ -80,6 +80,7 @@ try {
     $global:RejectUpload = $false
 
     # Missing uploaded asset in a release snapshot must fail closed.
+    $global:FakeAssets = @()
     $global:HideAfterUpload = $true
     Expect-Failure { & $publisher -Path $zip -Repository "grg914/dlss-nr-manager" -ReleaseTag "runtime-seed-v1" -MinimumSizeBytes 1 } "Published release asset missing"
     $global:HideAfterUpload = $false
