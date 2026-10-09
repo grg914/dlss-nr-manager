@@ -31,7 +31,10 @@ $knownNames = @(
     "video2dlssnr",
     "ffmpeg",
     "ffprobe",
-    "realesrgan-ncnn-vulkan"
+    "realesrgan-ncnn-vulkan",
+    "vlc",
+    "python",
+    "pythonw"
 )
 $processNames = @($knownNames + $AdditionalProcessNames |
     Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
