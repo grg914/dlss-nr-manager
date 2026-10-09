@@ -16,6 +16,7 @@ on:
       - 'tools/build-nuget-offline-seed.ps1'
       - 'tools/create-deterministic-flat-zip.ps1'
       - 'tools/map-runtime-refresh-files.sh'
+      - 'tools/publish-append-only-runtime-seed.ps1'
       - 'tools/publish-streamline-runtime.ps1'
       - 'tools/publish-temurin25-runtime.ps1'
       - 'tools/publish-vlc-runtime.ps1'
