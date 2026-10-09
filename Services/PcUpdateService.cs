@@ -169,6 +169,18 @@ public sealed class PcUpdateService
             "Windows could not open the selected update action.");
     }
 
+    // The default all-updates action must respect user-pinned packages and
+    // never upgrade packages whose installed version is unknown.
+    public static string[] BuildWingetUpgradeAllArguments() =>
+    [
+        "upgrade",
+        "--all",
+        "--accept-package-agreements",
+        "--accept-source-agreements",
+        "--disable-interactivity",
+        "--nowarn"
+    ];
+
     public async Task<string> UpdateAllWingetAsync(
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
@@ -177,17 +189,7 @@ public sealed class PcUpdateService
 
         var result = await RunAsync(
             "winget.exe",
-            new[]
-            {
-                "upgrade",
-                "--all",
-                "--include-unknown",
-                "--include-pinned",
-                "--accept-package-agreements",
-                "--accept-source-agreements",
-                "--disable-interactivity",
-                "--nowarn"
-            },
+            BuildWingetUpgradeAllArguments(),
             cancellationToken);
 
         if (result.ExitCode != 0 &&
