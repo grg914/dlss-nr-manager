@@ -1,3 +1,14 @@
+CHECKPOINT R083 (2026-10-09) - SIX-ISSUE V4 SEQUENTIAL RESUMPTION / #123 VIDEO SEED
+- PR #137 metadata validation still pending Build+CodeQL on HEAD 969acf1f3fcdbf1191f74b39c9989c77bbdfb57b; no unsafe merge.
+- #123: audited runtime-refresh workflow video2dlssnr_release.zip path. Existing-asset check already skips uploading, so using --clobber on the missing-asset path is unnecessary. Removed --clobber for this one upload in branch fix/v4-runtime-seed-preserve-video-asset. Does not resolve remaining writers or guarantee atomic manifest promotion. Build+CodeQL required before merge.
+- #111: media+AI Studio optional updates already integrated, remaining components and FR/EN regression acceptance remain open.
+- #124: divergence audit requires semantic preservation of 6 important unmatched branches; no deletions authorized without proof.
+- #79: Real-ESRGAN OpenMP redistribution remains gated by explicit license/provenance approval. Never silently add System32 DLL.
+- #82: repository ruleset Protect main still requires admin-access update to add Analyze C#; the GitHub App connection lacks this action.
+- #95: physical Windows/NVIDIA, interruption, backup restoration and TOCTOU acceptance are unverified; issue stays open.
+- No v4.0 release authorized. Progress on #123 is partial and intentionally preserves existing readers and filenames.
+NEXT: validate new PR checks, complete remaining publisher/consumer migration, then #111/#124; obtain human approvals/tests for #79/#82/#95.
+
 CHECKPOINT R075 (2026-10-09) - PR135 VALIDEE ET FUSIONNEE
 - PR #135 head 2d18fae0557f7d9d6eaa58995834547c32036121: CodeQL run 37862717930 SUCCESS, Build run 37862717923 SUCCESS, regression tests SUCCESS, Windows x64 publish, executable/icon verification and deterministic packaging SUCCESS.
 - PR #135 marked ready for review only after CI success, then squash merged to main f71133dd355784a8c012102b498f61c2923f3ff8 with expected head SHA lease.
