@@ -63,7 +63,8 @@ public sealed class GameArtworkService
 
     public async Task<IReadOnlyList<DetectedGame>> ResolveAsync(
         IReadOnlyList<DetectedGame> games,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool allowNetwork = true)
     {
         using var limiter = new SemaphoreSlim(MaxConcurrentLookups);
 
@@ -72,7 +73,7 @@ public sealed class GameArtworkService
             await limiter.WaitAsync(cancellationToken);
             try
             {
-                return await ResolveOneAsync(game, cancellationToken);
+                return await ResolveOneAsync(game, cancellationToken, allowNetwork);
             }
             catch
             {
@@ -91,7 +92,8 @@ public sealed class GameArtworkService
 
     private async Task<DetectedGame> ResolveOneAsync(
         DetectedGame game,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool allowNetwork)
     {
         var key = NormalizeTitle(game.Name);
         if (string.IsNullOrWhiteSpace(key))
@@ -102,7 +104,8 @@ public sealed class GameArtworkService
             if (File.Exists(game.ArtworkUrl))
                 return game;
 
-            if (Uri.TryCreate(game.ArtworkUrl, UriKind.Absolute, out var supplied) &&
+            if (allowNetwork &&
+                Uri.TryCreate(game.ArtworkUrl, UriKind.Absolute, out var supplied) &&
                 supplied.Scheme is "http" or "https")
             {
                 var downloaded = await CacheRemoteArtworkAsync(key, game.ArtworkUrl, cancellationToken);
@@ -130,6 +133,18 @@ public sealed class GameArtworkService
                 if (string.IsNullOrWhiteSpace(cached.Url))
                     return game;
             }
+        }
+
+        // An offline scan may still display previously cached covers, but
+        // must never contact Steam, Epic, or remote artwork endpoints.
+        if (!allowNetwork)
+        {
+            if (_cache.TryGetValue(key, out var offlineCached) &&
+                !string.IsNullOrWhiteSpace(offlineCached.Url) &&
+                File.Exists(offlineCached.Url))
+                return game with { ArtworkUrl = offlineCached.Url };
+
+            return game with { ArtworkUrl = null };
         }
 
         var candidates = GetArtworkSearchCandidates(game);
