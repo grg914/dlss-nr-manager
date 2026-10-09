@@ -2603,12 +2603,16 @@
                   <StackPanel x:Name="HardwareManualOptionsPanel" Margin="0,15,0,14">
                     <TextBlock Text="Manual feature requests" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <CheckBox x:Name="HardwareManualSrCheck" Content="DLSS Super Resolution" IsChecked="True"
+                              ToolTip="Request Super Resolution for a supported GPU and game; does not change global driver settings."
                               Checked="HardwareProfile_Changed" Unchecked="HardwareProfile_Changed"/>
                     <CheckBox x:Name="HardwareManualFgCheck" Content="Frame Generation" IsChecked="False"
+                              ToolTip="Request Frame Generation only on compatible RTX cards and games; unsupported requests are blocked."
                               Checked="HardwareProfile_Changed" Unchecked="HardwareProfile_Changed"/>
                     <CheckBox x:Name="HardwareManualReflexCheck" Content="Reflex" IsChecked="True"
+                              ToolTip="Request Reflex where supported by the GPU and game, without changing NVIDIA Control Panel settings."
                               Checked="HardwareProfile_Changed" Unchecked="HardwareProfile_Changed"/>
                     <CheckBox x:Name="HardwareManualNrCheck" Content="Neural Rendering (explicit opt-in)" IsChecked="False"
+                              ToolTip="Opt in to Neural Rendering only if GPU, game and validated runtime support it; otherwise blocked."
                               Checked="HardwareProfile_Changed" Unchecked="HardwareProfile_Changed"/>
                   </StackPanel>
                   <TextBlock x:Name="HardwareRecommendationText" TextWrapping="Wrap"
