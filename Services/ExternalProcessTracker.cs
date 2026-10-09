@@ -17,24 +17,81 @@ public static class ExternalProcessTracker
     private static readonly ConcurrentDictionary<int, Process> Active = new();
     private static readonly object JobLock = new();
     private static IntPtr _jobHandle = CreateKillOnCloseJob();
+    private static bool _shuttingDown;
 
+    /// <summary>
+    /// Starts only manager-owned helpers. Shell-launched user applications
+    /// (games, Explorer and elevated Windows repair) have different lifetimes.
+    /// All starts and shutdowns are serialized to prevent late orphan children.
+    /// </summary>
     public static Process Start(ProcessStartInfo startInfo)
     {
-        var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException(
-                $"Could not start {Path.GetFileName(startInfo.FileName)}.");
+        ArgumentNullException.ThrowIfNull(startInfo);
+        if (startInfo.UseShellExecute)
+            throw new InvalidOperationException(
+                "Manager-owned helpers must use UseShellExecute=false.");
 
-        Active[process.Id] = process;
-        process.EnableRaisingEvents = true;
-        process.Exited += (_, _) => Untrack(process);
+        lock (JobLock)
+        {
+            if (_shuttingDown)
+                throw new InvalidOperationException(
+                    "DLSS NR Manager is shutting down; no new helper can start.");
 
-        AssignToJob(process);
-        return process;
+            // An unprotected child could survive an abrupt manager crash.
+            // Failing closed is preferable to running untracked GPU helpers.
+            if (OperatingSystem.IsWindows() && _jobHandle == IntPtr.Zero)
+                throw new InvalidOperationException(
+                    "Windows process job could not be initialized. Helper launch refused.");
+
+            var process = Process.Start(startInfo)
+                ?? throw new InvalidOperationException(
+                    $"Could not start {Path.GetFileName(startInfo.FileName)}.");
+
+            try
+            {
+                // Attach before exposing the helper to callers. If the job
+                // rejects the process, terminate it instead of merely logging.
+                if (OperatingSystem.IsWindows() && !process.HasExited &&
+                    !AssignProcessToJobObject(_jobHandle, process.Handle))
+                {
+                    var error = Marshal.GetLastWin32Error();
+                    throw new InvalidOperationException(
+                        $"Failed to attach manager helper PID {process.Id} to Windows job (Win32={error}).");
+                }
+
+                Active[process.Id] = process;
+                process.EnableRaisingEvents = true;
+                process.Exited += (_, _) => Untrack(process);
+                if (process.HasExited)
+                    Untrack(process);
+
+                return process;
+            }
+            catch
+            {
+                // No background task is allowed to escape without lifecycle
+                // ownership, even if event registration or job assignment fails.
+                Kill(process);
+                process.Dispose();
+                throw;
+            }
+        }
     }
 
     public static void Untrack(Process process)
     {
-        try { Active.TryRemove(process.Id, out _); } catch { }
+        lock (JobLock)
+        {
+            try
+            {
+                // An exited PID must not untrack a different, later process
+                // that happens to reuse the numeric PID.
+                if (Active.TryGetValue(process.Id, out var current) &&
+                    ReferenceEquals(current, process))
+                    Active.TryRemove(process.Id, out _);
+            }
+            catch { }
+        }
     }
 
     public static void Kill(Process process)
@@ -44,7 +101,10 @@ public static class ExternalProcessTracker
             if (!process.HasExited)
                 process.Kill(entireProcessTree: true);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Unable to terminate manager-owned helper: {ex.Message}");
+        }
         finally
         {
             Untrack(process);
@@ -53,47 +113,29 @@ public static class ExternalProcessTracker
 
     public static void KillAll()
     {
-        foreach (var process in Active.Values.ToArray())
-            Kill(process);
+        lock (JobLock)
+        {
+            foreach (var process in Active.Values.ToArray())
+                Kill(process);
+        }
 
-        // Kill only processes started by this instance. Scanning installed helper
-        // executable paths could terminate a concurrently running manager's jobs.
-        // KILL_ON_JOB_CLOSE covers this instance's assigned children on crash.
+        // Never scan helper names or installed paths: another program can
+        // legitimately run its own FFmpeg, VLC, Python or Real-ESRGAN.
     }
 
     public static void Shutdown()
     {
-        KillAll();
-
         lock (JobLock)
         {
-            if (_jobHandle == IntPtr.Zero)
-                return;
+            _shuttingDown = true;
+            KillAll();
 
-            CloseHandle(_jobHandle);
-            _jobHandle = IntPtr.Zero;
-        }
-    }
-
-    private static void AssignToJob(Process process)
-    {
-        lock (JobLock)
-        {
-            if (_jobHandle == IntPtr.Zero)
-                return;
-
-            try
+            if (_jobHandle != IntPtr.Zero)
             {
-                if (!AssignProcessToJobObject(_jobHandle, process.Handle))
-                {
-                    AppLogger.Warn(
-                        $"Unable to attach helper process {process.ProcessName} ({process.Id}) to the kill-on-close job. Win32={Marshal.GetLastWin32Error()}.");
-                }
-            }
-            catch (Exception ex)
-            {
-                AppLogger.Warn(
-                    $"Unable to attach helper process {process.Id} to the kill-on-close job: {ex.Message}");
+                // The job closes even if a descendant is not in Active.
+                // KILL_ON_JOB_CLOSE terminates the remaining owned tree.
+                CloseHandle(_jobHandle);
+                _jobHandle = IntPtr.Zero;
             }
         }
     }
