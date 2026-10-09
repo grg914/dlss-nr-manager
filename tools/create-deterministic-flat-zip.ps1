@@ -36,7 +36,7 @@ $inputs = @($files | ForEach-Object {
         throw "Deterministic ZIP input contains a file reparse point."
     }
     $entryName = if ($Recursive) {
-        $_.FullName.Substring($inputRoot.Length).TrimStart([char]92, [char]47).Replace('\', '/')
+        $_.FullName.Substring($inputRoot.Length).TrimStart([char[]]@([char]92, [char]47)).Replace('\', '/')
     } else {
         $_.Name
     }
