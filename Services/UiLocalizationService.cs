@@ -297,6 +297,7 @@ public static class UiLocalizationService
         new("Run preflight", "Lancer la pré-vérification"),
         new("Open-source renderer stack", "Pile de rendu open source"),
         new("Caustica RTX version channel", "Canal de version Caustica RTX"),
+        new("Unresolved experimental Caustica backup: managed installs are blocked. Preserve the backup and inspect the Minecraft mods folder before manual recovery.", "Sauvegarde Caustica expérimentale non résolue : les installations gérées sont bloquées. Conservez la sauvegarde et vérifiez le dossier mods de Minecraft avant toute récupération manuelle."),
         new("Import experimental JAR…", "Importer le JAR expérimental…"),
         new("Restore previous Caustica", "Restaurer Caustica précédent"),
         new("CI test build: ReSTIR PR #30, DLSS SDK 310.7.0; experimental import only.", "Build CI de test : ReSTIR PR #30, SDK DLSS 310.7.0 ; import expérimental uniquement."),
