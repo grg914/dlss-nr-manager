@@ -5031,7 +5031,8 @@ public partial class MainWindow : Window
                     await _downloadCenter.RedownloadAsync(
                         entry,
                         progress,
-                        _downloadCenterCts.Token);
+                        _downloadCenterCts.Token,
+                        requireVerifiedUpdate: isModelUpdate);
                 }
             }
             else
