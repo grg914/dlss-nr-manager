@@ -69,7 +69,8 @@ public sealed class MediaService
 
     public async Task UpdateToolsAsync(
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ComponentState? approvedRelease = null)
     {
         Directory.CreateDirectory(RootDirectory);
 
@@ -87,14 +88,15 @@ public sealed class MediaService
         // protocol employed by the central Download Manager.
         await ManagedComponentRedownload.ReplaceAsync(
             [ProcessorDirectory, ToolsDirectory],
-            token => SetupAsync(progress, token),
+            token => SetupAsync(progress, token, approvedRelease),
             () => IsReady,
             cancellationToken);
     }
 
     public async Task SetupAsync(
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ComponentState? approvedRelease = null)
     {
         Directory.CreateDirectory(RootDirectory);
         Directory.CreateDirectory(ProcessorDirectory);
@@ -116,6 +118,22 @@ public sealed class MediaService
         var ffmpegAsset = needsFfmpeg
             ? FindAsset(managerRelease!, FfmpegAsset)
             : null;
+
+        if (approvedRelease != null)
+        {
+            var actualTag = managerRelease?.RootElement.TryGetProperty(
+                "tag_name", out var releaseTag) == true
+                ? releaseTag.GetString()
+                : null;
+            if (processorAsset == null || ffmpegAsset == null ||
+                !IsApprovedMediaSelection(
+                    approvedRelease, actualTag, processorAsset.Id, ffmpegAsset.Id))
+            {
+                throw new InvalidDataException(
+                    "Media release assets changed after the approved update check. " +
+                    "Refresh Downloads to review the current official release.");
+            }
+        }
 
         if (needsProcessor && processorAsset == null)
             throw new InvalidOperationException(
@@ -552,9 +570,12 @@ public sealed class MediaService
                 }
             }
 
+            var assetId = asset.TryGetProperty("id", out var idElement) &&
+                          idElement.TryGetInt64(out var id) ? id : 0;
             return new ReleaseAsset(
                 downloadUrl,
-                sha256);
+                sha256,
+                assetId);
         }
 
         return null;
@@ -854,9 +875,26 @@ public sealed class MediaService
     private static string Tail(string value, int max)
         => value.Length <= max ? value : value[^max..];
 
+    /// <summary>
+    /// Enforce the release tag and both GitHub asset IDs selected during
+    /// preflight before replacing any installed manager-owned media files.
+    /// </summary>
+    public static bool IsApprovedMediaSelection(
+        ComponentState approved,
+        string? releaseTag,
+        long processorAssetId,
+        long ffmpegAssetId) =>
+        !string.IsNullOrWhiteSpace(approved.ManagerReleaseTag) &&
+        !string.IsNullOrWhiteSpace(releaseTag) &&
+        string.Equals(approved.ManagerReleaseTag, releaseTag, StringComparison.Ordinal) &&
+        processorAssetId > 0 && ffmpegAssetId > 0 &&
+        string.Equals(approved.ProcessorTag, $"manager:{processorAssetId}", StringComparison.Ordinal) &&
+        approved.FfmpegAssetId == ffmpegAssetId;
+
     private sealed record ReleaseAsset(
         string Url,
-        string? Sha256);
+        string? Sha256,
+        long Id);
 
     private sealed record VideoProbe(int Width, int Height, double Fps);
     private sealed record ProcessResult(int ExitCode, string Output, string Error);
