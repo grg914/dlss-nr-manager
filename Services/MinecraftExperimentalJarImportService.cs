@@ -40,6 +40,7 @@ public sealed class MinecraftExperimentalJarImportService
 
         RequirePlainDirectory(root);
         RequirePlainDirectory(mods);
+        RequirePlainDirectoryIfPresent(Path.GetDirectoryName(backup)!);
         if (Directory.Exists(backup) || File.Exists(receiptPath))
             throw new IOException("An experimental Caustica backup already exists. Restore it before importing again.");
 
@@ -74,6 +75,7 @@ public sealed class MinecraftExperimentalJarImportService
             File.Copy(sourceJar, staging, overwrite: false);
             ValidatePinnedJar(staging);
             Directory.CreateDirectory(backup);
+            RequirePlainDirectory(backup);
             File.Move(original, backedUp);
             movedOriginal = true;
             File.Move(staging, experimental);
@@ -114,6 +116,7 @@ public sealed class MinecraftExperimentalJarImportService
 
         RequirePlainDirectory(root);
         RequirePlainDirectory(mods);
+        RequirePlainDirectoryIfPresent(Path.GetDirectoryName(backup)!);
         RequirePlainDirectory(backup);
         RequirePlainFile(receiptPath);
 
@@ -220,6 +223,14 @@ public sealed class MinecraftExperimentalJarImportService
         if (!Directory.Exists(path) ||
             (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new IOException("A required Minecraft directory is missing or linked: " + path);
+    }
+
+    private static void RequirePlainDirectoryIfPresent(string path)
+    {
+        if (Directory.Exists(path))
+            RequirePlainDirectory(path);
+        else if (File.Exists(path))
+            throw new IOException("The backup parent is not a directory.");
     }
 
     private static void RequirePlainFile(string path)
