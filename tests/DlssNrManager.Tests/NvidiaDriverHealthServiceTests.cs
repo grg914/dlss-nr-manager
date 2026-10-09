@@ -42,7 +42,7 @@ public sealed class NvidiaDriverHealthServiceTests
     [InlineData("-1", null)]
     [InlineData("garbage", null)]
     [InlineData("25.5", 25.5)]
-    [InlineData("0", 0)]
+    [InlineData("0", 0d)]
     public void Optional_metrics_use_nullable_values(string text, double? expected)
         => Assert.Equal(expected, NvidiaDriverHealthService.ReadMetric(text));
 
