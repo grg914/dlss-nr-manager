@@ -62,6 +62,27 @@ try {
     Expect-Failure { & $publisher -Path $package -Repository "grg914/dlss-nr-manager" } "conflicting or unverifiable"
     Assert-True ($global:FakeUploadCount -eq 1) "Conflicting version overwrote healthy asset."
 
+    # Only an explicitly opted-in producer may stage different same-version
+    # native bytes. The existing canonical asset must remain untouched.
+    $canonicalDigest = $global:FakeAssets[0].digest
+    $canonicalSize = $global:FakeAssets[0].size
+    $changedHash = (Get-FileHash -LiteralPath $package -Algorithm SHA256).Hash.ToLowerInvariant()
+    $expectedStage = "OptiScaler-NR-v1.2.3-vendored-win-x64.sha256-$changedHash.zip"
+    & $publisher -Path $package -Repository "grg914/dlss-nr-manager" -OnChanged StageImmutable
+    Assert-True ($global:FakeUploadCount -eq 2) "Different OptiScaler build was not staged separately."
+    Assert-True ($global:FakeAssets[1].name -ceq $expectedStage) "Staged revision name is not content-addressed."
+    Assert-True ($global:FakeAssets[0].digest -ceq $canonicalDigest -and
+        $global:FakeAssets[0].size -eq $canonicalSize) "Canonical asset was mutated."
+    & $publisher -Path $package -Repository "grg914/dlss-nr-manager" -OnChanged StageImmutable
+    Assert-True ($global:FakeUploadCount -eq 2) "Identical staged revision was uploaded twice."
+
+    # Even the opted-in staging mode must fail if canonical GitHub metadata
+    # cannot establish the original binary's integrity.
+    $global:FakeAssets[0].digest = $null
+    Expect-Failure { & $publisher -Path $package -Repository "grg914/dlss-nr-manager" -OnChanged StageImmutable } "conflicting or unverifiable"
+    Assert-True ($global:FakeUploadCount -eq 2) "Unverifiable canonical metadata allowed a staged upload."
+    $global:FakeAssets[0].digest = $canonicalDigest
+
     # Missing expected publication: remote metadata never confirms upload.
     $global:FakeAssets = @()
     $global:FakeHidePublished = $true
@@ -91,7 +112,7 @@ try {
     & $publisher -Path $package -Repository "grg914/dlss-nr-manager"
     Assert-True (@($global:FakeAssets).Count -eq 1) "ReShade package was not published."
 
-    Write-Host "PASS: idempotence, changed digest rejection, missing metadata, bad digest, failed upload, corrupt ZIP, both names."
+    Write-Host "PASS: canonical idempotence, immutable stage/idempotence, corrupted metadata rejection, failed upload, corrupt ZIP, both names."
 }
 finally {
     Remove-Item -LiteralPath $temporary -Force -Recurse -ErrorAction SilentlyContinue
