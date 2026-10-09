@@ -55,6 +55,25 @@ class RuntimeSeedWriterPolicyTests(unittest.TestCase):
         self.assertIn('Pinned offline NuGet seed size/SHA-256 mismatch.', self.prepare)
         self.assertIn('Content-addressed NuGet asset name does not match', self.prepare)
 
+    def test_remaining_runtime_seed_publishers_never_clobber(self):
+        self.assertNotIn("gh release upload $env:RUNTIME_SEED_TAG $zip", self.refresh)
+        self.assertIn("publish-append-only-runtime-seed.ps1", self.refresh)
+        for name in ("publish-vlc-runtime.ps1", "publish-temurin25-runtime.ps1"):
+            source = (ROOT / "tools" / name).read_text(encoding="utf-8")
+            self.assertIn("publish-append-only-runtime-seed.ps1", source)
+            self.assertNotIn("gh release upload", source)
+        streamline = (ROOT / "tools/publish-streamline-runtime.ps1").read_text(encoding="utf-8")
+        self.assertIn("create-deterministic-flat-zip.ps1", streamline)
+        self.assertIn("publish-append-only-release-zip.ps1", streamline)
+        self.assertNotIn("gh release upload", streamline)
+        helper = (ROOT / "tools/publish-append-only-runtime-seed.ps1").read_text(encoding="utf-8")
+        self.assertIn("Get-FileHash -LiteralPath $source -Algorithm SHA256", helper)
+        self.assertIn("Find-ExactAsset -Release (Read-Release)", helper)
+        self.assertIn("Published runtime seed SHA-256/size mismatch", helper)
+        self.assertNotIn("gh release upload $ReleaseTag $upload --repo $Repository --clobber", helper)
+        self.assertIn("-OnChanged Reject", (ROOT / "tools/publish-vlc-runtime.ps1").read_text(encoding="utf-8"))
+        self.assertIn("-OnChanged StageImmutable", (ROOT / "tools/publish-temurin25-runtime.ps1").read_text(encoding="utf-8"))
+
     def test_openmp_publication_requires_license_attestation(self):
         self.assertIn("env.DLSSNR_OPENMP_REDIST_APPROVED == '1'", self.refresh)
         self.assertIn("Skipping Real-ESRGAN publication", self.refresh)
