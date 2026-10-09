@@ -9,6 +9,7 @@ Use this checklist before promoting a production release.
 - [ ] Required Build and CodeQL checks are green.
 - [ ] Regression tests pass.
 - [ ] Windows x64 single-file publish and executable/icon validation pass.
+- [ ] On-device supported RTX Windows installation, normal/forced-exit recovery, locked-file/junction protections, FR/EN UI and rollback acceptance are evidenced (#95); CI surrogates do not substitute for physical validation.
 
 ## Integrity and provenance
 
@@ -20,6 +21,8 @@ Use this checklist before promoting a production release.
 - [ ] Runtime seed downloads validate GitHub SHA-256 digests.
 - [ ] Restricted/native signer requirements pass where applicable.
 - [ ] Stable release immutability checks pass.
+- [ ] Existing OptiScaler DLL/ZIP are taken from the approved, pinned runtime seed with verified GitHub digest, file SHA-256, source/license provenance and supported Windows runtime behavior. Do not rebuild native DLLs unless the source or approved runtime must change; never overwrite an immutable same-name asset (#161).
+- [ ] Approved video2dlssnr and FFmpeg release/asset IDs and SHA-256 are pinned throughout the update transaction and committed receipt, with no mixed-release install (#111).
 - [ ] Automated release source still equals current `main` immediately before publication.
 
 ## Licensing
@@ -28,6 +31,7 @@ Use this checklist before promoting a production release.
 - [ ] Required third-party notices and upstream license files are preserved.
 - [ ] Copyleft source-availability obligations are satisfied.
 - [ ] Restricted SDK/model material is absent from public assets unless redistribution is explicitly permitted.
+- [ ] Any bundled Microsoft OpenMP runtime comes only from permitted signed Visual Studio REDIST inputs, with version/hash/source/license authorization independently documented; otherwise Real-ESRGAN OpenMP packaging remains disabled (#79).
 
 ## Runtime/offline architecture
 
