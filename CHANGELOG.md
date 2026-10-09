@@ -24,6 +24,31 @@ All notable release changes should be recorded here. This file distinguishes **m
 
 The version declared in `DlssNrManager.csproj` at the time this changelog was introduced is `3.2.0`. Consult GitHub Releases independently for the most recently published package; this section does not claim that a corresponding binary was published.
 
-## Earlier releases
+## Historical feature reconstruction from pre-journal README
 
-Historical release notes were not reconstructed here because individual past release contents have not been fully audited. See GitHub Releases and the existing project journal for evidence.
+These are **README-documented code capabilities**, not newly implemented changes and not independent proof of every shipped archive. The source baseline is `0f8eb7c`, immediately before `AI_PROJECT_PROGRESS.txt` was introduced on 2026-10-07; full version-by-version source links and outstanding release evidence are recorded in [AI_PROJECT_PROGRESS2.txt](AI_PROJECT_PROGRESS2.txt).
+
+### v3.1.0 code documented before the journal
+Manager-owned verified runtime release channel for OptiScaler, FFmpeg, Real-ESRGAN, ReShade, Streamline/video2dlssnr, AI models and Minecraft 26.2; offline pinned/vendor source workflow; deterministic Caustica RTX / Fabric / performance assets; NVIDIA signing/provenance checks and local-only SDK restrictions.
+
+### v3.0.0
+Integrity manifest for manager-owned files, bounded retry and better diagnostics; Quick/Balanced/Thorough ONNX AI-origin analysis, conservative confidence/provenance interpretation, cancellable sampling and JSON export.
+
+### v2.1.0
+Per-game transactional install recovery and bounded history, renderer detection and DXVK/vkd3d, configurable launcher/game roots, executable selection, game launch and restore controls, software WPF rendering fallback and more regression tests.
+
+### v2.0.0
+Independent AI-origin UI, Minecraft managed-install detection and restore, support-bundle export, hardened launcher scanning and ZIP extraction, atomic game artwork cache and release SHA256 manifest.
+
+### v1.5.1 and v1.5.0
+NVIDIA multi-GPU detection and UI race fixes; safe anti-cheat and reparse scans; stronger model/download/installation verification. Production `DlssNrManager Menu` with side navigation and original WPF controls retained.
+
+### v1.4.2, v1.4.1, v1.4.0 and v1.3.0
+Windows Job Object process lifecycle and single-instance guard, safe ZIP/file handling and runtime trust; independent ONNX AI-origin detection; RTX generation capability gating; official NVIDIA Neural Rendering source-discovery checks with non-fabrication of proprietary DLLs.
+
+### Earlier foundation
+Merged GitHub PRs #1–#12 and the pre-journal README provide evidence of foundational application work (OptiScaler installer, game detection, PC update, AI upscaling, Minecraft RTX, Scandi assets, AI-origin detection). The precise original release archive contents and a first-version tag have NOT been independently reconstructed here. Do not invent an earlier numbered version or a release date.
+
+### v4.0 status (still unreleased)
+Hardware & Profiles, central Downloads, optional media/model updates, VLC VSR-HDR, AI Studio model catalog/jobs and multiple runtime-seed hardening PRs are present in main or PRs. Main source is currently 3.2.0. Source presence is not full E2E validation. The remaining issues and manual Windows/NVIDIA/license checks are specified in `AI_PROJECT_PROGRESS2.txt`. NVCleanstall and an integrated full benchmark were removed from scope on 2026-10-09 (PR #143).
+
