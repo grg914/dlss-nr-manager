@@ -13,6 +13,7 @@ on:
       - tools/publish-vlc-runtime.ps1
       - tools/publish-temurin25-runtime.ps1
       - tests/test_append_only_runtime_seed.ps1
+      - tests/test_legacy_ps51_seed_zip.ps1
       - tests/test_versioned_runtime_seed.ps1
       - tools/package-approved-openmp.ps1
       - tests/test_runtime_seed_writer_policy.py
@@ -30,6 +31,7 @@ on:
       - tools/publish-vlc-runtime.ps1
       - tools/publish-temurin25-runtime.ps1
       - tests/test_append_only_runtime_seed.ps1
+      - tests/test_legacy_ps51_seed_zip.ps1
       - tests/test_versioned_runtime_seed.ps1
       - tools/package-approved-openmp.ps1
       - tests/test_runtime_seed_writer_policy.py
@@ -64,3 +66,25 @@ jobs:
       - name: Exercise append-only VLC Temurin and Real-ESRGAN seed publishing
         shell: pwsh
         run: ./tests/test_append_only_runtime_seed.ps1
+
+  verify-windows-powershell-51:
+    name: Verify Windows PowerShell 5.1 ZIP publisher
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+          lfs: false
+      - name: Exercise ZIP validation in a fresh Desktop PowerShell process
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'winps-seed-zip-smoke'
+          $directory = Join-Path $work 'fixture'
+          New-Item -Path $directory -ItemType Directory -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $directory 'bin.exe') -Value 'synthetic-not-proprietary'
+          $zip = Join-Path $work 'temurin-25-jre-win-x64.zip'
+          [IO.Compression.ZipFile]::CreateFromDirectory($directory, $zip)
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\test_legacy_ps51_seed_zip.ps1 -ZipPath $zip -PublisherPath .\tools\publish-append-only-runtime-seed.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

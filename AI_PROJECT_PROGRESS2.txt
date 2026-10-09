@@ -1,9 +1,24 @@
+R108 — 2026-10-09 — SCOPE DOCUMENTATION RECONCILED AFTER SIGNED WINDOWS POWERSHELL FIX
+- PR #160 signed squash merged into protected main as b1da587aac275991d30cd227b750958696e74950 after exact-head Build/Analyze C#/CodeQL, Windows PowerShell 5.1 ZIP and runtime writer safety all SUCCESS. This addresses logged publisher missing ZipFile assembly, but a new production runtime refresh and hardware validation remain necessary.
+- Main Runtime Seed Refresh 37889244065 independently had native-runtime OptiScaler versioned ZIP mismatch after a successful build. Canonical OptiScaler v0.7.7-pre0 ZIP sha256:d580786ba8333a79e65663d0ac51918ae91177874f954a53d26819b550cbd1cf; new build digest not logged. Tracked in issue #161, diagnosis not yet proven. No destructive override.
+- Previously reconciled v4 scope exclusion PR #143 re-applies only original cahier de charges.txt, feuille de route.txt and docs/OPTISCALER_MINECRAFT_AUDIT.md on this main, and PREPENDS historic R106 to current complete R107/main journal. No old progress replacement. No production code changed.
+- NVCleanstall integration and full benchmark module remain out of v4 scope. Retained direct driver detection, RTX profiles, FPS/frametime overlay and real-device manual acceptance checks. Current source remains v3.2.0, no v4 release.
+- Require exact updated PR HEAD Build+CodeQL before protected signed squash; #79 #95 #111 #123 #124 and #161 remain open.
+---
+
 R106 — 2026-10-09 — VERIFIED #159 MERGE; #143 SCOPE RECONCILIATION; #158 CI ON UPDATED HEAD
 - PR #159 merged into protected main as verified-signed squash e98dcfc96b6f8b40474bcacb11b7a6f2f9aa193a after exact-head build, Analyze C#, CodeQL, FFmpeg and runtime seed writer safety checks succeeded. VLC/Temurin/Real-ESRGAN producers are now non-destructive, but approved immutable consumer promotion and rollback (#123), Windows/NVIDIA acceptance (#95), and OpenMP redistribution approval (#79) remain open.
 - Security #158 was rebased non-destructively by a two-parent Git reconciliation preserving #159 main tree and exactly four PR-specific files. Updated PR HEAD 559aa2a5c7dec483b7796d372638ada83e767a9a; tests and CodeQL must pass on this exact HEAD before merge. #156 remains open until signed merge verified. Do NOT auto-merge third-party dependency PRs.
 - Scope exclusion PR #143 reconciled onto post-#159 main using ONLY three previously reviewed documentation files: cahier de charges.txt, feuille de route.txt and docs/OPTISCALER_MINECRAFT_AUDIT.md. Its stale AI_PROJECT_PROGRESS.txt changes are explicitly NOT copied over current main. This continuation checkpoint records the reconciliation.
 - Requirements explicitly dropped: NVCleanstall-specific integration/installer/status, integrated full benchmark module/tab/button/automated 1% and 0.1% low suite. Kept: direct NVIDIA driver detection (with or without NVIDIA App), RTX profiles, existing OptiScaler FPS/frametime overlay, manual physical regression observations.
 - v4 source still v3.2.0. No v4 release; hardware acceptance, optional updates #111, branch audit #124, source lock/consumer promotion #123 remain open. PR #143 requires fresh Build/CodeQL and verified signed merge; no automatic release asset changes.
+---
+
+R107 — 2026-10-09 — WINDOWS POWERSHELL 5.1 VLC PUBLISHER REGRESSION FOUND / FIX DRAFT
+- Post-#159 main Runtime Seed Refresh, run 37889244065, job vlc-runtime 113686316458 FAILED. Authenticated GitHub job logs show official VLC 3.0.24 runtime/source downloaded, then tools/publish-append-only-runtime-seed.ps1 line 48 raised 'Unable to find type [IO.Compression.ZipFile]' in powershell.exe (Windows PowerShell 5.1). The publisher failed before its GitHub upload; no assertion that all other seed jobs succeeded.
+- Root cause: ZIP helper tested on pwsh/Core, but VLC publisher explicitly starts powershell.exe/Desktop which does not preload System.IO.Compression.FileSystem. The focused branch fix/v4-windows-powershell-zip-assembly-20261009 adds Desktop-only assembly import ahead of ZIP OpenRead, retains existing archive/path checks, SHA-256 and append-only policy. Adds fresh PowerShell 5.1 synthetic ZIP/mock-gh idempotence smoke test in Windows CI; no real vendor assets, existing releases or licenses changed.
+- STATUS: CODE DRAFT ONLY. Require exact-head Windows PowerShell 5.1 test, runtime writer safety, Build/Analyze C#/CodeQL. Merge through protected signed squash only after green. Do NOT rerun release publication on unvalidated code or enable OpenMP redist.
+- Concurrent PR #158 owner-review security gate and #143 approved scope exclusions are reconciled but await exact-HEAD CI. Issue #123 remains OPEN for source provenance/consumer promotion/recovery; issue #95 real Windows RTX runtime acceptance stays OPEN. Current code remains 3.2.0; no v4 release.
 ---
 
 CHECKPOINT R102 — LIVE RECONCILIATION 2026-10-09 (supersedes stale H3/H4 status below)
