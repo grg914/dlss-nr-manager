@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory=$true)][string]$InputDirectory,
     [Parameter(Mandatory=$true)][string]$OutputPath,
     [Parameter(Mandatory=$true)][string]$TimestampUtc,
-    [ValidateSet("Store", "Optimal")][string]$Compression = "Store"
+    [ValidateSet("Store", "Optimal")][string]$Compression = "Store",
+    [switch]$Recursive
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,13 +17,33 @@ else {
 }
 
 $nestedDirectories = @(Get-ChildItem -LiteralPath $inputRoot -Directory -ErrorAction SilentlyContinue)
-if ($nestedDirectories.Count -gt 0) {
+if (-not $Recursive -and $nestedDirectories.Count -gt 0) {
     throw "Deterministic flat ZIP input must not contain subdirectories: $($nestedDirectories.Name -join ', ')"
 }
 
-$inputs = @(Get-ChildItem -LiteralPath $inputRoot -File | Sort-Object Name)
+# Keep the original flat-package default for Streamline. Recursive mode is
+# explicit and preserves relative paths for OptiScaler's nested Licenses tree.
+if ($Recursive) {
+    $reparseDirectories = @(Get-ChildItem -LiteralPath $inputRoot -Directory -Recurse |
+        Where-Object { ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 })
+    if ($reparseDirectories.Count -gt 0) {
+        throw "Deterministic ZIP input contains a directory reparse point."
+    }
+}
+$files = @(Get-ChildItem -LiteralPath $inputRoot -File -Recurse:$Recursive)
+$inputs = @($files | ForEach-Object {
+    if (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Deterministic ZIP input contains a file reparse point."
+    }
+    $entryName = if ($Recursive) {
+        $_.FullName.Substring($inputRoot.Length).TrimStart([char]92, [char]47).Replace('\', '/')
+    } else {
+        $_.Name
+    }
+    [pscustomobject]@{ File = $_; Name = $entryName }
+} | Sort-Object Name)
 if ($inputs.Count -eq 0) {
-    throw "Deterministic flat ZIP input directory is empty: $inputRoot"
+    throw "Deterministic ZIP input directory is empty: $inputRoot"
 }
 
 $duplicateNames = @($inputs | Group-Object { $_.Name.ToLowerInvariant() } | Where-Object Count -gt 1)
@@ -81,7 +102,7 @@ try {
             $entry = $archive.CreateEntry($inputFile.Name, $compressionLevel)
             $entry.LastWriteTime = $archiveTimestamp
 
-            $input = [IO.File]::OpenRead($inputFile.FullName)
+            $input = [IO.File]::OpenRead($inputFile.File.FullName)
             try {
                 $output = $entry.Open()
                 try {
