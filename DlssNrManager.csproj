@@ -35,6 +35,11 @@
     <Resource Include="assets\branding\app.ico" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Source-only review metadata. Never bundle the vendored source tree or SDK binaries. -->
+    <EmbeddedResource Include="third_party\UPSTREAMS.json" LogicalName="DlssNrManager.OfficialUpstreams" />
+    <EmbeddedResource Include="third_party\DEPENDENCIES.lock.json" LogicalName="DlssNrManager.LockedDependencies" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- Documentation prototypes must never be compiled as WPF Pages. -->
     <Page Remove="docs\mockups\**\*.xaml" />
     <None Include="docs\mockups\**\*.xaml" />
