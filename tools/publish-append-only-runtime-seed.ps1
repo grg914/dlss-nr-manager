@@ -30,6 +30,10 @@ if ($size -le 0) { throw "Cannot publish an empty runtime seed asset." }
 # Validate input structure and path safety before querying or modifying a release.
 if ($name.EndsWith(".zip", [StringComparison]::OrdinalIgnoreCase)) {
     try {
+        # Windows PowerShell 5.1 does not preload ZipFile; PowerShell 7 usually does.
+        if ($PSVersionTable.PSEdition -eq "Desktop") {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+        }
         $archive = [IO.Compression.ZipFile]::OpenRead($source)
         try {
             if ($archive.Entries.Count -eq 0) { throw "ZIP has no entries." }
