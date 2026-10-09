@@ -170,8 +170,11 @@ public sealed class AiStudioFlux2Fp8OfflineTests
     public void Offline_import_requires_space_for_zip_reassembly_and_extraction()
     {
         var amount = 13L * 1024 * 1024 * 1024;
-        Assert.Equal(amount * 2 + 1073741824L,
+        Assert.Equal(
+            amount + AiStudioFlux2OfflineImportService.MaxExpandedModelBytes + 1073741824L,
             AiStudioFlux2OfflineImportService.RequiredFreeSpaceBytes(amount));
+        Assert.Equal(14L * 1024 * 1024 * 1024,
+            AiStudioFlux2OfflineImportService.MaxExpandedModelBytes);
         Assert.Throws<ArgumentOutOfRangeException>(
             () => AiStudioFlux2OfflineImportService.RequiredFreeSpaceBytes(0));
         Assert.Throws<ArgumentOutOfRangeException>(
