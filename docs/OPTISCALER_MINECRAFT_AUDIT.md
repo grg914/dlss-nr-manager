@@ -336,27 +336,11 @@ La voie la plus performante et la plus propre est de laisser:
 - ScandiShader rester natif Caustica;
 - SPBRScandi rester uniquement un resource pack.
 
-## 8. Benchmark a effectuer apres validation utilisateur
+## 8. Controles manuels apres validation utilisateur (sans benchmark integre)
 
-Comparer sur la meme scene, meme camera, meme resolution et meme preset:
-1. Caustica natif, OptiScaler absent.
-2. Eventuelle solution B prototype si l'utilisateur l'autorise.
-3. Eventuelle solution C seulement si B apporte deja une preuve d'interet.
+Apres accord de l'utilisateur, verifier sur des scenes equivalentes la fluidite, la stabilite et la qualite d'image de Caustica natif; tester uniquement les variantes deja explicitement autorisees. Utiliser l'overlay FPS/frametime existant si disponible. Aucun moteur, tableau de benchmark complet ou bouton de mesure automatisee n'est a ajouter a l'application.
 
-Mesures:
-- FPS moyen;
-- 1% low;
-- 0.1% low;
-- frametime moyen;
-- variance / spikes frametime;
-- GPU usage;
-- GPU power;
-- VRAM;
-- CPU main-thread;
-- latence si mesure disponible;
-- artefacts visuels.
-
-Ne pas utiliser le compteur de frames generees comme substitut au FPS rendu de base.
+Ne pas utiliser le compteur de frames generees comme substitut au FPS rendu de base. Ne pas inventer de mesures.
 
 ## 9. Decision requise avant implementation
 
