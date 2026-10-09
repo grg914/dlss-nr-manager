@@ -29,3 +29,18 @@ The script:
 - Run Windows 11 disconnected and RTX 5060 Ti 16 GB tests. Do not ship an offline full installer or publish Draft assets until those gates pass.
 
 Scope: GPT C v4.5 only, stacked on the verified 13-asset lock #330 / ZIP64 packaging #332. Main and GPT A/B stable/RTX work remain untouched.
+
+## Windows PowerShell 5.1 — Torch long-path audit recovery
+
+On Windows 11, the official archive passed size/hash and 7zr extraction, but the inventory failed at PowerShell 5.1 Get-ChildItem -Recurse on deeply nested PyTorch license paths (DirectoryNotFoundException). This is a script traversal problem, not evidence of an incorrect archive checksum.
+
+The corrected inspector now uses .NET extended Windows paths (\\?\), rejects reparse-point entries before descending and hashes each file through a read-only stream. The two recursive Get-ChildItem calls have been removed. No administrator rights, PowerShell 7, registry edits or Python executions are required.
+
+Existing local Git checkouts do not update automatically; update the branch after its exact-head CI finishes, then run:
+
+```powershell
+git -C "$env:USERPROFILE\Desktop\DLSSNR-Audit" pull --ff-only
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Desktop\DLSSNR-Audit\tools\inspect-comfyui-portable-offline.ps1" -AssetsDirectory "$env:USERPROFILE\Desktop\AIStudio-Assets"
+```
+
+On any further error, preserve the output and do NOT execute Python or run_nvidia_gpu.bat. The SHA inventory remains CANDIDATE_ONLY, not a runnable or redistributable package.
