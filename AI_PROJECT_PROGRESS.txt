@@ -5454,3 +5454,8 @@ CHECKPOINT GPT B — 2026-10-09 — PR #382 EXACT-HEAD BUILD FAILURE TRIAGE (app
 
 CHECKPOINT GPT B — 2026-10-09 — PR #382 FR/EN TEST INPUT REVIEW (APPEND-ONLY)
 - During pre-CI static review after the xUnit2031 compile fix, the theory inline row for GAME/JEU was found in reversed parameter order: the theory expects (french, english), therefore (JEU, GAME). Corrected only that pair; production translation table unchanged. This is a source-side candidate fix, no claim of test success; rerun exact new HEAD Build/CodeQL and inspect actual results. Existing progress/history retained.
+
+CHECKPOINT GPT B — 2026-10-09 — PR #382 BILINGUAL LOOKUP COLLISION FIX (append-only)
+- Static source review of UiLocalizationService found pre-existing mappings: (Never output HDR → Ne jamais sortir en HDR) and (• Over 1 GB... → the existing French four-line download rules). Newly added alias entries overlapped those keys. BuildLookup uses the final entry for each key, so bilingual round-trip tests could fail despite a readable UI.
+- Minimal semantic correction: remove the 2 redundant conflicting aliases, reuse the existing canonical translations, change one HDR XAML value to `Ne jamais sortir en HDR`, and update tests to assert the pre-existing official English download rules. Seven truly new explicit bilingual mapping pairs remain; HDR and multiline rules are already covered by the existing mapping. Preserve all previous journal history, do not consider earlier CI valid for this new HEAD.
+- No runtime, download, network, model, driver or release mutation. Exact-new-head Build+CodeQL and signed protected promotion remain required, #95/#79/#111 remain open; GPT A/C drafts untouched.

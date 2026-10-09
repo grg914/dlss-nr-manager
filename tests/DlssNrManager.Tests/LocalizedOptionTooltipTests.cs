@@ -43,7 +43,7 @@ public sealed class LocalizedOptionTooltipTests
     }
 
     [Theory]
-    [InlineData("Jamais sortir en HDR", "Never output HDR")]
+    [InlineData("Ne jamais sortir en HDR", "Never output HDR")]
     [InlineData("Versions officielles des outils", "Official tool versions")]
     [InlineData("Comparer les dépôts officiels aux sources suivies (sans installation automatique).", "Compare official repositories against tracked sources (without automatic installation).")]
     [InlineData("Vérifier versions officielles", "Check official versions")]
@@ -104,7 +104,7 @@ public sealed class LocalizedOptionTooltipTests
 
         var english = UiLocalizationService.Translate(rules!, "en");
         Assert.NotEqual(rules, english);
-        Assert.Contains("SHA-256 is verified", english);
+        Assert.Contains("SHA-256 verified before installation.", english);
         Assert.Equal(rules, UiLocalizationService.Translate(english, "fr"));
     }
 
@@ -121,7 +121,7 @@ public sealed class LocalizedOptionTooltipTests
 
         foreach (var french in new[]
         {
-            "Jamais sortir en HDR",
+            "Ne jamais sortir en HDR",
             "Versions officielles des outils",
             "Vérifier versions officielles",
             "Voir le dépôt officiel",

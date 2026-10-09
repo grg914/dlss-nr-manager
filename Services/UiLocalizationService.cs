@@ -11,13 +11,11 @@ public static class UiLocalizationService
     private static readonly Entry[] Entries =
     [
         // v4.0: French-first WPF literals must also render correctly in English.
-        new("Never output HDR", "Jamais sortir en HDR"),
         new("Official tool versions", "Versions officielles des outils"),
         new("Compare official repositories against tracked sources (without automatic installation).", "Comparer les dépôts officiels aux sources suivies (sans installation automatique)."),
         new("Check official versions", "Vérifier versions officielles"),
         new("View official repository", "Voir le dépôt officiel"),
         new("On-demand check only.", "Contrôle à la demande uniquement."),
-        new("• Above 1 GB: confirmation is required before downloading.\n• Large models: the application has no total-size limit; GitHub assets use chunks.\n• SHA-256 is verified before installation.\n• Local removal is available at any time.", "• Plus de 1 Go : confirmation obligatoire avant téléchargement.\n• Gros modèles : taille totale illimitée côté app, transport en chunks GitHub.\n• SHA-256 vérifié avant installation.\n• Suppression locale possible à tout moment."),
         new("GAME", "JEU"),
         new("0 % • 0.0 MB/s • calculating…", "0 % • 0,0 Mo/s • calcul…"),
         new("Navigation", "Navigation"),
