@@ -1,3 +1,4 @@
+import json
 import pathlib
 import unittest
 
@@ -10,6 +11,8 @@ class RuntimeSeedWriterPolicyTests(unittest.TestCase):
         cls.refresh = (ROOT / ".github/workflows/runtime-refresh.yml").read_text(encoding="utf-8")
         cls.nuget = (ROOT / ".github/workflows/nuget-seed.yml").read_text(encoding="utf-8")
         cls.publisher = (ROOT / "tools/publish-immutable-nuget-seed.ps1").read_text(encoding="utf-8")
+        cls.prepare = (ROOT / "tools/prepare-offline-dotnet.ps1").read_text(encoding="utf-8")
+        cls.pins = json.loads((ROOT / "manifests/runtime-seed-assets.json").read_text(encoding="utf-8"))
 
     def test_shared_non_cancelling_concurrency(self):
         for content in (self.refresh, self.nuget):
@@ -40,6 +43,17 @@ class RuntimeSeedWriterPolicyTests(unittest.TestCase):
         self.assertIn("Canonical nuget-offline.zip remains pinned", self.publisher)
         self.assertIn('SKIP unchanged NuGet seed', self.publisher)
         self.assertIn("Immutable release asset", self.publisher)
+
+    def test_reviewed_manifest_atomically_pins_nuget_consumer(self):
+        self.assertEqual(1, self.pins["schema"])
+        self.assertEqual("runtime-seed-v1", self.pins["release_tag"])
+        pin = self.pins["nuget_offline"]
+        self.assertEqual("nuget-offline.zip", pin["asset_name"])
+        self.assertEqual(64, len(pin["sha256"]))
+        self.assertGreater(pin["size"], 0)
+        self.assertIn('manifests/runtime-seed-assets.json', self.prepare)
+        self.assertIn('Pinned offline NuGet seed size/SHA-256 mismatch.', self.prepare)
+        self.assertIn('Content-addressed NuGet asset name does not match', self.prepare)
 
     def test_openmp_publication_requires_license_attestation(self):
         self.assertIn("env.DLSSNR_OPENMP_REDIST_APPROVED == '1'", self.refresh)
