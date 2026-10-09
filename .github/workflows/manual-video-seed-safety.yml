@@ -1,0 +1,42 @@
+name: Manual Video Seed Safety
+
+on:
+  pull_request:
+    paths:
+      - 'tools/publish-video2dlssnr.ps1'
+      - 'tools/publish-append-only-release-zip.ps1'
+      - 'tests/test_append_only_release_zip.ps1'
+      - '.github/workflows/manual-video-seed-safety.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'tools/publish-video2dlssnr.ps1'
+      - 'tools/publish-append-only-release-zip.ps1'
+      - 'tests/test_append_only_release_zip.ps1'
+      - '.github/workflows/manual-video-seed-safety.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify append-only video publication
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $paths = @("tools/publish-video2dlssnr.ps1", "tools/publish-append-only-release-zip.ps1", "tests/test_append_only_release_zip.ps1")
+          foreach ($path in $paths) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { throw "PowerShell parser rejected $path : $($errors[0].Message)" }
+          }
+      - name: Simulate safe release publishing
+        shell: pwsh
+        run: ./tests/test_append_only_release_zip.ps1
