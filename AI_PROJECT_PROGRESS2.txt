@@ -95,3 +95,30 @@ NEXT: assess CI of PR #141/#142/#143/#144 on exact SHA, reconcile branches befor
 - Status at checkpoint creation: PR #159 draft; CI tests and Build/CodeQL must be evaluated on exact final HEAD before protected signed squash merge. No runtime assets, NVIDIA SDK, release binaries or `main` directly changed by this draft. Issue #123 still OPEN for reviewed consumer promotion, rollback and end-to-end acceptance; issue #79 license approval and #95 physical Windows hardware tests remain open.
 - Concurrent upstream-owner-review security PR #158 has its dedicated policy test and Build green, CodeQL still pending at checkpoint time; no auto-merge permitted.
 - NEXT: when #158 is signed/verified merged, ensure #159 remains clean against latest `main`, revalidate exact HEAD checks, merge #159 only if green and signed, then close superseded PR #147 and keep issue #123 open for consumers.
+
+R-V45-C001 — 2026-10-09 — GPT C: separate v4.5 AI Studio execution preflight
+- Owner/lane: GPT C, exclusive to v4.5 planning and non-executing AI Studio queue diagnostics; GPT A owns Caustica/RTX experiments and GPT B owns v4.0 stabilization, CI/merge governance.
+- Starting protected main SHA: 05a8b4c637d1d4209d0e6d64d7ae3c2eb68c436f. Working branch: feature/v4.5-ai-studio-job-preflight-20261009. No ScandiCraft changes.
+- Added Services/AiStudioJobPreflight.cs: read-only checks for unknown model, unsupported task/backend, missing source/mask/output, absent local model/Python/ComfyUI/Diffusers. Even with files present it only reports AwaitingVerifiedExecutor; no code execution, downloads or license bypass.
+- Added xUnit tests for non-mutation, unsupported catalogue/backend, missing paths, selected/auto backend and bilingual FR/EN diagnostics. Integrated diagnostics into the existing AI Studio job list without changing queue/job schema or install code.
+- Added docs/V4_5_ROADMAP.md, and a GPT C row/ownership note in AI_PROJECT_COORDINATION.md. Main remains 3.2.0 source; neither v4.0 nor v4.5 is released.
+- STATUS: code and test sources staged. Build/Analyze C#, CodeQL, exact-head tests and signed staging squash are PENDING; real Python/ComfyUI/Diffusers inference, security provenance and GPU performance NOT tested or implemented. This checkpoint does not assert pass or acceptance.
+- NEXT: open isolated staging PR for CI review, use signed GitHub squash into a fresh v4.5 feature branch only when checks permit, open/retain a Draft PR against main, keep main untouched until owner explicitly authorizes a validated merge.
+
+R-V45-C002 — 2026-10-09 — GPT C: pinned AI Studio private runtime integrity groundwork
+- Scope: GPT C only, independent branch feature/v4.5-ai-studio-runtime-integrity-20261009 from main 2057eed0b5c4c28c48ca1536b2ed3770733d4c27; does NOT modify Caustica, owner-signed v4.0 recovery/download workflows, installed runtime packages or ScandiCraft repositories.
+- New Services/AiStudioRuntimeIntegrityService.cs: read-only offline validator for private candidate runtime-integrity.json against independently supplied trusted manifest SHA-256, strict runtime package/schema, duplicate member/path traversal/reparse rejection, per-file size and SHA-256; no installs, network or process launches.
+- New tests/DlssNrManager.Tests/AiStudioRuntimeIntegrityTests.cs exercises synthetic good/pin-missing/missing/tampered/invalid path/duplicate/package/cancel cases; no GPU or Python executions. New docs/V4_5_AI_RUNTIME_INTEGRITY.md outlines strict trust boundary and required future license/publish/hardware gates.
+- The result ManifestFilesVerifiedOnly is NOT executable readiness, whole-directory verification, Authenticode or licensing approval. Manager-owned runtime asset pin/source and Python/PyTorch/CUDA/ComfyUI releases have NOT been approved or published.
+- STATUS: SOURCE DRAFT ONLY. Await exact-head Build/Analyze C#/CodeQL and test results; future signed staging required before any protected main proposal. P0 signed Draft PR #190 is separate and remains unmerged; new main/coordination changes by GPT A/B must be preserved.
+
+R-V45-C003 — 2026-10-09 — GPT C: rebuild isolated P0 without shared coordination conflict
+- Reconciles previously signed P0 functionality and xUnit fixtures on main 943e1d97712d1d842c81fed930abc897c4dffe5c; preserves GPT B Download Center and process changes in MainWindow.xaml.cs by replacing ONLY the existing AI Studio Jobs listing block. Does NOT alter AI_PROJECT_COORDINATION.md, which has its own dedicated signed docs PRs; avoid duplicate GPT C rows and preserve future GPT A ReSTIR handoffs.
+- Previous signed P0 source 61b6abbba564929c815aa08860f40f8304480c3e passed exact-head Build, Analyze C# and CodeQL. This refreshed unsigned implementation branch requires its OWN CI and a signed squash into a v4.5 feature-only branch. Neither feature nor runtime execution is approved for main or release.
+
+R-V45-C004 — 2026-10-09 — GPT C: integration branch for v4.5 P0/P1 foundations
+- Signed P0 source aa03da26127db8d6740da0034c03cc4b3d6166ba (read-only AI Studio Jobs preflight) and signed P1 source 0f7a5fcc69d88286eeab484bf3d99481d19fe115 (read-only pinned runtime file integrity) are reconciled together on one isolated branch starting main f8664688194e7ebf9e571e63c0219e17e54f006d.
+- Existing GPT B Download Center and GPT C coordination row are preserved; only the AI Studio Jobs display block in MainWindow.xaml.cs is changed. AI_PROJECT_COORDINATION.md is intentionally not modified.
+- All C001/C002/C003 journal checkpoints are retained exactly; this shared journal receives C004 once, removing the risk of parallel v4.5 feature-branch journal replacements. Other GPT A/B journals remain untouched.
+- Prior signed P0 and P1 heads each passed Build, Analyze C# and CodeQL. THIS combined branch must pass its own exact-head CI and be signed by isolated squash. NO inference executor, runtime distribution, GPU compatibility or license approval exists.
+- At checkpoint writing, protected main was f8664688194e7ebf9e571e63c0219e17e54f006d; main may advance independently. Do not assume this branch is ready for main or a release.
