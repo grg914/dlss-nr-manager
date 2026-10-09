@@ -29,6 +29,8 @@ public sealed class MinecraftRestirExperimentTests
         {
             var service = new MinecraftRestirExperimentService();
             Assert.True(service.Inspect(root).Available);
+            Assert.Equal("0.1.0-rtx.experimental", service.Inspect(root).ModVersion);
+            Assert.Equal("Caustica-RTX-test.jar", service.Inspect(root).JarName);
             Assert.False(service.Inspect(root).Enabled);
 
             service.SetEnabled(root, true);
@@ -104,7 +106,7 @@ public sealed class MinecraftRestirExperimentTests
         {
             var metadata = archive.CreateEntry("fabric.mod.json");
             using (var writer = new StreamWriter(metadata.Open(), new UTF8Encoding(false)))
-                writer.Write("{\"id\":\"caustica\",\"depends\":{\"minecraft\":\"" + minecraftVersion + "\"}}");
+                writer.Write("{\"id\":\"caustica\",\"version\":\"0.1.0-rtx.experimental\",\"depends\":{\"minecraft\":\"" + minecraftVersion + "\"}}");
             var entry = archive.CreateEntry("dev/comfyfluffy/caustica/CausticaConfig$Rt$Lights.class");
             using var stream = entry.Open();
             var bytes = Encoding.UTF8.GetBytes(supported

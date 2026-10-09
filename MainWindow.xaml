@@ -778,6 +778,35 @@
                              TextWrapping="Wrap"
                              Margin="0,0,0,8"/>
 
+                  <TextBlock Text="Caustica RTX version channel"
+                             Foreground="{StaticResource Muted}" FontSize="11"
+                             FontWeight="SemiBold" Margin="0,4,0,4"/>
+                  <ComboBox x:Name="MinecraftCausticaChannelBox"
+                            SelectedIndex="0"
+                            SelectionChanged="MinecraftCausticaChannelBox_SelectionChanged"
+                            ToolTip="Stable installs verified Caustica from the Manager release. Experimental controls an already installed local ReSTIR build; the Manager will not download experimental JARs.">
+                    <ComboBoxItem>
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Stable (Manager release)"/>
+                        <TextBlock x:Name="MinecraftCausticaStableVersionText" Text=" • checking version…"/>
+                      </StackPanel>
+                    </ComboBoxItem>
+                    <ComboBoxItem>
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Experimental (locally installed build)"/>
+                        <TextBlock x:Name="MinecraftCausticaExperimentalVersionText" Text=" • not installed"/>
+                      </StackPanel>
+                    </ComboBoxItem>
+                  </ComboBox>
+                  <TextBlock x:Name="MinecraftCausticaChannelInfoText"
+                             Text="Stable: verified Manager release only."
+                             Foreground="{StaticResource Muted}"
+                             FontSize="10" TextWrapping="Wrap"
+                             Margin="0,6,0,8"/>
+                  <TextBlock Text="NVIDIA DLSS SDK version is fixed when Caustica is compiled, not switched at runtime. The selected JAR's SDK provenance must be separately verified."
+                             Foreground="{StaticResource Muted}" FontSize="10"
+                             TextWrapping="Wrap" Margin="0,0,0,10"/>
+
                   <Border Background="#0F1925" BorderBrush="#263746" BorderThickness="1"
                           CornerRadius="7" Padding="10" Margin="0,4,0,12">
                     <StackPanel>
@@ -804,9 +833,9 @@
                                 IsEnabled="False"
                                 Margin="0,0,18,0" ToolTip="Install Fabric API, required by the selected Minecraft RTX mod set."/>
                       <CheckBox x:Name="MinecraftAllowPrereleaseCheck"
-                                Content="Latest tested Caustica RTX 26.2 build"
+                                Content="Manager-verified Caustica RTX 26.2 build"
                                 IsChecked="True"
-                                IsEnabled="False" ToolTip="Select the latest tested Caustica RTX build supported by the Minecraft integration."/>
+                                IsEnabled="False" ToolTip="Use the latest compatible non-prerelease Caustica build verified by the Manager."/>
                     </StackPanel>
 
                     <WrapPanel Margin="0,8,0,0">

@@ -317,7 +317,7 @@ public sealed class MinecraftIntegrationService
                 r => ReleaseBundlesCausticaForMinecraftVersion(
                     r,
                     MinecraftVersion),
-                includePrerelease: true,
+                includePrerelease: false,
                 cancellationToken);
 
             var asset = release.Assets.FirstOrDefault(candidate =>
@@ -594,6 +594,12 @@ public sealed class MinecraftIntegrationService
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // Experimental JARs must be explicitly installed and validated outside
+        // the manager-owned stable release channel.
+        if (allowPrereleaseCaustica)
+            throw new InvalidOperationException(
+                "Automatic installation of experimental Caustica releases is disabled.");
+
         ValidateInstance(instance.RootDirectory);
 
         var fabric = MinecraftPreflightService.DetectFabricLoader(instance.RootDirectory);
@@ -650,7 +656,7 @@ public sealed class MinecraftIntegrationService
                 r => ReleaseBundlesCausticaForMinecraftVersion(
                     r,
                     MinecraftVersion),
-                includePrerelease: true,
+                includePrerelease: false,
                 cancellationToken);
 
             const string causticaSourceRepository = ManagerRepository;
@@ -1937,10 +1943,10 @@ public sealed class MinecraftIntegrationService
             assets);
     }
 
-    private static bool IsProductionCausticaJar(string name)
+    internal static bool IsProductionCausticaJar(string name)
         => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
            && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
-           && !ContainsAny(name, "sources", "dev", "javadoc");
+           && !ContainsAny(name, "sources", "dev", "javadoc", "experimental", "preview", "snapshot", "restir");
 
     private static bool ReleaseBundlesCausticaForMinecraftVersion(
         GitHubRelease release,
