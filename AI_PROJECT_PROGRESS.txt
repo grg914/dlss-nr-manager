@@ -5415,3 +5415,7 @@ CHECKPOINT GPT-A-V45-GPU-20261009 — GPU-ADAPTIVE PROFILE DRAFT / NO NVIDIA CON
 - No NVIDIA Control Panel/NVIDIA App/driver/clocks/Windows settings are edited. Game's DLSS quality mode is not automatically changed; NR requires manual opt-in and true game/runtime support. No new network fetch/vendor payload/fork.
 - Coordination: GPT B owns v4 installer selector/Compatible bugs (existing Install_Click may not yet honor requested flags); **do not promote this draft as end-to-end installer functionality before B's fix is verified**. GPT C AI Studio v4.5 untouched.
 - Source-only draft at checkpoint; exact-head Windows Build/xUnit/CodeQL, review and RTX hardware acceptance PENDING. No main merge or version/release claim.
+
+ADDENDUM GPT-A-V45-GPU-20261009 — PR #353 DRAFT SOURCE UPDATED
+- Later source revision adds a narrowly scoped fail-closed selection gate in MainWindow.xaml.cs for existing generic NVIDIA staging and Install_Click to respect adaptive mode and checkboxes. This is ONLY on the GPT A v4.5 draft branch, not production main. GPT B retains ownership of final v4 P1 install fixes and must reconcile overlap before feature merge. Existing anti-cheat, transactional backup and runtime signature policies are unchanged.
+- Exact FINAL-head Build/xUnit/CodeQL and hardware use are still PENDING; not a release readiness claim.
