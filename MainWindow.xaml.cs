@@ -3812,6 +3812,7 @@ public partial class MainWindow : Window
                 AutoUpdateComponentsCheck.IsChecked == true));
 
         _localization?.Apply();
+        RefreshVcRedistX64Status();
 
         AppLogger.Info(
             "UI language changed to " + _uiLanguage + ".");
@@ -4715,20 +4716,7 @@ public partial class MainWindow : Window
         if (DownloadCenterList == null)
             return;
 
-        // Local registry check only; never downloads or installs system software.
-        var vcRuntime = VcRedistX64Detector.Detect();
-        VcRedistX64StatusText.Text = vcRuntime.State switch
-        {
-            VcRedistX64State.Installed => L(
-                $"Microsoft Visual C++ v14 x64: installed{(vcRuntime.Version == null ? "" : $" ({vcRuntime.Version})")}.",
-                $"Microsoft Visual C++ v14 x64 : installé{(vcRuntime.Version == null ? "" : $" ({vcRuntime.Version})")}."),
-            VcRedistX64State.NotDetected => L(
-                "Microsoft Visual C++ v14 x64: not detected on this PC (required only by some native components).",
-                "Microsoft Visual C++ v14 x64 : non détecté sur ce PC (nécessaire seulement pour certains modules natifs)."),
-            _ => L(
-                "Microsoft Visual C++ v14 x64: local detection unavailable.",
-                "Microsoft Visual C++ v14 x64 : détection locale indisponible.")
-        };
+        RefreshVcRedistX64Status();
 
         var selectedId =
             (DownloadCenterList.SelectedItem
@@ -4751,6 +4739,28 @@ public partial class MainWindow : Window
             entries.FirstOrDefault();
 
         RefreshDownloadCenterButtons();
+    }
+
+    private void RefreshVcRedistX64Status()
+    {
+        if (VcRedistX64StatusText == null)
+            return;
+
+        // Local registry check only; never downloads or installs system software.
+        var vcRuntime = VcRedistX64Detector.Detect();
+        VcRedistX64StatusText.Text = vcRuntime.State switch
+        {
+            VcRedistX64State.Installed => L(
+                $"Microsoft Visual C++ v14 x64: installed{(vcRuntime.Version == null ? "" : $" ({vcRuntime.Version})")}.",
+                $"Microsoft Visual C++ v14 x64 : installé{(vcRuntime.Version == null ? "" : $" ({vcRuntime.Version})")}."),
+            VcRedistX64State.NotDetected => L(
+                "Microsoft Visual C++ v14 x64: not detected on this PC (required only by some native components).",
+                "Microsoft Visual C++ v14 x64 : non détecté sur ce PC (nécessaire seulement pour certains modules natifs)."),
+            _ => L(
+                "Microsoft Visual C++ v14 x64: local detection unavailable.",
+                "Microsoft Visual C++ v14 x64 : détection locale indisponible.")
+        };
+
     }
 
     private async void DownloadCenterList_SelectionChanged(
