@@ -5531,3 +5531,10 @@ CHECKPOINT GPT B — 2026-10-10 — V4 WINDOWS/RTX AND RELEASE ACCEPTANCE RUNBOO
 
 
 GPT B POST-#402 RECONCILIATION — 2026-10-10: Reviewed source checkpoint above re-applied as an append-only suffix to signed main `d9e2a4f2a877771c2ddcd29604cc4b35ece004be` (#402 MERGED, 257/257 xUnit + CodeQL, 4/4 blob parity). Windows RTX acceptance runbook is DOCUMENTATION ONLY, not executed. Earlier #398/#403 branch/review states are historical. This isolated doc source still requires non-main signing, own exact-head Build + CodeQL, protected merge, main parity. #95/#79/#111 OPEN; no v4 release or GPT A/C experimental merge.
+
+
+CHECKPOINT GPT B — 2026-10-10 — V4 FUNCTIONAL ACCEPTANCE SOURCE MATRIX (APPEND-ONLY)
+- Current signed stable main baseline `01fff7c288a56f1378b5e9cb1020dbf51e5a6178` includes #405 protected docs/runbook (Build/CodeQL success, 257/257 xUnit, 4/4 postmerge Git blobs identical). #348 old B02 PR CLOSED without merge after exact 3/3 B02 source/test blob parity with main; physical #95 still OPEN.
+- New review-only docs: `docs/V4_WPF_CONTROL_INVENTORY_2026-10-10.json` (187 XAML interactive control occurrences; each marked NOT_TESTED) and `docs/V4_FUNCTIONAL_ACCEPTANCE_MATRIX_2026-10-10.md` (14 module groups and 10 cross-module/closure/release scenarios). Static scan shows 102 distinct referenced XAML handlers match MainWindow code-behind; this is not real UI or runtime acceptance.
+- Source policy has 13 feature groups; AI Studio and Downloads remain integrated-partial. Actual ComfyUI/Diffusers generation and VRAM scheduling belong to isolated GPT C V4.5, not successful stable V4 runtime; no generated images/videos claimed. GPT A/C experiments remain draft and excluded from V4 release.
+- Hard release gates #95 real Windows/RTX/offline/process tree/VRAM/rollback, #79 legally authorized Microsoft OpenMP REDIST or validated omission, #111 approved immutable version receipts/optional component updates, FR/EN full visual/UI acceptance, release SHA-256/SBOM/provenance/licenses and explicit owner approval. No v4 tag or release. This journal branch is NOT signed, not CI-accepted and not in protected main yet.
