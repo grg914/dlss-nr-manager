@@ -1,3 +1,10 @@
+CHECKPOINT R081 (2026-10-09) - PR137 CI FAILURE ANALYSIS AND POWERSHELL PARSER REPAIR
+- PR #137 previous head 52c49524489d19137dd089a63ae2a73ffb7b1627: Build 37865008798 FAILURE at Validate self-contained tooling; CodeQL 37865008838 FAILURE at Prepare manager-owned offline NuGet feed.
+- Build log confirms PowerShell syntax error in tools/download-runtime-seed.ps1, caused by truncated replacement lines in asset filename and digest regex validation. Both failures are consequences of that malformed script, NOT a confirmed dependency-feed outage.
+- Repaired the complete PowerShell validation block in commit e23433a3dcc39af299ca1619a5248580f0fecd39: filename single-component regex, numeric GitHub asset ID, HTTPS release URL and SHA-256 64-hex digest. Reviewed resulting source text.
+- PR must remain unmerged until Windows Build, regression tests and CodeQL succeed on the FINAL branch HEAD after this journal update. Issue #123 immutable publishing remains unresolved; no v4 release authorized.
+NEXT: inspect new CI checks; continue immutable publisher + consumer work separately after verified merge.
+
 CHECKPOINT R080 (2026-10-09) - PR136 MERGED / RUNTIME SEED METADATA PREFLIGHT
 - PR #136 Build and CodeQL SUCCESS on c8ce9ce04bdcf0d1a41e212b8effa01544fabc4d; squash merged main 4d3fd6dfab4c070c238fe36cbfb43ccd325123c1.
 - Issue #123 audit: current download-runtime-seed.ps1 already retries inconsistent snapshots and verifies downloaded SHA-256 plus GitHub asset ID and digest against a second release read. This does not make --clobber publishers atomic.
