@@ -65,16 +65,30 @@ public static class AiStudioRuntimeIntegrityService
             if (!File.Exists(path))
                 return Result(AiStudioRuntimeIntegrityStatus.MissingManifest);
 
-            var size = new FileInfo(path).Length;
-            if (size <= 0 || size > MaxManifestBytes)
+            // Hash and deserialize the SAME bounded file snapshot. Hashing a
+            // path and reopening it for JSON parsing permits a swap between
+            // the two reads and would invalidate the trusted-pin guarantee.
+            await using var manifestStream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 4096,
+                options: FileOptions.Asynchronous);
+            if (manifestStream.Length is <= 0 or > MaxManifestBytes)
                 return Result(AiStudioRuntimeIntegrityStatus.InvalidManifest);
 
-            var actualManifestHash = await HashService.Sha256Async(path, cancellationToken);
+            var jsonBytes = new byte[checked((int)manifestStream.Length)];
+            await manifestStream.ReadExactlyAsync(jsonBytes, cancellationToken);
+            if (manifestStream.ReadByte() != -1)
+                return Result(AiStudioRuntimeIntegrityStatus.InvalidManifest);
+
+            var actualManifestHash = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(jsonBytes));
             if (!actualManifestHash.Equals(trustedManifestSha256, StringComparison.OrdinalIgnoreCase))
                 return Result(AiStudioRuntimeIntegrityStatus.InvalidManifest);
 
-            var json = await File.ReadAllTextAsync(path, cancellationToken);
-            var manifest = JsonSerializer.Deserialize<AiStudioRuntimeManifest>(json);
+            var manifest = JsonSerializer.Deserialize<AiStudioRuntimeManifest>(jsonBytes);
 
             if (manifest is null ||
                 manifest.Schema != 1 ||
