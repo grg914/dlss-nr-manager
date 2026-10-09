@@ -529,11 +529,20 @@ public sealed class LocalAiStudioService
                 ? french
                 : english;
 
+        // File presence is not proof of an approved, hash-verified runtime or
+        // of a reviewed, licensed inference executor. Keep this status read-only.
+        string FileStatus(bool found)
+            => found
+                ? T("detected (unverified)", "détecté (non vérifié)")
+                : T("not found", "absent");
+
         return
-            $"{T("Workspace", "Workspace")}: {(Directory.Exists(Root) ? T("ready", "prêt") : T("not prepared", "non préparé"))} • " +
-            $"Python: {(python ? T("installed", "installé") : T("not installed", "non installé"))} • " +
-            $"ComfyUI: {(comfy ? T("installed", "installé") : T("not installed", "non installé"))} • " +
-            $"Diffusers: {(diffusers ? T("installed", "installé") : T("not installed", "non installé"))}";
+            $"{T("Workspace", "Espace de travail")}: {(Directory.Exists(Root) ? T("prepared", "préparé") : T("not prepared", "non préparé"))} • " +
+            $"Python: {FileStatus(python)} • " +
+            $"ComfyUI: {FileStatus(comfy)} • " +
+            $"Diffusers: {FileStatus(diffusers)} • " +
+            T("Execution unavailable until the runtime, model licenses and executor are verified.",
+              "Exécution indisponible tant que le runtime, les licences des modèles et le moteur d’exécution ne sont pas vérifiés.");
     }
 
     public string GetModelStatus(
@@ -543,9 +552,11 @@ public sealed class LocalAiStudioService
         var french =
             UiLocalizationService.NormalizeLanguage(language) == "fr";
 
-        var installed = IsModelInstalled(model)
-            ? french ? "Installé" : "Installed"
-            : french ? "Non installé" : "Not installed";
+        // Directory presence only means local files were found; it does not
+        // authenticate weights or authorize a model/runtime for inference.
+        var localFiles = IsModelInstalled(model)
+            ? french ? "Fichiers détectés (non vérifiés)" : "Files detected (unverified)"
+            : french ? "Fichiers absents" : "Files not found";
 
         var distribution = model.ManagerOwnedRedistributionAllowed
             ? french
@@ -555,7 +566,7 @@ public sealed class LocalAiStudioService
                 ? "acceptation manuelle de la licence requise"
                 : "manual license acceptance required";
 
-        return $"{installed} • {model.License} • {distribution}";
+        return $"{localFiles} • {model.License} • {distribution}";
     }
 
     public AiStudioJob QueueJob(

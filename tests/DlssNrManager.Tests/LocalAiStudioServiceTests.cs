@@ -6,6 +6,41 @@ namespace DlssNrManager.Tests;
 public sealed class LocalAiStudioServiceTests
 {
     [Fact]
+    public void Runtime_summary_never_equates_file_presence_with_verified_execution()
+    {
+        var service = new LocalAiStudioService();
+
+        var english = service.GetRuntimeSummary("en");
+        var french = service.GetRuntimeSummary("fr");
+
+        Assert.Contains("Execution unavailable until", english);
+        Assert.Contains("Exécution indisponible tant que", french);
+        Assert.DoesNotContain("installed", english);
+        Assert.DoesNotContain("ready", english);
+        Assert.DoesNotContain("installé", french);
+        Assert.Contains("Python:", english);
+        Assert.Contains("ComfyUI:", english);
+        Assert.Contains("Diffusers:", english);
+    }
+
+    [Fact]
+    public void Model_status_reports_local_files_without_claiming_verified_installation()
+    {
+        var service = new LocalAiStudioService();
+        var model = Assert.Single(LocalAiStudioService.Models, x => x.Id == "flux2-klein-4b");
+
+        var english = service.GetModelStatus(model, "en");
+        var french = service.GetModelStatus(model, "fr");
+
+        Assert.Contains("Files", english);
+        Assert.Contains("Fichiers", french);
+        Assert.DoesNotContain("installed", english.ToLowerInvariant());
+        Assert.DoesNotContain("installé", french.ToLowerInvariant());
+        Assert.Contains(model.License, english);
+        Assert.Contains(model.License, french);
+    }
+
+    [Fact]
     public void Text_to_image_defaults_include_flux2_klein()
     {
         var service = new LocalAiStudioService();
