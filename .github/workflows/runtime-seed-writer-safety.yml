@@ -8,6 +8,8 @@ on:
       - .github/workflows/runtime-seed-writer-safety.yml
       - tools/publish-immutable-nuget-seed.ps1
       - tests/test_immutable_nuget_seed.ps1
+      - tools/publish-versioned-runtime-seed.ps1
+      - tests/test_versioned_runtime_seed.ps1
       - tools/package-approved-openmp.ps1
       - tests/test_runtime_seed_writer_policy.py
       - tests/test_openmp_redistribution_guard.py
@@ -19,6 +21,8 @@ on:
       - .github/workflows/runtime-seed-writer-safety.yml
       - tools/publish-immutable-nuget-seed.ps1
       - tests/test_immutable_nuget_seed.ps1
+      - tools/publish-versioned-runtime-seed.ps1
+      - tests/test_versioned_runtime_seed.ps1
       - tools/package-approved-openmp.ps1
       - tests/test_runtime_seed_writer_policy.py
       - tests/test_openmp_redistribution_guard.py
@@ -46,3 +50,6 @@ jobs:
       - name: Exercise mocked append-only NuGet publication
         shell: pwsh
         run: ./tests/test_immutable_nuget_seed.ps1
+      - name: Exercise verified versioned package publication
+        shell: pwsh
+        run: ./tests/test_versioned_runtime_seed.ps1
