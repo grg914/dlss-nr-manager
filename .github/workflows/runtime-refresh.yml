@@ -258,8 +258,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "$RUNTIME_SEED_TAG" build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip --repo "${{ github.repository }}" --clobber
-          if [ $? -ne 0 ]; then exit 1; fi
+          bash ./tools/publish-immutable-ffmpeg-seed.sh "${{ github.repository }}" "$RUNTIME_SEED_TAG" build-ffmpeg-windows/ffmpeg-dlssnr-win-x64.zip
 
   nuget-runtime:
     needs: seed-release
