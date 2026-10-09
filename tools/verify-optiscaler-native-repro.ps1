@@ -15,6 +15,27 @@ if (-not [IO.Path]::IsPathRooted($OutputDirectory)) {
 }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 
+# Read only PE header metadata (no binary upload or mutation). A changed
+# COFF timestamp is evidence to investigate, not proof of the sole root cause.
+function Get-PeTimestamp {
+    param([string]$Path)
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $reader = New-Object IO.BinaryReader($stream)
+        if ($reader.ReadUInt16() -ne 0x5A4D) { throw "Invalid DOS MZ header: $Path" }
+        $stream.Position = 0x3c
+        $peOffset = $reader.ReadInt32()
+        if ($peOffset -lt 64 -or $peOffset -ge $stream.Length - 12) {
+            throw "Invalid PE offset: $Path"
+        }
+        $stream.Position = $peOffset
+        if ($reader.ReadUInt32() -ne 0x4550) { throw "Invalid PE signature: $Path" }
+        $stream.Position = $peOffset + 8
+        return ("0x{0:x8}" -f $reader.ReadUInt32())
+    }
+    finally { $stream.Dispose() }
+}
+
 function Get-PackageEvidence {
     param([string]$BuildDirectory)
 
@@ -56,6 +77,11 @@ for ($run = 1; $run -le 2; $run++) {
     $result = Get-PackageEvidence -BuildDirectory $directory
     Write-Host "Pass $run ZIP $($result.ZipName) SHA256=$($result.ZipHash) size=$($result.ZipSize)"
     Write-Host "Pass $run DLL SHA256=$($result.Files['OptiScaler.dll'])"
+    $nativeFolder = @(Get-ChildItem -LiteralPath $directory -Directory -Filter "OptiScaler-NR-*-vendored-win-x64")
+    foreach ($name in @("OptiScaler.dll", "nvngx.dll_dlssnr.dll")) {
+        $nativePath = Join-Path $nativeFolder[0].FullName $name
+        Write-Host "Pass $run PE $name COFF_TimeDateStamp=$(Get-PeTimestamp -Path $nativePath)"
+    }
     $evidence += $result
 }
 
