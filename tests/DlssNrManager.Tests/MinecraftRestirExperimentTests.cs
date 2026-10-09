@@ -83,12 +83,28 @@ public sealed class MinecraftRestirExperimentTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
-    private static string NewInstance(string jarName, bool supported)
+    [Fact]
+    public void WrongMinecraftVersionIsRejectedEvenIfTheFeatureMarkerExists()
+    {
+        var root = NewInstance("Caustica-RTX-test.jar", supported: true, minecraftVersion: "1.20.1");
+        try
+        {
+            var service = new MinecraftRestirExperimentService();
+            Assert.False(service.Inspect(root).Available);
+            Assert.Throws<InvalidOperationException>(() => service.SetEnabled(root, true));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    private static string NewInstance(string jarName, bool supported, string minecraftVersion = "26.2")
     {
         var root = Path.Combine(Path.GetTempPath(), "DlssNrRestir-" + Guid.NewGuid().ToString("N"));
         var mods = Directory.CreateDirectory(Path.Combine(root, "mods")).FullName;
         using (var archive = ZipFile.Open(Path.Combine(mods, jarName), ZipArchiveMode.Create))
         {
+            var metadata = archive.CreateEntry("fabric.mod.json");
+            using (var writer = new StreamWriter(metadata.Open(), Encoding.UTF8, leaveOpen: false))
+                writer.Write("{\"id\":\"caustica\",\"depends\":{\"minecraft\":\"" + minecraftVersion + "\"}}");
             var entry = archive.CreateEntry("dev/comfyfluffy/caustica/CausticaConfig$Rt$Lights.class");
             using var stream = entry.Open();
             var bytes = Encoding.UTF8.GetBytes(supported
