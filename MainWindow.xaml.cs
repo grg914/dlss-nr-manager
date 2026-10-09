@@ -1958,6 +1958,44 @@ public partial class MainWindow : Window
     private MinecraftInstallCandidate? SelectedMinecraftInstance()
         => MinecraftInstanceBox.SelectedItem as MinecraftInstallCandidate;
 
+    private bool ExperimentalMinecraftCausticaSelected() =>
+        MinecraftCausticaChannelBox?.SelectedIndex == 1;
+
+    private void MinecraftCausticaChannelBox_SelectionChanged(
+        object sender, SelectionChangedEventArgs e)
+    {
+        if (IsLoaded)
+            RefreshMinecraftInstallState();
+    }
+
+    private void RefreshMinecraftCausticaChannelInfo()
+    {
+        if (MinecraftCausticaChannelInfoText == null)
+            return;
+
+        if (!ExperimentalMinecraftCausticaSelected())
+        {
+            MinecraftCausticaChannelInfoText.Text = UiLocalizationService.Translate(
+                "Stable: the Manager installs a Caustica JAR from its verified non-prerelease channel.",
+                _uiLanguage);
+            return;
+        }
+
+        var instance = SelectedMinecraftInstance();
+        var state = instance == null
+            ? new MinecraftRestirState(false, false, "Select a Minecraft Java instance first.")
+            : _minecraftRestir.Inspect(instance.RootDirectory);
+
+        MinecraftCausticaChannelInfoText.Text = state.Available
+            ? UiLocalizationService.Translate("Experimental: installed local build (no automatic download).", _uiLanguage)
+                + " " + (state.ModVersion ?? "unknown version")
+                + " • " + state.JarName
+                + " • " + UiLocalizationService.Translate("Build SDK version not attested.", _uiLanguage)
+            : UiLocalizationService.Translate(
+                "Experimental: no compatible local build. Install/update from the Manager is disabled in this channel.",
+                _uiLanguage);
+    }
+
     private bool RefreshMinecraftInstallState()
     {
         var instance = SelectedMinecraftInstance();
@@ -1973,8 +2011,13 @@ public partial class MainWindow : Window
             (_minecraftPreflightResult?.CanInstall ?? true);
 
         MinecraftRestoreOriginalButton.IsEnabled = installed;
-        MinecraftUpdateManagedButton.IsEnabled = installed;
+        MinecraftUpdateManagedButton.IsEnabled = installed && !ExperimentalMinecraftCausticaSelected();
+
+        if (ExperimentalMinecraftCausticaSelected())
+            MinecraftOneClickInstallButton.IsEnabled = false;
+
         RefreshMinecraftRestirState();
+        RefreshMinecraftCausticaChannelInfo();
 
         if (installed && instance != null)
         {
@@ -1993,8 +2036,8 @@ public partial class MainWindow : Window
                 "Select a Minecraft Java instance first.")
             : _minecraftRestir.Inspect(instance.RootDirectory);
 
-        MinecraftRestirOptionCheck.IsEnabled = state.Available;
-        MinecraftRestirApplyButton.IsEnabled = state.Available;
+        MinecraftRestirOptionCheck.IsEnabled = state.Available && ExperimentalMinecraftCausticaSelected();
+        MinecraftRestirApplyButton.IsEnabled = state.Available && ExperimentalMinecraftCausticaSelected();
         MinecraftRestirOptionCheck.IsChecked = state.Available && state.Enabled;
 
         var message = state.Available
@@ -2009,7 +2052,7 @@ public partial class MainWindow : Window
     private void ApplyMinecraftRestir_Click(object sender, RoutedEventArgs e)
     {
         var instance = SelectedMinecraftInstance();
-        if (instance == null)
+        if (instance == null || !ExperimentalMinecraftCausticaSelected())
             return;
 
         var state = _minecraftRestir.Inspect(instance.RootDirectory);
@@ -2206,6 +2249,12 @@ public partial class MainWindow : Window
 
     private async void InstallMinecraftOneClick_Click(object sender, RoutedEventArgs e)
     {
+        if (ExperimentalMinecraftCausticaSelected())
+        {
+            MinecraftStatusText.Text = "Experimental Caustica builds are local-only and cannot be installed from the Manager.";
+            return;
+        }
+
         var instance = SelectedMinecraftInstance();
         if (instance == null)
         {
@@ -2314,7 +2363,7 @@ public partial class MainWindow : Window
             var result = await _minecraftOneClick.InstallAsync(
                 instance,
                 installFabricApi: true,
-                allowPrereleaseCaustica: true,
+                allowPrereleaseCaustica: false,
                 installRtxPerformancePack:
                     MinecraftPerformancePackCheck.IsChecked == true,
                 installLabPbrResourcePack:
@@ -2376,6 +2425,12 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
+        if (ExperimentalMinecraftCausticaSelected())
+        {
+            MinecraftStatusText.Text = "Manager-owned updates are unavailable for local experimental Caustica builds.";
+            return;
+        }
+
         var instance = SelectedMinecraftInstance();
         if (instance == null)
         {
@@ -2428,7 +2483,7 @@ public partial class MainWindow : Window
             var result = await _minecraftOneClick.InstallAsync(
                 instance,
                 installFabricApi: true,
-                allowPrereleaseCaustica: true,
+                allowPrereleaseCaustica: false,
                 installRtxPerformancePack:
                     MinecraftPerformancePackCheck.IsChecked == true,
                 installLabPbrResourcePack:
