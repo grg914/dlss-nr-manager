@@ -175,7 +175,7 @@ public sealed class MediaUpdateAvailabilityTests
             "private async void CheckComponentUpdates_Click(",
             StringComparison.Ordinal);
         var downloadStart = source.IndexOf(
-            "private async Task RunDownloadCenterActionAsync(",
+            "private async Task RunDownloadCenterOperationAsync(",
             StringComparison.Ordinal);
         Assert.True(genericStart >= 0);
         Assert.True(downloadStart >= 0);
