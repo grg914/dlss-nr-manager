@@ -4,7 +4,7 @@
 >
 > **Repository:** `grg914/dlss-nr-manager`. Related experimental renderer: `grg914/Caustica-RTX`. **Never touch ScandiCraft repositories.**
 >
-> **Snapshot:** 2026-10-09. Observed `main` SHA: `9421c71a6b995ad53d7b0134d64f2f6eab0ed313` (**refresh before every change**).
+> **Snapshot:** 2026-10-09, GPT B source-audited handoff. Observed `main` SHA: `f8fc1d65448f150c27736f31a07131200dca6e63` (**refresh before every change; this is not a live lock**).
 
 ## Shared sources and precedence
 
@@ -25,16 +25,15 @@ These are planning defaults, not claims of exclusive ownership. Always inspect c
 
 ## Snapshot of active work — verify before acting
 
-| Area | Current reference / state at snapshot | Next safe action |
+| Lane / area | Verified status at 2026-10-09 checkpoint | Next safe action |
 | --- | --- | --- |
-| Manager supply-chain owner review | Manager PR [#158](https://github.com/grg914/dlss-nr-manager/pull/158) reconciled on branch at `4109d95c300a636d728e244bea77deab617e7f3e`; issue [#156](https://github.com/grg914/dlss-nr-manager/issues/156). Dedicated safety test green; required Build/Analyze C# pending at prior check. | Re-read exact HEAD and strict required checks, then squash merge only if permitted; verify merged SHA before closing #156. |
-| Manager PR cleanup | Manager PR [#143](https://github.com/grg914/dlss-nr-manager/pull/143) closed **unmerged** as obsolete after merged #163 removed public planning files. Native `delete_branch_on_merge` enabled. | Preserve obsolete branch history until independently audited. Do not resurrect private planning files. |
-| Manager documentation/six-phase audit | PR [#162](https://github.com/grg914/dlss-nr-manager/pull/162) draft; feature/component policy reconciliation; new `docs/V4_SIX_PHASES_AUDIT_STATUS.md`. | Coordinate with lane A, recheck diff against current main and promote only after review and CI. |
-| Manager Download Center | PR [#165](https://github.com/grg914/dlss-nr-manager/pull/165) draft with partial read-only official upstream version checks; issue [#111](https://github.com/grg914/dlss-nr-manager/issues/111). | Resolve conflicts; do not equate upstream updates with approved installations. |
-| Manager process cleanup | PR [#144](https://github.com/grg914/dlss-nr-manager/pull/144) draft; issue [#95](https://github.com/grg914/dlss-nr-manager/issues/95) requires Windows RTX acceptance. | Reconcile against main and test managed-child ownership, normal/forced exit on Windows. |
-| Dependency bots | PRs [#152](https://github.com/grg914/dlss-nr-manager/pull/152) and [#153](https://github.com/grg914/dlss-nr-manager/pull/153). | Review actual immutable action SHAs and workflows, update PR branches, require all mandated CI. |
-| Six-phase / Caustica work | Manager progress PR [#169](https://github.com/grg914/dlss-nr-manager/pull/169) open for Caustica ReSTIR checkpoint; separate Caustica draft PR #10 remains experimental per progress log. | Lane A to refresh status; never label experimental JAR production-ready merely because CI passes. |
-| Remaining manager issue groups | [#161](https://github.com/grg914/dlss-nr-manager/issues/161) OptiScaler reproducibility; [#124](https://github.com/grg914/dlss-nr-manager/issues/124) divergent branches; [#79](https://github.com/grg914/dlss-nr-manager/issues/79) OpenMP licensing; plus #51, #76, #149. | Keep separate until the actual acceptance criterion is met; do not bulk-close. |
+| GPT B — v4.0 offline startup | [#318](https://github.com/grg914/dlss-nr-manager/pull/318), draft signed HEAD `73e5b98475a5b8fe50bbb16bf69a657c7f2cc915`, base current `main` `f8fc1d65448f150c27736f31a07131200dca6e63`; Build run `37950726788` and CodeQL `37950726807` SUCCESS; **194/194 xUnit**. Not merged at checkpoint. | Verify fresh SHA, signature, review threads, exact checks and main, then protected squash and post-merge ancestry/blobs. On-device no-network validation still pending. |
+| GPT B — completed media/integrity | Signed merges [#282](https://github.com/grg914/dlss-nr-manager/pull/282), [#290](https://github.com/grg914/dlss-nr-manager/pull/290), [#304](https://github.com/grg914/dlss-nr-manager/pull/304), [#309](https://github.com/grg914/dlss-nr-manager/pull/309), [#313](https://github.com/grg914/dlss-nr-manager/pull/313) integrated with required CI; installed OptiScaler binaries reused, no native rebuild. Issue [#111](https://github.com/grg914/dlss-nr-manager/issues/111) CLOSED. | Keep real Windows/RTX offline, rollback, FR/EN and component acceptance separate from CI; do not reproduce resolved feature work. |
+| GPT B — remaining v4 gates | [#95](https://github.com/grg914/dlss-nr-manager/issues/95) physical crash/recovery OPEN; [#79](https://github.com/grg914/dlss-nr-manager/issues/79) OpenMP REDIST legal/physical validation OPEN; [#124](https://github.com/grg914/dlss-nr-manager/issues/124) divergent-branch audit OPEN. [#161](https://github.com/grg914/dlss-nr-manager/issues/161) native reproducibility is future publisher research, **not a v4 gate when reusing existing pinned DLLs**. Latest public release remains v3.2.0 and csproj version 3.2.0. | Test on supported PC; do not declare rights, RTX behavior or publish v4 without evidence/owner approval. |
+| GPT A — Minecraft RTX / Caustica | Active manager PRs [#319](https://github.com/grg914/dlss-nr-manager/pull/319), [#316](https://github.com/grg914/dlss-nr-manager/pull/316), [#311](https://github.com/grg914/dlss-nr-manager/pull/311); checkpoint drafts #220/#191/#178/#169. Experimental JARs separate from production. | Lane A only; do not edit or promote experimental changes in GPT B. |
+| GPT C — v4.5 AI Studio | Active isolated PRs [#310](https://github.com/grg914/dlss-nr-manager/pull/310), [#314](https://github.com/grg914/dlss-nr-manager/pull/314), #315, #301, #300 and coordination #271. Python/CUDA/ComfyUI runtime still not production-validated. | Lane C only; no GPT B merge/promotion of experimental v4.5 into v4.0. |
+
+**Owner instruction (2026-10-09):** Before each GPT B intervention read all three files `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, `AI_PROJECT_PROGRESS2.txt` from live GitHub, plus current main/PR/CI/issues; refresh their verified checkpoint information through protected, focused append-only documentation changes without overwriting other lanes. Documentation is a dated snapshot, not a required meaningless re-commit if no facts changed. One signed protected merge at a time.
 
 ## Write and merge protocol for all three conversations
 
@@ -51,7 +50,7 @@ These are planning defaults, not claims of exclusive ownership. Always inspect c
 
 ## Next handoff
 
-- **Lane A:** continue the six-phase work and register new experimental Caustica PRs/checkpoints with their precise acceptance status; keep production integration separate.
-- **Lane B:** finish CI-gated review of manager PR #158, then #162 and dependency PRs #152/#153; reconcile #144/#165 before merge; continue issue #124 branch audit.
-- **Lane C:** continue v4.5 AI Studio on isolated branches, validate exact-head CI and signed commits, and propose (do not automatically implement) additional user-roadmap ideas. Coordinate with A/B before any shared-file or main integration.
-- **All three:** refresh this snapshot from GitHub before editing. Coordinate by distinct PRs; this file does not automatically synchronize ChatGPT conversations.
+- **Lane A:** continue source-verified Caustica/Minecraft experimental development on its own PRs, do not auto-promote its JAR to stable v4.
+- **Lane B:** after this shared docs checkpoint is protected-merged, reconcile #318 on the live main, ensure fresh signed exact-head Build/CodeQL before protected squash; then prepare **on-device** no-Internet, Windows process cleanup, rollback and Real-ESRGAN acceptance. No unnecessary native OptiScaler compilation.
+- **Lane C:** proceed with independently reviewed, isolated v4.5 AI Studio Python/ComfyUI work; require on-device offline inference proof, no automatic v4.0 integration.
+- **All three:** recheck real main and all three documents before next intervention and after each signed squash. Never rely on this snapshot as a synchronization lock.
