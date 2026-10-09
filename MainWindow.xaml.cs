@@ -26,6 +26,8 @@ public partial class MainWindow : Window
     private readonly AiOriginDetectionService _aiOrigin;
     private readonly ReShadeService _reshade = new();
     private readonly ComponentUpdateService _components = new();
+    private readonly OfficialUpstreamUpdateService _officialUpdates = new();
+    private bool _checkingOfficialUpdates;
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftPreflightService _minecraftPreflight = new();
@@ -4576,6 +4578,115 @@ public partial class MainWindow : Window
         {
             _checkingDownloadCenterUpdates = false;
             RefreshDownloadCenterButtons();
+        }
+    }
+
+    private sealed record OfficialUpdateDisplay(
+        OfficialUpstreamResult Update, string Label)
+    {
+        public override string ToString() => Label;
+    }
+
+    private async void CheckOfficialUpstreamUpdates_Click(
+        object sender, RoutedEventArgs e)
+    {
+        if (_checkingOfficialUpdates)
+            return;
+
+        _checkingOfficialUpdates = true;
+        CheckOfficialUpstreamUpdatesButton.IsEnabled = false;
+        OfficialUpdateStatusText.Text = L(
+            "Checking official GitHub repositories (read-only)…",
+            "Vérification des dépôts GitHub officiels (lecture seule)…");
+
+        try
+        {
+            var results = await _officialUpdates.CheckAsync();
+            var items = results.Select(result =>
+            {
+                var status = result.State switch
+                {
+                    OfficialUpstreamState.NewVersion =>
+                        L("new official version", "nouvelle version officielle"),
+                    OfficialUpstreamState.SourceChanged =>
+                        L("source revision changed", "révision source différente"),
+                    OfficialUpstreamState.UpToDate =>
+                        L("tracked source current", "source suivie inchangée"),
+                    OfficialUpstreamState.ReviewRequired =>
+                        L("manual review needed", "vérification manuelle nécessaire"),
+                    _ => L("unavailable", "indisponible")
+                };
+                var latest = string.IsNullOrWhiteSpace(result.RemoteReference)
+                    ? "" : " • " + result.RemoteReference;
+                return new OfficialUpdateDisplay(
+                    result, result.Source.Id + " — " + status + latest);
+            }).OrderByDescending(x => x.Update.RequiresReview)
+              .ThenBy(x => x.Update.Source.Id, StringComparer.OrdinalIgnoreCase)
+              .ToArray();
+
+            OfficialUpdateList.ItemsSource = items;
+            var count = results.Count(x => x.RequiresReview);
+            OfficialUpdateStatusText.Text = L(
+                $"{count} official changes to review out of {results.Count} tracked sources. Installing updates still requires validated manager-owned packages.",
+                $"{count} modifications officielles à examiner sur {results.Count} sources suivies. L'installation exige des packages validés par le Manager.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("Official source check unavailable: " + ex.Message);
+            OfficialUpdateStatusText.Text = L(
+                "Source lookup unavailable. Installed components were not changed.",
+                "Sources indisponibles. Aucun composant installé n'a été modifié.");
+        }
+        finally
+        {
+            _checkingOfficialUpdates = false;
+            CheckOfficialUpstreamUpdatesButton.IsEnabled = true;
+        }
+    }
+
+    private void OfficialUpdateList_SelectionChanged(
+        object sender, SelectionChangedEventArgs e)
+    {
+        var item = OfficialUpdateList.SelectedItem as OfficialUpdateDisplay;
+        OpenOfficialUpstreamButton.IsEnabled = item != null;
+        if (item == null)
+        {
+            OfficialUpdateDetailsText.Text = "";
+            return;
+        }
+
+        OfficialUpdateDetailsText.Text =
+            item.Update.Source.Repository + "\n" +
+            L("Pinned project reference: ", "Référence épinglée du projet : ") +
+            (item.Update.Source.LockedTag ?? item.Update.Source.LockedRef) + "\n" +
+            L("Promotion policy: ", "Politique de validation : ") +
+            item.Update.Source.Promotion + "\n" +
+            L("Upstream discovery does not authorize an installation. Only approved manager-owned packages can be installed.",
+              "La détection amont n'autorise aucune installation. Seuls les packages approuvés du Manager peuvent être installés.");
+    }
+
+    private void OpenOfficialUpstream_Click(
+        object sender, RoutedEventArgs e)
+    {
+        if (OfficialUpdateList.SelectedItem is not OfficialUpdateDisplay item ||
+            !Uri.TryCreate(item.Update.OfficialUrl, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttps ||
+            !uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(uri.AbsoluteUri)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("Cannot open official repository: " + ex.Message);
+            OfficialUpdateStatusText.Text = L(
+                "Unable to open official repository.",
+                "Impossible d'ouvrir le dépôt officiel.");
         }
     }
 
