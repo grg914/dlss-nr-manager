@@ -49,7 +49,7 @@ public sealed class LocalizedOptionTooltipTests
     [InlineData("Vérifier versions officielles", "Check official versions")]
     [InlineData("Voir le dépôt officiel", "View official repository")]
     [InlineData("Contrôle à la demande uniquement.", "On-demand check only.")]
-    [InlineData("GAME", "JEU")]
+    [InlineData("JEU", "GAME")]
     public void French_first_static_labels_translate_both_ways(
         string french, string english)
     {
