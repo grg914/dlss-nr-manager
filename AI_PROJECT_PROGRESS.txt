@@ -1,3 +1,16 @@
+CHECKPOINT R097 (2026-10-09) - PR141 MERGED, PR142 MANUAL VIDEO PUBLISHER RECONCILED
+- PR141 last head 308b5b29b8dc3f17948e696320fbac65a0ba1994: Build, CodeQL, FFmpeg and Runtime Seed writer safety all SUCCESS; squash merged main 0dde04f621fffd0215da2790e7b1ef2f0686cb06. OptiScaler/ReShade same-name publication is now verified append-only.
+- PR142 independent video2dlssnr manual publisher now reconciles against this main; only workflow, publisher, mock tests, existing manual publisher and journal differ. Its new head requires fresh Build, CodeQL and Manual Video Seed Safety on exact SHA before merge. Do not remove asset pins or overwrite user DLLs.
+- #123 remains OPEN for Streamline, VLC, Temurin, Real-ESRGAN legal provenance and consumer promotion. #111/#124/#79/#82/#95 remain open. No v4 release.
+
+CHECKPOINT R093 (2026-10-09) - #123 MANUAL VIDEO SEED PUBLISHER NON-DESTRUCTIVE DRAFT
+- PR #140 merged main 040c7688f033a2444ec7ed78b8444e9da5acd464 with Build, CodeQL, FFmpeg and Runtime Seed Writer Safety checks SUCCESS.
+- PR #141 reconciled to latest main as 308b5b29b8dc3f17948e696320fbac65a0ba1994: versioned OptiScaler/ReShade append-only release publisher. Dedicated safety suites already SUCCESS, Build/CodeQL still running at this checkpoint. Do not merge until both success on exact final SHA.
+- New independent branch fix/v4-append-only-manual-video-seed removes gh release upload --clobber from tools/publish-video2dlssnr.ps1. This manual producer now invokes tools/publish-append-only-release-zip.ps1 for canonical same-content skip or immutable SHA256-named staging on changed content. Current canonical remains available to readers and manual promotion is explicitly required. GitHub size+SHA256 validated before success; invalid ZIP, missing/contradictory digest or upload failures must fail closed.
+- Added tests/test_append_only_release_zip.ps1 with mocked gh: canonical first publication, idempotence, immutable revision, preservation, conflicting digest, failed upload, disappearing post-upload metadata, invalid ZIP. New .github/workflows/manual-video-seed-safety.yml checks parsing and regression tests on Windows.
+- PR and new CI still required. NO physical Windows/NVIDIA acceptance or restricted-license automatic publication authorized. #123 still open for Streamline, VLC, Temurin, Real-ESRGAN and consumer manifest promotions; #111 #124 #79 #82 #95 remain open. No v4 release.
+NEXT: validate PR141 final Build/CodeQL and merge with SHA guard, then reconcile manual video seed PR and require its Build/CodeQL/Windows safety checks before merge.
+
 CHECKPOINT R092 (2026-10-09) - PR140 MERGED, PR141 RECONCILIATION
 - PR140 Build SUCCESS, CodeQL SUCCESS, FFmpeg Runtime Seed Safety SUCCESS, Runtime Seed Writer Safety Tests SUCCESS on e3534e2686c08693f1dafda2571ff6041f2b5185; squash merged main 040c7688f033a2444ec7ed78b8444e9da5acd464.
 - PR141 branch reconciles from current main, preserving FFmpeg/NuGet immutable publishers, pinned NuGet consumer and all previous journal checkpoints. OptiScaler/ReShade replace the two versioned --clobber calls with append-only verified same-name/no-overwrite publisher.
