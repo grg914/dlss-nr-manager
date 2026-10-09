@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftPreflightService _minecraftPreflight = new();
     private readonly MinecraftRestirExperimentService _minecraftRestir = new();
+    private readonly MinecraftExperimentalJarImportService _minecraftExperimentalJar = new();
     private readonly MinecraftOneClickService _minecraftOneClick;
     private readonly GenericNvidiaRuntimeService _genericNvidiaRuntime = new();
     private readonly NvidiaDlssNrDiscoveryService _nvidiaNrDiscovery = new();
@@ -1997,7 +1998,9 @@ public partial class MainWindow : Window
             ? UiLocalizationService.Translate("Experimental: installed local build (no automatic download).", _uiLanguage)
                 + " " + (state.ModVersion ?? UiLocalizationService.Translate("unknown version", _uiLanguage))
                 + " • " + state.JarName
-                + " • " + UiLocalizationService.Translate("Build SDK version not attested.", _uiLanguage)
+                + " • " + (_minecraftExperimentalJar.IsImported(instance!.RootDirectory)
+                    ? "DLSS SDK " + MinecraftExperimentalJarImportService.DlssSdkBuildVersion
+                    : UiLocalizationService.Translate("Build SDK version not attested.", _uiLanguage))
             : UiLocalizationService.Translate(
                 "Experimental: no compatible local build. Install/update from the Manager is disabled in this channel.",
                 _uiLanguage);
@@ -2017,11 +2020,26 @@ public partial class MainWindow : Window
             !installed &&
             (_minecraftPreflightResult?.CanInstall ?? true);
 
-        MinecraftRestoreOriginalButton.IsEnabled = installed;
-        MinecraftUpdateManagedButton.IsEnabled = installed && !ExperimentalMinecraftCausticaSelected();
+        var experimentalImported = instance != null &&
+            _minecraftExperimentalJar.IsImported(instance.RootDirectory);
+
+        MinecraftRestoreOriginalButton.IsEnabled = installed && !experimentalImported;
+        MinecraftUpdateManagedButton.IsEnabled = installed && !ExperimentalMinecraftCausticaSelected() && !experimentalImported;
+        MinecraftImportExperimentalJarButton.IsEnabled =
+            instance != null && ExperimentalMinecraftCausticaSelected() && !experimentalImported;
+        MinecraftRestoreExperimentalJarButton.IsEnabled =
+            instance != null && _minecraftExperimentalJar.CanRestore(instance.RootDirectory);
+
+        MinecraftExperimentalJarImportStatusText.Text = UiLocalizationService.Translate(
+            instance != null && _minecraftExperimentalJar.HasInterruptedImport(instance.RootDirectory)
+                ? "Unresolved experimental Caustica backup: managed installs are blocked. Preserve the backup and inspect the Minecraft mods folder before manual recovery."
+                : experimentalImported
+                    ? "Experimental CI build imported. Restore previous Caustica before using managed updates."
+                    : "CI test build: ReSTIR PR #30, DLSS SDK 310.7.0; experimental import only.",
+            _uiLanguage);
         MinecraftAllowPrereleaseCheck.IsChecked = !ExperimentalMinecraftCausticaSelected();
 
-        if (ExperimentalMinecraftCausticaSelected())
+        if (ExperimentalMinecraftCausticaSelected() || experimentalImported)
             MinecraftOneClickInstallButton.IsEnabled = false;
 
         RefreshMinecraftRestirState();
@@ -2034,6 +2052,78 @@ public partial class MainWindow : Window
         }
 
         return installed;
+    }
+
+    private void ImportMinecraftExperimentalJar_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (!ExperimentalMinecraftCausticaSelected() || instance == null ||
+            _minecraftExperimentalJar.IsImported(instance.RootDirectory))
+            return;
+
+        var fileDialog = new OpenFileDialog
+        {
+            Title = "Select the verified Caustica ReSTIR CI JAR",
+            Filter = "Caustica JAR (*.jar)|*.jar",
+            Multiselect = false,
+            CheckFileExists = true
+        };
+        if (fileDialog.ShowDialog() != true)
+            return;
+
+        var warning = UiLocalizationService.Translate(
+            "Import the pinned experimental Caustica JAR from PR #30 (NVIDIA DLSS SDK 310.7.0)? Close Minecraft first. The Manager checks SHA-256, backs up the existing JAR and enables ReSTIR only when you explicitly select it. This CI artifact is not GPU-certified or a production release.",
+            _uiLanguage);
+        if (MessageBox.Show(warning, "Experimental Caustica RTX",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            _minecraftExperimentalJar.Import(instance.RootDirectory, fileDialog.FileName);
+            MinecraftStatusText.Text = "Experimental Caustica imported. Restart Minecraft; ReSTIR remains off until enabled.";
+            AppLogger.Info("Imported pinned experimental Caustica into " + instance.RootDirectory);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Experimental Caustica import failed.", ex);
+            MessageBox.Show(ex.Message, "Experimental Caustica RTX", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            RefreshMinecraftInstallState();
+        }
+    }
+
+    private void RestoreMinecraftExperimentalJar_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null || !_minecraftExperimentalJar.IsImported(instance.RootDirectory))
+            return;
+
+        if (MessageBox.Show(
+                UiLocalizationService.Translate(
+                    "Restore the previously installed Caustica JAR from the experimental backup? Close Minecraft first. The experimental JAR will be removed; the previous JAR and its SHA-256 are verified.",
+                    _uiLanguage),
+                "Restore Caustica", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+            != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            _minecraftExperimentalJar.Restore(instance.RootDirectory);
+            MinecraftStatusText.Text = "Previous Caustica JAR restored.";
+            AppLogger.Info("Restored original Caustica for " + instance.RootDirectory);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Experimental Caustica rollback failed.", ex);
+            MessageBox.Show(ex.Message, "Restore Caustica", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            RefreshMinecraftInstallState();
+        }
     }
 
     private void RefreshMinecraftRestirState()
@@ -2257,9 +2347,11 @@ public partial class MainWindow : Window
 
     private async void InstallMinecraftOneClick_Click(object sender, RoutedEventArgs e)
     {
-        if (ExperimentalMinecraftCausticaSelected())
+        if (ExperimentalMinecraftCausticaSelected() ||
+            (SelectedMinecraftInstance() is { } current &&
+                _minecraftExperimentalJar.IsImported(current.RootDirectory)))
         {
-            MinecraftStatusText.Text = "Experimental Caustica builds are local-only and cannot be installed from the Manager.";
+            MinecraftStatusText.Text = "Experimental Caustica is active; restore the previous JAR before managed installation.";
             return;
         }
 
@@ -2433,9 +2525,11 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
-        if (ExperimentalMinecraftCausticaSelected())
+        if (ExperimentalMinecraftCausticaSelected() ||
+            (SelectedMinecraftInstance() is { } current &&
+                _minecraftExperimentalJar.IsImported(current.RootDirectory)))
         {
-            MinecraftStatusText.Text = "Manager-owned updates are unavailable for local experimental Caustica builds.";
+            MinecraftStatusText.Text = "Restore the previous Caustica JAR before managed updates.";
             return;
         }
 
@@ -2539,6 +2633,13 @@ public partial class MainWindow : Window
 
     private void RestoreMinecraftOriginal_Click(object sender, RoutedEventArgs e)
     {
+        if (SelectedMinecraftInstance() is { } current &&
+            _minecraftExperimentalJar.IsImported(current.RootDirectory))
+        {
+            MinecraftStatusText.Text = "Restore the previous Caustica JAR before removing the managed installation.";
+            return;
+        }
+
         var instance = SelectedMinecraftInstance();
         if (instance == null)
         {

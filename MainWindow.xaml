@@ -803,6 +803,20 @@
                              Foreground="{StaticResource Muted}"
                              FontSize="10" TextWrapping="Wrap"
                              Margin="0,6,0,8"/>
+                  <WrapPanel Margin="0,0,0,6">
+                    <Button x:Name="MinecraftImportExperimentalJarButton"
+                            Content="Import experimental JAR…"
+                            Click="ImportMinecraftExperimentalJar_Click"
+                            IsEnabled="False" Margin="0,0,8,0"/>
+                    <Button x:Name="MinecraftRestoreExperimentalJarButton"
+                            Content="Restore previous Caustica"
+                            Click="RestoreMinecraftExperimentalJar_Click"
+                            IsEnabled="False"/>
+                  </WrapPanel>
+                  <TextBlock x:Name="MinecraftExperimentalJarImportStatusText"
+                             Text="CI test build: ReSTIR PR #30, DLSS SDK 310.7.0; experimental import only."
+                             Foreground="{StaticResource Warning}" FontSize="10"
+                             TextWrapping="Wrap" Margin="0,0,0,10"/>
                   <TextBlock Text="NVIDIA DLSS SDK version is fixed when Caustica is compiled, not switched at runtime. The selected JAR's SDK provenance must be separately verified."
                              Foreground="{StaticResource Muted}" FontSize="10"
                              TextWrapping="Wrap" Margin="0,0,0,10"/>
