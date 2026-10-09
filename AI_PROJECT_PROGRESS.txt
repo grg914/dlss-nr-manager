@@ -1,3 +1,10 @@
+CHECKPOINT R075 (2026-10-09) - PR135 VALIDEE ET FUSIONNEE
+- PR #135 head 2d18fae0557f7d9d6eaa58995834547c32036121: CodeQL run 37862717930 SUCCESS, Build run 37862717923 SUCCESS, regression tests SUCCESS, Windows x64 publish, executable/icon verification and deterministic packaging SUCCESS.
+- PR #135 marked ready for review only after CI success, then squash merged to main f71133dd355784a8c012102b498f61c2923f3ff8 with expected head SHA lease.
+- AiStudioPackageService rejects redirected workspace, model parent, download/staging and model target before archive extraction; cleanup uses ManagedPathSafety safe removal. Retains AI Studio optional model updates from PR #134.
+- LIMITS: Existing-link preflight checks are NOT a full handle-based TOCTOU defense. Physical Windows/NVIDIA tests, forced crash/power-loss and recovery remain required for issue #95. #79 license verification, #82 required CodeQL branch protection, #111 remaining component updates, #123 immutable asset publishing and #124 branch divergence review remain open. No v4.0 release authorized.
+NEXT ACTION: continue remaining v4 issues; do not publish without manual hardware/security acceptance.
+
 CHECKPOINT R074 (2026-10-09) - PR134 FUSIONNEE / CORRECTIF JONCTION PR135 RECONCILIE
 - PR134 squash a1cec1242c246aa4cc167c0fed470545555f54eb apres 136 tests xUnit Windows, 0 echec, Build Windows x64 et CodeQL SUCCESS sur HEAD e91e5b477a645c80f88ea39886be535957ebc7aa.
 - PR135 mergee DANS SA BRANCHE (pas dans main) avec main post PR134; les controles avant extraction et nettoyage ajoutés a Services/AiStudioPackageService.cs sans remplacer les fonctions nouvelles de recu/version AI Studio. 2 tests sentinelle. Journal R074+R073+R071/R070/R069/R064... conserve.
