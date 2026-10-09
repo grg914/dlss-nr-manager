@@ -6,6 +6,12 @@
 >
 > **Snapshot:** 2026-10-09, GPT B source-audited handoff. Observed `main` SHA: `f8fc1d65448f150c27736f31a07131200dca6e63` (**refresh before every change; this is not a live lock**).
 
+## Latest GPT B verified handoff — 2026-10-09, after protected offline merge
+
+- **Production `main` verified** at `dddd9ac76a9108a7607331966f9148245a23e686` (signed). [#324](https://github.com/grg914/dlss-nr-manager/pull/324) **MERGED by protected squash**, original verified-signed HEAD `d283308ad6e5492d5a0566c55795cf7b4c55bf63`, Build `37956420271` and CodeQL `37956420167` both SUCCESS, **194/194 xUnit**. Post-merge SHA ancestry is `identical` and all four affected Git blobs equal the tested source. Old #318 CLOSED/UNMERGED; its older status below is a historical snapshot.
+- **Remaining v4 work:** physical Windows 11 RTX **after-connected-install, network-disconnected** startup/media/game/cache and rollback/crash tests (#95); approved OpenMP REDIST license+device validation (#79); release checklist/packaging and explicit user authorization. #111 CLOSED; #161 native recompilation investigation is **non-blocking when reusing immutable approved OptiScaler DLLs**. Latest published app release still v3.2.0; **no v4.0 publication or hardware evidence**.
+- **Concurrent lanes:** GPT A owns #325 dependency/license docs and #320 historical shared-doc divergence; neither was edited or merged by GPT B. GPT C v4.5 AI Studio remains separate. **Check live main and three journals again** before promoting any concurrent documentation branch; a saved checkpoint is not an exclusive lock. The on-device network-off acceptance instructions are appended to `docs/V4_WINDOWS_PROCESS_ACCEPTANCE.md` in this documentation-only candidate.
+
 ## Shared sources and precedence
 
 1. Read the latest `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` on GitHub.
