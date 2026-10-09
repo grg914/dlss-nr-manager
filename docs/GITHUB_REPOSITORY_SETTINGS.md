@@ -83,3 +83,16 @@ Any future change that:
 - removes Build/CodeQL checks;
 
 should be treated as a security-sensitive repository change.
+
+## Owner checklist — security settings (2026-10-09)
+
+These are **manual GitHub Settings actions**; inclusion here does not mean they are enabled. Verify the live Settings UI.
+
+1. Settings > Rules > Rulesets > Protect main: verify it remains active, enforces PRs, blocks branch deletion and force-pushes, keeps strict/up-to-date status checks and `build`, and add the CodeQL job `Analyze C#` as an additional required check once the exact check name is confirmed in a successful PR run. Avoid mandatory self-approval for a single-maintainer repo.
+2. Settings > Security > Advanced Security: enable dependency graph, Dependabot alerts and security updates; enable private vulnerability reporting and secret scanning/push protection if available under the account plan. Keep CodeQL active. Consider grouped security updates only after assessing PR noise.
+3. Settings > Actions > General: keep default `GITHUB_TOKEN` permissions read-only; allow write only in explicitly scoped publishing/updating workflows, and require review for untrusted fork workflows. Confirm third-party action policy does not break pinned CI actions.
+4. Settings > Collaborators: remove unneeded write/admin access, check installed apps and fine-grained tokens, and retain least privilege.
+5. Dependabot version-update configuration: manually add `.github/dependabot.yml` only after review. Limit it to `github-actions` initially (weekly; at most two open update PRs). **Do not configure NuGet auto-updates**: normal builds use manager-owned offline packages and immutable dependency locks. Verify any Actions pin updates against repository rules before merging.
+6. Settings > General / Pull Requests: preserve squash merging, prevent unintended direct merges, and inspect automatic merge settings.
+
+Do not grant an AI agent GitHub administration permission as a substitute for human configuration. `AGENTS.md` is agent guidance and not an access-control boundary.
