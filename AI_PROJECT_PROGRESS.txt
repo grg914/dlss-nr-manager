@@ -5408,3 +5408,8 @@ CHECKPOINT GPT-B-V4-20261009-06 — GPT A DEPENDENCY/AUDIT SELECTIVE RECONCILIAT
 - GPT A review PR #331 at source `77ae43b39a6061d2982ab01bb8e5a6919cf42ed9` was inspected instead of blindly merging overlapping stale journals. Source-identical four docs, six-phase status correction and Caustica LGPL-3.0-or-later lock metadata are staged on a fresh GPT B branch. Shared journals preserved and receive only concise new checkpoints.
 - No changes to NVIDIA SDK, runtime DLL/JAR, Windows installer, upstream policy locks/versions or v4.5/experimental features. No mandatory new external fork/download identified. #95 and #79 remain real device/legal gates; #124 historical divergence audit remains open; #161 native reproducibility is nonblocking for unchanged approved OptiScaler binaries.
 - This branch is UNMERGED at checkpoint writing: review, signed staging, exact-head Build/CodeQL, serialized protected squash and post-merge ancestry/blob proof are mandatory. Stable published app remains v3.2.0; v4.0 release NOT authorized.
+
+
+CHECKPOINT GPT-B-20261009-B07 — STABLE v4 SOURCE FIX, UNMERGED
+- Base relue sur GitHub: `a2c26427505e7b1740768de07075a42a619be5b6`. Anomalie GPT A B07. Enumerates all VLC locations, prefers the newest version with proven >=3.0.24 support, and never treats unknown version as compatible. Candidate preference unit tests added.
+- Branche dediee `fix/v4-vlc-detection-b07-20261009` ; aucune DLL, binaire Microsoft/NVIDIA, pilote ni fonctionnalite v4.5. Necessite Build/xUnit, CodeQL, revue, signature sur branche isolee et squash protege; recette Windows physique non affirmee. Attention aux journaux concurrents GPT A #339 et B01/B02.
