@@ -58,8 +58,8 @@ public sealed class MediaReleaseIdentityTests
         var end = media.IndexOf("public async Task<string> ProcessAsync(", StringComparison.Ordinal);
         Assert.True(start >= 0 && end > start);
         var setup = media[start..end];
-        Assert.True(
-            setup.IndexOf("IsApprovedMediaSelection(", StringComparison.Ordinal) <
-            setup.IndexOf("await DownloadAsync(", StringComparison.Ordinal));
+        var approvalCheck = setup.IndexOf("IsApprovedMediaSelection(", StringComparison.Ordinal);
+        var firstDownload = setup.IndexOf("await DownloadAsync(", StringComparison.Ordinal);
+        Assert.True(approvalCheck >= 0 && firstDownload > approvalCheck);
     }
 }
