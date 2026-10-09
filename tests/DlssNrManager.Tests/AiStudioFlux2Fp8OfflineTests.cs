@@ -120,6 +120,59 @@ public sealed class AiStudioFlux2Fp8OfflineTests
             AiStudioFlux2OfflineImportService.ReadAndValidateManifest(t.Write(manifest)));
     }
 
+    [Fact]
+    public void Selected_generation_settings_are_embedded_in_api_graph()
+    {
+        var settings = new AiStudioImageSettings(576, 1024, 12, 98765);
+        settings.Validate();
+        using var json = JsonDocument.Parse(
+            AiStudioFlux2Fp8WorkflowService.BuildTextToImage("Nordic fjord", settings));
+        var root = json.RootElement;
+        Assert.Equal(576, root.GetProperty("6").GetProperty("inputs").GetProperty("width").GetInt32());
+        Assert.Equal(1024, root.GetProperty("6").GetProperty("inputs").GetProperty("height").GetInt32());
+        Assert.Equal(12, root.GetProperty("7").GetProperty("inputs").GetProperty("steps").GetInt32());
+        Assert.Equal(98765L, root.GetProperty("8").GetProperty("inputs").GetProperty("noise_seed").GetInt64());
+    }
+
+    [Fact]
+    public void Rejects_excessive_steps_pixels_and_seeds()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new AiStudioImageSettings(1024, 1024, 33, 1).Validate());
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new AiStudioImageSettings(2048, 2048, 4, -1).Validate());
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new AiStudioImageSettings(2050, 1024, 4, 1).Validate());
+    }
+
+    [Fact]
+    public void Old_queued_job_json_remains_readable_without_image_options()
+    {
+        var old = new AiStudioJob(
+            Guid.NewGuid(), DateTimeOffset.UtcNow,
+            AiStudioTaskKind.TextToImage, "flux2-klein-4b", AiStudioBackend.ComfyUi,
+            "A fjord", null, null, "outputs", "Queued");
+        var json = JsonSerializer.Serialize(old, new JsonSerializerOptions
+        {
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        });
+        Assert.DoesNotContain("ImageSettings", json);
+        var reread = JsonSerializer.Deserialize<AiStudioJob>(json);
+        Assert.NotNull(reread);
+        Assert.Null(reread!.ImageSettings);
+
+        var newJob = old with { ImageSettings = new AiStudioImageSettings(768, 768, 4, 777) };
+        var newRead = JsonSerializer.Deserialize<AiStudioJob>(JsonSerializer.Serialize(newJob));
+        Assert.Equal(newJob.ImageSettings, newRead!.ImageSettings);
+    }
+
+    [Fact]
+    public async Task Missing_installed_model_is_never_reported_as_sha_verified()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "missing-flux-" + Guid.NewGuid().ToString("N"));
+        Assert.False(await AiStudioFlux2OfflineImportService.VerifyInstalledAsync(path));
+    }
+
     private static AiStudioPackageManifest ValidManifest() =>
         new(1, "flux2-klein-4b", "FLUX.2", "0.1.0",
             "ai-studio-flux2-klein-4b-0.1.0",
