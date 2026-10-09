@@ -1,3 +1,11 @@
+CHECKPOINT R093 (2026-10-09) - #123 MANUAL VIDEO SEED PUBLISHER NON-DESTRUCTIVE DRAFT
+- PR #140 merged main 040c7688f033a2444ec7ed78b8444e9da5acd464 with Build, CodeQL, FFmpeg and Runtime Seed Writer Safety checks SUCCESS.
+- PR #141 reconciled to latest main as 308b5b29b8dc3f17948e696320fbac65a0ba1994: versioned OptiScaler/ReShade append-only release publisher. Dedicated safety suites already SUCCESS, Build/CodeQL still running at this checkpoint. Do not merge until both success on exact final SHA.
+- New independent branch fix/v4-append-only-manual-video-seed removes gh release upload --clobber from tools/publish-video2dlssnr.ps1. This manual producer now invokes tools/publish-append-only-release-zip.ps1 for canonical same-content skip or immutable SHA256-named staging on changed content. Current canonical remains available to readers and manual promotion is explicitly required. GitHub size+SHA256 validated before success; invalid ZIP, missing/contradictory digest or upload failures must fail closed.
+- Added tests/test_append_only_release_zip.ps1 with mocked gh: canonical first publication, idempotence, immutable revision, preservation, conflicting digest, failed upload, disappearing post-upload metadata, invalid ZIP. New .github/workflows/manual-video-seed-safety.yml checks parsing and regression tests on Windows.
+- PR and new CI still required. NO physical Windows/NVIDIA acceptance or restricted-license automatic publication authorized. #123 still open for Streamline, VLC, Temurin, Real-ESRGAN and consumer manifest promotions; #111 #124 #79 #82 #95 remain open. No v4 release.
+NEXT: validate PR141 final Build/CodeQL and merge with SHA guard, then reconcile manual video seed PR and require its Build/CodeQL/Windows safety checks before merge.
+
 CHECKPOINT R090 (2026-10-09) - PR139 MERGED / PR140 RECONCILED
 - PR139 Build, CodeQL and Runtime Seed Writer Safety Tests SUCCESS on 269393c2a4667af91a86ee98189d5266483d1a1b; squash merged to main 18252ebfbe766bc5610e5738c4af456372327caf. NuGet append-only publisher and Git-pinned consumer are now on main.
 - Reconcile PR140 FFmpeg append-only staging on top of current main, preserving PR139 NuGet workflow changes and full R088 journal while retaining PR140 R089 and its shell publisher, mock tests and CI workflow.
