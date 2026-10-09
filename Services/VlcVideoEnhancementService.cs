@@ -43,61 +43,65 @@ public sealed class VlcVideoEnhancementService
 
     public VlcVideoEnhancementStatus Detect()
     {
+        var found = new List<VlcVideoEnhancementStatus>();
         foreach (var candidate in EnumerateCandidates())
         {
-            if (string.IsNullOrWhiteSpace(candidate) ||
-                !File.Exists(candidate))
-            {
+            if (string.IsNullOrWhiteSpace(candidate) || !File.Exists(candidate))
                 continue;
-            }
 
             Version? version = null;
             try
             {
-                var raw = FileVersionInfo
-                    .GetVersionInfo(candidate)
-                    .FileVersion;
-
+                var raw = FileVersionInfo.GetVersionInfo(candidate).FileVersion;
                 if (!string.IsNullOrWhiteSpace(raw))
                 {
-                    var numeric = new string(
-                        raw.TakeWhile(ch =>
-                            char.IsDigit(ch) || ch == '.')
-                           .ToArray())
-                        .TrimEnd('.');
-
+                    var numeric = new string(raw.TakeWhile(ch =>
+                        char.IsDigit(ch) || ch == '.').ToArray()).TrimEnd('.');
                     _ = Version.TryParse(numeric, out version);
                 }
             }
-            catch
+            catch (Exception ex) when (ex is IOException or
+                                       UnauthorizedAccessException or
+                                       ArgumentException)
             {
-                // VLC is still usable even when version metadata cannot be read.
+                // The executable exists, but its capabilities are unverified.
             }
 
-            var supported =
-                version == null ||
-                version >= MinimumKnownEnhancementVersion;
-
+            // Unknown version is NEVER treated as evidence of D3D11 support.
+            var supported = version != null && version >= MinimumKnownEnhancementVersion;
             var label = version == null
-                ? "version unknown"
-                : $"v{version.Major}.{version.Minor}.{version.Build}";
-
-            return new VlcVideoEnhancementStatus(
-                true,
-                candidate,
-                version,
-                supported,
+                ? "version unverified"
+                : $"v{version}";
+            found.Add(new VlcVideoEnhancementStatus(
+                true, candidate, version, supported,
                 supported
                     ? $"VLC {label} detected • Direct3D11 Super Resolution / RTX Video HDR controls available."
-                    : $"VLC {label} detected • update VLC before using managed D3D11 enhancement options.");
+                    : $"VLC {label} detected • verified VLC 3.0.24+ required for managed D3D11 enhancement options."));
         }
 
-        return new VlcVideoEnhancementStatus(
-            false,
-            null,
-            null,
-            false,
-            "VLC was not detected. Install VLC 3.0.24 or newer.");
+        return ChoosePreferredCandidate(found);
+    }
+
+    /// <summary>
+    /// Evaluate every local candidate instead of letting an outdated VLC_PATH
+    /// override a verified manager-owned or system VLC installation.
+    /// </summary>
+    public static VlcVideoEnhancementStatus ChoosePreferredCandidate(
+        IEnumerable<VlcVideoEnhancementStatus> candidates)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        var available = candidates.Where(x => x.Found && !string.IsNullOrWhiteSpace(x.ExecutablePath)).ToArray();
+        return available
+            .Where(x => x.SupportsD3d11EnhancementOptions && x.Version != null &&
+                        x.Version >= MinimumKnownEnhancementVersion)
+            .OrderByDescending(x => x.Version)
+            .FirstOrDefault()
+            ?? available.Where(x => x.Version != null)
+                .OrderByDescending(x => x.Version).FirstOrDefault()
+            ?? available.FirstOrDefault()
+            ?? new VlcVideoEnhancementStatus(
+                false, null, null, false,
+                "VLC was not detected. Install VLC 3.0.24 or newer.");
     }
 
     public Process Launch(
