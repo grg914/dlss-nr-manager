@@ -208,7 +208,9 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\package-approved-openmp.ps1 -PackageDirectory $packageDir -VisualStudioRoot $env:VSINSTALLDIR -ApprovedForRedistribution
           if ($LASTEXITCODE -ne 0) { throw "Real-ESRGAN Microsoft OpenMP REDIST provenance check failed." }
           Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
-          gh release upload $env:RUNTIME_SEED_TAG $zip --repo "${{ github.repository }}" --clobber
+          # Redistribute ONLY after the existing licensed OpenMP REDIST gate.
+          # Preserve the canonical asset and stage changed content by hash.
+          & ./tools/publish-append-only-runtime-seed.ps1 -Path $zip -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG -OnChanged StageImmutable
           if ($LASTEXITCODE -ne 0) { throw "Unable to publish Real-ESRGAN runtime seed." }
 
       - name: Build and package OptiScaler
