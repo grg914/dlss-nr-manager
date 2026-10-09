@@ -66,16 +66,21 @@ try {
     Write-Host "Runtime seed metadata not yet available; Temurin asset will be published."
 }
 
+# If a fixed-name JRE already exists, the new digest is staged under
+# a content-addressed name. Never point metadata for a new build at the old ZIP.
+$managerAssetName = "temurin-25-jre-win-x64.zip"
+if ($existing -and $changed) {
+    $managerAssetName = "temurin-25-jre-win-x64.sha256-$actual.zip"
+}
 $metadata = [ordered]@{
     schema = 1
     version = [string]$release.tag_name
     upstream_repository = "adoptium/temurin25-binaries"
     upstream_release = [string]$release.tag_name
     upstream_asset = [string]$asset.name
-    manager_asset = "temurin-25-jre-win-x64.zip"
+    manager_asset = $managerAssetName
     sha256 = $actual
     validated_java_version = ($versionOutput.Trim())
-    refreshed_at_utc = [DateTime]::UtcNow.ToString("o")
 }
 $metadataPath = Join-Path $BuildRoot "temurin-25-jre.json"
 $metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
@@ -84,8 +89,12 @@ if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN) -and [string]::IsNullOrWhiteSpac
     throw "GH_TOKEN or GITHUB_TOKEN is required to publish the manager-owned Temurin runtime."
 }
 $env:GH_TOKEN = if (-not [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) { $env:GH_TOKEN } else { $env:GITHUB_TOKEN }
-gh release upload $ReleaseTag $managerZip $metadataPath --repo $Repository --clobber
-if ($LASTEXITCODE -ne 0) { throw "Failed to publish manager-owned Temurin 25 runtime." }
+# Both files are uploaded non-destructively. Existing canonical assets remain
+# usable by builds referencing a previous release manifest.
+& (Join-Path $PSScriptRoot "publish-append-only-runtime-seed.ps1") `
+    -Path $managerZip -Repository $Repository -ReleaseTag $ReleaseTag -OnChanged StageImmutable
+& (Join-Path $PSScriptRoot "publish-append-only-runtime-seed.ps1") `
+    -Path $metadataPath -Repository $Repository -ReleaseTag $ReleaseTag -OnChanged StageImmutable
 
 Write-Host "Temurin 25 manager runtime ready: $($release.tag_name) • SHA-256 $actual • changed=$changed"
 if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
