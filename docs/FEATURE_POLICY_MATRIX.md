@@ -20,6 +20,13 @@ The machine-readable source is `manifests/feature-policy.json`.
 | OptiScaler log | Local | Read-only | N/A | N/A |
 | Application | Project GitHub Releases | App executable/cache/data | SHA-256, safe ZIP extraction, version validation | Update backup; explicit local-data deletion |
 
+## Owned helper lifecycle (applies to new modules)
+
+- All subprocesses owned by the application (media/GPU, portable VLC, detection probes, future AI Studio Python/ComfyUI runtimes) must start through `ExternalProcessTracker.Start`, never a raw `Process.Start`.
+- Fail closed if a Windows Job Object cannot be created/assigned, and block launches after shutdown begins. Normal closure, cancellation, fatal exit and OS-level crash must be covered by Windows integration tests.
+- Explicitly detached user/system operations (games, Explorer, interactive installer, administrative DISM/SFC, application update/delete-after-exit helper) are not killed by the manager. Never kill processes by name or install directory across unrelated instances.
+- All new process-launch locations require a process-launch-policy regression test update and a targeted normal/forced-exit check. No software-only test replaces active Windows/NVIDIA acceptance.
+
 ## Global invariants
 
 - No hidden duplicate component download paths when a component is centrally managed.
