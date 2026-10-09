@@ -1946,7 +1946,7 @@ public sealed class MinecraftIntegrationService
     private static bool IsProductionCausticaJar(string name)
         => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
            && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
-           && !ContainsAny(name, "sources", "dev", "javadoc");
+           && !ContainsAny(name, "sources", "dev", "javadoc", "experimental", "preview", "snapshot", "restir");
 
     private static bool ReleaseBundlesCausticaForMinecraftVersion(
         GitHubRelease release,
