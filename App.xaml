@@ -4,15 +4,19 @@
              StartupUri="MainWindow.xaml"
              ShutdownMode="OnMainWindowClose">
   <Application.Resources>
-    <Color x:Key="BgColor">#080B10</Color>
-    <Color x:Key="PanelColor">#0F141C</Color>
-    <Color x:Key="Panel2Color">#141B25</Color>
-    <Color x:Key="Panel3Color">#182331</Color>
-    <Color x:Key="BorderColor">#223044</Color>
-    <Color x:Key="TextColor">#F4F7FB</Color>
-    <Color x:Key="MutedColor">#8E9AAD</Color>
-    <Color x:Key="AccentColor">#59F06F</Color>
-    <Color x:Key="Accent2Color">#35D7FF</Color>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="resources/themes/V45Theme.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    <Color x:Key="BgColor">#07111E</Color>
+    <Color x:Key="PanelColor">#10263A</Color>
+    <Color x:Key="Panel2Color">#11283B</Color>
+    <Color x:Key="Panel3Color">#163349</Color>
+    <Color x:Key="BorderColor">#284159</Color>
+    <Color x:Key="TextColor">#F0F7FF</Color>
+    <Color x:Key="MutedColor">#A9C1D3</Color>
+    <Color x:Key="AccentColor">#68F274</Color>
+    <Color x:Key="Accent2Color">#3D98FF</Color>
     <Color x:Key="DangerColor">#FF6572</Color>
     <Color x:Key="WarningColor">#FFD166</Color>
 
@@ -29,26 +33,26 @@
     <SolidColorBrush x:Key="Warning" Color="{StaticResource WarningColor}"/>
 
     <LinearGradientBrush x:Key="AppBackground" StartPoint="0,0" EndPoint="1,1">
-      <GradientStop Color="#070A0F" Offset="0"/>
-      <GradientStop Color="#0A0F16" Offset="0.55"/>
-      <GradientStop Color="#071018" Offset="1"/>
+      <GradientStop Color="#07111E" Offset="0"/>
+      <GradientStop Color="#091521" Offset="0.55"/>
+      <GradientStop Color="#0D2132" Offset="1"/>
     </LinearGradientBrush>
 
     <LinearGradientBrush x:Key="HeroBackground" StartPoint="0,0" EndPoint="1,1">
-      <GradientStop Color="#121A24" Offset="0"/>
-      <GradientStop Color="#101923" Offset="0.55"/>
-      <GradientStop Color="#0B1720" Offset="1"/>
+      <GradientStop Color="#18364A" Offset="0"/>
+      <GradientStop Color="#10263A" Offset="0.55"/>
+      <GradientStop Color="#0B2031" Offset="1"/>
     </LinearGradientBrush>
 
     <LinearGradientBrush x:Key="PrimaryGradient" StartPoint="0,0" EndPoint="1,0">
-      <GradientStop Color="#47E96A" Offset="0"/>
-      <GradientStop Color="#35D7FF" Offset="1"/>
+      <GradientStop Color="#68F274" Offset="0"/>
+      <GradientStop Color="#3D98FF" Offset="1"/>
     </LinearGradientBrush>
 
     <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#101722"/>
-    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F4F7FB"/>
-    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#141B25"/>
-    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F7FB"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F0F7FF"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#11283B"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F0F7FF"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#1F5A43"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#687588"/>
@@ -159,7 +163,7 @@
     </Style>
 
     <Style TargetType="TextBox">
-      <Setter Property="Background" Value="#0C121A"/>
+      <Setter Property="Background" Value="#102437"/>
       <Setter Property="Foreground" Value="{StaticResource Text}"/>
       <Setter Property="CaretBrush" Value="{StaticResource Text}"/>
       <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
@@ -173,7 +177,7 @@
       <Setter Property="MinHeight" Value="40"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Foreground" Value="{StaticResource Text}"/>
-      <Setter Property="Background" Value="#0C121A"/>
+      <Setter Property="Background" Value="#102437"/>
       <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Padding" Value="12,8"/>
@@ -205,13 +209,13 @@
                                           Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}, TargetNullValue=Select}"
                                           ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                           ContentTemplateSelector="{Binding ItemTemplateSelector, RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                          TextElement.Foreground="#F4F7FB"
+                                          TextElement.Foreground="#F0F7FF"
                                           SnapsToDevicePixels="True"/>
                         <Path Grid.Column="1"
                               Width="9" Height="5"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"
-                              Fill="#8E9AAD"
+                              Fill="#A9C1D3"
                               Data="M 0 0 L 4.5 5 L 9 0 Z"/>
                       </Grid>
                     </Border>
@@ -234,7 +238,7 @@
                 <Border Margin="0,5,0,0"
                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                         MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                        Background="#0C121A"
+                        Background="#102437"
                         BorderBrush="#2A3A50"
                         BorderThickness="1"
                         CornerRadius="8">
@@ -256,8 +260,8 @@
     </Style>
 
     <Style TargetType="ComboBoxItem">
-      <Setter Property="Foreground" Value="#F4F7FB"/>
-      <Setter Property="Background" Value="#0C121A"/>
+      <Setter Property="Foreground" Value="#F0F7FF"/>
+      <Setter Property="Background" Value="#102437"/>
       <Setter Property="Padding" Value="11,8"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Template">
@@ -336,5 +340,6 @@
       <Setter Property="Foreground" Value="{StaticResource Text}"/>
       <Setter Property="Background" Value="Transparent"/>
     </Style>
+    </ResourceDictionary>
   </Application.Resources>
 </Application>

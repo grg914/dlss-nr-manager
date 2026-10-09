@@ -4063,6 +4063,21 @@ public partial class MainWindow : Window
             _ => AiStudioBackend.Auto
         };
 
+    // Visual shortcut only; the existing task-selection path owns model/runtime gates.
+    private void AiStudioQuickMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string taskName } ||
+            !Enum.TryParse<AiStudioTaskKind>(taskName, out var task))
+        {
+            return;
+        }
+
+        var choice = LocalAiStudioService.TaskChoices.FirstOrDefault(
+            item => item.Task == task);
+        if (choice is not null)
+            AiStudioTaskBox.SelectedItem = choice;
+    }
+
     private void AiStudioTaskBox_SelectionChanged(
         object sender,
         SelectionChangedEventArgs e)
