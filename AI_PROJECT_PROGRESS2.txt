@@ -95,3 +95,13 @@ NEXT: assess CI of PR #141/#142/#143/#144 on exact SHA, reconcile branches befor
 - Status at checkpoint creation: PR #159 draft; CI tests and Build/CodeQL must be evaluated on exact final HEAD before protected signed squash merge. No runtime assets, NVIDIA SDK, release binaries or `main` directly changed by this draft. Issue #123 still OPEN for reviewed consumer promotion, rollback and end-to-end acceptance; issue #79 license approval and #95 physical Windows hardware tests remain open.
 - Concurrent upstream-owner-review security PR #158 has its dedicated policy test and Build green, CodeQL still pending at checkpoint time; no auto-merge permitted.
 - NEXT: when #158 is signed/verified merged, ensure #159 remains clean against latest `main`, revalidate exact HEAD checks, merge #159 only if green and signed, then close superseded PR #147 and keep issue #123 open for consumers.
+
+
+R-V45-C001 — 2026-10-09 — GPT C: separate v4.5 AI Studio execution preflight
+- Owner/lane: GPT C, exclusive to v4.5 planning and non-executing AI Studio queue diagnostics; GPT A owns Caustica/RTX experiments and GPT B owns v4.0 stabilization, CI/merge governance.
+- Starting protected main SHA: 05a8b4c637d1d4209d0e6d64d7ae3c2eb68c436f. Working branch: feature/v4.5-ai-studio-job-preflight-20261009. No ScandiCraft changes.
+- Added Services/AiStudioJobPreflight.cs: read-only checks for unknown model, unsupported task/backend, missing source/mask/output, absent local model/Python/ComfyUI/Diffusers. Even with files present it only reports AwaitingVerifiedExecutor; no code execution, downloads or license bypass.
+- Added xUnit tests for non-mutation, unsupported catalogue/backend, missing paths, selected/auto backend and bilingual FR/EN diagnostics. Integrated diagnostics into the existing AI Studio job list without changing queue/job schema or install code.
+- Added docs/V4_5_ROADMAP.md, and a GPT C row/ownership note in AI_PROJECT_COORDINATION.md. Main remains 3.2.0 source; neither v4.0 nor v4.5 is released.
+- STATUS: code and test sources staged. Build/Analyze C#, CodeQL, exact-head tests and signed staging squash are PENDING; real Python/ComfyUI/Diffusers inference, security provenance and GPU performance NOT tested or implemented. This checkpoint does not assert pass or acceptance.
+- NEXT: open isolated staging PR for CI review, use signed GitHub squash into a fresh v4.5 feature branch only when checks permit, open/retain a Draft PR against main, keep main untouched until owner explicitly authorizes a validated merge.

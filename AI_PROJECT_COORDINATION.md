@@ -1,6 +1,6 @@
 # AI project coordination — DLSS NR Manager
 
-> **Purpose:** small, shared handoff between two independent GPT conversations. GitHub is the source of truth; this document is a snapshot, **not a lock or a live synchronization service**.
+> **Purpose:** small, shared handoff between three independent GPT conversations. GitHub is the source of truth; this document is a snapshot, **not a lock or a live synchronization service**.
 >
 > **Repository:** `grg914/dlss-nr-manager`. Related experimental renderer: `grg914/Caustica-RTX`. **Never touch ScandiCraft repositories.**
 >
@@ -19,6 +19,7 @@
 | --- | --- | --- |
 | **A — Avancement des six phases** | Six-phase roadmap; Minecraft RTX/Caustica and SPBRScandi provenance; ReSTIR/LOD/sky/weather/NRD+FSR research; real implementation and CI checkpoints. | Main-repo PR cleanup and governance PRs currently handled by B. Do not promote experimental Caustica JARs into the stable manager release without validation. |
 | **B — Audit PR / issues / cleanup** | Audit manager PRs, closed duplicates, issues, protected squash merges, CI/rulesets, cleanup of demonstrably obsolete PRs and verified branches. | Caustica experimental branches/PRs and six-phase implementation in A; never delete a diverged branch without semantic audit. |
+| **C — Development v4.5** | Future AI Studio inference foundations, private runtime execution, job readiness/progress and v4.5-only improvements from the verified spec. Initial Draft work: `feature/v4.5-ai-studio-job-preflight-20261009`; `docs/V4_5_ROADMAP.md`. | Do not take v4.0 blockers/download updater or owner CI/merge lane B; do not touch Caustica/NRD/ReSTIR/LOD/shaders lane A. No main merge/release authorized. |
 
 These are planning defaults, not claims of exclusive ownership. Always inspect current PR activity; if a lane changes, update this table via a separate PR.
 
@@ -35,7 +36,7 @@ These are planning defaults, not claims of exclusive ownership. Always inspect c
 | Six-phase / Caustica work | Manager progress PR [#169](https://github.com/grg914/dlss-nr-manager/pull/169) open for Caustica ReSTIR checkpoint; separate Caustica draft PR #10 remains experimental per progress log. | Lane A to refresh status; never label experimental JAR production-ready merely because CI passes. |
 | Remaining manager issue groups | [#161](https://github.com/grg914/dlss-nr-manager/issues/161) OptiScaler reproducibility; [#124](https://github.com/grg914/dlss-nr-manager/issues/124) divergent branches; [#79](https://github.com/grg914/dlss-nr-manager/issues/79) OpenMP licensing; plus #51, #76, #149. | Keep separate until the actual acceptance criterion is met; do not bulk-close. |
 
-## Write and merge protocol for both conversations
+## Write and merge protocol for all conversations
 
 1. **Before writing:** fetch fresh main SHA, the target file blob SHA, PR HEAD and active branches. Use a **separate topic branch** per task; do not push to another conversation's branch.
 2. **Before updating shared docs:** reread their latest contents; preserve every other conversation's entries. Prefer a minimal, focused change. Use the expected file SHA / branch-head lease so a concurrent edit fails rather than silently overwriting.
@@ -49,4 +50,5 @@ These are planning defaults, not claims of exclusive ownership. Always inspect c
 
 - **Lane A:** continue the six-phase work and register new experimental Caustica PRs/checkpoints with their precise acceptance status; keep production integration separate.
 - **Lane B:** finish CI-gated review of manager PR #158, then #162 and dependency PRs #152/#153; reconcile #144/#165 before merge; continue issue #124 branch audit.
-- **Both:** refresh this snapshot from GitHub before editing. Coordinate by distinct PRs; this file does not automatically synchronize ChatGPT conversations.
+- **Lane C:** prepare v4.5 AI Studio read-only preflight on a separate Draft PR; keep actual inference disabled until reviewed private runtime, license, signature and Windows acceptance gates. See `docs/V4_5_ROADMAP.md`.
+- **All:** refresh this snapshot from GitHub before editing. Coordinate by distinct PRs; this file does not automatically synchronize ChatGPT conversations.
