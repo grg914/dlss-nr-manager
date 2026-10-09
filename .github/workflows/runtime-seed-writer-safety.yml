@@ -10,6 +10,11 @@ on:
       - tests/test_immutable_nuget_seed.ps1
       - tools/publish-versioned-runtime-seed.ps1
       - tests/test_versioned_runtime_seed.ps1
+      - tools/publish-append-only-runtime-seed.ps1
+      - tools/publish-streamline-runtime.ps1
+      - tools/publish-vlc-runtime.ps1
+      - tools/publish-temurin25-runtime.ps1
+      - tests/test_append_only_runtime_seed.ps1
       - tools/package-approved-openmp.ps1
       - tests/test_runtime_seed_writer_policy.py
       - tests/test_openmp_redistribution_guard.py
@@ -23,6 +28,11 @@ on:
       - tests/test_immutable_nuget_seed.ps1
       - tools/publish-versioned-runtime-seed.ps1
       - tests/test_versioned_runtime_seed.ps1
+      - tools/publish-append-only-runtime-seed.ps1
+      - tools/publish-streamline-runtime.ps1
+      - tools/publish-vlc-runtime.ps1
+      - tools/publish-temurin25-runtime.ps1
+      - tests/test_append_only_runtime_seed.ps1
       - tools/package-approved-openmp.ps1
       - tests/test_runtime_seed_writer_policy.py
       - tests/test_openmp_redistribution_guard.py
@@ -53,3 +63,6 @@ jobs:
       - name: Exercise verified versioned package publication
         shell: pwsh
         run: ./tests/test_versioned_runtime_seed.ps1
+      - name: Exercise Streamline/VLC/Temurin/Real-ESRGAN append-only publisher
+        shell: pwsh
+        run: ./tests/test_append_only_runtime_seed.ps1
