@@ -84,6 +84,46 @@ public sealed class MediaUpdateAvailabilityTests
                 State(OldFingerprint, null), State(NewFingerprint), true));
     }
 
+    [Theory]
+    [InlineData("v3.1.1", "v3.2.0", true)]
+    [InlineData("v3.2.0", "v3.2.0", false)]
+    [InlineData("v3.3.0", "v3.2.0", false)]
+    [InlineData("v3.2", "v3.2.0", false)]
+    [InlineData("v3.2.0.0", "v3.2", false)]
+    [InlineData("v3.2.0", "v3.3.0-rc1", false)]
+    public void Explicit_media_upgrade_must_be_revalidated_at_install_time(
+        string localTag,
+        string remoteTag,
+        bool expected)
+    {
+        Assert.Equal(expected, ComponentUpdateService.IsConfirmedMediaUpgrade(
+            State(OldFingerprint, localTag),
+            State(NewFingerprint, remoteTag),
+            installed: true));
+    }
+
+    [Fact]
+    public void Explicit_media_upgrade_rejects_unknown_versions_and_missing_install()
+    {
+        Assert.False(ComponentUpdateService.IsConfirmedMediaUpgrade(
+            null, State(NewFingerprint, "v3.2.0"), installed: true));
+        Assert.False(ComponentUpdateService.IsConfirmedMediaUpgrade(
+            State(OldFingerprint, "v3.1.1"),
+            State(null, "v3.2.0"), installed: true));
+        Assert.False(ComponentUpdateService.IsConfirmedMediaUpgrade(
+            State(OldFingerprint, "v3.1.1"),
+            State(NewFingerprint, "v3.2.0"), installed: false));
+    }
+
+    [Fact]
+    public void Equivalent_stable_media_tags_must_not_offer_an_update()
+    {
+        Assert.Equal(MediaUpdateAvailability.UpToDate,
+            ComponentUpdateService.EvaluateMediaUpdate(
+                State(OldFingerprint, "v3.2"),
+                State(NewFingerprint, "v3.2.0"), installed: true));
+    }
+
     private static ComponentState State(string? fingerprint, string? releaseTag = "v3.1.1") =>
         new("manager:123", 456, DateTimeOffset.UtcNow, fingerprint, releaseTag);
 }
