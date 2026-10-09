@@ -6,6 +6,24 @@ namespace DlssNrManager.Tests;
 public sealed class LocalAiStudioServiceTests
 {
     [Fact]
+    public void Runtime_summary_never_equates_file_presence_with_verified_execution()
+    {
+        var service = new LocalAiStudioService();
+
+        var english = service.GetRuntimeSummary("en");
+        var french = service.GetRuntimeSummary("fr");
+
+        Assert.Contains("Execution unavailable until", english);
+        Assert.Contains("Exécution indisponible tant que", french);
+        Assert.DoesNotContain("installed", english);
+        Assert.DoesNotContain("ready", english);
+        Assert.DoesNotContain("installé", french);
+        Assert.Contains("Python:", english);
+        Assert.Contains("ComfyUI:", english);
+        Assert.Contains("Diffusers:", english);
+    }
+
+    [Fact]
     public void Text_to_image_defaults_include_flux2_klein()
     {
         var service = new LocalAiStudioService();
