@@ -78,7 +78,7 @@ public sealed class AiStudioComfyUiApiClient : IDisposable
             actual != request.RequestUri)
             throw new InvalidOperationException("Untrusted ComfyUI HTTP response.");
 
-        if (response.Content.Headers.ContentLength is > 0 and var size && size > limit)
+        if (response.Content.Headers.ContentLength is long size && size > limit)
             throw new InvalidOperationException("Oversized ComfyUI response.");
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
