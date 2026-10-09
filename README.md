@@ -47,6 +47,8 @@ The current production source exposes a **Hardware & Profiles** page (AUTO, RTX 
 
 The project now uses a self-contained monorepo model for project-owned and redistributable dependencies. **Caustica RTX** lives directly under `Caustica-RTX/`, while pinned third-party source snapshots live under `third_party/`.
 
+The optional Minecraft **SPBRScandi** installation uses the release-owned, SHA-256-pinned `SPBRScandi.zip` resource pack (not the separately pinned generic `SPBR-22_1.zip` in the Minecraft runtime bundle). The installer stages and verifies the release asset before backing up matching resource packs and promoting the validated file.
+
 Use `tools/vendor-third-party.ps1` to import pinned source snapshots without nested Git repositories. `third_party/DEPENDENCIES.lock.json` records immutable source refs, and `third_party/minecraft/RUNTIME.lock.json` freezes the exact Minecraft 26.2 runtime artifacts/hashes.
 
 The Minecraft installer now resolves Caustica only from **DLSS NR Manager releases**. Release automation prefers a local `Caustica-RTX/build/libs` production JAR and otherwise reuses a previously bundled Caustica JAR from this repository's own release history. It no longer queries the standalone `grg914/Caustica-RTX` release feed.

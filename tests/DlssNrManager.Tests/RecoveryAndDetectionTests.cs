@@ -329,6 +329,19 @@ public sealed class RecoveryAndDetectionTests : IDisposable
                 "en"));
     }
 
+    [Theory]
+    [InlineData("SPBRScandi.zip", "1bb19e99208e8826eabf7775fa06353e78a6ea449d43f12cd9d26eacf5bd9177", true)]
+    [InlineData("SPBRScandi.zip", "1BB19E99208E8826EABF7775FA06353E78A6EA449D43F12CD9D26EACF5BD9177", true)]
+    [InlineData("SPBRScandi.zip", null, false)]
+    [InlineData("SPBRScandi.zip", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", false)]
+    [InlineData("SPBR-22_1.zip", "1bb19e99208e8826eabf7775fa06353e78a6ea449d43f12cd9d26eacf5bd9177", false)]
+    [InlineData("SPBRScandi-sources.zip", "1bb19e99208e8826eabf7775fa06353e78a6ea449d43f12cd9d26eacf5bd9177", false)]
+    public void Minecraft_scandi_resourcepack_requires_exact_manager_owned_asset_and_pin(
+        string name, string? digest, bool expected)
+    {
+        Assert.Equal(expected, MinecraftIntegrationService.IsValidatedSpbrScandiAsset(name, digest));
+    }
+
     [Fact]
     public async Task Network_retry_retries_only_transient_failures()
     {
