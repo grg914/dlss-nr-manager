@@ -1943,7 +1943,7 @@ public sealed class MinecraftIntegrationService
             assets);
     }
 
-    private static bool IsProductionCausticaJar(string name)
+    internal static bool IsProductionCausticaJar(string name)
         => name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
            && name.Contains("caustica", StringComparison.OrdinalIgnoreCase)
            && !ContainsAny(name, "sources", "dev", "javadoc", "experimental", "preview", "snapshot", "restir");
