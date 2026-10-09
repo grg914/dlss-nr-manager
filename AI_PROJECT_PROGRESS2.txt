@@ -188,3 +188,18 @@ NEXT: assess CI of PR #141/#142/#143/#144 on exact SHA, reconcile branches befor
 - Stage 6: actual v3.2.0 29 GitHub SHA-digest assets and seed 27, no old standalone SBOM/provenance; current release workflow builds SBOM.spdx.json/provenance/hash manifests. No v4 version bump or release until #111/#95/#79, full regression, licensing and owner gate. GPT A/C experimental lanes untouched.
 ## GPT B reconciliation checkpoint — 2026-10-10
 Stable protected main `b727d5f35e5e9212cb5a854b531e6071a65ab72f` includes signed #386 and #389, with current `build` and `Analyze C#` SUCCESS. This documentation and six-stage plan was restored onto fresh main from the separate stale #390 branch, preserving **both** old #389 and independent #390 append-only progress histories. Source PR does not imply hardware validation, completed #111/#95/#79, or release authorization. The prior #389-pending references in historical snapshots reflect their authored time; the latest source fact is #389 MERGED. GPT A/C experiments remain separate.
+
+
+## GPT B — 2026-10-10 — source-of-truth synchronization checkpoint after #397 (append only)
+- Live signed stable main `ab6f636a9da258171eaa50ed07e5339e0fa26b3a`: #393 docs and #397 verified AI Studio model Update protections MERGED; prior #394 source CLOSED unmerged. #401 signed staging merged only into non-main branch. #398 runbook and overlapping #399/#400/#402 FR/EN PRs OPEN; require overlap reconciliation and exact-head signed Windows Build/xUnit + CodeQL before stable integration.
+- Hardware validation #95, licensed OpenMP provenance/exclusion #79, additional supported component update receipts #111, release hashes/SBOM/provenance and manual FR/EN/UI acceptance remain release gates. No production V4 release, Windows RTX success, native driver mutation or GPT A/C v4.5 inclusion claimed.
+- Documentation branch `gpt-b/v4-coordination-20261010-after-397` contains additive journals only; do not merge until newest main append-only history and protected signed CI are verified.
+
+
+## 2026-10-10 GPT B — RTX acceptance guide prepared, not executed (append-only)
+- docs/V4_WINDOWS_RTX_ACCEPTANCE_2026-10-10.md proposed with PowerShell normal/forced manager process check, GPU/RAM/VRAM/ports/offline/rollback/FR/EN/release dry-run. Does not prove real RTX conditions or safe redistribution. Main 78f8864a1e4820f436b23925071ff20f1defd9c2 source base. Keep #111/#95/#79 open, avoid v4 tag until actual evidence and authorization. Signed code PR #397 independent; journal reconciliation mandatory.
+
+[GPT B reconciliation note 2026-10-10: preceding #398 checkpoint is historical, authored against pre-#397 main. Its runbook was copied blob-identically into this draft; physical testing, signing, exact-head CI and protected main integration remain outstanding.]
+
+
+GPT B POST-#402 RECONCILIATION — 2026-10-10: Reviewed source checkpoint above re-applied as an append-only suffix to signed main `d9e2a4f2a877771c2ddcd29604cc4b35ece004be` (#402 MERGED, 257/257 xUnit + CodeQL, 4/4 blob parity). Windows RTX acceptance runbook is DOCUMENTATION ONLY, not executed. Earlier #398/#403 branch/review states are historical. This isolated doc source still requires non-main signing, own exact-head Build + CodeQL, protected merge, main parity. #95/#79/#111 OPEN; no v4 release or GPT A/C experimental merge.
