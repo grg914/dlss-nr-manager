@@ -42,7 +42,7 @@ Original prompt.txt (145 lines) requirements:
   7. Audit final v4, UI, performance, security, rollback, README/CHANGELOG release completeness: still pending final acceptance.
 Feuille de route.txt: treats cahier de charges.txt as primary authority, requires validation before modifying, regression + license/safety, journal continuation and release readiness. Implemented code differs from exploratory backlog: keep READINESS separate.
 Cahier de charges.txt: wide scope including exploratory/conditional OSINT/Research, NVCleanstall, Benchmark, Auto-Pilot, deep route selectors and experimental Far Cry 2. **USER SCOPE OVERRIDE 2026-10-09:** NVCleanstall integration and full integrated benchmark REMOVED; PR #143 records this, until merged do NOT reopen them as required features. Existing OptiScaler FPS overlay and manual physical acceptance checks remain.
-Readme has v1.3–v3.1 historical release notes; currently claims 3.1.0 even though csproj 3.2.0 and misses the Hardware & Profiles menu in its summary. Correct these as documentation drift, not app defects.
+README has v1.3–v3.1 historical release notes and correctly declares source version 3.2.0 in its current header, but misses the Hardware & Profiles menu in its navigation summary and CHANGELOG lacks reconstructed earlier release history. Correct those documentation gaps, not the correct 3.2.0 version label.
 
 H3 — BRANCH / PR SAFETY SNAPSHOT
 - 56 GitHub branch refs (55 besides main) on 2026-10-09. A branch whose history is 'diverged' after squash merge may already be semantically integrated. Do NOT force-merge such a branch or delete it just from git ancestry. Review related PR merge/reconciliation and source diffs, especially research/large vendored snapshots and never overwrite main blindly.
