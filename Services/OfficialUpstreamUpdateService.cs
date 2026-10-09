@@ -233,8 +233,19 @@ public sealed class OfficialUpstreamUpdateService
         if (value.StartsWith('v') || value.StartsWith('V') ||
             value.StartsWith('n') || value.StartsWith('N'))
             value = value[1..];
-        return value.All(c => char.IsAsciiDigit(c) || c == '.') &&
-               Version.TryParse(value, out version!);
+        if (!value.All(c => char.IsAsciiDigit(c) || c == '.') ||
+            !Version.TryParse(value, out var parsed) || parsed is null)
+            return false;
+
+        // System.Version treats missing build/revision components as -1:
+        // 1.2 < 1.2.0 even though both identify the same stable release.
+        // Normalize trailing zero components before comparing tags.
+        version = new Version(
+            parsed.Major,
+            parsed.Minor,
+            Math.Max(0, parsed.Build),
+            Math.Max(0, parsed.Revision));
+        return true;
     }
 
     private static bool IsOfficialRepository(string value)
