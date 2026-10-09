@@ -60,11 +60,9 @@ public sealed class VlcVideoEnhancementService
                     _ = Version.TryParse(numeric, out version);
                 }
             }
-            catch (Exception ex) when (ex is IOException or
-                                       UnauthorizedAccessException or
-                                       ArgumentException)
+            catch
             {
-                // The executable exists, but its capabilities are unverified.
+                // Version metadata is untrusted; keep scanning for a verified VLC.
             }
 
             // Unknown version is NEVER treated as evidence of D3D11 support.
