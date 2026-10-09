@@ -4926,7 +4926,8 @@ public partial class MainWindow : Window
                         _media,
                         progress,
                         _downloadCenterCts.Token,
-                        forceRefresh: true);
+                        forceRefresh: true,
+                        requireInstalledForUpdate: true);
                 }
                 else
                 {

@@ -97,6 +97,17 @@ public sealed class ComponentUpdateService
                 : MediaUpdateAvailability.UpdateAvailable;
     }
 
+    /// <summary>
+    /// A confirmed Download Center update must be revalidated against the
+    /// latest remote manifest at execution time, not just when the UI offered it.
+    /// </summary>
+    public static bool IsConfirmedMediaUpgrade(
+        ComponentState? local,
+        ComponentState remote,
+        bool installed) =>
+        EvaluateMediaUpdate(local, remote, installed) ==
+        MediaUpdateAvailability.UpdateAvailable;
+
     private static bool TryParseStableManagerVersion(string? tag, out Version parsed)
     {
         parsed = new Version(0, 0);
@@ -114,7 +125,13 @@ public sealed class ComponentUpdateService
             candidate is null)
             return false;
 
-        parsed = candidate;
+        // Missing System.Version fields compare as -1. Treat v3.2,
+        // v3.2.0 and v3.2.0.0 as the same stable release tag.
+        parsed = new Version(
+            candidate.Major,
+            candidate.Minor,
+            Math.Max(0, candidate.Build),
+            Math.Max(0, candidate.Revision));
         return true;
     }
 
@@ -122,7 +139,8 @@ public sealed class ComponentUpdateService
         MediaService media,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default,
-        bool forceRefresh = false)
+        bool forceRefresh = false,
+        bool requireInstalledForUpdate = false)
     {
         var local = LoadState();
         if (!forceRefresh &&
@@ -136,6 +154,41 @@ public sealed class ComponentUpdateService
         }
 
         var remote = await GetRemoteStateAsync(cancellationToken);
+
+        // Both entry points (automatic startup and user-confirmed Download
+        // Center updates) must reject older or unverified remote releases.
+        // A changed fingerprint alone never establishes a newer version.
+        if (media.IsReady)
+        {
+            var availability = EvaluateMediaUpdate(local, remote, installed: true);
+            if (availability == MediaUpdateAvailability.UpToDate)
+            {
+                progress?.Report("Manager-owned media components are already up to date.");
+                return false; // Keep the locally verified receipt; never save older remote state.
+            }
+
+            if (availability != MediaUpdateAvailability.UpdateAvailable)
+            {
+                if (!forceRefresh)
+                {
+                    progress?.Report(
+                        "Automatic media update skipped: release or installation receipt is not verified.");
+                    return false; // Auto-check cannot replace a working, unverified install.
+                }
+
+                throw new InvalidOperationException(
+                    "The confirmed media update is no longer a validated upgrade. " +
+                    "Refresh Downloads to review the current release.");
+            }
+        }
+        else if (requireInstalledForUpdate)
+        {
+            // Only the Download Center's confirmed Update action requires
+            // the previously installed runtime to still exist. The general
+            // Check Updates command may bootstrap missing media tools.
+            throw new InvalidOperationException(
+                "The media engine is no longer installed. Use Install or Repair instead of Update.");
+        }
 
         var hasManifestFingerprint =
             !string.IsNullOrWhiteSpace(remote.MediaFingerprint);
