@@ -197,11 +197,58 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
         }
     }
 
+    /// <summary>
+    /// On-demand full disk read of the installed model. Never run at application
+    /// startup or in the background: FLUX.2 + Qwen exceed 12 GB.
+    /// A matching hash proves file bytes only, not runtime/licensing approval.
+    /// </summary>
+    public static async Task<bool> VerifyInstalledAsync(
+        string installedDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(installedDirectory);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (ManagedPathSafety.HasReparsePointOnPath(installedDirectory) ||
+            !Directory.Exists(installedDirectory))
+            return false;
+
+        var receiptPath = Path.Combine(
+            installedDirectory, AiStudioPackageService.LocalReceiptFile);
+        if (ManagedPathSafety.HasReparsePointOnPath(receiptPath) ||
+            !File.Exists(receiptPath) ||
+            new FileInfo(receiptPath).Length is <= 0 or > 8192)
+            return false;
+
+        try
+        {
+            var receipt = JsonSerializer.Deserialize<AiStudioPackageReceipt>(
+                await File.ReadAllTextAsync(receiptPath, cancellationToken));
+            if (receipt is null ||
+                receipt.PackageId != ModelId ||
+                receipt.ReleaseTag != $"ai-studio-{ModelId}-{receipt.Version}" ||
+                !Version.TryParse(receipt.Version, out _) ||
+                !IsSha(receipt.ArchiveSha256))
+                return false;
+
+            await VerifyExtractedFilesAsync(installedDirectory, cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or JsonException)
+        {
+            return false;
+        }
+    }
+
     private static async Task VerifyExtractedFilesAsync(
         string staging, CancellationToken cancellationToken)
     {
         var files = Directory.EnumerateFiles(
-            staging, "*", SearchOption.AllDirectories).ToArray();
+            staging, "*", SearchOption.AllDirectories)
+            .Where(path => Path.GetRelativePath(staging, path) !=
+                AiStudioPackageService.LocalReceiptFile)
+            .ToArray();
         if (files.Length != FileHashes.Count)
             throw new InvalidDataException("Offline FLUX.2 package has missing/extra files.");
 
