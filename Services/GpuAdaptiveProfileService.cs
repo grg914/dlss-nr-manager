@@ -51,12 +51,12 @@ public static class GpuAdaptiveProfileService
         var manual = preferences.ManualOptions ?? new GpuManualOptions();
         var sr = capabilities.SuperResolution &&
                  (mode != GpuAdaptiveMode.Manual || manual.SuperResolution);
-        var fg = capabilities.FrameGeneration && mode switch
+        var fg = capabilities.FrameGeneration && (mode switch
         {
             GpuAdaptiveMode.Manual => manual.FrameGeneration,
             GpuAdaptiveMode.Compatible => false,
             _ => goal != GpuOptimizationGoal.Quality
-        };
+        });
         var reflex = capabilities.IsSupportedRtx &&
                      (mode != GpuAdaptiveMode.Manual || manual.Reflex);
         // NR requires an explicit opt-in; an RTX 50 GPU alone does not
