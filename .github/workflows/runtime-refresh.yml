@@ -221,8 +221,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "OptiScaler refresh build failed." }
           $zip = Get-ChildItem "build-local/optiscaler" -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
           if (-not $zip) { throw "OptiScaler package was not generated." }
-          gh release upload $env:RUNTIME_SEED_TAG $zip.FullName --repo "${{ github.repository }}" --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Unable to publish OptiScaler runtime seed." }
+          & ./tools/publish-versioned-runtime-seed.ps1 -Path $zip.FullName -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG
+
 
       - name: Build and package ReShade
         if: needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'reshade')
@@ -234,8 +234,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "ReShade refresh build failed." }
           $zip = Get-ChildItem "build-local/reshade" -Filter "ReShade-Setup-*-vendored.zip" -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
           if (-not $zip) { throw "ReShade package was not generated." }
-          gh release upload $env:RUNTIME_SEED_TAG $zip.FullName --repo "${{ github.repository }}" --clobber
-          if ($LASTEXITCODE -ne 0) { throw "Unable to publish ReShade runtime seed." }
+          & ./tools/publish-versioned-runtime-seed.ps1 -Path $zip.FullName -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG
+
 
   ffmpeg-runtime:
     needs: seed-release
