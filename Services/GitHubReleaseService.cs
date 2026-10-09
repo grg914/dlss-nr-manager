@@ -150,20 +150,19 @@ public sealed class GitHubReleaseService
             if (string.IsNullOrWhiteSpace(url))
                 continue;
 
-            string? sha256 = null;
-            if (asset.TryGetProperty(
-                    "digest",
-                    out var digestElement))
-            {
-                var digest = digestElement.GetString();
-                if (!string.IsNullOrWhiteSpace(digest) &&
-                    digest.StartsWith(
-                        "sha256:",
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    sha256 = digest["sha256:".Length..];
-                }
-            }
+            // Never offer an unverified native DLL archive for installation.
+            // The existing manager-owned release must expose a full SHA-256.
+            var digest = asset.TryGetProperty("digest", out var digestElement) &&
+                         digestElement.ValueKind == JsonValueKind.String
+                ? digestElement.GetString()
+                : null;
+            if (digest is null ||
+                digest.Length != "sha256:".Length + 64 ||
+                !digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase) ||
+                !digest.AsSpan("sha256:".Length).ToString().All(Uri.IsHexDigit))
+                continue;
+
+            var sha256 = digest["sha256:".Length..];
 
             var managerReleasePrerelease =
                 release.TryGetProperty(
