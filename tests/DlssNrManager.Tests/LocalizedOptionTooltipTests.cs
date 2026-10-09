@@ -58,6 +58,39 @@ public sealed class LocalizedOptionTooltipTests
     }
 
 
+
+    [Fact]
+    public void Language_change_refreshes_local_download_and_upstream_rows()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null &&
+               !File.Exists(Path.Combine(root.FullName, "DlssNrManager.csproj")))
+            root = root.Parent;
+        Assert.NotNull(root);
+
+        var source = File.ReadAllText(Path.Combine(root!.FullName, "MainWindow.xaml.cs"));
+        var begin = source.IndexOf(
+            "private void LanguageSelector_SelectionChanged(",
+            StringComparison.Ordinal);
+        var end = source.IndexOf(
+            "private void ToggleSoftwareRendering_Click(",
+            begin, StringComparison.Ordinal);
+        Assert.True(begin >= 0 && end > begin);
+        var handler = source[begin..end];
+        Assert.Contains("RefreshDownloadCenter();", handler);
+        Assert.Contains("RelocalizeOfficialUpdateList();", handler);
+        Assert.DoesNotContain("CheckOfficialUpstreamUpdates_Click(", handler);
+
+        var localRefresh = source.IndexOf(
+            "private void RelocalizeOfficialUpdateList()", StringComparison.Ordinal);
+        var networkHandler = source.IndexOf(
+            "private async void CheckOfficialUpstreamUpdates_Click(",
+            StringComparison.Ordinal);
+        Assert.True(localRefresh >= 0 && networkHandler > localRefresh);
+        Assert.DoesNotContain("await _officialUpdates.CheckAsync()",
+            source[localRefresh..networkHandler]);
+    }
+
     [Fact]
     public void French_first_download_rules_are_bilingual()
     {
