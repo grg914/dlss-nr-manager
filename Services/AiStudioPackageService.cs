@@ -310,6 +310,13 @@ public sealed class AiStudioPackageService
                 $"{model.DisplayName} requires manual license acceptance and cannot be installed from manager-owned releases.");
         }
 
+        if (ManagedPathSafety.HasReparsePointOnPath(_studio.Root) ||
+            ManagedPathSafety.HasReparsePointOnPath(_studio.ModelsRoot))
+        {
+            throw new IOException(
+                "AI Studio manager-owned workspace is redirected through a junction or symlink.");
+        }
+
         _studio.EnsureWorkspace();
 
         progress?.Report(
@@ -335,6 +342,9 @@ public sealed class AiStudioPackageService
                 model.Id,
                 Guid.NewGuid().ToString("N"));
 
+        // Validate model download root before writing anything to disk.
+        if (ManagedPathSafety.HasReparsePointOnPath(workRoot))
+            throw new IOException("AI Studio download staging parent is redirected.");
         Directory.CreateDirectory(workRoot);
 
         var archivePath =
@@ -463,6 +473,10 @@ public sealed class AiStudioPackageService
 
             progress?.Report(
                 $"Extraction locale de {model.DisplayName}…");
+
+            // Reparse-point protection MUST run before SafeZip extraction.
+            if (ManagedPathSafety.HasReparsePointOnPath(staging))
+                throw new IOException("AI Studio archive staging path is redirected.");
 
             // Clean up staging even if archive extraction fails.
             try
@@ -817,6 +831,10 @@ public sealed class AiStudioPackageService
                 "AI Studio package install path does not match the selected model directory.");
         }
 
+        // Physical containment also requires rejecting junctions/symlinks.
+        if (ManagedPathSafety.HasReparsePointOnPath(actual))
+            throw new IOException("AI Studio model install path crosses a junction or symlink.");
+
         return actual;
     }
 
@@ -837,8 +855,14 @@ public sealed class AiStudioPackageService
         try
         {
             if (Directory.Exists(path))
+            {
+                ManagedPathSafety.EnsureSafeForRemoval(path);
                 Directory.Delete(path, true);
+            }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("AI Studio cleanup skipped: " + ex.Message);
+        }
     }
 }

@@ -31,6 +31,76 @@ public sealed class AiStudioModelPackageSafetyTests
     }
 
     [Fact]
+    public void Selected_model_under_redirected_parent_is_rejected_before_archive_extraction()
+    {
+        var root = Path.Combine(Path.GetTempPath(),
+            "dlssnr-ai-staging-safety-" + Guid.NewGuid().ToString("N"));
+        var outside = Path.Combine(root, "unmanaged");
+        var sentinel = Path.Combine(outside, "KEEP.txt");
+        var redirect = Path.Combine(root, "redirected-models");
+        try
+        {
+            Directory.CreateDirectory(outside);
+            File.WriteAllText(sentinel, "must remain intact");
+
+            try { Directory.CreateSymbolicLink(redirect, outside); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                       or PlatformNotSupportedException)
+            {
+                return; // Symlink permissions depend on Windows CI host policy.
+            }
+
+            var selected = Path.Combine(redirect, "selected-model");
+            Assert.Throws<IOException>(() =>
+                AiStudioPackageService.ValidateModelInstallTarget(selected, selected));
+            Assert.Equal("must remain intact", File.ReadAllText(sentinel));
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(redirect))
+                    Directory.Delete(redirect);
+            }
+            catch { }
+            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
+    public void Selected_model_is_rejected_if_target_itself_is_symlink()
+    {
+        var root = Path.Combine(Path.GetTempPath(),
+            "dlssnr-ai-direct-link-" + Guid.NewGuid().ToString("N"));
+        var outside = Path.Combine(root, "keep-user-data");
+        var modelLink = Path.Combine(root, "models", "model");
+        try
+        {
+            Directory.CreateDirectory(outside);
+            Directory.CreateDirectory(Path.GetDirectoryName(modelLink)!);
+            File.WriteAllText(Path.Combine(outside, "KEEP.txt"), "safe");
+            try { Directory.CreateSymbolicLink(modelLink, outside); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                       or PlatformNotSupportedException)
+            {
+                return;
+            }
+
+            Assert.Throws<IOException>(() =>
+                AiStudioPackageService.ValidateModelInstallTarget(modelLink, modelLink));
+            Assert.Equal("safe", File.ReadAllText(Path.Combine(outside, "KEEP.txt")));
+        }
+        finally
+        {
+            try { if (Directory.Exists(modelLink)) Directory.Delete(modelLink); }
+            catch { }
+            try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+            catch { }
+        }
+    }
+
+    [Fact]
     public void Startup_recovery_list_contains_only_redistributable_models()
     {
         var studio = new LocalAiStudioService();

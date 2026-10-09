@@ -1,3 +1,17 @@
+CHECKPOINT R074 (2026-10-09) - PR134 FUSIONNEE / CORRECTIF JONCTION PR135 RECONCILIE
+- PR134 squash a1cec1242c246aa4cc167c0fed470545555f54eb apres 136 tests xUnit Windows, 0 echec, Build Windows x64 et CodeQL SUCCESS sur HEAD e91e5b477a645c80f88ea39886be535957ebc7aa.
+- PR135 mergee DANS SA BRANCHE (pas dans main) avec main post PR134; les controles avant extraction et nettoyage ajoutés a Services/AiStudioPackageService.cs sans remplacer les fonctions nouvelles de recu/version AI Studio. 2 tests sentinelle. Journal R074+R073+R071/R070/R069/R064... conserve.
+- Si Build/CodeQL sur nouvelle tete PR135 verts, autoriser fusion uniquement apres verification de non suppression de fonctionnalites PR134 et conditions du repo. TOCTOU et acceptation machine Windows/NVIDIA restent #95.
+- #79 redistribution OpenMP licence toujours non validee, #82 CodeQL rule admin encore manuel, #111 autres composants, #123 assets immuables, #124 divergences. Pas de v4.
+PROCHAINE ACTION: valider PR135, audit fin de branches et journal; essais physiques et politique CodeQL avant release.
+ 
+CHECKPOINT R073 (2026-10-09) - PROTECTION DES MODELES AI STUDIO CONTRE JONCTIONS PARENTS (#95)
+- Audit source: AI Studio ValidateModelInstallTarget verifiait l'egalite des chemins mais pas les points de reparse AVANT SafeZip.Extract. Cleanup TryDeleteDirectory recursif non garde.
+- Branche security/v4-ai-studio-staging-parent-junction: garde fail-closed du workspace et des chemins staging avant ecriture, verification junction sur cible modele, EnsureSafeForRemoval avant cleanup, 2 tests avec fichiers sentinelles Windows et parent symlink.
+- Ne pas confondre avec robustesse TOCTOU totale, necessite primitives handles. Aucun essai physique Windows/NVIDIA effectue ici.
+- PR134 en cours: integrer PR134 en premier puis reconciler cette branche, conserver l'historique R073 et R071/R069 sans perte; Build/CodeQL requis. Issue #95 reste ouverte.
+PROCHAINE ACTION: valider PR134 puis PR staging avec CI, et tests physiques avant v4.
+ 
 CHECKPOINT R071 (2026-10-09) - PR132 FUSIONNEE, PR134 RECONCILIEE SUR MAIN
 - PR132 fusionnee apres build/CodeQL/verify-safety verts sur HEAD 00c36b1a9030350ebdd4b8e2550807387f443262, squash e6d6556e60661ff9251378b1480b5626918ea2b4.
 - Correctifs: publication seeds serielle, SHA256+taille NuGet, skip Real-ESRGAN sans licence atteste avec avertissement et sans clobber son ancien asset. #79 et #123 restent ouvertes: la licence legale et les assets immuables restent a etablir.
