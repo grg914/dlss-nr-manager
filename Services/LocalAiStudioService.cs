@@ -529,11 +529,20 @@ public sealed class LocalAiStudioService
                 ? french
                 : english;
 
+        // File presence is not proof of an approved, hash-verified runtime or
+        // of a reviewed, licensed inference executor. Keep this status read-only.
+        string FileStatus(bool found)
+            => found
+                ? T("detected (unverified)", "détecté (non vérifié)")
+                : T("not found", "absent");
+
         return
-            $"{T("Workspace", "Workspace")}: {(Directory.Exists(Root) ? T("ready", "prêt") : T("not prepared", "non préparé"))} • " +
-            $"Python: {(python ? T("installed", "installé") : T("not installed", "non installé"))} • " +
-            $"ComfyUI: {(comfy ? T("installed", "installé") : T("not installed", "non installé"))} • " +
-            $"Diffusers: {(diffusers ? T("installed", "installé") : T("not installed", "non installé"))}";
+            $"{T("Workspace", "Espace de travail")}: {(Directory.Exists(Root) ? T("prepared", "préparé") : T("not prepared", "non préparé"))} • " +
+            $"Python: {FileStatus(python)} • " +
+            $"ComfyUI: {FileStatus(comfy)} • " +
+            $"Diffusers: {FileStatus(diffusers)} • " +
+            T("Execution unavailable until the runtime, model licenses and executor are verified.",
+              "Exécution indisponible tant que le runtime, les licences des modèles et le moteur d’exécution ne sont pas vérifiés.");
     }
 
     public string GetModelStatus(
