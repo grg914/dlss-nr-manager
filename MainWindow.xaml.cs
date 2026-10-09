@@ -68,6 +68,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _permanentVideoCts;
     private CancellationTokenSource? _aiOriginCts;
     private CancellationTokenSource? _downloadCenterCts;
+    private int _downloadDetailsRevision;
     private MediaUpdateAvailability _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
     private bool _checkingDownloadCenterUpdates;
     private MediaUpdateAvailability _modelUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
@@ -4747,9 +4748,9 @@ public partial class MainWindow : Window
 
     private async Task RefreshDownloadCenterSelectionAsync()
     {
-        var entry =
-            SelectedDownloadCenterEntry();
-
+        // An old response must never overwrite details for a newer selection.
+        var revision = ++_downloadDetailsRevision;
+        var entry = SelectedDownloadCenterEntry();
         if (entry == null)
         {
             DownloadCenterDetailsText.Text =
@@ -4763,15 +4764,21 @@ public partial class MainWindow : Window
 
         try
         {
-            DownloadCenterDetailsText.Text =
-                await _downloadCenter.GetDetailsAsync(
-                    entry,
-                    _uiLanguage);
+            var details = await _downloadCenter.GetDetailsAsync(entry, _uiLanguage);
+            if (revision != _downloadDetailsRevision ||
+                SelectedDownloadCenterEntry()?.Id != entry.Id)
+                return;
+
+            DownloadCenterDetailsText.Text = details;
         }
         catch (Exception ex)
         {
+            if (revision != _downloadDetailsRevision ||
+                SelectedDownloadCenterEntry()?.Id != entry.Id)
+                return;
+
             DownloadCenterDetailsText.Text =
-                $"{entry.DisplayName}\n\n{L("Remote details unavailable", "Détails distants indisponibles")} : {ex.Message}";
+                $"{entry.DisplayName}\n\n{L("Local details unavailable", "Détails locaux indisponibles")} : {ex.Message}";
         }
 
         RefreshDownloadCenterButtons();
