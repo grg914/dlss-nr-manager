@@ -11,7 +11,7 @@ namespace DlssNrManager.Services;
 /// </summary>
 public sealed class MinecraftExperimentalJarImportService
 {
-    public const string BuildSource = "grg914/Caustica-RTX PR #30";
+    public const string BuildSource = "Caustica RTX ReSTIR CI PR #30";
     public const string BuildCommit = "f029e6aebfcab092e00772fcf551ca4b5f037510";
     public const string DlssSdkBuildVersion = "310.7.0";
     public const string ExperimentalJarName = "Caustica-RTX-ReSTIR-PR30-CI.jar";
