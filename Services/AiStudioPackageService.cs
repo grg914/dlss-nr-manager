@@ -39,8 +39,21 @@ public sealed record AiStudioReleaseAsset(
     string Url,
     string? Digest);
 
+/// <summary>
+/// Local-only installation receipt written inside the manager-owned model
+/// staging directory after the actual reconstructed archive passes SHA-256.
+/// It is never created for manually imported/restricted-license models.
+/// </summary>
+public sealed record AiStudioPackageReceipt(
+    string PackageId,
+    string Version,
+    string ReleaseTag,
+    string ArchiveSha256);
+
 public sealed class AiStudioPackageService
 {
+    public const string LocalReceiptFile = ".dlssnr-manager-package.json";
+
     private const string ReleasesApi =
         "https://api.github.com/repos/grg914/dlss-nr-manager/releases?per_page=100";
 
@@ -211,6 +224,79 @@ public sealed class AiStudioPackageService
         }
 
         return null;
+    }
+
+    public AiStudioPackageReceipt? ReadInstalledReceipt(
+        AiStudioModelDescriptor model)
+    {
+        if (!model.ManagerOwnedRedistributionAllowed)
+            return null;
+
+        var path = Path.Combine(
+            _studio.GetModelDirectory(model),
+            LocalReceiptFile);
+        try
+        {
+            if (ManagedPathSafety.HasReparsePointOnPath(path) ||
+                !File.Exists(path))
+                return null;
+            var receipt = JsonSerializer.Deserialize<AiStudioPackageReceipt>(
+                File.ReadAllText(path));
+            return receipt is not null &&
+                   string.Equals(receipt.PackageId, model.Id, StringComparison.Ordinal) &&
+                   receipt.ArchiveSha256.Length == 64 &&
+                   receipt.ArchiveSha256.All(Uri.IsHexDigit)
+                ? receipt
+                : null;
+        }
+        catch (Exception ex) when (
+            ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Compare ONLY validated manager-owned installations, never manual
+    /// models or unknown/opaque/prerelease versions.
+    /// </summary>
+    public static MediaUpdateAvailability EvaluateModelUpdate(
+        AiStudioPackageReceipt? local,
+        AiStudioPackageAvailability? remote,
+        bool installed,
+        bool automaticRedistributionAllowed)
+    {
+        if (!automaticRedistributionAllowed)
+            return MediaUpdateAvailability.UnknownRemoteVersion;
+        if (!installed)
+            return MediaUpdateAvailability.NotInstalled;
+        if (local is null ||
+            !TryStableVersion(local.Version, out var localVersion))
+            return MediaUpdateAvailability.UnknownLocalVersion;
+        if (remote is null ||
+            !string.Equals(local.PackageId, remote.Manifest.PackageId, StringComparison.Ordinal) ||
+            !TryStableVersion(remote.Manifest.Version, out var remoteVersion) ||
+            remote.Manifest.Archive.Sha256.Length != 64 ||
+            !remote.Manifest.Archive.Sha256.All(Uri.IsHexDigit))
+            return MediaUpdateAvailability.UnknownRemoteVersion;
+        if (remoteVersion <= localVersion ||
+            string.Equals(local.ArchiveSha256, remote.Manifest.Archive.Sha256,
+                StringComparison.OrdinalIgnoreCase))
+            return MediaUpdateAvailability.UpToDate;
+        return MediaUpdateAvailability.UpdateAvailable;
+    }
+
+    private static bool TryStableVersion(string? value, out Version parsed)
+    {
+        parsed = new Version(0, 0);
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        var text = value.Trim().TrimStart('v', 'V');
+        if (!text.All(ch => char.IsAsciiDigit(ch) || ch == '.') ||
+            !Version.TryParse(text, out var candidate) || candidate is null)
+            return false;
+        parsed = candidate;
+        return true;
     }
 
     public async Task InstallAsync(
@@ -386,6 +472,18 @@ public sealed class AiStudioPackageService
                     staging,
                     MaxModelArchiveEntries,
                     MaxModelExpandedBytes);
+
+                // Stamp the *validated* archive inside the staged directory.
+                // An interrupted transaction rolls back this receipt together
+                // with the previous working model and its version.
+                var receipt = new AiStudioPackageReceipt(
+                    model.Id,
+                    package.Manifest.Version,
+                    package.Tag,
+                    package.Manifest.Archive.Sha256.ToLowerInvariant());
+                AtomicFile.WriteAllText(
+                    Path.Combine(staging, LocalReceiptFile),
+                    JsonSerializer.Serialize(receipt));
 
                 await ManagedComponentRedownload.ReplaceAsync(
                     [installPath],

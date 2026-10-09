@@ -1,3 +1,25 @@
+CHECKPOINT R071 (2026-10-09) - PR132 FUSIONNEE, PR134 RECONCILIEE SUR MAIN
+- PR132 fusionnee apres build/CodeQL/verify-safety verts sur HEAD 00c36b1a9030350ebdd4b8e2550807387f443262, squash e6d6556e60661ff9251378b1480b5626918ea2b4.
+- Correctifs: publication seeds serielle, SHA256+taille NuGet, skip Real-ESRGAN sans licence atteste avec avertissement et sans clobber son ancien asset. #79 et #123 restent ouvertes: la licence legale et les assets immuables restent a etablir.
+- PR134 mise a jour sans force push sur main e6d6556e60661ff9251378b1480b5626918ea2b4 avec parents branch et main; checkpoints R070/R069 + R064B/R064/R065 conserves.
+- Tests Build/CodeQL a verifier sur ce NOUVEAU HEAD avant toute fusion #134. CodeQL obligatoire dans ruleset #82 necessite permission admin. Essais physiques Windows/NVIDIA #95 non executes.
+- Audit divergence: ancien runtime video2dlssnr et NVIDIA Streamline ont memes SHAs de tree entre main et anciens refactors; FFmpeg differe et doit rester sans merge automatique. Voir issue #124.
+PROCHAINE ACTION: CI PR134, conserver toutes les branches non prouvees integrees et tous les points bloquants release v4.
+ 
+CHECKPOINT R070 (2026-10-09) - SYNCHRONISATION PR134 SUR MAIN AVEC HISTORIQUE PRESERVE
+- PR134 reconnciliee avec le HEAD de main adbd73def331d9d6b6d7cd167b145dbbee5bc198, branche c9640bd727fa49be85d3191b7ce2572290272c99; fusion Git a deux parents dans la branche PR, aucun force push et aucune perte d'historique.
+- Le checkpoint R069 de l'option AI Studio #111 est conserve au-dessus du journal principal qui contient R065 OpenMP #79 et les checkpoints precedents.
+- Le correctif build CS8601 (TryStableVersion candidate nullable) deja applique sur la branche est conserve.
+- N'autoriser la fusion que si la NOUVELLE CI Build, CodeQL et tests passe sur ce commit; sinon corriger sans contourner les verifications.
+- #82 exige encore action GitHub Ruleset admin; #95 exige acceptation materielle Windows/NVIDIA; #123 publication immutable non faite; #124 divergences conservees.
+ 
+CHECKPOINT R069 (2026-10-09) - MISE A JOUR OPTIONNELLE AI STUDIO MANAGER-OWNED (#111)
+- Ajout recu local au modele manager-owned pendant staging APRES validation SHA256 de l'archive; atomic rollback conserve version de modele precedente.
+- Download Center bouton existant Retélécharger devient Mettre à jour uniquement pour modele redistribuable installe avec version locale connue et version stable distante SUPERIEURE + hash different. Aucun nouveau bouton, aucune installation auto. Modele licence manuelle ne se met jamais a jour automatiquement.
+- 9 tests xUnit pour versions identiques/anciennes, manifeste offline, local inconnu, licence manuelle et versions non-semantiques. Update media deja existant conserve. Runtimes VLC/Real-ESRGAN/detecteur ont pas encore provenance version locale -> issue #111 OUVERTE.
+- Ne fusionner qu'apres Build/CodeQL sur HEAD et verifier tests. #79 #82 #95 #123 #124 restent. PAS de release v4.
+PROCHAINE ACTION: CI et tests de #111, auditer serialisation runtime et OpenMP sur PR132/133.
+ 
 CHECKPOINT R064B (2026-10-09) - REAL-ESRGAN SKIP SECURISE SANS ATTESTATION
 - Apres fusion PR #133, la publication Real-ESRGAN est refusee sans licence OpenMP. PR #132 evite de faire echouer les autres packages natifs: variable repo DLSSNR_OPENMP_REDIST_APPROVED par defaut 0, etape Real-ESRGAN ignoree avec avertissement explicite sans suppression de l'ancien asset. Si approbation=1, les gardes de signature/REDIST/SHA de #133 restent obligatoires. Tests ajoutes; #79 reste ouverte. Ne pas confondre attestation et licence.
 PROCHAINE ACTION: CI de #132, ensuite reevaluation #111 et audit branches.
