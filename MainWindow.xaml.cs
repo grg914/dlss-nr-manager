@@ -3822,6 +3822,10 @@ public partial class MainWindow : Window
                 AutoUpdateComponentsCheck.IsChecked == true));
 
         _localization?.Apply();
+        if (_lastDriverHealthReport != null)
+            NvidiaDriverHealthText.Text = NvidiaDriverHealthService.Format(
+                _lastDriverHealthReport,
+                UiLocalizationService.NormalizeLanguage(_uiLanguage) == "fr");
 
         AppLogger.Info(
             "UI language changed to " + _uiLanguage + ".");
