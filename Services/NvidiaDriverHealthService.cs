@@ -362,6 +362,9 @@ public sealed class NvidiaDriverHealthService
             "Suggested manual steps: compare the same game scene and graphics settings using NVIDIA App's FPS/1% low overlay; consult NVIDIA's official driver guidance if regression persists.",
             "Conseils manuels : comparer la même scène de jeu et les mêmes réglages avec les FPS/1 % low de NVIDIA App ; consulter l'aide officielle NVIDIA si la baisse persiste."));
         rows.Add(Label(
+            "Container CPU observations are based on process name, not verified NVIDIA publisher identity or driver causality.",
+            "Les mesures CPU Container reposent sur le nom du processus, sans vérifier sa signature NVIDIA ni la cause du problème."));
+        rows.Add(Label(
             "No driver settings, profiles, clocks, services or caches were changed. A short idle snapshot cannot measure gaming FPS.",
             "Aucun réglage pilote, profil, fréquence, service ou cache modifié. Une mesure au repos ne mesure pas les FPS en jeu."));
         return string.Join(Environment.NewLine, rows);
