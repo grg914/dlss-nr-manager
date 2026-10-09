@@ -209,7 +209,7 @@ public sealed class ComponentUpdateService
         if (changed)
         {
             progress?.Report("Updating manager-owned media components…");
-            await media.UpdateToolsAsync(progress, cancellationToken);
+            await media.UpdateToolsAsync(progress, cancellationToken, remote);
             progress?.Report("Manager-owned media components updated.");
         }
         else
