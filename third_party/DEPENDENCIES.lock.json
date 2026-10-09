@@ -112,8 +112,8 @@
                         "group":  "core",
                         "path":  "third_party/onnxruntime",
                         "url":  "https://github.com/microsoft/onnxruntime.git",
-                        "ref":  "f2c39fe2f838cf35ce7da92824f5a5e3ee6e88a7",
-                        "source_tag":  "v1.30.0",
+                        "ref":  "402979ac1bef89dcd55add41eaa7277c407599eb",
+                        "source_tag":  "v1.31.0",
                         "redistribution":  "MIT"
                     },
                     {
@@ -203,8 +203,7 @@
                         "source_branch":  "main",
                         "redistribution":  "MIT",
                         "source_tag":  "3.11.9"
-                    }
-,
+                    },
                     {
                         "id":  "ai-studio-comfyui",
                         "group":  "ai-studio",
@@ -236,7 +235,8 @@
                         "url":  "https://github.com/Wan-Video/Wan2.2.git",
                         "ref":  "1ea34ff48f87168174e12956e200b1d908b1c5ff",
                         "redistribution":  "Apache-2.0; model weights handled separately"
-                    }                ],
+                    }
+                ],
     "local_only":  [
                        {
                            "id":  "nvidia-dlss-sdk",
