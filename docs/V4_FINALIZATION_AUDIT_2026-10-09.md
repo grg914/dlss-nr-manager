@@ -54,3 +54,19 @@ The items below distinguish **verified source/CI facts** from **acceptance pendi
 
 ### Latest FR/EN correction — source candidate only
 The first #382 language patch introduced two aliases that conflicted with **existing** `UiLocalizationService` dictionary keys. The current source HEAD `ce5e9a24882b86aad0cc75b8cd6f8fa06728a82b` removes the redundant HDR/download rules pairs, standardizes the HDR XAML literal and fixes both a theory parameter inversion and xUnit2031 compile failure. The **current** additive translation count is **7 unique pairs**. Static 7/7 case lookup verification succeeded, but source-only checks do not count as Windows GUI or CI acceptance; Build [37988726456](https://github.com/grg914/dlss-nr-manager/actions/runs/37988726456) and CodeQL [37988726457](https://github.com/grg914/dlss-nr-manager/actions/runs/37988726457) must complete for that exact HEAD. The earlier nine-pair snapshot is historical and superseded.
+
+## Six-stage execution checkpoint — 2026-10-09 (post #386, #389 source draft pending)
+
+**1 — Secure merge: COMPLETE.** #386 signed protected merged `ed77e0e2fbde9b833c8fd6ec82e36b0caffe4794`, 244/244 xUnit, Build+CodeQL success, deterministic executable ZIP, 11/11 file blob parity and exact ancestry; #382/#383 old drafts closed without additional merge. No new dependency or experimental feature landed.
+
+**2 — Download Center: PARTIAL / BLOCKED #111.** Existing approved optional Update action already covers media and permitted manager-owned AI Studio models. VLC/Real-ESRGAN/AI-origin lack safe immutable installed-version/approved-new-release receipts. Do not add a generic upstream install button or mislabel Redistributable/model licenses.
+
+**3 — Lifecycle: SOURCE FIX PENDING #389 / DEVICE #95.** Signed source HEAD `03a256c8fa1d34c9e79f70f4b1dc9d739be8a03d` cancels otherwise untracked on-demand HTTP version checks when window closes; tests added; exact signed Build+CodeQL required before merge. Physical Windows processes, RAM, VRAM, ports, active downloads, disk/full locks, backup rollback and final logs must still be tested.
+
+**4 — Security/dependencies: GUARDED / LEGAL GATE #79.** Existing release workflow already refuses unauthorized OpenMP publication; candidate must come from licensed Visual Studio x64 VC/Redist, valid Microsoft Authenticode and SHA provenance. Must establish operator rights separately, never assume System32 is redistributable; no new binary or model licensed/approved by this audit.
+
+**5 — Regressions/performance: CI PARTIAL / HARDWARE PENDING #95.** #386 signed CI tested 244/244 and reproducible ZIP; #389 checks pending, full FR/EN visual passes, target NVIDIA VRAM/RAM/leak/CPU throughput, offline failure modes not tested on user's PC.
+
+**6 — Release preparation: SOURCE AUDITED / PUBLICATION BLOCKED.** `DlssNrManager.csproj` and published release remain 3.2.0; GitHub v3.2.0 29 assets and runtime-seed-v1 27 assets show SHA metadata but no byte-level installed runtime proof. Current release.yml generates `SBOM.spdx.json`, `release-provenance.json`, `SHA256SUMS.txt`, component manifest. Do not bump/tag/publish v4 until gates #111/#95/#79 + precise package validation and explicit operator approval.
+
+**Audit method:** current live GitHub source/CI/issue/release metadata and official Microsoft redistribution guidance, not real Windows RTX execution. Source PR #389 and this documentation branch BOTH append AI_PROJECT_PROGRESS.txt: preserve both unique histories in later source/signed stage.
