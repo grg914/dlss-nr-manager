@@ -4318,10 +4318,12 @@ public partial class MainWindow : Window
         if (AiStudioJobList == null)
             return;
 
+        // v4.5 diagnostic only: never launch a runtime from the Jobs list.
+        var preflight = new AiStudioJobPreflight(_aiStudio.Root);
         AiStudioJobList.ItemsSource =
             _aiStudio.LoadJobs()
                 .Select(x =>
-                    $"{x.CreatedAt.LocalDateTime:g} • {x.Task} • {x.ModelId} • {x.Status} • {x.Id:N}")
+                    $"{x.CreatedAt.LocalDateTime:g} • {x.Task} • {x.ModelId} • {x.Status} • {preflight.Inspect(x).Describe(_uiLanguage)} • {x.Id:N}")
                 .ToArray();
     }
 
