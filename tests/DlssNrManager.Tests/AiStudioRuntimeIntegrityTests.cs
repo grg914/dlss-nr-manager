@@ -68,6 +68,18 @@ public sealed class AiStudioRuntimeIntegrityTests
     }
 
     [Fact]
+    public async Task Rejects_same_length_runtime_file_tampering_after_manifest_pin()
+    {
+        using var fixture = new RuntimeFixture();
+        var pin = fixture.WriteManifest("python/python.exe", "original");
+        File.WriteAllText(Path.Combine(fixture.Root, "python", "python.exe"), "tampered");
+
+        var result = await AiStudioRuntimeIntegrityService.VerifyAsync(fixture.Root, pin);
+
+        Assert.Equal(AiStudioRuntimeIntegrityStatus.FileHashMismatch, result.Status);
+    }
+
+    [Fact]
     public async Task Rejects_path_traversal_even_with_manifest_sha256_pin()
     {
         using var fixture = new RuntimeFixture();
