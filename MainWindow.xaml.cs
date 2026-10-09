@@ -4779,11 +4779,15 @@ public partial class MainWindow : Window
                 false;
             DownloadCenterRedownloadButton.IsEnabled =
                 false;
+            ImportOfflineFlux2Button.IsEnabled = false;
             return;
         }
 
         var busy =
             _downloadCenterCts != null || _checkingDownloadCenterUpdates;
+        ImportOfflineFlux2Button.IsEnabled =
+            !busy && entry.Kind == DownloadCenterKind.AiStudioModel &&
+            entry.ModelId == "flux2-klein-4b";
 
         var isModelUpdate =
             entry.Kind == DownloadCenterKind.AiStudioModel &&
@@ -4814,6 +4818,67 @@ public partial class MainWindow : Window
             entry.IsInstalled &&
             (entry.CanInstallAutomatically ||
              entry.RequiresLicenseAcceptance);
+    }
+
+    private async void ImportOfflineFlux2_Click(
+        object sender, RoutedEventArgs e)
+    {
+        var entry = SelectedDownloadCenterEntry();
+        if (_downloadCenterCts != null || entry is not
+            { Kind: DownloadCenterKind.AiStudioModel,
+              ModelId: "flux2-klein-4b" })
+            return;
+
+        var picker = new OpenFileDialog
+        {
+            Title = L("Choose a prepared FLUX.2 ZIP64 package manifest",
+                      "Choisir le manifeste du pack FLUX.2 ZIP64 préparé"),
+            Filter = "AI Studio package manifest (*.manifest.json)|*.manifest.json",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (picker.ShowDialog(this) != true)
+            return;
+
+        _downloadCenterCts = new CancellationTokenSource();
+        DownloadCenterCancelButton.Visibility = Visibility.Visible;
+        RefreshDownloadCenterButtons();
+        try
+        {
+            var service = new AiStudioFlux2OfflineImportService(_aiStudio);
+            var package = AiStudioFlux2OfflineImportService.ReadAndValidateManifest(
+                picker.FileName);
+            DownloadCenterStatusText.Text = L(
+                $"Verifying local FLUX.2 package ({package.Archive.Size / 1073741824d:0.00} GiB)…",
+                $"Vérification locale du pack FLUX.2 ({package.Archive.Size / 1073741824d:0.00} Gio)…");
+            await service.InstallAsync(
+                picker.FileName,
+                new Progress<string>(message => DownloadCenterStatusText.Text = message),
+                _downloadCenterCts.Token);
+            DownloadCenterStatusText.Text = L(
+                "Offline FLUX.2 model imported and hashed; inference runtime still requires approval.",
+                "Modèle FLUX.2 importé et vérifié hors ligne ; le runtime d'inférence reste soumis à validation.");
+        }
+        catch (OperationCanceledException)
+        {
+            DownloadCenterStatusText.Text = L(
+                "Offline import cancelled; existing model preserved.",
+                "Import hors ligne annulé ; modèle existant conservé.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("Offline FLUX.2 import failed: " + ex.GetType().Name);
+            DownloadCenterStatusText.Text = L(
+                $"Offline import failed: {ex.Message}",
+                $"Échec de l'import hors ligne : {ex.Message}");
+        }
+        finally
+        {
+            _downloadCenterCts.Dispose();
+            _downloadCenterCts = null;
+            DownloadCenterCancelButton.Visibility = Visibility.Collapsed;
+            RefreshDownloadCenter();
+        }
     }
 
     private async void InstallDownloadCenter_Click(
