@@ -127,9 +127,17 @@ public partial class MainWindow : Window
                 : 1;
 
         var hardwarePreferences = HardwareProfileService.LoadPreferences();
-        HardwareProfileBox.SelectedIndex = (int)hardwarePreferences.Profile;
-        HardwareCompatibleCheck.IsChecked =
-            hardwarePreferences.Mode == HardwareOperatingMode.Compatible;
+        HardwareProfileBox.SelectedIndex = (int)hardwarePreferences.AdaptiveMode;
+        HardwareGoalBox.SelectedIndex = (int)hardwarePreferences.Goal;
+        var manualOptions = hardwarePreferences.ManualOptions ?? new GpuManualOptions();
+        HardwareManualSrCheck.IsChecked = manualOptions.SuperResolution;
+        HardwareManualFgCheck.IsChecked = manualOptions.FrameGeneration;
+        HardwareManualReflexCheck.IsChecked = manualOptions.Reflex;
+        HardwareManualNrCheck.IsChecked = manualOptions.NeuralRendering;
+        HardwareManualOptionsPanel.IsEnabled =
+            hardwarePreferences.AdaptiveMode == GpuAdaptiveMode.Manual;
+        HardwareGoalBox.IsEnabled =
+            hardwarePreferences.AdaptiveMode == GpuAdaptiveMode.Auto;
         _hardwareProfileControlsReady = true;
 
         _localization = new UiLocalizationController(
@@ -5163,13 +5171,32 @@ public partial class MainWindow : Window
     }
 
     private HardwareProfilePreferences CurrentHardwarePreferences()
-        => new(
-            HardwareProfileBox.SelectedIndex == 1
-                ? HardwareProfileChoice.Rtx5060Ti9700X
-                : HardwareProfileChoice.Auto,
-            HardwareCompatibleCheck.IsChecked == true
+    {
+        var mode = HardwareProfileBox.SelectedIndex switch
+        {
+            1 => GpuAdaptiveMode.Manual,
+            2 => GpuAdaptiveMode.Compatible,
+            _ => GpuAdaptiveMode.Auto
+        };
+        var goal = HardwareGoalBox.SelectedIndex switch
+        {
+            0 => GpuOptimizationGoal.Quality,
+            2 => GpuOptimizationGoal.Performance,
+            _ => GpuOptimizationGoal.Balanced
+        };
+        return new HardwareProfilePreferences(
+            HardwareProfileChoice.Auto,
+            mode == GpuAdaptiveMode.Compatible
                 ? HardwareOperatingMode.Compatible
-                : HardwareOperatingMode.Normal);
+                : HardwareOperatingMode.Normal,
+            mode,
+            goal,
+            new GpuManualOptions(
+                HardwareManualSrCheck.IsChecked == true,
+                HardwareManualFgCheck.IsChecked == true,
+                HardwareManualReflexCheck.IsChecked == true,
+                HardwareManualNrCheck.IsChecked == true));
+    }
 
     private void HardwareProfile_Changed(object sender, RoutedEventArgs e)
     {
@@ -5236,39 +5263,53 @@ public partial class MainWindow : Window
 
     private void ApplyCurrentHardwareProfile()
     {
+        var preferences = CurrentHardwarePreferences();
+        HardwareManualOptionsPanel.IsEnabled =
+            preferences.AdaptiveMode == GpuAdaptiveMode.Manual;
+        HardwareGoalBox.IsEnabled =
+            preferences.AdaptiveMode == GpuAdaptiveMode.Auto;
         if (_hardwareSnapshot == null)
             return;
 
         var snapshot = _hardwareSnapshot;
-        var decision = HardwareProfileService.Evaluate(
-            snapshot, CurrentHardwarePreferences());
+        var decision = HardwareProfileService.Evaluate(snapshot, preferences);
+        var recommendation = GpuAdaptiveProfileService.Evaluate(snapshot, preferences);
 
-        PresetBox.IsEnabled = decision.AllowsNeuralRendering;
-        AutoNvidiaRuntimeCheck.IsEnabled = decision.AllowsNeuralRendering;
-        SelectRuntimeButton.IsEnabled = decision.AllowsNeuralRendering;
+        PresetBox.IsEnabled = recommendation.NeuralRendering;
+        AutoNvidiaRuntimeCheck.IsEnabled = recommendation.NeuralRendering;
+        SelectRuntimeButton.IsEnabled = recommendation.NeuralRendering;
         GameDlssSrCheck.IsEnabled = decision.Capabilities.SuperResolution;
         GameDlssReflexCheck.IsEnabled = decision.Capabilities.IsSupportedRtx;
         GameDlssFgCheck.IsEnabled = decision.AllowsFrameGeneration;
         GameDlssNrCheck.IsEnabled = decision.AllowsNeuralRendering;
 
-        if (!decision.AllowsFrameGeneration)
-            GameDlssFgCheck.IsChecked = false;
-        if (!decision.AllowsNeuralRendering)
-        {
-            GameDlssNrCheck.IsChecked = false;
+        // The recommendation updates manager-local checkboxes only.
+        // Actual game/runtime eligibility is validated separately.
+        GameDlssSrCheck.IsChecked = recommendation.SuperResolution;
+        GameDlssFgCheck.IsChecked = recommendation.FrameGeneration;
+        GameDlssReflexCheck.IsChecked = recommendation.Reflex;
+        GameDlssNrCheck.IsChecked = recommendation.NeuralRendering;
+        if (!recommendation.NeuralRendering)
             AutoNvidiaRuntimeCheck.IsChecked = false;
-        }
 
-        var mode = HardwareCompatibleCheck.IsChecked == true
-            ? L("Compatible", "Compatible")
-            : L("Normal", "Normal");
-        HardwareProfileStatusText.Text = decision.UsesAutomaticFallback
-            ? L(
-                "Requested RTX 5060 Ti / Ryzen 9700X profile was not confirmed. Using actual detected hardware.",
-                "Profil RTX 5060 Ti / Ryzen 9700X non confirmé. Utilisation du matériel réellement détecté.")
-            : L(
-                $"Hardware profile active • {mode}",
-                $"Profil matériel actif • {mode}");
+        var mode = recommendation.Mode switch
+        {
+            GpuAdaptiveMode.Manual => L("Manual", "Personnalisé"),
+            GpuAdaptiveMode.Compatible => L("Compatible", "Compatible"),
+            _ => L("AUTO optimized", "AUTO optimisé")
+        };
+        HardwareProfileStatusText.Text = L(
+            $"GPU-adaptive profile • {mode}",
+            $"Profil GPU adaptatif • {mode}");
+        HardwareRecommendationText.Text = L(
+            $"Suggested DLSS SR mode: {recommendation.SuggestedDlssMode} (not automatically applied in the game). " +
+            $"SR: {recommendation.SuperResolution}; FG: {recommendation.FrameGeneration}; Reflex: {recommendation.Reflex}; " +
+            $"NR: {recommendation.NeuralRendering}; MFG hardware eligible: {recommendation.MultiFrameGenerationEligible}. " +
+            recommendation.Explanation,
+            $"Mode DLSS SR suggéré : {recommendation.SuggestedDlssMode} (non appliqué automatiquement dans le jeu). " +
+            $"SR : {recommendation.SuperResolution} ; FG : {recommendation.FrameGeneration} ; Reflex : {recommendation.Reflex} ; " +
+            $"NR : {recommendation.NeuralRendering} ; matériel MFG compatible : {recommendation.MultiFrameGenerationEligible}. " +
+            "L'activation effective dépend du jeu, du runtime et du pilote ; aucun réglage du panneau NVIDIA n'est modifié.");
 
         var dx = snapshot.DirectX12RuntimePresent
             ? L("D3D12 runtime detected", "Runtime D3D12 détecté")
