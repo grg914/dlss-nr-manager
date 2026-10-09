@@ -1976,6 +1976,10 @@
                                  Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,8"/>
                       <Button x:Name="OpenOfficialUpstreamButton" Content="Voir le dépôt officiel"
                               Click="OpenOfficialUpstream_Click" IsEnabled="False"/>
+                      <Button x:Name="DownloadOfficialComfyUiButton"
+                              Content="Télécharger ComfyUI officiel (archive vérifiée)"
+                              Click="DownloadOfficialComfyUi_Click"
+                              IsEnabled="False" Margin="0,8,0,0"/>
                       <TextBlock x:Name="OfficialUpdateStatusText" Text="Contrôle à la demande uniquement."
                                  Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                     </StackPanel>
