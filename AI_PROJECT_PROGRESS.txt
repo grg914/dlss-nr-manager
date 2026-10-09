@@ -5453,3 +5453,10 @@ The following are **historical append-only #320 checkpoints**, not current merge
 - Manager #319 is still **DRAFT/UNMERGED**, stacked above #316 above #311; it has no independent review or CodeQL report for that exact head yet. The green #319 Build does **not** establish third-party redistribution rights or physical NVIDIA RTX acceptance.
 - Separate coordination PR #320 is documentation-only, records all three files with the owner-requested pre-intervention reread/update protocol; its refreshed exact-head Build/CodeQL checks were **IN PROGRESS** on this checkpoint. Do not merge it without signed/approved review of current main.
 - Next GPT A action: review the #319 rollback state machine for crash recovery and contradictory receipt conditions, avoid destructive or speculative automation, and stage only necessary scoped code/tests. Keep the production distribution unchanged.
+
+## GPT A — 2026-10-09 — Reconciliation and six-phase audit checkpoint
+- Re-read all three live GitHub coordination files before intervention; Manager main was dddd9ac76a9108a7607331966f9148245a23e686, after GPT B's protected offline-startup #324 merge.
+- Consolidated unique #320 and #325 documents into a fresh main-based review branch, including the Caustica LGPL-3.0-or-later lock entry and Windows RC acceptance handoff. Preserve existing GPT B/C journal history. CI/signature/independent review pending.
+- Existing experimental Manager PR #319 now rejects malformed and forged Caustica import receipts before offering automatic restore; two new tests retain original backup. Exact final-head CI pending.
+- New documents: docs/GPT_A_NVIDIA_NGX_RESTIR_AUDIT_2026-10-09.md and docs/GPT_A_SIX_PHASES_STATUS_2026-10-09.md. Caustica Vulkan/NGX/RR/NR/FG wiring found at source level; ReSTIR remains experimental/default off, spatial disabled and GPU physical validation pending.
+- Stable v4.0 remains unreleased, current app source v3.2.0. GPT B owns v4 stability/release, GPT C v4.5. Issues #95 real Windows crash/recovery acceptance and #79 OpenMP license approval remain open. No stable binaries, SDKs, forks or tags changed.
