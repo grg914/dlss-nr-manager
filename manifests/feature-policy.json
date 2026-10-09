@@ -33,18 +33,18 @@
       "mutations": "application runtime/cache + explicit output file",
       "integrity": "manager-owned FFmpeg/video2dlssnr hashes; NVIDIA runtime signature checks where required",
       "rollback": "original input media must not be overwritten by default",
-      "canonical_download_surface": "target centralized Downloads"
+      "canonical_download_surface": "Downloads"
     },
     {
       "id": "vsr-hdr-video",
       "ui_en": "VSR-HDR Video",
       "ui_fr": "VSR-HDR Vidéo",
-      "status": "feature-branch-75",
+      "status": "active",
       "network": "VLC/runtime installation only; playback itself local",
       "mutations": "portable VLC runtime; permanent restore writes a new output",
       "integrity": "manager-owned VLC runtime SHA-256 + corresponding source obligations",
       "rollback": "direct playback leaves original unchanged; permanent mode outputs a separate file",
-      "canonical_download_surface": "target centralized Downloads after branch reconciliation"
+      "canonical_download_surface": "Downloads"
     },
     {
       "id": "ai-detection",
@@ -55,13 +55,13 @@
       "mutations": "application model cache only",
       "integrity": "pinned ONNX model SHA-256",
       "rollback": "model cache removable/reinstallable",
-      "canonical_download_surface": "target centralized Downloads"
+      "canonical_download_surface": "Downloads"
     },
     {
       "id": "ai-studio",
       "ui_en": "Local AI Studio",
       "ui_fr": "AI Studio local",
-      "status": "feature-branch-77",
+      "status": "integrated-partial",
       "network": "manager-owned runtime/model install or explicit official gated-model flow",
       "mutations": "application-private AI runtime/models/jobs/outputs",
       "integrity": "model/runtime manifests, chunk SHA-256, reconstructed package SHA-256",
@@ -72,7 +72,7 @@
       "id": "downloads",
       "ui_en": "Downloads",
       "ui_fr": "Téléchargements",
-      "status": "feature-branch-77",
+      "status": "integrated-partial",
       "network": "explicit component installation/update only",
       "mutations": "application-managed component roots",
       "integrity": "component-specific digest/signature policy",
