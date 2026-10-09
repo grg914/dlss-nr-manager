@@ -1637,11 +1637,11 @@ public partial class MainWindow : Window
                 "Run Windows system repair now?\n\n" +
                 "This requests administrator rights and runs DISM /Online /Cleanup-Image /RestoreHealth, " +
                 "then SFC /scannow. It can take several minutes and DISM may use Windows Update to obtain repair files.\n\n" +
-                "Personal files are not deleted.",
+                "Personal files are not deleted. This elevated Windows repair continues independently if you close DLSS NR Manager.",
                 "Lancer la réparation système Windows maintenant ?\n\n" +
                 "Cette action demande les droits administrateur et exécute DISM /Online /Cleanup-Image /RestoreHealth, " +
                 "puis SFC /scannow. Cela peut prendre plusieurs minutes et DISM peut utiliser Windows Update pour obtenir des fichiers de réparation.\n\n" +
-                "Les fichiers personnels ne sont pas supprimés."),
+                "Les fichiers personnels ne sont pas supprimés. Cette réparation Windows avec élévation continue indépendamment si vous fermez DLSS NR Manager."),
             L("Windows system repair", "Réparation système Windows"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
