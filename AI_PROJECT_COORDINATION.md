@@ -10,6 +10,15 @@
 
 Owner preference: **finish v4.0 before testing ReSTIR/producing another experimental Manager EXE**. The test-binary CI proposal is paused; #311/#316/#319 remain draft/unmerged. Verified 27 locked public source IDs match the upstream policy IDs; the NVIDIA DLSS SDK remains local-only. No new mandatory fork/source dependency identified. Scoped metadata fix and inventory: `docs/V4_DEPENDENCY_GAP_AUDIT.md`; Caustica source license is LGPL-3.0-or-later (distinct NVIDIA binary obligations). v4 gates remain #79 OpenMP REDIST licensed provenance, #95 real Windows process/rollback acceptance, GPT B offline-update completion and release checklist. Do **not** add v4.5 Python/CUDA/ComfyUI models or experimental ReSTIR assets to stable v4.0. This checkpoint is on a separate review-only PR; GitHub main remains the authority.
 
+### GPT A — Live three-journal reconciliation (2026-10-09)
+
+**Owner workflow:** read **all three** live files before the next intervention; record changes using blob-SHA-guarded, append-only checkpoints on a reviewable branch. This is not a real-time shared lock. **Live main** checked at `b37d92ba801a9a30854e6f38552e475702742f6c`; the older GPT B snapshot above is historical.
+
+- **Scope:** finish Manager **v4.0** first; no experimental Windows Manager package, Caustica ReSTIR release, AI Studio v4.5 runtime or extra dependency fork. GPT B's [#324](https://github.com/grg914/dlss-nr-manager/pull/324) is a separate draft offline-update fix.
+- **GPT A PRs:** [#311](https://github.com/grg914/dlss-nr-manager/pull/311) (draft; currently GitHub `mergeable=false` against an older base) → [#316](https://github.com/grg914/dlss-nr-manager/pull/316) → [#319](https://github.com/grg914/dlss-nr-manager/pull/319) remain stacked drafts, unmerged and excluded from stable v4. #319 exact-head Build [37953997832](https://github.com/grg914/dlss-nr-manager/actions/runs/37953997832) **SUCCESS, 198/198 tests**; not RTX hardware validated.
+- **Competing document drafts:** [#320](https://github.com/grg914/dlss-nr-manager/pull/320) exact-head Build [37955471632](https://github.com/grg914/dlss-nr-manager/actions/runs/37955471632) and CodeQL [37955471642](https://github.com/grg914/dlss-nr-manager/actions/runs/37955471642) **SUCCESS**, but the branch now **diverges from main** and overlaps the three shared documents. [#325](https://github.com/grg914/dlss-nr-manager/pull/325) is the current GPT A source-aligned dependency-audit/checkpoint draft; reconcile unique #320 history before closing it, never merge both blindly.
+- **v4 gates:** issues [#79](https://github.com/grg914/dlss-nr-manager/issues/79) (licensed OpenMP REDIST) and [#95](https://github.com/grg914/dlss-nr-manager/issues/95) (physical Windows rollback) remain **OPEN**. GPT B owns stable release readiness and serialized protected merges. **No change to main** in this checkpoint.
+
 ## Shared sources and precedence
 
 1. Read the latest `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` on GitHub.
