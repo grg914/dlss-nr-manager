@@ -48,18 +48,20 @@ public sealed class AiStudioOfficialComfyUiDownloadService : IDisposable
     public async Task<AiStudioOfficialComfyUiAsset?> FindLatestAsync(
         CancellationToken cancellationToken = default)
     {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(15));
         using var request = new HttpRequestMessage(HttpMethod.Get, ApiUrl);
         using var response = await _http.SendAsync(
-            request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
         response.EnsureSuccessStatusCode();
         if (response.Content.Headers.ContentLength is > 1024 * 1024)
             throw new InvalidDataException("Oversized ComfyUI release metadata.");
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var stream = await response.Content.ReadAsStreamAsync(deadline.Token);
         using var buffer = new MemoryStream();
         var bytes = new byte[8192];
         int count;
-        while ((count = await stream.ReadAsync(bytes, cancellationToken)) > 0)
+        while ((count = await stream.ReadAsync(bytes, deadline.Token)) > 0)
         {
             if (buffer.Length + count > 1024 * 1024)
                 throw new InvalidDataException("Oversized ComfyUI release metadata.");
@@ -97,6 +99,7 @@ public sealed class AiStudioOfficialComfyUiDownloadService : IDisposable
                 url.ValueKind != JsonValueKind.String ||
                 url.GetString() != expectedUrl ||
                 !item.TryGetProperty("size", out var size) ||
+                size.ValueKind != JsonValueKind.Number ||
                 !size.TryGetInt64(out var length) ||
                 length is <= 0 or > MaxAssetBytes ||
                 !item.TryGetProperty("digest", out var digest) ||
@@ -129,11 +132,7 @@ public sealed class AiStudioOfficialComfyUiDownloadService : IDisposable
             !asset.Sha256.All(Uri.IsHexDigit))
             throw new InvalidDataException("Untrusted official ComfyUI asset metadata.");
 
-        await LargeDownloadApprovalHub.EnsureApprovedAsync(
-            "ComfyUI NVIDIA portable " + asset.Tag,
-            asset.Size,
-            "Download the official GitHub archive to AI Studio staging. No install or execution.",
-            cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var destinationDir = Path.Combine(_stagingRoot, asset.Tag);
         var destination = Path.Combine(destinationDir, AssetName);
@@ -151,6 +150,12 @@ public sealed class AiStudioOfficialComfyUiDownloadService : IDisposable
                 return destination;
             throw new IOException("An existing ComfyUI staging archive has a different hash. No file was replaced.");
         }
+
+        await LargeDownloadApprovalHub.EnsureApprovedAsync(
+            "ComfyUI NVIDIA portable " + asset.Tag,
+            asset.Size,
+            "Download the official GitHub archive to AI Studio staging. No install or execution.",
+            cancellationToken);
 
         var temporary = Path.Combine(
             destinationDir, ".download-" + Guid.NewGuid().ToString("N") + ".part");
@@ -206,7 +211,7 @@ public sealed class AiStudioOfficialComfyUiDownloadService : IDisposable
         }
         finally
         {
-            if (File.Exists(temporary))
+            if (!ManagedPathSafety.HasReparsePointOnPath(temporary) && File.Exists(temporary))
                 File.Delete(temporary);
         }
     }
