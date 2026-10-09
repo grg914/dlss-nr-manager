@@ -167,6 +167,8 @@ public sealed class MinecraftRestirExperimentService
                 if (inLights)
                     sectionEnd = i;
                 inLights = section.Groups[1].Value.Equals("lights", StringComparison.Ordinal);
+                if (inLights)
+                    sectionEnd = i + 1;
                 if (inLights && ++sectionCount > 1)
                     throw new InvalidDataException("Duplicate [lights] sections are not supported.");
                 continue;
@@ -175,8 +177,7 @@ public sealed class MinecraftRestirExperimentService
             if (!inLights)
                 continue;
 
-            if (sectionEnd < 0)
-                sectionEnd = i + 1;
+            sectionEnd = i + 1;
 
             if (!OptionKey.IsMatch(lines[i]))
                 continue;
