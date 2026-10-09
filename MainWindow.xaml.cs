@@ -68,6 +68,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _downloadCenterCts;
     private MediaUpdateAvailability _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
     private bool _checkingDownloadCenterUpdates;
+    private MediaUpdateAvailability _modelUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
+    private string? _modelUpdateEntryId;
 
     private sealed record AdvancedSettingsSnapshot(
         int FpsType,
@@ -4510,6 +4512,8 @@ public partial class MainWindow : Window
 
         _checkingDownloadCenterUpdates = true;
         _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
+        _modelUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
+        _modelUpdateEntryId = null;
         RefreshDownloadCenterButtons();
 
         try
@@ -4535,10 +4539,34 @@ public partial class MainWindow : Window
                     "Release manifest could not confirm a newer media version.",
                     "Le manifeste de release ne confirme pas de nouvelle version média.")
             };
+
+            var selected = SelectedDownloadCenterEntry();
+            if (selected is { Kind: DownloadCenterKind.AiStudioModel,
+                              IsInstalled: true, CanInstallAutomatically: true })
+            {
+                _modelUpdateStatus = await _downloadCenter.CheckAiStudioModelUpdateAsync(selected);
+                _modelUpdateEntryId = selected.Id;
+                DownloadCenterStatusText.Text = _modelUpdateStatus switch
+                {
+                    MediaUpdateAvailability.UpdateAvailable => L(
+                        $"Validated update available for {selected.DisplayName}.",
+                        $"Mise à jour validée disponible pour {selected.DisplayName}."),
+                    MediaUpdateAvailability.UpToDate => L(
+                        $"{selected.DisplayName} is up to date.",
+                        $"{selected.DisplayName} est à jour."),
+                    MediaUpdateAvailability.UnknownLocalVersion => L(
+                        "This local model has no verified package receipt. Update is not offered; repair remains available.",
+                        "Ce modèle n'a pas de reçu de package vérifié. Aucune mise à jour proposée ; la réparation reste possible."),
+                    _ => L(
+                        "No validated newer model package is available.",
+                        "Aucun nouveau package de modèle validé disponible.")
+                };
+            }
         }
         catch (Exception ex)
         {
             _mediaUpdateStatus = MediaUpdateAvailability.UnknownRemoteVersion;
+            _modelUpdateStatus = MediaUpdateAvailability.UnknownRemoteVersion;
             AppLogger.Warn("Download Center update check unavailable: " + ex.Message);
             DownloadCenterStatusText.Text = L(
                 "Update check unavailable. Installed components were not changed.",
@@ -4644,9 +4672,15 @@ public partial class MainWindow : Window
         var busy =
             _downloadCenterCts != null || _checkingDownloadCenterUpdates;
 
+        var isModelUpdate =
+            entry.Kind == DownloadCenterKind.AiStudioModel &&
+            entry.Id == _modelUpdateEntryId &&
+            entry.CanInstallAutomatically &&
+            _modelUpdateStatus == MediaUpdateAvailability.UpdateAvailable;
         DownloadCenterRedownloadButton.Content =
-            entry.Kind == DownloadCenterKind.MediaEngine &&
-            _mediaUpdateStatus == MediaUpdateAvailability.UpdateAvailable
+            (entry.Kind == DownloadCenterKind.MediaEngine &&
+             _mediaUpdateStatus == MediaUpdateAvailability.UpdateAvailable) ||
+            isModelUpdate
                 ? L("Update", "Mettre à jour")
                 : entry.RequiresLicenseAcceptance
                     ? L("Reimport", "Réimporter")
@@ -4697,6 +4731,11 @@ public partial class MainWindow : Window
         var isMediaUpdate =
             entry.Kind == DownloadCenterKind.MediaEngine &&
             _mediaUpdateStatus == MediaUpdateAvailability.UpdateAvailable;
+        var isModelUpdate =
+            entry.Kind == DownloadCenterKind.AiStudioModel &&
+            entry.CanInstallAutomatically &&
+            entry.Id == _modelUpdateEntryId &&
+            _modelUpdateStatus == MediaUpdateAvailability.UpdateAvailable;
 
         var answer = MessageBox.Show(
             this,
@@ -4704,7 +4743,7 @@ public partial class MainWindow : Window
                 ? L(
                     $"Reimport {entry.DisplayName}?\n\nThe current local copy will be replaced by the official files you select.",
                     $"Réimporter {entry.DisplayName} ?\n\nLa copie locale actuelle sera remplacée par les fichiers officiels que vous sélectionnerez.")
-                : isMediaUpdate
+                : isMediaUpdate || isModelUpdate
                     ? L(
                         $"Update {entry.DisplayName}?\n\nThe installed copy is backed up and restored if the update fails.",
                         $"Mettre à jour {entry.DisplayName} ?\n\nLa copie installée est sauvegardée et restaurée si la mise à jour échoue.")
@@ -4713,7 +4752,7 @@ public partial class MainWindow : Window
                         $"Retélécharger {entry.DisplayName} ?\n\nLa copie installée est sauvegardée et restaurée si le remplacement échoue."),
             entry.RequiresLicenseAcceptance
                 ? L("Reimport", "Réimporter")
-                : isMediaUpdate
+                : isMediaUpdate || isModelUpdate
                     ? L("Update", "Mettre à jour")
                     : L("Redownload", "Retélécharger"),
             MessageBoxButton.YesNo,
@@ -4813,6 +4852,11 @@ public partial class MainWindow : Window
             _downloadCenterCts = null;
             if (entry.Kind == DownloadCenterKind.MediaEngine)
                 _mediaUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
+            if (entry.Kind == DownloadCenterKind.AiStudioModel)
+            {
+                _modelUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
+                _modelUpdateEntryId = null;
+            }
             DownloadCenterCancelButton.Visibility =
                 Visibility.Collapsed;
 
