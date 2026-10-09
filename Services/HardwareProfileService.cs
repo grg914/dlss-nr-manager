@@ -54,7 +54,10 @@ public sealed record HardwareProfileDecision(
 
 public sealed record HardwareProfilePreferences(
     HardwareProfileChoice Profile = HardwareProfileChoice.Auto,
-    HardwareOperatingMode Mode = HardwareOperatingMode.Normal);
+    HardwareOperatingMode Mode = HardwareOperatingMode.Normal,
+    GpuAdaptiveMode AdaptiveMode = GpuAdaptiveMode.Auto,
+    GpuOptimizationGoal Goal = GpuOptimizationGoal.Balanced,
+    GpuManualOptions? ManualOptions = null);
 
 public sealed class HardwareProfileService
 {
@@ -111,8 +114,20 @@ public sealed class HardwareProfileService
                 File.ReadAllText(PreferencesPath));
             if (saved != null &&
                 Enum.IsDefined(saved.Profile) &&
-                Enum.IsDefined(saved.Mode))
-                return saved;
+                Enum.IsDefined(saved.Mode) &&
+                Enum.IsDefined(saved.AdaptiveMode) &&
+                Enum.IsDefined(saved.Goal))
+            {
+                // Migrate legacy fixed-GPU selection into GPU-adaptive AUTO.
+                // An old Compatible flag must keep its restrictive meaning.
+                return saved with
+                {
+                    Profile = HardwareProfileChoice.Auto,
+                    AdaptiveMode = saved.Mode == HardwareOperatingMode.Compatible
+                        ? GpuAdaptiveMode.Compatible
+                        : saved.AdaptiveMode
+                };
+            }
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
@@ -123,7 +138,9 @@ public sealed class HardwareProfileService
     public static void SavePreferences(HardwareProfilePreferences preferences)
     {
         if (!Enum.IsDefined(preferences.Profile) ||
-            !Enum.IsDefined(preferences.Mode))
+            !Enum.IsDefined(preferences.Mode) ||
+            !Enum.IsDefined(preferences.AdaptiveMode) ||
+            !Enum.IsDefined(preferences.Goal))
             throw new ArgumentOutOfRangeException(nameof(preferences));
 
         Directory.CreateDirectory(Path.GetDirectoryName(PreferencesPath)!);
