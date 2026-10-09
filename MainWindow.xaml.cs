@@ -4302,8 +4302,8 @@ public partial class MainWindow : Window
 
         AiStudioStatusText.Text =
             L(
-                $"Job {job.Id:N} queued • {model.DisplayName} • {task.Label}. Execution starts only after the isolated manager-owned runtime and selected model are installed.",
-                $"Job {job.Id:N} ajouté à la file • {model.DisplayName} • {task.Label}. L’exécution démarre uniquement lorsque le runtime isolé géré et le modèle sélectionné sont installés.");
+                $"Job {job.Id:N} saved to the queue • {model.DisplayName} • {task.Label}. Execution is not available: a separately verified runtime, approved model and reviewed executor are required. Jobs do not start automatically.",
+                $"Job {job.Id:N} enregistré dans la file • {model.DisplayName} • {task.Label}. Exécution indisponible : un runtime vérifié, un modèle autorisé et un moteur d’exécution validé sont nécessaires. Les tâches ne démarrent pas automatiquement.");
 
         RefreshAiStudioJobs();
     }
@@ -4320,10 +4320,12 @@ public partial class MainWindow : Window
         if (AiStudioJobList == null)
             return;
 
+        // v4.5 diagnostic only: never launch a runtime from the Jobs list.
+        var preflight = new AiStudioJobPreflight(_aiStudio.Root);
         AiStudioJobList.ItemsSource =
             _aiStudio.LoadJobs()
                 .Select(x =>
-                    $"{x.CreatedAt.LocalDateTime:g} • {x.Task} • {x.ModelId} • {x.Status} • {x.Id:N}")
+                    $"{x.CreatedAt.LocalDateTime:g} • {x.Task} • {x.ModelId} • {x.Status} • {preflight.Inspect(x).Describe(_uiLanguage)} • {x.Id:N}")
                 .ToArray();
     }
 
