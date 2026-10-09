@@ -6,6 +6,10 @@
 >
 > **Snapshot:** 2026-10-09, GPT B source-audited handoff. Observed `main` SHA: `f8fc1d65448f150c27736f31a07131200dca6e63` (**refresh before every change; this is not a live lock**).
 
+### GPT A — v4 dependency audit (2026-10-09)
+
+Owner preference: **finish v4.0 before testing ReSTIR/producing another experimental Manager EXE**. The test-binary CI proposal is paused; #311/#316/#319 remain draft/unmerged. Verified 27 locked public source IDs match the upstream policy IDs; the NVIDIA DLSS SDK remains local-only. No new mandatory fork/source dependency identified. Scoped metadata fix and inventory: `docs/V4_DEPENDENCY_GAP_AUDIT.md`; Caustica source license is LGPL-3.0-or-later (distinct NVIDIA binary obligations). v4 gates remain #79 OpenMP REDIST licensed provenance, #95 real Windows process/rollback acceptance, GPT B offline-update completion and release checklist. Do **not** add v4.5 Python/CUDA/ComfyUI models or experimental ReSTIR assets to stable v4.0. This checkpoint is on a separate review-only PR; GitHub main remains the authority.
+
 ## Shared sources and precedence
 
 1. Read the latest `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` on GitHub.
