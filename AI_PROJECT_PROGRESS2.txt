@@ -188,3 +188,8 @@ NEXT: assess CI of PR #141/#142/#143/#144 on exact SHA, reconcile branches befor
 - Stage 6: actual v3.2.0 29 GitHub SHA-digest assets and seed 27, no old standalone SBOM/provenance; current release workflow builds SBOM.spdx.json/provenance/hash manifests. No v4 version bump or release until #111/#95/#79, full regression, licensing and owner gate. GPT A/C experimental lanes untouched.
 ## GPT B reconciliation checkpoint — 2026-10-10
 Stable protected main `b727d5f35e5e9212cb5a854b531e6071a65ab72f` includes signed #386 and #389, with current `build` and `Analyze C#` SUCCESS. This documentation and six-stage plan was restored onto fresh main from the separate stale #390 branch, preserving **both** old #389 and independent #390 append-only progress histories. Source PR does not imply hardware validation, completed #111/#95/#79, or release authorization. The prior #389-pending references in historical snapshots reflect their authored time; the latest source fact is #389 MERGED. GPT A/C experiments remain separate.
+
+
+
+## 2026-10-10 GPT B — RTX acceptance guide prepared, not executed (append-only)
+- docs/V4_WINDOWS_RTX_ACCEPTANCE_2026-10-10.md proposed with PowerShell normal/forced manager process check, GPU/RAM/VRAM/ports/offline/rollback/FR/EN/release dry-run. Does not prove real RTX conditions or safe redistribution. Main 78f8864a1e4820f436b23925071ff20f1defd9c2 source base. Keep #111/#95/#79 open, avoid v4 tag until actual evidence and authorization. Signed code PR #397 independent; journal reconciliation mandatory.

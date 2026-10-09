@@ -114,3 +114,8 @@ These are planning defaults, not claims of exclusive ownership. Always inspect c
 - GPT A v4.5 adaptive GPU #353/#381 and GPT C v4.5/4.6 AI Studio remain draft lanes. Never overwrite their work, merge a stale journal PR, or tag v4 prior to all required checks and operator approval.
 ## GPT B reconciliation checkpoint — 2026-10-10
 Stable protected main `b727d5f35e5e9212cb5a854b531e6071a65ab72f` includes signed #386 and #389, with current `build` and `Analyze C#` SUCCESS. This documentation and six-stage plan was restored onto fresh main from the separate stale #390 branch, preserving **both** old #389 and independent #390 append-only progress histories. Source PR does not imply hardware validation, completed #111/#95/#79, or release authorization. The prior #389-pending references in historical snapshots reflect their authored time; the latest source fact is #389 MERGED. GPT A/C experiments remain separate.
+
+
+
+## 2026-10-10 GPT B — separate Windows acceptance docs lane (append-only)
+- Physical RTX and release-candidate acceptance runbook proposed from protected main 78f8864a1e4820f436b23925071ff20f1defd9c2 (documentation and journals only); not GPU-executed. Check normal/forced helper cleanup, offline/network, FR/EN GUI, receipts, GPU RAM/VRAM, #95/#79/#111 and final exact release SHA. It is an independently authored branch; if #397 merges first rebase append-only journal suffix onto live main and sign/retest separately. GPT A/C v4.5 drafts untouched.
