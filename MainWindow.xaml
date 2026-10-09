@@ -1657,6 +1657,55 @@
                                    TextWrapping="Wrap"
                                    Margin="0,0,0,12"/>
 
+                        <StackPanel x:Name="AiStudioImageOptionsPanel"
+                                    Visibility="Collapsed"
+                                    Margin="0,0,0,12">
+                          <TextBlock Text="Paramètres FLUX.2 FP8"
+                                     FontWeight="SemiBold"
+                                     Margin="0,0,0,6"/>
+                          <WrapPanel>
+                            <StackPanel Margin="0,0,12,6">
+                              <TextBlock Text="Résolution / ratio"
+                                         Foreground="{StaticResource Muted}"
+                                         FontSize="10"/>
+                              <ComboBox x:Name="AiStudioResolutionBox"
+                                        Width="170" SelectedIndex="0"
+                                        ToolTip="Select the output resolution and image aspect ratio for FLUX.2 FP8.">
+                                <ComboBoxItem Content="1024 × 1024 · 1:1"/>
+                                <ComboBoxItem Content="1024 × 576 · 16:9"/>
+                                <ComboBoxItem Content="576 × 1024 · 9:16"/>
+                                <ComboBoxItem Content="1024 × 768 · 4:3"/>
+                                <ComboBoxItem Content="768 × 768 · 1:1"/>
+                              </ComboBox>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,12,6">
+                              <TextBlock Text="Steps"
+                                         Foreground="{StaticResource Muted}"
+                                         FontSize="10"/>
+                              <ComboBox x:Name="AiStudioStepsBox"
+                                        Width="85" SelectedIndex="0"
+                                        ToolTip="Select the number of FLUX.2 sampling steps; higher values take longer.">
+                                <ComboBoxItem Content="4"/>
+                                <ComboBoxItem Content="8"/>
+                                <ComboBoxItem Content="12"/>
+                                <ComboBoxItem Content="20"/>
+                              </ComboBox>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,0,6">
+                              <TextBlock Text="Seed (Auto ou entier)"
+                                         Foreground="{StaticResource Muted}"
+                                         FontSize="10"/>
+                              <TextBox x:Name="AiStudioSeedBox"
+                                       Width="152" Text="Auto"
+                                       ToolTip="Use Auto for a new random seed, or enter a fixed positive integer for repeatable settings."
+                                       MaxLength="16"/>
+                            </StackPanel>
+                          </WrapPanel>
+                          <TextBlock Text="Ces paramètres sont enregistrés avec la tâche ; aucune génération ne démarre avant validation du moteur."
+                                     Foreground="{StaticResource Muted}"
+                                     FontSize="10" TextWrapping="Wrap"/>
+                        </StackPanel>
+
                         <TextBlock Text="Prompt"
                                    Foreground="{StaticResource Muted}"
                                    FontSize="11"
@@ -1948,6 +1997,11 @@
                           ToolTip="Choisir le manifeste .manifest.json et ses parties .partNNN déjà présents sur ce PC"
                           IsEnabled="False" Margin="0,8,0,8"
                           Click="ImportOfflineFlux2_Click"/>
+                  <Button x:Name="VerifyOfflineFlux2Button"
+                          Content="Vérifier l'intégrité de FLUX.2 installé (lecture ≈ 12 Go)"
+                          ToolTip="Calcul manuel des empreintes SHA-256 locales ; aucune connexion requise"
+                          IsEnabled="False" Margin="0,0,0,8"
+                          Click="VerifyOfflineFlux2_Click"/>
                   <Button x:Name="DownloadCenterRemoveButton"
                           Content="Supprimer"
                           IsEnabled="False"

@@ -59,7 +59,11 @@ public sealed record AiStudioJob(
     string? InputPath,
     string? MaskPath,
     string OutputFolder,
-    string Status);
+    string Status)
+{
+    // Optional to preserve deserialization of existing queued job JSON files.
+    public AiStudioImageSettings? ImageSettings { get; init; }
+}
 
 public sealed class LocalAiStudioService
 {
@@ -576,8 +580,17 @@ public sealed class LocalAiStudioService
         string prompt,
         string? inputPath,
         string? maskPath,
-        string outputFolder)
+        string outputFolder,
+        AiStudioImageSettings? imageSettings = null)
     {
+        if (imageSettings is not null)
+        {
+            if (model.Id != "flux2-klein-4b" ||
+                task is not (AiStudioTaskKind.TextToImage or AiStudioTaskKind.ImageToImage))
+                throw new ArgumentException("Image settings are only reviewed for FLUX.2 FP8.");
+            imageSettings.Validate();
+        }
+
         EnsureWorkspace();
         Directory.CreateDirectory(outputFolder);
 
@@ -591,7 +604,10 @@ public sealed class LocalAiStudioService
             inputPath,
             maskPath,
             outputFolder,
-            "Queued");
+            "Queued")
+        {
+            ImageSettings = imageSettings
+        };
 
         File.WriteAllText(
             Path.Combine(JobsRoot, $"{job.Id:N}.json"),

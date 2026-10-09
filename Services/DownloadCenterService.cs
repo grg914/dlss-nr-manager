@@ -138,7 +138,9 @@ public sealed class DownloadCenterService
                     T("AI Studio • Models"),
                     DownloadCenterKind.AiStudioModel,
                     installed
-                        ? T("Installed")
+                        ? (UiLocalizationService.NormalizeLanguage(language) == "fr"
+                            ? "Fichiers présents (non vérifiés)"
+                            : "Files present (not verified)")
                         : model.ManagerOwnedRedistributionAllowed
                             ? T("Available if package is published")
                             : T("Manual installation required"),

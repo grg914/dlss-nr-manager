@@ -12,6 +12,9 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
 {
     private const string ModelId = "flux2-klein-4b";
     private const long MaxPartBytes = 1950L * 1024 * 1024;
+    // Five exact, pinned FP8/Qwen/VAE/workflow files total about 12.45 GB.
+    // Reject forged ZIP expansion before writing arbitrary additional bytes.
+    public const long MaxExpandedModelBytes = 14L * 1024 * 1024 * 1024;
 
     private static readonly IReadOnlyDictionary<string, string> FileHashes =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -95,6 +98,14 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
             ManagedPathSafety.HasReparsePointOnPath(target))
             throw new IOException("Offline package path crosses an unexpected junction or symlink.");
 
+        var freeNeeded = RequiredFreeSpaceBytes(manifest.Archive.Size);
+        var diskRoot = Path.GetPathRoot(Path.GetFullPath(studio.Root))
+            ?? throw new IOException("Unable to identify AI Studio target disk.");
+        var disk = new DriveInfo(diskRoot);
+        if (!disk.IsReady || disk.AvailableFreeSpace < freeNeeded)
+            throw new IOException(
+                $"Insufficient free disk space. AI Studio needs at least {freeNeeded / 1073741824d:0.0} GiB temporarily for verified ZIP64 reconstruction and model extraction.");
+
         await LargeDownloadApprovalHub.EnsureApprovedAsync(
             model.DisplayName, manifest.Archive.Size,
             "Import of local offline ZIP64 package; no network access.",
@@ -160,7 +171,7 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
                 throw new InvalidDataException("Reassembled offline ZIP64 archive SHA-256 mismatch.");
 
             progress?.Report("Archive vérifiée, extraction dans un dossier isolé…");
-            SafeZip.Extract(archivePath, staging, 16, long.MaxValue);
+            SafeZip.Extract(archivePath, staging, 16, MaxExpandedModelBytes);
             await VerifyExtractedFilesAsync(staging, cancellationToken);
 
             var receipt = new AiStudioPackageReceipt(
@@ -197,11 +208,71 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
         }
     }
 
+    /// <summary>
+    /// On-demand full disk read of the installed model. Never run at application
+    /// startup or in the background: FLUX.2 + Qwen exceed 12 GB.
+    /// A matching hash proves file bytes only, not runtime/licensing approval.
+    /// </summary>
+    public static async Task<bool> VerifyInstalledAsync(
+        string installedDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(installedDirectory);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (ManagedPathSafety.HasReparsePointOnPath(installedDirectory) ||
+            !Directory.Exists(installedDirectory))
+            return false;
+
+        var receiptPath = Path.Combine(
+            installedDirectory, AiStudioPackageService.LocalReceiptFile);
+        if (ManagedPathSafety.HasReparsePointOnPath(receiptPath) ||
+            !File.Exists(receiptPath) ||
+            new FileInfo(receiptPath).Length is <= 0 or > 8192)
+            return false;
+
+        try
+        {
+            var receipt = JsonSerializer.Deserialize<AiStudioPackageReceipt>(
+                await File.ReadAllTextAsync(receiptPath, cancellationToken));
+            if (receipt is null ||
+                receipt.PackageId != ModelId ||
+                receipt.ReleaseTag != $"ai-studio-{ModelId}-{receipt.Version}" ||
+                !Version.TryParse(receipt.Version, out _) ||
+                !IsSha(receipt.ArchiveSha256))
+                return false;
+
+            await VerifyExtractedFilesAsync(installedDirectory, cancellationToken);
+            return true;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or InvalidDataException or JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Conservative staging allowance: reconstructed ZIP plus the maximum
+    /// permitted expanded payload, plus 1 GiB for filesystem overhead.
+    /// The source archive already occupies disk and is not counted again.
+    /// </summary>
+    public static long RequiredFreeSpaceBytes(long archiveSize)
+    {
+        if (archiveSize <= 0 ||
+            archiveSize > long.MaxValue - MaxExpandedModelBytes - 1073741824L)
+            throw new ArgumentOutOfRangeException(nameof(archiveSize));
+        return checked(archiveSize + MaxExpandedModelBytes + 1073741824L);
+    }
+
     private static async Task VerifyExtractedFilesAsync(
         string staging, CancellationToken cancellationToken)
     {
         var files = Directory.EnumerateFiles(
-            staging, "*", SearchOption.AllDirectories).ToArray();
+            staging, "*", SearchOption.AllDirectories)
+            .Where(path => Path.GetRelativePath(staging, path) !=
+                AiStudioPackageService.LocalReceiptFile)
+            .ToArray();
         if (files.Length != FileHashes.Count)
             throw new InvalidDataException("Offline FLUX.2 package has missing/extra files.");
 
