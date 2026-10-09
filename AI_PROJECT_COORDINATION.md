@@ -45,6 +45,15 @@ Before **each new GPT A intervention/work session**, re-read **all three** `AI_P
 Exact-head Manager [#319](https://github.com/grg914/dlss-nr-manager/pull/319) `78a24c9e5bcdfe7d99091b1d5fcb5ec52006cbb5`: Windows Build [37953997832](https://github.com/grg914/dlss-nr-manager/actions/runs/37953997832) **SUCCESS (198/198 xUnit)**, deterministic packaging, zero-upstream policy. Still **DRAFT/UNMERGED**, no independent review/hardware RTX acceptance and no separate CodeQL confirmed for #319. Coordination Draft [#320](https://github.com/grg914/dlss-nr-manager/pull/320) uses append-only/checkpoint edits to all three documents; exact-head Build/CodeQL **PENDING** at checkpoint. Serialize any protected main merge with GPT B/C.
 
 
+## GPT A — consolidated four-point implementation handoff (2026-10-09)
+
+**Canonical GPT A review candidate:** branch `docs/gpt-a-consolidated-v4-six-phase-audit-20261009`, built on **live main `dddd9ac76a9108a7607331966f9148245a23e686`** after GPT B's #324 merge. It combines the unique history of old drafts #320/#325, Caustica LGPL metadata, dependency inventory, Windows RC acceptance and source-based NVIDIA / six-phase audit without removing GPT B/C records. Older draft URLs below are historical, not alternative merge targets. All three journals should be re-read and updated before intervention.
+
+- **GPT A Point 1 (PR consolidation):** unique #320 ReSTIR/CI checkpoints preserved alongside #325 v4 handoff, no old main overwrite. Close old draft PRs **only after** checking consolidated source blobs, branch ancestry and GitHub review evidence; protected squash only after signed head Build/CodeQL.
+- **GPT A Point 2 (Caustica import):** experimental Manager #319 updated to reject malformed/forged import receipts when deciding whether automatic restore is safe; new xUnit coverage, fail closed and retain backup. Exact newest build tests/CodeQL **PENDING** at checkpoint; no binaries published or RTX acceptance asserted.
+- **GPT A Point 3 (native integration):** `docs/GPT_A_NVIDIA_NGX_RESTIR_AUDIT_2026-10-09.md` verifies Vulkan/Caustica direct NGX (no OptiScaler proxy), RR/NR/FG capability checks and native hash-gated Streamline pair. Remaining GPU runtime, authorized SDK, Reflex latency and ReSTIR variance gates are explicit.
+- **GPT A Point 4 (six phases):** `docs/GPT_A_SIX_PHASES_STATUS_2026-10-09.md` marks implemented source, experimental and hardware/legal blockers separately. GPT B still owns v4.0 RC/release; GPT C owns separate v4.5. No stable release advancement claimed.
+
 ## Shared sources and precedence
 
 1. Read the latest `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` on GitHub.
