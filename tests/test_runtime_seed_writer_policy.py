@@ -23,7 +23,8 @@ class RuntimeSeedWriterPolicyTests(unittest.TestCase):
         self.assertIn(invocation, self.nuget)
         self.assertIn(invocation, self.refresh)
         self.assertNotIn("--clobber", self.nuget)
-        self.assertNotIn("gh release upload $env:RUNTIME_SEED_TAG $zip", self.refresh)
+        nuget_job = self.refresh.split("  nuget-runtime:", 1)[1].split("  java-runtime:", 1)[0]
+        self.assertNotIn("gh release upload", nuget_job)
         self.assertNotIn("gh release upload $env:RUNTIME_SEED_TAG $path", self.nuget)
 
     def test_publisher_verifies_content_and_published_asset(self):
