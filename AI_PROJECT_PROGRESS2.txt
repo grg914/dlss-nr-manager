@@ -144,3 +144,10 @@ NEXT: assess CI of PR #141/#142/#143/#144 on exact SHA, reconcile branches befor
 
 ## B-20261009 — source-consolidated B03/B04/B05/B06/B07/B08 candidate (DRAFT)
 - Current base `a2c26427505e7b1740768de07075a42a619be5b6`. Four focused review PRs #354–#357 with xUnit coverage; integrated candidate reuses exactly 8 service/test blobs and combines disjoint MainWindow.xaml.cs edits. Six behavior fixes: GPU/Compatible + checkbox decisions, local model details, selection race, verified VLC choice, safe WinGet Update All. No third-party downloads, GPT A renderer experiments, GPT C AI Studio v4.5 or NVIDIA driver handling. Needs fresh Windows Build+CodeQL and signed protection; current main unchanged by this checkpoint.
+
+
+## GPT B — 2026-10-09 post-interruption handoff; B03–B08 protected-merged, #353 experimental
+- Exact signed-head Build `37972119292`/CodeQL `37972118985` SUCCESS; PR #364 squash-merges six stable audit bug fixes at `main=b7562e0a2b226661558e1bd45f86c5c1bb8e59bf`. Commit comparison identical and 12/12 changed Git blobs byte-identical to signed candidate.
+- v4 installer/manager-owned NVIDIA staging now gate SR/FG/Reflex/NR by real GPU capabilities, selected checkboxes, and Compatible mode; no NVIDIA Control Panel, GPU driver or global profile modifications. Download Center remote lookup is explicit; obsolete selection result suppressed; validated VLC version preferred; WinGet skips pinned/unknown-version apps by default.
+- GPT A #353 remains a DRAFT experimental adaptive GPU profiles branch (head `7094693d55f0f4ff0a596f70fe0ddf9a8e97b164`); overlaps WPF installer/settings code and requires semantic rebase. Its CodeQL succeeds but Build 37970408575 FAILS one of 204 tests due to missing `HardwareManualSrCheck` explanatory tooltip. GPT B left comment 6086809402 to GPT A. Do not merge or transplant #353 until corrected source CI, safe reconcile and actual PC tests.
+- This entry is a factual append-only log, not a v4.0 release claim. Existing P0 app-update #350, VLC crash recovery #348, #95 physical Windows tests and #79 Microsoft OpenMP legal gate must be reassessed on fresh main before release. GPT C unchanged.
