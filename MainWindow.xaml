@@ -1282,7 +1282,7 @@
                     <ComboBoxItem Content="Auto — conserver la source"/>
                     <ComboBoxItem Content="SDR → HDR — NVIDIA TrueHDR"/>
                     <ComboBoxItem Content="Toujours sortir en HDR"/>
-                    <ComboBoxItem Content="Jamais sortir en HDR"/>
+                    <ComboBoxItem Content="Ne jamais sortir en HDR"/>
                   </ComboBox>
 
                   <TextBlock Text="SDR → HDR requires a compatible NVIDIA GPU/driver, an HDR display and Windows HDR enabled."
