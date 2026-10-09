@@ -24,6 +24,8 @@ public sealed class AiStudioComfyUiApiClientTests
             """{"1":{"class_type":"CustomPythonNode","inputs":{}}}""", out _));
         Assert.False(AiStudioComfyUiProtocol.TryCreateSubmission(
             """{"1":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"untrusted.ckpt"}}}""", out _));
+        Assert.False(AiStudioComfyUiProtocol.TryCreateSubmission(
+            """{"1":{"class_type":"SaveImage","inputs":{"filename_prefix":"../../outside"}}}""", out _));
         Assert.False(AiStudioComfyUiProtocol.TryCreateSubmission("{}", out _));
         Assert.False(AiStudioComfyUiProtocol.TryCreateSubmission("{bad json", out _));
         Assert.False(AiStudioComfyUiProtocol.TryCreateSubmission(new string('x', 140_000), out _));
