@@ -15,6 +15,22 @@ if ([IO.Path]::GetFileName($source) -ne $canonicalName) {
     throw "Expected a nuget-offline.zip archive."
 }
 
+# Fail closed before publication if the packaged seed is structurally invalid.
+try {
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($source)
+    try {
+        $names = @($archive.Entries | ForEach-Object { $_.FullName })
+        if ($names -notcontains "manifest.json" -or
+            @($names | Where-Object { $_ -like "*.nupkg" }).Count -eq 0) {
+            throw "NuGet seed ZIP must contain manifest.json and at least one .nupkg."
+        }
+    }
+    finally { $archive.Dispose() }
+}
+catch {
+    throw "NuGet seed ZIP validation failed: $($_.Exception.Message)"
+}
+
 $localSha = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
 $localSize = (Get-Item -LiteralPath $source).Length
 $assetApi = "repos/$Repository/releases/tags/$ReleaseTag"
@@ -53,7 +69,7 @@ if ($null -ne $canonical) {
     Assert-AssetIntegrity -Asset $canonical
     if ([string]$canonical.digest -eq "sha256:$localSha" -and [long]$canonical.size -eq [long]$localSize) {
         Write-Host "SKIP unchanged NuGet seed ($localSha)."
-        exit 0
+        return
     }
 
     # The existing name stays available to in-flight builds. Stage revisions
@@ -69,7 +85,7 @@ if ($null -ne $existing) {
         throw "Immutable release asset '$publishName' has conflicting content."
     }
     Write-Host "SKIP previously staged immutable NuGet seed ($publishName)."
-    exit 0
+    return
 }
 
 $temporaryDir = $null
