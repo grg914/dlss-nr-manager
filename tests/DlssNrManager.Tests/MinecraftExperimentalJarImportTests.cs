@@ -103,7 +103,7 @@ public sealed class MinecraftExperimentalJarImportTests
 
     private static void Add(ZipArchive zip, string path, string value)
     {
-        using var stream = zip.CreateEntry(path).Open();
+        using var stream = zip.CreateEntry(path, CompressionLevel.NoCompression).Open();
         var bytes = Encoding.UTF8.GetBytes(value);
         stream.Write(bytes);
     }
