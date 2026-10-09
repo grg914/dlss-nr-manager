@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace DlssNrManager.Services;
@@ -35,6 +36,26 @@ public sealed class MinecraftRestirExperimentService
 
             using (var zip = ZipFile.OpenRead(jars[0]))
             {
+                var manifest = zip.GetEntry("fabric.mod.json");
+                if (manifest is null || manifest.Length is <= 0 or > 131072)
+                    return Unavailable("The Caustica Fabric identity or Minecraft version is not compatible.");
+
+                using (var manifestStream = manifest.Open())
+                using (var metadata = JsonDocument.Parse(manifestStream))
+                {
+                    var mod = metadata.RootElement;
+                    if (mod.ValueKind != JsonValueKind.Object
+                        || !mod.TryGetProperty("id", out var modId)
+                        || modId.ValueKind != JsonValueKind.String
+                        || modId.GetString() != "caustica"
+                        || !mod.TryGetProperty("depends", out var depends)
+                        || depends.ValueKind != JsonValueKind.Object
+                        || !depends.TryGetProperty("minecraft", out var version)
+                        || version.ValueKind != JsonValueKind.String
+                        || version.GetString() != MinecraftIntegrationService.MinecraftVersion)
+                        return Unavailable("The Caustica Fabric identity or Minecraft version is not compatible.");
+                }
+
                 var entry = zip.GetEntry(SettingsClass);
                 if (entry is null || entry.Length is <= 0 or > 262144)
                     return Unavailable("The installed Caustica JAR does not expose the experimental option.");
@@ -61,7 +82,7 @@ public sealed class MinecraftRestirExperimentService
                 "Experimental Caustica setting detected. The binary is not certified for Vulkan/RTX rendering.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-            or InvalidDataException or ArgumentException or NotSupportedException)
+            or InvalidDataException or JsonException or ArgumentException or NotSupportedException)
         {
             return Unavailable("Cannot safely inspect the Caustica installation: " + ex.Message);
         }
