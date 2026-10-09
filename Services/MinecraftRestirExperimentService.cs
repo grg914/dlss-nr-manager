@@ -34,13 +34,13 @@ public sealed class MinecraftRestirExperimentService
             if (jars.Length != 1 || IsReparsePoint(jars[0]))
                 return Unavailable("Exactly one regular Caustica JAR is required.");
 
+            string? modVersion;
             using (var zip = ZipFile.OpenRead(jars[0]))
             {
                 var manifest = zip.GetEntry("fabric.mod.json");
                 if (manifest is null || manifest.Length is <= 0 or > 131072)
                     return Unavailable("The Caustica Fabric identity or Minecraft version is not compatible.");
 
-                string? modVersion;
                 using (var manifestStream = manifest.Open())
                 using (var metadata = JsonDocument.Parse(manifestStream))
                 {
