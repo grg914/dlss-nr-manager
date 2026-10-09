@@ -78,6 +78,34 @@ public sealed class AiStudioRuntimeIntegrityTests
         Assert.Equal(AiStudioRuntimeIntegrityStatus.InvalidManifest, result.Status);
     }
 
+    [Fact]
+    public async Task Rejects_pinned_malformed_manifest_json()
+    {
+        using var fixture = new RuntimeFixture();
+        Directory.CreateDirectory(fixture.Root);
+        var path = Path.Combine(fixture.Root, "runtime-integrity.json");
+        File.WriteAllText(path, "{invalid-json");
+
+        var result = await AiStudioRuntimeIntegrityService.VerifyAsync(
+            fixture.Root, HashService.Sha256(path));
+
+        Assert.Equal(AiStudioRuntimeIntegrityStatus.InvalidManifest, result.Status);
+    }
+
+    [Fact]
+    public async Task Rejects_oversized_manifest_without_deserializing_it()
+    {
+        using var fixture = new RuntimeFixture();
+        Directory.CreateDirectory(fixture.Root);
+        var path = Path.Combine(fixture.Root, "runtime-integrity.json");
+        File.WriteAllText(path, new string(' ', 256 * 1024 + 1));
+
+        var result = await AiStudioRuntimeIntegrityService.VerifyAsync(
+            fixture.Root, HashService.Sha256(path));
+
+        Assert.Equal(AiStudioRuntimeIntegrityStatus.InvalidManifest, result.Status);
+    }
+
     [Theory]
     [InlineData("/absolute/python.exe")]
     [InlineData("C:/Windows/System32/a.dll")]
