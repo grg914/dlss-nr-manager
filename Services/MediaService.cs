@@ -19,7 +19,6 @@ public sealed class MediaService
     private const string ManagerLatestReleaseApi =
         "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
     private const string FfmpegAsset = "ffmpeg-dlssnr-win-x64.zip";
-    private const string FfmpegApi = ManagerLatestReleaseApi;
     private const long MaxComponentDownloadBytes = 1024L * 1024 * 1024;
     private const long MaxExtractedArchiveBytes = 4L * 1024 * 1024 * 1024;
     private const int MaxArchiveEntries = 100_000;
