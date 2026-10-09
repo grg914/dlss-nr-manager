@@ -27,8 +27,7 @@ function Get-PackageEvidence {
     $files = @{}
     $folder = $folders[0]
     foreach ($file in @(Get-ChildItem -LiteralPath $folder.FullName -File -Recurse)) {
-        $name = $file.FullName.Substring($folder.FullName.Length).
-            TrimStart([char[]]@([char]92, [char]47)).Replace('\', '/')
+        $name = $file.FullName.Substring($folder.FullName.Length).TrimStart([char[]]@([char]92, [char]47)).Replace('\', '/')
         $files[$name] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     }
     if ($files.Count -eq 0 -or -not $files.ContainsKey("OptiScaler.dll")) {
