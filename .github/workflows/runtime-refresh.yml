@@ -223,7 +223,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "OptiScaler refresh build failed." }
           $zip = Get-ChildItem "build-local/optiscaler" -Filter "OptiScaler-NR-*-vendored-win-x64.zip" -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
           if (-not $zip) { throw "OptiScaler package was not generated." }
-          & ./tools/publish-versioned-runtime-seed.ps1 -Path $zip.FullName -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG
+          # Preserve the existing same-version ZIP. Different native build bytes
+          # are append-only and require reviewed consumer promotion.
+          & ./tools/publish-versioned-runtime-seed.ps1 -Path $zip.FullName -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG -OnChanged StageImmutable
 
 
       - name: Build and package ReShade
@@ -236,7 +238,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "ReShade refresh build failed." }
           $zip = Get-ChildItem "build-local/reshade" -Filter "ReShade-Setup-*-vendored.zip" -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
           if (-not $zip) { throw "ReShade package was not generated." }
-          & ./tools/publish-versioned-runtime-seed.ps1 -Path $zip.FullName -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG
+          # Native installer ZIPs can differ across builds even at a fixed
+          # source ref. Never clobber the existing canonical ReShade asset.
+          & ./tools/publish-versioned-runtime-seed.ps1 -Path $zip.FullName -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG -OnChanged StageImmutable
 
 
   ffmpeg-runtime:
