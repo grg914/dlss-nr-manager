@@ -16,7 +16,7 @@ Use this checklist before promoting a production release.
 - [ ] Deterministic application packaging passes.
 - [ ] `SHA256SUMS.txt` covers all production release assets.
 - [ ] `components-manifest.json` matches production assets.
-- [ ] `SOURCE-SBOM.spdx.json` is generated from the current source/dependency state.
+- [ ] `SBOM.spdx.json` is generated from the current source/dependency state and included in the exact produced release asset list.
 - [ ] `release-provenance.json` records the exact release source SHA.
 - [ ] Runtime seed downloads validate GitHub SHA-256 digests.
 - [ ] Restricted/native signer requirements pass where applicable.
@@ -45,9 +45,13 @@ Use this checklist before promoting a production release.
 - [ ] New user-visible strings have English and French mappings where the current UI requires localization.
 - [ ] Error/status/confirmation paths were checked in both languages.
 - [ ] Download/progress behavior is correct for changed downloadable components.
+- [ ] Language switch rebinds dynamic Download Center and official-source rows without starting any remote request.
+- [ ] Every eligible installed manager-owned component offers Update only for a **validated newer** package; offline/unknown/older/restricted cases remain safe (#111).
+- [ ] During actual close/force-kill, inspect owned process trees, local ports, downloads, file handles, RAM/VRAM and terminal diagnostic logs (#95).
 
 ## Final publication
 
 - [ ] Release target commit is the exact validated source SHA.
 - [ ] Release assets/digests were re-read after publication where the workflow requires it.
+- [ ] Published release includes `SBOM.spdx.json` and `release-provenance.json` with exact source SHA and matching assets; the historical v3.2.0 release does not include them.
 - [ ] Release notes do not claim signing, licensing, or feature guarantees that were not actually validated.

@@ -26,3 +26,27 @@ Use [V4_WINDOWS_PROCESS_ACCEPTANCE.md](V4_WINDOWS_PROCESS_ACCEPTANCE.md) on the 
 No v4 tag, user release or authorization follows from this document. Require: (a) #111 verified optional per-component download/update/rollback behavior, (b) #95 target hardware acceptance, (c) #79 approved signed REDIST or safe omission, (d) all FR/EN paths/UI acceptance, (e) exact-main signed Build/CodeQL+xUnit plus end-to-end packaging with SBOM/provenance/digests, and (f) owner release approval. Historical branches and experimental PRs remain until independently reconciled and safe to retire.
 
 **Evidence boundary:** GitHub file contents, live issue/PR states, GitHub release metadata, matching locked commit endpoints and prior exact-head CI are the verified facts. No physical test, actual binary/model retrieval, benchmark or release creation has been performed by this audit.
+
+
+## Operational handoff — 2026-10-09 (prioritized, no v4.0 release claim)
+
+The items below distinguish **verified source/CI facts** from **acceptance pending**. Do not turn draft PRs or GitHub upstream notifications into advertised shipped features.
+
+| Priority | Required work | Evidence that closes it | Owner/scope |
+| --- | --- | --- | --- |
+| P0 | #382 bilingual static labels, local-only dynamic list rebinding, tests | Exact current HEAD Windows Build/xUnit and CodeQL success, code review, GitHub-signed source-equivalent stage, protected serial squash and FR/EN Windows UI walkthrough | GPT B v4; prior source HEAD failed xUnit2031; fixed HEAD `5a006ccb150d7be5e238c9259645562f8cac5461` not yet validated |
+| P0 | #383 README/CHANGELOG/audit/checklist and all three shared journals | Review no stale claims, preserve all previous entries and reconcile #382/#383 overlapping `AI_PROJECT_PROGRESS.txt` appends; signed latest-main staging, Build+CodeQL, protected merge | GPT B docs-only draft; no merge |
+| P0 | #111 optional version-aware updates | Immutable approved release/asset ID+SHA/version receipts for remaining **eligible** components; one action, user confirmation, offline/no-new-version safe state, transactional rollback and tests. No install from arbitrary GitHub upstream notice | v4 Download Center |
+| P0 | #95 Windows runtime/lifecycle acceptance | Real Windows 11 + supported RTX: start→run→stop→cleanup for all installed manager-owned helpers; normal/forced exit, cancellation, background download stop, ports, handles, RAM/VRAM, file locks/junctions, disk full, temp/output preservation, restart recovery and final log evidence | User PC; CodeQL/xUnit insufficient |
+| P0 | #79 Microsoft OpenMP redistribution | Licensed, signed REDIST version/hash/source and legal rights or exclude OpenMP runtime while preserving fail-closed behavior, plus Real-ESRGAN x64 device regression | Binary licensing / owner |
+| P1 | Whole-app safety, compatibility and performance | FR/EN UI and error/confirmation audit, CPU/RAM/VRAM/latency under workloads, all supported RTX feature gating, offline PC-new-install runtime audit, no unnecessary network checks, actual download/asset-hash validation | v4 release candidate |
+| P1 | Final production release | Exact-source Build+CodeQL+xUnit, deterministic win-x64 self-contained ZIP/EXE, `SHA256SUMS.txt`, `components-manifest.json`, `SBOM.spdx.json`, `release-provenance.json`, required licenses/notices/signatures, checked published assets then user release approval | Stable main only |
+| Excluded | AI Studio Python/CUDA/ComfyUI runtime and GPU profiles / driver-health experiments | Separate v4.5+ validation (GPT A #353/#381, GPT C #285 + experimental PRs), never silently backported | Future lane |
+
+**CI finding from live run:** #382 head `b2da747830078b4f7225baf00f6134a31c926e9c` failed the Windows Build step before tests executed because xUnit analyzer `xUnit2031` rejected `Assert.Single(query.Where(predicate))` in `LocalizedOptionTooltipTests.cs`. New branch head `5a006ccb150d7be5e238c9259645562f8cac5461` replaces it with `Assert.Single(query, predicate)`; the new head requires fresh CI. Treat the earlier fail as a fixed source candidate, not as passing regression evidence.
+
+**Test placement:** `tests/DlssNrManager.Tests` is the xUnit project and `tests/CrashProbe` is its separate process-termination surrogate; the release single-file application must **not** embed these test source files. Test **execution and success** must be evidenced from exact candidate workflow logs; existence in GitHub does not suffice.
+
+**Release metadata naming:** `.github/workflows/release.yml` writes `release-assets/SBOM.spdx.json` and `release-assets/release-provenance.json`. The previous release checklist named an absent `SOURCE-SBOM.spdx.json`, now corrected on this draft branch; do not assume a v4 asset was uploaded. `v3.2.0` does not contain standalone SBOM or provenance assets; preserve immutable old release.
+
+**Checkpoint scope:** all statuses are as of the live source, issue, PR and workflow observations on 2026-10-09. No test was executed on the user's GPU, no byte-level model/binary installation was verified, and neither v4 RC nor release has been published.
