@@ -299,11 +299,22 @@ jobs:
 
           foreach ($asset in $modelAssets) {
             if (!(Test-Path -LiteralPath $asset.Source)) { throw "Vendored Real-ESRGAN model is missing: $($asset.Source)" }
-            $actualBlob = (git hash-object -- $asset.Source).Trim().ToLowerInvariant()
-            if ($LASTEXITCODE -ne 0 -or $actualBlob -ne $asset.GitBlobSha1.ToLowerInvariant()) {
-              throw "Real-ESRGAN model fingerprint mismatch for $($asset.Source). Expected $($asset.GitBlobSha1), got $actualBlob."
+            # IMPORTANT: --no-filters hashes the working-tree bytes, not Git's
+            # canonicalized LF representation. On Windows, implicit CRLF
+            # checkout used to pass a plain git hash-object check and publish
+            # transformed .param files incompatible with pinned raw-size/blob
+            # expectations (historical v3.2.0, issue #411).
+            $expectedBlob = $asset.GitBlobSha1.ToLowerInvariant()
+            $actualBlob = (git hash-object --no-filters -- $asset.Source).Trim().ToLowerInvariant()
+            if ($LASTEXITCODE -ne 0 -or $actualBlob -ne $expectedBlob) {
+              throw "Real-ESRGAN raw model fingerprint mismatch for $($asset.Source). Expected $expectedBlob, got $actualBlob. Check Git .gitattributes / line endings."
             }
-            Copy-Item -LiteralPath $asset.Source -Destination (Join-Path "release-assets" $asset.Name) -Force
+            $destination = Join-Path "release-assets" $asset.Name
+            Copy-Item -LiteralPath $asset.Source -Destination $destination -Force
+            $copiedBlob = (git hash-object --no-filters -- $destination).Trim().ToLowerInvariant()
+            if ($LASTEXITCODE -ne 0 -or $copiedBlob -ne $expectedBlob) {
+              throw "Real-ESRGAN release copy changed raw model bytes for $($asset.Name). Refusing publication."
+            }
           }
 
       - name: Reuse manager-owned Caustica and Scandi assets
