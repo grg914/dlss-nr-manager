@@ -109,17 +109,17 @@ try {
     Assert-True ($code.Contains("9f6672e5e0170dc118a3188d21bda187e1fc1aa3502895b21ab846d23165c11d")) "Locally controlled sl.dlss_nr SHA preserved"
     Assert-True ($code.Contains("e16bcf15e16e13f527491cdf7845b2fe6521a738d8f7c9c721866a8496e1fc8e")) "Locally controlled nvngx_dlssnr SHA preserved"
 
-    # Simulate the real v3.2.0 canonical asset remaining on GitHub. Its
-    # ZIP bytes predate the deterministic packaging, so they must NEVER change.
-    $stableHash = "fa6ada7fa759b977849900256316c3ee84a95e848e744ab260cef24b0a0361db"
+    # Simulate the current runtime-seed-v1 canonical asset. Its existing ZIP
+    # bytes predate deterministic packaging, so they must NEVER change.
+    $seedHash = "ceedc60833f7e64673ca4243aa97817dadfc1b072ae5889d1229031471d28783"
     $global:FakeAssets = @([pscustomobject]@{
         name = "streamline-runtime-v2.14.1-win-x64.zip"
         size = 171509289
-        digest = "sha256:$stableHash"
+        digest = "sha256:$seedHash"
     })
     & $publisher -Path $zipA -Repository "grg914/dlss-nr-manager" -ReleaseTag "runtime-seed-v1" -MinimumSizeBytes 1
     Assert-True ($global:FakeUploads -eq 1) "Changed ZIP staged exactly once"
-    Assert-True ($global:FakeAssets[0].digest -ceq "sha256:$stableHash") "Published canonical byte pin preserved"
+    Assert-True ($global:FakeAssets[0].digest -ceq "sha256:$seedHash") "Published canonical byte pin preserved"
     Assert-True ($global:FakeAssets[1].name -ceq "streamline-runtime-v2.14.1-win-x64.sha256-$hashA.zip") "Immutable staging filename is content-addressed"
     & $publisher -Path $zipA -Repository "grg914/dlss-nr-manager" -ReleaseTag "runtime-seed-v1" -MinimumSizeBytes 1
     Assert-True ($global:FakeUploads -eq 1) "Staged exact bytes never uploaded twice"
