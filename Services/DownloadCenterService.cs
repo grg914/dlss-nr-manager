@@ -392,7 +392,8 @@ public sealed class DownloadCenterService
     public async Task RedownloadAsync(
         DownloadCenterEntry entry,
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool requireVerifiedUpdate = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -400,7 +401,13 @@ public sealed class DownloadCenterService
         // the selected model. In particular, do not remove a licensed model.
         if (entry.Kind == DownloadCenterKind.AiStudioModel)
         {
-            await InstallAsync(entry, progress, cancellationToken);
+            // Distinguish a validated Update from an ordinary repair/re-download.
+            // An Update must re-check the selected package before destructive IO.
+            await _aiPackages.InstallAsync(
+                ResolveModel(entry),
+                progress,
+                cancellationToken,
+                requireVerifiedUpdate);
             return;
         }
 

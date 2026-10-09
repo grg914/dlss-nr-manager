@@ -77,4 +77,69 @@ public sealed class AiStudioManagerOwnedModelUpdateTests
     public void Uninstalled_model_does_not_offer_update() =>
         Assert.Equal(MediaUpdateAvailability.NotInstalled,
             AiStudioPackageService.EvaluateModelUpdate(Local(), Remote(), false, true));
+    [Fact]
+    public void Confirmed_update_rejects_equal_or_older_or_unverified_model_packages()
+    {
+        AiStudioPackageService.RequireConfirmedModelUpgrade(
+            Local(), Remote(), installed: true,
+            automaticRedistributionAllowed: true);
+
+        foreach (var candidate in new[]
+        {
+            Remote(version: "1.0.0"),
+            Remote(version: "0.9.0"),
+            Remote(hash: OldHash),
+            Remote(version: "2.0.0-beta"),
+            Remote(hash: "bad"),
+            Remote(packageId: "other")
+        })
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+                AiStudioPackageService.RequireConfirmedModelUpgrade(
+                    Local(), candidate, installed: true,
+                    automaticRedistributionAllowed: true));
+        }
+
+        Assert.Throws<InvalidOperationException>(() =>
+            AiStudioPackageService.RequireConfirmedModelUpgrade(
+                null, Remote(), installed: true,
+                automaticRedistributionAllowed: true));
+        Assert.Throws<InvalidOperationException>(() =>
+            AiStudioPackageService.RequireConfirmedModelUpgrade(
+                Local(), Remote(), installed: false,
+                automaticRedistributionAllowed: true));
+        Assert.Throws<InvalidOperationException>(() =>
+            AiStudioPackageService.RequireConfirmedModelUpgrade(
+                Local(), Remote(), installed: true,
+                automaticRedistributionAllowed: false));
+    }
+
+    [Fact]
+    public void Download_center_update_must_revalidate_package_before_swap()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(
+            Path.Combine(root.FullName, "DlssNrManager.csproj")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var services = Path.Combine(root!.FullName, "Services");
+        var install = File.ReadAllText(Path.Combine(
+            services, "AiStudioPackageService.cs"));
+        var download = File.ReadAllText(Path.Combine(
+            services, "DownloadCenterService.cs"));
+        var window = File.ReadAllText(Path.Combine(
+            root.FullName, "MainWindow.xaml.cs"));
+
+        var initial = install.IndexOf("if (requireVerifiedUpdate)", StringComparison.Ordinal);
+        var approved = install.IndexOf("await LargeDownloadApprovalHub.EnsureApprovedAsync(", StringComparison.Ordinal);
+        var beforeSwap = install.IndexOf(
+            "if (requireVerifiedUpdate)", approved, StringComparison.Ordinal);
+        var swap = install.IndexOf(
+            "await ManagedComponentRedownload.ReplaceAsync(", StringComparison.Ordinal);
+        Assert.True(initial >= 0 && initial < approved);
+        Assert.True(beforeSwap > approved && beforeSwap < swap);
+        Assert.Contains("requireVerifiedUpdate: isModelUpdate", window);
+        Assert.Contains("requireVerifiedUpdate);", download);
+    }
+
 }

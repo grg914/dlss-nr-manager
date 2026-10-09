@@ -286,6 +286,26 @@ public sealed class AiStudioPackageService
         return MediaUpdateAvailability.UpdateAvailable;
     }
 
+    /// <summary>
+    /// Revalidate a user-confirmed Update against the actual package selected
+    /// by the installer. A previous UI check is not an install authorization.
+    /// </summary>
+    public static void RequireConfirmedModelUpgrade(
+        AiStudioPackageReceipt? local,
+        AiStudioPackageAvailability remote,
+        bool installed,
+        bool automaticRedistributionAllowed)
+    {
+        if (EvaluateModelUpdate(
+                local, remote, installed, automaticRedistributionAllowed) !=
+            MediaUpdateAvailability.UpdateAvailable)
+        {
+            throw new InvalidOperationException(
+                "The selected model package is no longer a verified newer version. " +
+                "Refresh Downloads and review the current package before updating.");
+        }
+    }
+
     private static bool TryStableVersion(string? value, out Version parsed)
     {
         parsed = new Version(0, 0);
@@ -302,7 +322,8 @@ public sealed class AiStudioPackageService
     public async Task InstallAsync(
         AiStudioModelDescriptor model,
         IProgress<string>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool requireVerifiedUpdate = false)
     {
         if (!model.ManagerOwnedRedistributionAllowed)
         {
@@ -328,6 +349,13 @@ public sealed class AiStudioPackageService
                 cancellationToken)
             ?? throw new InvalidOperationException(
                 $"Aucun package manager-owned publié pour {model.DisplayName}.");
+
+        if (requireVerifiedUpdate)
+            RequireConfirmedModelUpgrade(
+                ReadInstalledReceipt(model),
+                package,
+                _studio.IsModelInstalled(model),
+                model.ManagerOwnedRedistributionAllowed);
 
         await LargeDownloadApprovalHub.EnsureApprovedAsync(
             model.DisplayName,
@@ -498,6 +526,15 @@ public sealed class AiStudioPackageService
                 AtomicFile.WriteAllText(
                     Path.Combine(staging, LocalReceiptFile),
                     JsonSerializer.Serialize(receipt));
+
+                // The installed model may have changed while a large update
+                // downloaded; fail closed before touching the healthy target.
+                if (requireVerifiedUpdate)
+                    RequireConfirmedModelUpgrade(
+                        ReadInstalledReceipt(model),
+                        package,
+                        _studio.IsModelInstalled(model),
+                        model.ManagerOwnedRedistributionAllowed);
 
                 await ManagedComponentRedownload.ReplaceAsync(
                     [installPath],
