@@ -1,3 +1,8 @@
+DÉCISION DE PÉRIMÈTRE (2026-10-09)
+Deux fonctionnalités prévues sont explicitement exclues de la v4.0 : NVCleanstall et le benchmark complet intégré.
+Ne pas ajouter d'outil/bouton d'installation NVCleanstall ni de page, moteur ou bouton de benchmark complet. Conserver l'identification indépendante des pilotes NVIDIA (avec ou sans NVIDIA App), les profils RTX, l'overlay FPS/frametime OptiScaler existant et les vérifications ponctuelles nécessaires aux tests de non-régression.
+Cette décision prévaut sur les demandes anciennes de ces deux fonctionnalités dans les documents historiques.
+
 Tu dois travailler sur mon projet en utilisant comme référence principale le fichier :
 
 cahier de charges.txt
