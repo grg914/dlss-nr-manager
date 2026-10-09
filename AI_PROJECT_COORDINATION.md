@@ -4,7 +4,46 @@
 >
 > **Repository:** `grg914/dlss-nr-manager`. Related experimental renderer: `grg914/Caustica-RTX`. **Never touch ScandiCraft repositories.**
 >
+> **GPT A status refresh (2026-10-09):** Coordination snapshot rechecked against protected main `dddd9ac76a9108a7607331966f9148245a23e686`. [PR #324](https://github.com/grg914/dlss-nr-manager/pull/324) offline update guard **merged**, Build/CodeQL green; source v3.2.0 still not v4.0. ReSTIR stack draft, no RTX physical acceptance. Older snapshot sections below are historical.
+
 > **Snapshot:** 2026-10-09, GPT B source-audited handoff. Observed `main` SHA: `f8fc1d65448f150c27736f31a07131200dca6e63` (**refresh before every change; this is not a live lock**).
+
+### GPT A — v4 dependency audit (2026-10-09)
+
+Owner preference: **finish v4.0 before testing ReSTIR/producing another experimental Manager EXE**. The test-binary CI proposal is paused; #311/#316/#319 remain draft/unmerged. Verified 27 locked public source IDs match the upstream policy IDs; the NVIDIA DLSS SDK remains local-only. No new mandatory fork/source dependency identified. Scoped metadata fix and inventory: `docs/V4_DEPENDENCY_GAP_AUDIT.md`; Caustica source license is LGPL-3.0-or-later (distinct NVIDIA binary obligations). v4 gates remain #79 OpenMP REDIST licensed provenance, #95 real Windows process/rollback acceptance, GPT B offline-update completion and release checklist. Do **not** add v4.5 Python/CUDA/ComfyUI models or experimental ReSTIR assets to stable v4.0. This checkpoint is on a separate review-only PR; GitHub main remains the authority.
+
+### GPT A — Live three-journal reconciliation (2026-10-09)
+
+**Owner workflow:** read **all three** live files before the next intervention; record changes using blob-SHA-guarded, append-only checkpoints on a reviewable branch. This is not a real-time shared lock. **Live main** checked at `b37d92ba801a9a30854e6f38552e475702742f6c`; the older GPT B snapshot above is historical.
+
+- **Scope:** finish Manager **v4.0** first; no experimental Windows Manager package, Caustica ReSTIR release, AI Studio v4.5 runtime or extra dependency fork. GPT B's [#324](https://github.com/grg914/dlss-nr-manager/pull/324) is a separate draft offline-update fix.
+- **GPT A PRs:** [#311](https://github.com/grg914/dlss-nr-manager/pull/311) (draft; currently GitHub `mergeable=false` against an older base) → [#316](https://github.com/grg914/dlss-nr-manager/pull/316) → [#319](https://github.com/grg914/dlss-nr-manager/pull/319) remain stacked drafts, unmerged and excluded from stable v4. #319 exact-head Build [37953997832](https://github.com/grg914/dlss-nr-manager/actions/runs/37953997832) **SUCCESS, 198/198 tests**; not RTX hardware validated.
+- **Competing document drafts:** [#320](https://github.com/grg914/dlss-nr-manager/pull/320) exact-head Build [37955471632](https://github.com/grg914/dlss-nr-manager/actions/runs/37955471632) and CodeQL [37955471642](https://github.com/grg914/dlss-nr-manager/actions/runs/37955471642) **SUCCESS**, but the branch now **diverges from main** and overlaps the three shared documents. [#325](https://github.com/grg914/dlss-nr-manager/pull/325) is the current GPT A source-aligned dependency-audit/checkpoint draft; reconcile unique #320 history before closing it, never merge both blindly.
+- **v4 gates:** issues [#79](https://github.com/grg914/dlss-nr-manager/issues/79) (licensed OpenMP REDIST) and [#95](https://github.com/grg914/dlss-nr-manager/issues/95) (physical Windows rollback) remain **OPEN**. GPT B owns stable release readiness and serialized protected merges. **No change to main** in this checkpoint.
+
+### GPT A — v4.0 release-gate reconciliation (2026-10-09)
+
+Live GitHub audit: `main=b37d92ba801a9a30854e6f38552e475702742f6c`; current app/version and latest stable release **v3.2.0**, not v4.0. PR **#318 closed without merge**; successor offline-update **#324 open draft**, head `d283308ad6e5492d5a0566c55795cf7b4c55bf63`, Build `37956420271` **SUCCESS**, CodeQL `37956420167` **IN PROGRESS** at this checkpoint. GPT B owns completion and reviewed/signed protected merges. Hard v4 gates remain issue **#95** Windows interruption/recovery/rollback acceptance, issue **#79** Microsoft OpenMP licensed REDIST provenance or fail-closed omission, Windows 11/RTX operator acceptance, exact-final-source Build/CodeQL/signature/reviews, package SHA-256+manifest/SBOM/provenance, FR/EN and final immutable `v4.0.0` release. The Caustica experimental draft stack #311→#316→#319 and AI Studio 4.5 are out of stable v4 scope. PR #320 docs diverges from live main; PR #325 source is aligned with latest checked main, pending exact-head CI and independent review. No extra mandatory dependency/fork verified.
+
+### GPT A / GPT B v4 completion handoff — 2026-10-09 (latest verified)
+
+- **Live main** `dddd9ac76a9108a7607331966f9148245a23e686`: GPT B offline background-check PR [#324](https://github.com/grg914/dlss-nr-manager/pull/324) **protected-merged**, exact Build/CodeQL **SUCCESS**, **194/194 tests**. Superseded #318 closed unmerged. Avoid duplicate offline-source work.
+- **GPT A completed preparation:** 27 public source lock ↔ upstream policy mapping audited; correction to Caustica LGPL-3.0-or-later lockfile metadata and dependency inventory in [#325](https://github.com/grg914/dlss-nr-manager/pull/325); Windows RC acceptance handoff at `docs/V4_RC_ACCEPTANCE_HANDOFF.md` (PR #325). All staged as **Draft**, not merged, and no SDK/binary distributed.
+- **GPT B remains accountable** for stable v4.0 source/reviews/releases. **Still blocked**: [#95](https://github.com/grg914/dlss-nr-manager/issues/95) physical Windows/RTX crashes, download interruption, locked-file/rollback and helper ownership; [#79](https://github.com/grg914/dlss-nr-manager/issues/79) operator Microsoft Visual Studio REDIST entitlement or fail-closed OpenMP omission; final WPF, FR/EN, SHA/signature/manifest/SBOM, RC→immutable v4.0.0.
+- **Coordination rule:** owner asked GPT A to reread/reconcile all three journals at every intervention. GitHub comments/PR are the shared handoff, **not** real-time locking. Serialize `main` merges with GPT B and verify signed ancestry. Experimental ReSTIR #311/#316/#319 and GPT C v4.5 must remain out of stable v4.0.
+
+## Latest verified GPT A handoff (2026-10-09 / GPT A / verified live main f8fc1d65448f150c27736f31a07131200dca6e63)
+
+The original tables below are a historical snapshot. Live GitHub state takes precedence. Manager draft stack: [#311](https://github.com/grg914/dlss-nr-manager/pull/311) → [#316](https://github.com/grg914/dlss-nr-manager/pull/316) → [#319](https://github.com/grg914/dlss-nr-manager/pull/319); all open/unmerged. Exact-head Build SUCCESS for all three, CodeQL SUCCESS confirmed for #311 only; hardware RTX/Vulkan, owner review, signature and remaining gates **not approved**. Caustica experimental [#28](https://github.com/grg914/Caustica-RTX/pull/28), [#29](https://github.com/grg914/Caustica-RTX/pull/29), [#30](https://github.com/grg914/Caustica-RTX/pull/30) also open/draft, CI successful, not production-validated. The #30 JAR is a pinned offline personal-test artifact, **not** approved for stable distribution. GPT A will audit recovery and verification before any merge. Never mix GPT B/C lanes or issue parallel main merges.
+
+## Owner-required GPT A pre-intervention protocol (2026-10-09)
+
+Before **each new GPT A intervention/work session**, re-read **all three** `AI_PROJECT_COORDINATION.md`, `AI_PROJECT_PROGRESS.txt`, and `AI_PROJECT_PROGRESS2.txt` from live GitHub, verify the current main/PR/CI state, and update all three with minimal fact-checked checkpoints using a dedicated conflict-safe branch/PR. Preserve every existing GPT B/C entry; never clobber shared files or write directly to protected main. This is an owner request, not authorization to bypass review, signature, CI or serialized merge rules.
+
+### 2026-10-09 GPT A CI addendum
+
+Exact-head Manager [#319](https://github.com/grg914/dlss-nr-manager/pull/319) `78a24c9e5bcdfe7d99091b1d5fcb5ec52006cbb5`: Windows Build [37953997832](https://github.com/grg914/dlss-nr-manager/actions/runs/37953997832) **SUCCESS (198/198 xUnit)**, deterministic packaging, zero-upstream policy. Still **DRAFT/UNMERGED**, no independent review/hardware RTX acceptance and no separate CodeQL confirmed for #319. Coordination Draft [#320](https://github.com/grg914/dlss-nr-manager/pull/320) uses append-only/checkpoint edits to all three documents; exact-head Build/CodeQL **PENDING** at checkpoint. Serialize any protected main merge with GPT B/C.
+
 
 ## Shared sources and precedence
 
