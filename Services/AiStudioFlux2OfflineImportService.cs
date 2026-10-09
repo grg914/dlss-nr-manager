@@ -12,6 +12,9 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
 {
     private const string ModelId = "flux2-klein-4b";
     private const long MaxPartBytes = 1950L * 1024 * 1024;
+    // Five exact, pinned FP8/Qwen/VAE/workflow files total about 12.45 GB.
+    // Reject forged ZIP expansion before writing arbitrary additional bytes.
+    public const long MaxExpandedModelBytes = 14L * 1024 * 1024 * 1024;
 
     private static readonly IReadOnlyDictionary<string, string> FileHashes =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -168,7 +171,7 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
                 throw new InvalidDataException("Reassembled offline ZIP64 archive SHA-256 mismatch.");
 
             progress?.Report("Archive vérifiée, extraction dans un dossier isolé…");
-            SafeZip.Extract(archivePath, staging, 16, long.MaxValue);
+            SafeZip.Extract(archivePath, staging, 16, MaxExpandedModelBytes);
             await VerifyExtractedFilesAsync(staging, cancellationToken);
 
             var receipt = new AiStudioPackageReceipt(
@@ -250,15 +253,16 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
     }
 
     /// <summary>
-    /// Conservative staging allowance: reconstructed ZIP plus extracted FP8,
-    /// Qwen and VAE files, plus 1 GiB for metadata/filesystem overhead.
-    /// The source package itself already occupies disk and is not counted again.
+    /// Conservative staging allowance: reconstructed ZIP plus the maximum
+    /// permitted expanded payload, plus 1 GiB for filesystem overhead.
+    /// The source archive already occupies disk and is not counted again.
     /// </summary>
     public static long RequiredFreeSpaceBytes(long archiveSize)
     {
-        if (archiveSize <= 0 || archiveSize > (long.MaxValue - 1073741824L) / 2)
+        if (archiveSize <= 0 ||
+            archiveSize > long.MaxValue - MaxExpandedModelBytes - 1073741824L)
             throw new ArgumentOutOfRangeException(nameof(archiveSize));
-        return checked(archiveSize * 2 + 1073741824L);
+        return checked(archiveSize + MaxExpandedModelBytes + 1073741824L);
     }
 
     private static async Task VerifyExtractedFilesAsync(
