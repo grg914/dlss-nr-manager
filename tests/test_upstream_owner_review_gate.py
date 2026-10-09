@@ -51,6 +51,20 @@ class UpstreamOwnerReviewGateTests(unittest.TestCase):
         self.assertIn("gh issue create", prepare)
         self.assertIn("restricted NVIDIA DLSS SDK remains notify-only", prepare)
 
+    def test_review_issue_markdown_cannot_execute_shell_substitutions(self):
+        stage = job("promote")
+        marker = 'cat > "$body_file" <<EOF'
+        self.assertIn(marker, stage)
+        body = stage.split(marker, 1)[1].split("\n          EOF", 1)[0]
+        # In an expanding Bash heredoc, unescaped Markdown backticks
+        # perform command substitution and erase the branch/dependency names.
+        self.assertIsNone(re.search(r"(?<!\\)`", body))
+        self.assertIn(r"\`$branch\`", body)
+        self.assertIn(r"\`$ids\`", body)
+        summary = next(line for line in stage.splitlines()
+                       if 'echo "Validated branch' in line)
+        self.assertIsNone(re.search(r"(?<!\\)`", summary))
+
     def test_validation_jobs_cannot_write(self):
         for name in ("validate-windows", "validate-linux"):
             body = job(name)
