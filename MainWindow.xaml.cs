@@ -2019,6 +2019,7 @@ public partial class MainWindow : Window
 
         MinecraftRestoreOriginalButton.IsEnabled = installed;
         MinecraftUpdateManagedButton.IsEnabled = installed && !ExperimentalMinecraftCausticaSelected();
+        MinecraftAllowPrereleaseCheck.IsChecked = !ExperimentalMinecraftCausticaSelected();
 
         if (ExperimentalMinecraftCausticaSelected())
             MinecraftOneClickInstallButton.IsEnabled = false;
