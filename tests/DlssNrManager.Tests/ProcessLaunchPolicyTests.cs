@@ -53,7 +53,7 @@ public sealed class ProcessLaunchPolicyTests
         var windowCode = File.ReadAllText(Path.Combine(root, "MainWindow.xaml.cs"));
         // One additional deliberate shell hand-off opens a validated official
         // GitHub source in the user's browser; it is not a manager-owned helper.
-        Assert.Contains("OpenOfficialUpstreamSource_Click", windowCode);
+        Assert.Contains("OpenOfficialUpstream_Click", windowCode);
         Assert.Equal(8, Regex.Matches(windowCode, @"\bProcess\s*\.\s*Start\s*\(").Count);
     }
 
