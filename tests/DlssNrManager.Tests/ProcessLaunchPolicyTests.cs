@@ -24,12 +24,13 @@ public sealed class ProcessLaunchPolicyTests
         Assert.True(Directory.Exists(services));
 
         // Reviewed exceptions are intentionally independent user/system tasks:
-        // updater must survive restart; Windows repair is elevated; ReShade
+        // updater must survive restart; Windows repair is elevated; Minecraft Launcher is user-controlled; ReShade
         // installer is user-controlled; PC updater opens external official URL.
         var directStartAllowlist = new Dictionary<string, int>(StringComparer.Ordinal)
         {
             ["ExternalProcessTracker.cs"] = 1,
             ["AppUpdateService.cs"] = 1,
+            ["MinecraftIntegrationService.cs"] = 2,
             ["WindowsRepairService.cs"] = 1,
             ["ReShadeService.cs"] = 1,
             ["PcUpdateService.cs"] = 1
