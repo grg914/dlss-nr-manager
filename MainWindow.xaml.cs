@@ -238,15 +238,32 @@ public partial class MainWindow : Window
                 MessageBoxImage.Warning);
         }
 
-        await Task.WhenAll(
-            RefreshReleaseAsync(),
-            ScanGamesAsync(forceRefresh: false),
-            CheckManagerUpdateAsync(),
-            RefreshMinecraftCausticaBuildAsync());
+        var internetAvailable = await StartupInternetConnectivity.IsAvailableAsync();
+        if (internetAvailable)
+        {
+            await Task.WhenAll(
+                RefreshReleaseAsync(),
+                ScanGamesAsync(forceRefresh: false),
+                CheckManagerUpdateAsync(),
+                RefreshMinecraftCausticaBuildAsync());
+        }
+        else
+        {
+            AppLogger.Info("Offline startup: remote release and update checks skipped.");
+            AvailableVersionText.Text = L(
+                "Offline • release checks paused",
+                "Hors ligne • recherches de versions suspendues");
+            AppVersionText.Text = $"Version v{AppIdentity.VersionString} • " +
+                L("offline", "hors ligne");
+            MinecraftCausticaBuildText.Text = L(
+                "Caustica RTX build: offline • check skipped",
+                "Caustica RTX : hors ligne • vérification ignorée");
+            await ScanGamesAsync(forceRefresh: false, allowNetwork: false);
+        }
 
         await RefreshStateAsync();
 
-        if (AutoUpdateComponentsCheck.IsChecked == true)
+        if (internetAvailable && AutoUpdateComponentsCheck.IsChecked == true)
         {
             try
             {
@@ -292,7 +309,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task ScanGamesAsync(bool forceRefresh)
+    private async Task ScanGamesAsync(bool forceRefresh, bool allowNetwork = true)
     {
         try
         {
@@ -306,9 +323,12 @@ public partial class MainWindow : Window
             GameBox.ItemsSource = _detectedGames;
 
             var initiallySelectedPath = _selectedGame?.TargetDirectory;
-            StatusText.Text = "Resolving game cover art…";
+            StatusText.Text = allowNetwork
+                ? "Resolving game cover art…"
+                : L("Using local game artwork…", "Utilisation des jaquettes locales…");
 
-            _detectedGames = await _artwork.ResolveAsync(_detectedGames);
+            _detectedGames = await _artwork.ResolveAsync(
+                _detectedGames, allowNetwork: allowNetwork);
             GameBox.ItemsSource = _detectedGames;
 
             var preferred = !string.IsNullOrWhiteSpace(initiallySelectedPath)
