@@ -137,7 +137,7 @@ public sealed class AiStudioRuntimeIntegrityTests
     [InlineData("python/bad|name.dll")]
     [InlineData("python/bad<name.dll")]
     [InlineData("python/bad>name.dll")]
-    [InlineData("python/line\\nfeed.dll")]
+    [InlineData("python/line\nfeed.dll")]
     public async Task Rejects_windows_reserved_or_invalid_member_paths(string memberPath)
     {
         using var fixture = new RuntimeFixture();
