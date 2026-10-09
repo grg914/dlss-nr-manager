@@ -10,6 +10,9 @@ public static class UiLocalizationService
 
     private static readonly Entry[] Entries =
     [
+        new("Select the output resolution and image aspect ratio for FLUX.2 FP8.", "Choisissez la résolution de sortie et le ratio de l'image pour FLUX.2 FP8."),
+        new("Select the number of FLUX.2 sampling steps; higher values take longer.", "Choisissez le nombre d'étapes d'échantillonnage FLUX.2 ; des valeurs élevées sont plus lentes."),
+        new("Use Auto for a new random seed, or enter a fixed positive integer for repeatable settings.", "Utilisez Auto pour une nouvelle seed aléatoire, ou indiquez un entier positif fixe pour reproduire les réglages."),
         new("Navigation", "Navigation"),
         new("Search every fixed local drive for supported game installations. This can take longer.", "Recherche les jeux sur tous les disques locaux fixes. L'analyse peut être plus longue."),
         new("Automatically locate the validated manager-owned Neural Rendering runtime when compatible.", "Recherche automatiquement le runtime Neural Rendering validé et géré par l'application lorsqu'il est compatible."),
