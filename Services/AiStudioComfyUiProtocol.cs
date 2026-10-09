@@ -58,6 +58,13 @@ public static class AiStudioComfyUiProtocol
                     inputs.ValueKind != JsonValueKind.Object)
                     return false;
 
+                // A SaveImage prefix must never select a path or parent directory.
+                if (type.GetString() == "SaveImage" &&
+                    inputs.TryGetProperty("filename_prefix", out var prefix) &&
+                    (prefix.ValueKind != JsonValueKind.String ||
+                     !IsSafeOutputPrefix(prefix.GetString())))
+                    return false;
+
                 // Refuse unreviewed top-level node metadata / extensions.
                 foreach (var field in node.Value.EnumerateObject())
                     if (field.Name is not ("class_type" or "inputs"))
@@ -133,6 +140,10 @@ public static class AiStudioComfyUiProtocol
             return AiStudioComfyUiHistoryState.NotFound;
         }
     }
+
+    private static bool IsSafeOutputPrefix(string? prefix)
+        => prefix is { Length: > 0 and <= 80 } &&
+           prefix.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-');
 
     private static bool IsBoundedResponse(string? json)
         => !string.IsNullOrWhiteSpace(json) &&
