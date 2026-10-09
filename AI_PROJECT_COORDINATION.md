@@ -19,6 +19,7 @@
 | --- | --- | --- |
 | **A — Avancement des six phases** | Six-phase roadmap; Minecraft RTX/Caustica and SPBRScandi provenance; ReSTIR/LOD/sky/weather/NRD+FSR research; real implementation and CI checkpoints. | Main-repo PR cleanup and governance PRs currently handled by B. Do not promote experimental Caustica JARs into the stable manager release without validation. |
 | **B — Audit PR / issues / cleanup** | Audit manager PRs, closed duplicates, issues, protected squash merges, CI/rulesets, cleanup of demonstrably obsolete PRs and verified branches. | Caustica experimental branches/PRs and six-phase implementation in A; never delete a diverged branch without semantic audit. |
+| **C — Développement v4.5** | New DLSS NR Manager v4.5 features developed separately from stabilization of v4.0 and Caustica renderer experiments. | Do not change GPT B's stable v4.0 auditing branches or GPT A's experimental Caustica branches without live coordination and explicit scope review. |
 
 These are planning defaults, not claims of exclusive ownership. Always inspect current PR activity; if a lane changes, update this table via a separate PR.
 
@@ -50,3 +51,11 @@ These are planning defaults, not claims of exclusive ownership. Always inspect c
 - **Lane A:** continue the six-phase work and register new experimental Caustica PRs/checkpoints with their precise acceptance status; keep production integration separate.
 - **Lane B:** finish CI-gated review of manager PR #158, then #162 and dependency PRs #152/#153; reconcile #144/#165 before merge; continue issue #124 branch audit.
 - **Both:** refresh this snapshot from GitHub before editing. Coordinate by distinct PRs; this file does not automatically synchronize ChatGPT conversations.
+
+
+## Lane A verified handoff — 2026-10-09, ReSTIR temporal integrity
+
+- Caustica experimental [PR #13](https://github.com/grg914/Caustica-RTX/pull/13) head `a4c6518587b5afd9a87b85fd8160e3ecf22c71e2` passed all three required NGX Windows/Linux and bundled JAR/Slang/Java jobs: [run 37913667063](https://github.com/grg914/Caustica-RTX/actions/runs/37913667063). It rejects invalid previous W/M/sample area/current target and out-of-range temporal candidate weights, with an analytic constant-light normalization test; this is **not** unbiased-MIS or in-game proof.
+- PR #13 was **squash merged into the DRAFT Caustica [PR #10](https://github.com/grg914/Caustica-RTX/pull/10) branch only**, GitHub-verified signed SHA `1dda03ca3cd1f8c797afaf49095562f8e1597e90`. New integrated-head [run 37914285412](https://github.com/grg914/Caustica-RTX/actions/runs/37914285412) passed all three jobs. Caustica `main` is unchanged; default `lights.restir-di=false`; no release or Manager asset promotion.
+- **Blockers owned by GPT A:** temporal estimator / MIS / visibility bias review, spatial resampling, RTX Vulkan visual/VRAM/frame-time validation. Then LOD, Nether/End environments/weather/volumetrics, then capability-gated NRD/FSR.
+- **Cross-lane:** GPT B owns v4.0 stability and protected Manager PR merges, including the independently pending progress [PR #169](https://github.com/grg914/dlss-nr-manager/pull/169) and coordination [PR #178](https://github.com/grg914/dlss-nr-manager/pull/178). GPT C owns v4.5-only new Manager features on separate branches. This is an additive handoff; re-read main before merging, preserve their work, no ScandiCraft changes.
