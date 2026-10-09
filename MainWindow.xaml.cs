@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftPreflightService _minecraftPreflight = new();
+    private readonly MinecraftRestirExperimentService _minecraftRestir = new();
     private readonly MinecraftOneClickService _minecraftOneClick;
     private readonly GenericNvidiaRuntimeService _genericNvidiaRuntime = new();
     private readonly NvidiaDlssNrDiscoveryService _nvidiaNrDiscovery = new();
@@ -1973,6 +1974,7 @@ public partial class MainWindow : Window
 
         MinecraftRestoreOriginalButton.IsEnabled = installed;
         MinecraftUpdateManagedButton.IsEnabled = installed;
+        RefreshMinecraftRestirState();
 
         if (installed && instance != null)
         {
@@ -1981,6 +1983,73 @@ public partial class MainWindow : Window
         }
 
         return installed;
+    }
+
+    private void RefreshMinecraftRestirState()
+    {
+        var instance = SelectedMinecraftInstance();
+        var state = instance == null
+            ? new MinecraftRestirState(false, false,
+                "Select a Minecraft Java instance first.")
+            : _minecraftRestir.Inspect(instance.RootDirectory);
+
+        MinecraftRestirOptionCheck.IsEnabled = state.Available;
+        MinecraftRestirApplyButton.IsEnabled = state.Available;
+        MinecraftRestirOptionCheck.IsChecked = state.Available && state.Enabled;
+
+        var message = state.Available
+            ? state.Enabled
+                ? "ReSTIR enabled in the Caustica config (experimental). Restart Minecraft."
+                : "ReSTIR disabled. Only an installed experimental Caustica JAR is supported."
+            : "ReSTIR not available: " + UiLocalizationService.Translate(state.Detail, _uiLanguage);
+        MinecraftRestirStatusText.Text =
+            UiLocalizationService.Translate(message, _uiLanguage);
+    }
+
+    private void ApplyMinecraftRestir_Click(object sender, RoutedEventArgs e)
+    {
+        var instance = SelectedMinecraftInstance();
+        if (instance == null)
+            return;
+
+        var state = _minecraftRestir.Inspect(instance.RootDirectory);
+        if (!state.Available)
+        {
+            RefreshMinecraftRestirState();
+            return;
+        }
+
+        var enable = MinecraftRestirOptionCheck.IsChecked == true;
+        if (state.Enabled == enable)
+            return;
+
+        var confirmation = UiLocalizationService.Translate(
+            "Close Minecraft before changing this experimental option. The selected Caustica JAR is not production-certified; temporal ReSTIR may cause flicker, high variance or rendering failures. A TOML backup is kept. Continue?",
+            _uiLanguage);
+
+        if (MessageBox.Show(confirmation, "ReSTIR DI (experimental)",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            RefreshMinecraftRestirState();
+            return;
+        }
+
+        try
+        {
+            _minecraftRestir.SetEnabled(instance.RootDirectory, enable);
+            AppLogger.Info("Minecraft experimental ReSTIR config updated for " +
+                instance.RootDirectory + " to " + enable + ".");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Unable to update experimental ReSTIR config.", ex);
+            MessageBox.Show(ex.Message, "ReSTIR DI (experimental)",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            RefreshMinecraftRestirState();
+        }
     }
 
     private async void MinecraftInstanceBox_SelectionChanged(
