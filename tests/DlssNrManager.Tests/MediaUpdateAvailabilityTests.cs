@@ -157,6 +157,38 @@ public sealed class MediaUpdateAvailabilityTests
         Assert.True(replace > reject && receipt > replace);
     }
 
+    [Fact]
+    public void Only_confirmed_Download_Center_updates_require_previously_installed_media()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null &&
+               !File.Exists(Path.Combine(directory.FullName, "DlssNrManager.csproj")))
+            directory = directory.Parent;
+
+        Assert.NotNull(directory);
+        var source = File.ReadAllText(Path.Combine(
+            directory!.FullName, "MainWindow.xaml.cs"));
+
+        // Preserve the general Check Updates command's existing bootstrap path
+        // while refusing to turn a confirmed update into an unexpected install.
+        var genericStart = source.IndexOf(
+            "private async void CheckComponentUpdates_Click(",
+            StringComparison.Ordinal);
+        var downloadStart = source.IndexOf(
+            "private async Task RunDownloadCenterActionAsync(",
+            StringComparison.Ordinal);
+        Assert.True(genericStart >= 0);
+        Assert.True(downloadStart >= 0);
+        var genericBody = source.Substring(genericStart, 1000);
+        Assert.Contains("forceRefresh: true", genericBody);
+        Assert.DoesNotContain("requireInstalledForUpdate:", genericBody);
+
+        var confirmedCall = source.IndexOf(
+            "requireInstalledForUpdate: true", downloadStart,
+            StringComparison.Ordinal);
+        Assert.True(confirmedCall > downloadStart);
+    }
+
     private static ComponentState State(string? fingerprint, string? releaseTag = "v3.1.1") =>
         new("manager:123", 456, DateTimeOffset.UtcNow, fingerprint, releaseTag);
 }
