@@ -15,6 +15,7 @@ on:
       - 'tools/generate-components-manifest.ps1'
       - 'tools/build-nuget-offline-seed.ps1'
       - 'tools/create-deterministic-flat-zip.ps1'
+      - 'tools/publish-append-only-runtime-seed.ps1'
       - 'tools/map-runtime-refresh-files.sh'
       - 'tools/publish-streamline-runtime.ps1'
       - 'tools/publish-temurin25-runtime.ps1'
@@ -208,7 +209,8 @@ jobs:
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\package-approved-openmp.ps1 -PackageDirectory $packageDir -VisualStudioRoot $env:VSINSTALLDIR -ApprovedForRedistribution
           if ($LASTEXITCODE -ne 0) { throw "Real-ESRGAN Microsoft OpenMP REDIST provenance check failed." }
           Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
-          gh release upload $env:RUNTIME_SEED_TAG $zip --repo "${{ github.repository }}" --clobber
+          # Validated licensed OpenMP gate above must succeed before staging this ZIP.
+          & ./tools/publish-append-only-runtime-seed.ps1 -Path $zip -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG -OnChanged StageImmutable
           if ($LASTEXITCODE -ne 0) { throw "Unable to publish Real-ESRGAN runtime seed." }
 
       - name: Build and package OptiScaler
