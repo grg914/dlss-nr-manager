@@ -1,3 +1,11 @@
+CHECKPOINT R094 (2026-10-09) - SCOPE DECISION: REMOVE NVCLEANSTALL AND FULL BENCHMARK
+- User explicitly removed two planned features from DLSS NR Manager v4 scope: (1) NVCleanstall-specific integration/installer/status profile; (2) integrated full benchmark engine, tab, button or automated multi-route FPS/1%-low/0.1%-low performance suite.
+- Documentation-only branch docs/v4-remove-nvcleanstall-full-benchmark based on main. Updated cahier de charges.txt as the authoritative specification; removed positive requirements for both features, replaced the integrated benchmark chapter with existing FPS overlay/manual observation guidance, preserved NVIDIA driver detection without NVIDIA App and manual A/B checks required by acceptance. Added an explicit scope exclusion to feuille de route.txt and simplified the obsolete Minecraft benchmark audit section to optional manual checks only.
+- Existing OptiScaler FPS/frametime overlay, Windows/NVIDIA driver detection, RTX hardware profiles, safety diagnostics and physical crash/performance acceptance are explicitly RETAINED. No production code/runtime/DLL/asset/feature handlers were changed; no removed product menu or benchmark engine existed in current main.
+- Historical R0xx journal entries mentioning NVCleanstall/benchmarks are historical observations and are SUPERSEDED by this decision; do not reopen them as pending feature work.
+- Validation: documentation diff and the absence of added functional requirements should be checked on PR; CI Build/CodeQL required before merge. #123 ongoing (PR141/#142), #111/#124/#79/#82/#95 remain open. 4.0 remains unreleased.
+NEXT: Review documentation-only PR, CI Build+CodeQL, merge only after exact SHA successful. Resume issue #123 without adding excluded features.
+
 CHECKPOINT R090 (2026-10-09) - PR139 MERGED / PR140 RECONCILED
 - PR139 Build, CodeQL and Runtime Seed Writer Safety Tests SUCCESS on 269393c2a4667af91a86ee98189d5266483d1a1b; squash merged to main 18252ebfbe766bc5610e5738c4af456372327caf. NuGet append-only publisher and Git-pinned consumer are now on main.
 - Reconcile PR140 FFmpeg append-only staging on top of current main, preserving PR139 NuGet workflow changes and full R088 journal while retaining PR140 R089 and its shell publisher, mock tests and CI workflow.
