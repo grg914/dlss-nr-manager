@@ -64,7 +64,7 @@ public static class VcRedistX64Detector
         object? installed,
         object? version)
     {
-        if (installed is not int { } flag || flag != 1)
+        if (installed is not int flag || flag != 1)
             return new(VcRedistX64State.NotDetected, null);
 
         var registeredVersion = (version as string)?.Trim();
