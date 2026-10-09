@@ -68,23 +68,26 @@ $forced = $false
 try {
     if ($ForceTerminateAfterSeconds -gt 0) {
         Start-Sleep -Seconds $ForceTerminateAfterSeconds
-        $current = Get-Process -Id $pidManager -ErrorAction SilentlyContinue
-        if ($null -ne $current) {
-            Write-Warning "Forcing ONLY the manager process $pidManager to exit. Any unsaved app state may be lost."
-            Stop-Process -Id $pidManager -Force -ErrorAction Stop
-            $forced = $true
+        # Use the process handle returned by Start-Process, never look up
+        # the original PID again: Windows may reuse a PID after exit.
+        if (-not $manager.HasExited) {
+            Write-Warning "Forcing ONLY the started manager process $pidManager to exit. Any unsaved app state may be lost."
+            try {
+                $manager.Kill()
+                $forced = $true
+            }
+            catch [System.InvalidOperationException] {
+                # The original manager may have exited between HasExited
+                # and Kill(). Do not target a new process with the old PID.
+                if (-not $manager.HasExited) { throw }
+            }
         }
     }
 
-    try {
-        Wait-Process -Id $pidManager -Timeout $TimeoutSeconds -ErrorAction Stop
-    }
-    catch {
-        $stillAlive = Get-Process -Id $pidManager -ErrorAction SilentlyContinue
-        if ($null -ne $stillAlive) {
-            $timedOut = $true
-            Write-Warning "Manager did not exit within the timeout; it was NOT killed by the timeout."
-        }
+    # Wait against the original process handle for the same identity reason.
+    if (-not $manager.WaitForExit($TimeoutSeconds * 1000)) {
+        $timedOut = $true
+        Write-Warning "Manager did not exit within the timeout; it was NOT killed by the timeout."
     }
 
     Start-Sleep -Seconds $GraceSeconds
