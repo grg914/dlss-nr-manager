@@ -105,7 +105,7 @@ try {
     Assert-True ($code.Contains("verify-streamline-runtime-asset.ps1")) "Pinned Neural Rendering verification retained"
     Assert-True ($code.Contains("Streamline runtime ZIP is not reproducible")) "Actual producer must rebuild and compare"
     Assert-True (-not $code.Contains("Compress-Archive")) "Unstable packaging removed"
-    Assert-True (-not $code.Contains("gh release upload $ReleaseTag $zip --repo $Repository --clobber")) "No destructive publication"
+    Assert-True (-not $code.Contains('gh release upload $ReleaseTag $zip --repo $Repository --clobber')) "No destructive publication"
     Assert-True ($code.Contains("9f6672e5e0170dc118a3188d21bda187e1fc1aa3502895b21ab846d23165c11d")) "Locally controlled sl.dlss_nr SHA preserved"
     Assert-True ($code.Contains("e16bcf15e16e13f527491cdf7845b2fe6521a738d8f7c9c721866a8496e1fc8e")) "Locally controlled nvngx_dlssnr SHA preserved"
 
