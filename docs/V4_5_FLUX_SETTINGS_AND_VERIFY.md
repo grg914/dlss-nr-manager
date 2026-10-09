@@ -15,6 +15,8 @@ Only settings with 256–2048 pixel multiples of 16, at most 4,194,304 pixels, 1
 
 An extra **Vérifier l'intégrité de FLUX.2 installé** button is visible in **Téléchargements** only when the FLUX.2 model directory is present. It requires explicit user action, uses local storage only and can be cancelled. It scans the full >12 GB installed model payload, compares the *original model* SHA-256 values to immutable upstream pins and both UI JSON fixture hashes, checks the manager-owned receipt schema/package identity and refuses unexpected/missing files or reparse points.
 
+The local ZIP64 installer checks that the target drive has sufficient temporary headroom (ZIP archive + an explicit **14 GiB maximum expanded payload** + 1 GiB margin). `SafeZip` also rejects archives whose declared uncompressed size exceeds 14 GiB; it does not wait for disk exhaustion to detect a decompression bomb. The limits fit the pinned three FLUX.2/Qwen/VAE weights and the two small workflow references.
+
 The check is intentionally **not** run at startup, on page selection or during background update checks. A positive result means the **file bytes match pinned model hashes**, NOT that the package distribution rights, ComfyUI runtime, GPU hardware or executable workflow have been approved. If the check fails, files are left intact for diagnosis; no silent repair is attempted. Previously installed model and queued jobs remain untouched.
 
 ## Still blocked before a real v4.5 release
