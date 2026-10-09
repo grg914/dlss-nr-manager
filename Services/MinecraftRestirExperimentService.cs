@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace DlssNrManager.Services;
 
-public sealed record MinecraftRestirState(bool Available, bool Enabled, string Detail);
+public sealed record MinecraftRestirState(bool Available, bool Enabled, string Detail, string? JarName = null, string? ModVersion = null);
 
 /// <summary>
 /// Offline, opt-in configuration of the experimental Caustica temporal ReSTIR switch.
@@ -40,6 +40,7 @@ public sealed class MinecraftRestirExperimentService
                 if (manifest is null || manifest.Length is <= 0 or > 131072)
                     return Unavailable("The Caustica Fabric identity or Minecraft version is not compatible.");
 
+                string? modVersion;
                 using (var manifestStream = manifest.Open())
                 using (var metadata = JsonDocument.Parse(manifestStream))
                 {
@@ -54,6 +55,11 @@ public sealed class MinecraftRestirExperimentService
                         || version.ValueKind != JsonValueKind.String
                         || version.GetString() != MinecraftIntegrationService.MinecraftVersion)
                         return Unavailable("The Caustica Fabric identity or Minecraft version is not compatible.");
+
+                    modVersion = mod.TryGetProperty("version", out var versionProperty)
+                        && versionProperty.ValueKind == JsonValueKind.String
+                            ? versionProperty.GetString()
+                            : null;
                 }
 
                 var entry = zip.GetEntry(SettingsClass);
@@ -79,7 +85,8 @@ public sealed class MinecraftRestirExperimentService
 
             var enabled = ReadSetting(File.Exists(config) ? File.ReadAllText(config) : "");
             return new(true, enabled,
-                "Experimental Caustica setting detected. The binary is not certified for Vulkan/RTX rendering.");
+                "Experimental Caustica setting detected. The binary is not certified for Vulkan/RTX rendering.",
+                Path.GetFileName(jars[0]), modVersion);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
             or InvalidDataException or JsonException or ArgumentException or NotSupportedException)
