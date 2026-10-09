@@ -1,6 +1,6 @@
 # Real-ESRGAN OpenMP-free evaluation (NOT for production)
 
-Issue [#79](https://github.com/grg914/dlss-nr-manager/issues/79) records that the production `runtime-refresh.yml` workflow currently copies `vcomp140.dll` from Windows System32 into a package. **This experimental build does not fix production packaging and must not be published until independently validated.**
+Issue [#79](https://github.com/grg914/dlss-nr-manager/issues/79) records a **historical** production workflow that copied `vcomp140.dll` from Windows System32. Current `main` no longer uses that untracked copy: the Real-ESRGAN packaging workflow requires an explicit legal-approval gate and `tools/package-approved-openmp.ps1` validates licensed Visual Studio REDIST provenance, Authenticode and SHA-256. **This experimental OpenMP-free build is not adopted for production and must not be published until independently validated.** The operator opt-in does not itself establish redistribution rights.
 
 The vendored root Real-ESRGAN CMake enables `find_package(OpenMP)`, while its vendored ncnn also enables `NCNN_OPENMP` by default. Both must be disabled to evaluate a build that does not link OpenMP.
 
