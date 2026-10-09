@@ -124,6 +124,39 @@ public sealed class MediaUpdateAvailabilityTests
                 State(NewFingerprint, "v3.2.0"), installed: true));
     }
 
+    [Fact]
+    public void Automatic_media_update_must_validate_version_before_replacement_and_receipt()
+    {
+        // Verify the safety decision cannot be bypassed by the automatic
+        // startup entry point, even while the pure comparison tests pass.
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null &&
+               !File.Exists(Path.Combine(directory.FullName, "DlssNrManager.csproj")))
+            directory = directory.Parent;
+
+        Assert.NotNull(directory);
+        var source = File.ReadAllText(Path.Combine(
+            directory!.FullName, "Services", "ComponentUpdateService.cs"));
+        var method = source.IndexOf(
+            "public async Task<bool> EnsureMediaToolsLatestAsync(",
+            StringComparison.Ordinal);
+        Assert.True(method >= 0);
+        var body = source[method..];
+
+        var guard = body.IndexOf("if (media.IsReady)", StringComparison.Ordinal);
+        var validate = body.IndexOf(
+            "var availability = EvaluateMediaUpdate(local, remote, installed: true);",
+            StringComparison.Ordinal);
+        var reject = body.IndexOf(
+            "if (availability != MediaUpdateAvailability.UpdateAvailable)",
+            StringComparison.Ordinal);
+        var replace = body.IndexOf("await media.UpdateToolsAsync(", StringComparison.Ordinal);
+        var receipt = body.IndexOf("SaveState(remote", StringComparison.Ordinal);
+
+        Assert.True(guard >= 0 && validate > guard && reject > validate);
+        Assert.True(replace > reject && receipt > replace);
+    }
+
     private static ComponentState State(string? fingerprint, string? releaseTag = "v3.1.1") =>
         new("manager:123", 456, DateTimeOffset.UtcNow, fingerprint, releaseTag);
 }
