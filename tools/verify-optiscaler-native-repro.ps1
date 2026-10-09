@@ -21,7 +21,7 @@ function Get-PeTimestamp {
     param([string]$Path)
     $stream = [IO.File]::OpenRead($Path)
     try {
-        $reader = New-Object IO.BinaryReader($stream)
+        $reader = [IO.BinaryReader]::new($stream)
         if ($reader.ReadUInt16() -ne 0x5A4D) { throw "Invalid DOS MZ header: $Path" }
         $stream.Position = 0x3c
         $peOffset = $reader.ReadInt32()
