@@ -382,7 +382,7 @@ public sealed class ComponentUpdateService
 
             if (string.IsNullOrWhiteSpace(id) ||
                 string.IsNullOrWhiteSpace(asset) ||
-                sha256.Length != 64)
+                !IsValidComponentDigest(sha256))
             {
                 throw new InvalidDataException(
                     "Manager component manifest contains an invalid component entry.");
@@ -404,6 +404,14 @@ public sealed class ComponentUpdateService
 
         return result;
     }
+
+    /// <summary>
+    /// A 64-character string is not necessarily a SHA-256 digest. Reject
+    /// malformed component metadata before any version/update decision.
+    /// </summary>
+    public static bool IsValidComponentDigest(string? sha256) =>
+        sha256 is { Length: 64 } &&
+        sha256.All(char.IsAsciiHexDigit);
 
     private static string? BuildMediaFingerprint(
         IReadOnlyList<ManagerComponentDescriptor>? components)
