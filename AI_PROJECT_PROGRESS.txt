@@ -1,3 +1,10 @@
+CHECKPOINT R087 (2026-10-09) - PR138 MERGED / PR139 MAIN RECONCILIATION
+- PR138 head cc0df09899e7a87b346c8338c3553f0fd5a3b985: Build SUCCESS, CodeQL SUCCESS, Runtime Seed Writer Safety Tests SUCCESS; squash merge main 518f5cfd220d1da2b6f0fa9b5a9ff3133eb0ad6f.
+- Git trees of PR138 head and squash main match exactly (61f95a420d99b2fcada4ac0930e7461f79405755). Preserve PR139 immutable NuGet staging and Git manifest pin on top, avoid force-push or wholesale file replacement.
+- PR139 mock GitHub / writer safety tests SUCCESS on prior head; latest Build and CodeQL must be rerun after main reconciliation, and tests must pass on exact final head. Previous success on an older commit does not authorize merge.
+- #123 still blocked by other publishers with destructive --clobber and lack of their pinned manifest migration. #111/#124/#79/#82/#95 remain open. v4 release NOT authorized.
+NEXT: retarget PR139 to main; verify source diff, final Build/CodeQL/safety CI, then guarded merge if complete.
+
 CHECKPOINT R086 (2026-10-09) - #123 IMMUTABLE NUGET PUBLISHER + GIT-PINNED CONSUMER
 - Stacked draft PR #139 adds tools/publish-immutable-nuget-seed.ps1: verifies non-empty ZIP with manifest.json and .nupkg, exact local SHA-256 and published GitHub digest/size, no --clobber; changed releases are staged as nuget-offline.sha256-<sha>.zip while canonical asset remains available. Both NuGet producer workflows use the same helper and concurrency group.
 - Live GitHub release runtime-seed-v1 current canonical nuget-offline.zip metadata: size 264155302, SHA256 c0e7e3349c6295ca04122313b18162806a091ce1430d3d7e75f7ab85791e458e. Recorded exactly in new Git-tracked manifests/runtime-seed-assets.json.
