@@ -24,6 +24,23 @@ public sealed class LocalAiStudioServiceTests
     }
 
     [Fact]
+    public void Model_status_reports_local_files_without_claiming_verified_installation()
+    {
+        var service = new LocalAiStudioService();
+        var model = Assert.Single(LocalAiStudioService.Models, x => x.Id == "flux2-klein-4b");
+
+        var english = service.GetModelStatus(model, "en");
+        var french = service.GetModelStatus(model, "fr");
+
+        Assert.Contains("Files", english);
+        Assert.Contains("Fichiers", french);
+        Assert.DoesNotContain("installed", english.ToLowerInvariant());
+        Assert.DoesNotContain("installé", french.ToLowerInvariant());
+        Assert.Contains(model.License, english);
+        Assert.Contains(model.License, french);
+    }
+
+    [Fact]
     public void Text_to_image_defaults_include_flux2_klein()
     {
         var service = new LocalAiStudioService();
