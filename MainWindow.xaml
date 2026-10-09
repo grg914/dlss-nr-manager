@@ -2580,23 +2580,42 @@
               <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
                   <TextBlock Text="Hardware &amp; Profiles" Style="{StaticResource SectionTitle}"/>
-                  <TextBlock Text="Read-only hardware detection and capability-safe preferences"
+                  <TextBlock Text="GPU-adaptive recommendations and hardware-safe manual preferences"
                              Style="{StaticResource SectionSubtitle}" Margin="0,4,0,18"/>
-                  <TextBlock Text="Hardware profile" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                  <TextBlock Text="GPU profile mode" FontWeight="SemiBold" Margin="0,0,0,8"/>
                   <ComboBox x:Name="HardwareProfileBox" SelectedIndex="0"
                             MaxWidth="500" HorizontalAlignment="Left"
                             SelectionChanged="HardwareProfile_Changed"
-                            ToolTip="AUTO detects your actual GPU and CPU. A manual preset never unlocks unsupported hardware features.">
-                    <ComboBoxItem Content="AUTO"/>
-                    <ComboBoxItem Content="RTX 5060 Ti 16GB + Ryzen 7 9700X"/>
+                            ToolTip="AUTO recommends a GPU-capability-safe profile; Manual keeps your explicit choices; Compatible turns off FG and NR.">
+                    <ComboBoxItem Content="AUTO — Optimized"/>
+                    <ComboBoxItem Content="Manual — Custom"/>
+                    <ComboBoxItem Content="Compatible — Conservative"/>
                   </ComboBox>
-                  <CheckBox x:Name="HardwareCompatibleCheck" Margin="0,15,0,10"
-                            Content="Compatible mode"
-                            Checked="HardwareProfile_Changed"
-                            Unchecked="HardwareProfile_Changed"
-                            ToolTip="Compatible mode conservatively disables optional Frame Generation and Neural Rendering while retaining supported Super Resolution."/>
-                  <TextBlock Text="Uncheck Compatible mode to use Normal mode."
-                             FontSize="11" Foreground="{StaticResource Muted}"
+                  <TextBlock Text="Optimization priority" FontWeight="SemiBold" Margin="0,15,0,8"/>
+                  <ComboBox x:Name="HardwareGoalBox" SelectedIndex="1"
+                            MaxWidth="500" HorizontalAlignment="Left"
+                            SelectionChanged="HardwareProfile_Changed"
+                            ToolTip="Quality, Balanced or Performance changes recommendations only; game DLSS quality is not silently changed.">
+                    <ComboBoxItem Content="Quality"/>
+                    <ComboBoxItem Content="Balanced (recommended)"/>
+                    <ComboBoxItem Content="Performance"/>
+                  </ComboBox>
+                  <StackPanel x:Name="HardwareManualOptionsPanel" Margin="0,15,0,14">
+                    <TextBlock Text="Manual feature requests" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <CheckBox x:Name="HardwareManualSrCheck" Content="DLSS Super Resolution" IsChecked="True"
+                              Checked="HardwareProfile_Changed" Unchecked="HardwareProfile_Changed"/>
+                    <CheckBox x:Name="HardwareManualFgCheck" Content="Frame Generation" IsChecked="False"
+                              Checked="HardwareProfile_Changed" Unchecked="HardwareProfile_Changed"/>
+                    <CheckBox x:Name="HardwareManualReflexCheck" Content="Reflex" IsChecked="True"
+                              Checked="HardwareProfile_Changed" Unchecked="HardwareProfile_Changed"/>
+                    <CheckBox x:Name="HardwareManualNrCheck" Content="Neural Rendering (explicit opt-in)" IsChecked="False"
+                              Checked="HardwareProfile_Changed" Unchecked="HardwareProfile_Changed"/>
+                  </StackPanel>
+                  <TextBlock x:Name="HardwareRecommendationText" TextWrapping="Wrap"
+                             Foreground="{StaticResource Muted}" Margin="0,0,0,14"
+                             Text="Detect hardware to see recommendations."/>
+                  <TextBlock Text="No NVIDIA Control Panel, NVIDIA App, GPU clocks or global driver settings are modified."
+                             Foreground="{StaticResource Muted}" FontSize="11"
                              TextWrapping="Wrap" Margin="0,0,0,14"/>
                   <Button Content="Refresh hardware detection"
                           HorizontalAlignment="Left" Style="{StaticResource CyanButton}"
