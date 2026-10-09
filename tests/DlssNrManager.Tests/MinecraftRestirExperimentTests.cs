@@ -103,7 +103,7 @@ public sealed class MinecraftRestirExperimentTests
         using (var archive = ZipFile.Open(Path.Combine(mods, jarName), ZipArchiveMode.Create))
         {
             var metadata = archive.CreateEntry("fabric.mod.json");
-            using (var writer = new StreamWriter(metadata.Open(), Encoding.UTF8, leaveOpen: false))
+            using (var writer = new StreamWriter(metadata.Open(), Encoding.UTF8))
                 writer.Write("{\"id\":\"caustica\",\"depends\":{\"minecraft\":\"" + minecraftVersion + "\"}}");
             var entry = archive.CreateEntry("dev/comfyfluffy/caustica/CausticaConfig$Rt$Lights.class");
             using var stream = entry.Open();
