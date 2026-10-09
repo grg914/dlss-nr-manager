@@ -4849,6 +4849,7 @@ public partial class MainWindow : Window
             DownloadCenterRedownloadButton.IsEnabled =
                 false;
             ImportOfflineFlux2Button.IsEnabled = false;
+            VerifyOfflineFlux2Button.IsEnabled = false;
             return;
         }
 
@@ -4857,6 +4858,8 @@ public partial class MainWindow : Window
         ImportOfflineFlux2Button.IsEnabled =
             !busy && entry.Kind == DownloadCenterKind.AiStudioModel &&
             entry.ModelId == "flux2-klein-4b";
+        VerifyOfflineFlux2Button.IsEnabled =
+            ImportOfflineFlux2Button.IsEnabled && entry.IsInstalled;
 
         var isModelUpdate =
             entry.Kind == DownloadCenterKind.AiStudioModel &&
@@ -4887,6 +4890,58 @@ public partial class MainWindow : Window
             entry.IsInstalled &&
             (entry.CanInstallAutomatically ||
              entry.RequiresLicenseAcceptance);
+    }
+
+    private async void VerifyOfflineFlux2_Click(
+        object sender, RoutedEventArgs e)
+    {
+        var entry = SelectedDownloadCenterEntry();
+        if (_downloadCenterCts != null ||
+            entry is not
+                { Kind: DownloadCenterKind.AiStudioModel,
+                  ModelId: "flux2-klein-4b", IsInstalled: true })
+            return;
+
+        _downloadCenterCts = new CancellationTokenSource();
+        DownloadCenterCancelButton.Visibility = Visibility.Visible;
+        RefreshDownloadCenterButtons();
+
+        try
+        {
+            DownloadCenterStatusText.Text = L(
+                "Checking all model hashes locally (this can take several minutes)…",
+                "Vérification locale de tous les SHA-256 (plusieurs minutes possibles)…");
+            var model = LocalAiStudioService.Models.Single(x => x.Id == "flux2-klein-4b");
+            var verified = await AiStudioFlux2OfflineImportService.VerifyInstalledAsync(
+                _aiStudio.GetModelDirectory(model), _downloadCenterCts.Token);
+            DownloadCenterStatusText.Text = verified
+                ? L(
+                    "Installed model files match the pinned SHA-256. Runtime execution is not yet approved.",
+                    "Fichiers du modèle conformes aux SHA-256 épinglés. Exécution du runtime non encore autorisée.")
+                : L(
+                    "Integrity check failed or files are missing. Existing files were NOT altered.",
+                    "Échec de vérification ou fichiers manquants. Aucune modification effectuée.");
+        }
+        catch (OperationCanceledException)
+        {
+            DownloadCenterStatusText.Text = L(
+                "Integrity check cancelled; no files changed.",
+                "Vérification interrompue ; aucun fichier modifié.");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn("FLUX.2 integrity check unavailable: " + ex.GetType().Name);
+            DownloadCenterStatusText.Text = L(
+                $"Integrity check unavailable: {ex.Message}",
+                $"Vérification indisponible : {ex.Message}");
+        }
+        finally
+        {
+            _downloadCenterCts.Dispose();
+            _downloadCenterCts = null;
+            DownloadCenterCancelButton.Visibility = Visibility.Collapsed;
+            RefreshDownloadCenterButtons();
+        }
     }
 
     private async void ImportOfflineFlux2_Click(
