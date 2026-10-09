@@ -65,10 +65,11 @@ public sealed class AiStudioFlux2OfflineImportService(LocalAiStudioService studi
             throw new InvalidDataException("Offline package identity, version or format is invalid.");
 
         long total = 0;
+        var expectedIndex = 1;
         foreach (var chunk in manifest.Chunks.OrderBy(x => x.Index))
         {
             // These are raw ZIP transport parts, NEVER numbered 7-Zip archives.
-            if (chunk.Index != manifest.Chunks.IndexOf(chunk) + 1 ||
+            if (chunk.Index != expectedIndex++ ||
                 chunk.Name != $"{ModelId}-{manifest.Version}.part{chunk.Index:000}" ||
                 chunk.Size is <= 0 or > MaxPartBytes ||
                 !IsSha(chunk.Sha256))
