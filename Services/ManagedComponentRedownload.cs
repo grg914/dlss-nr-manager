@@ -161,9 +161,48 @@ public static class ManagedComponentRedownload
         var transactional = RecoverOwnedBackups(owned);
 
         var legacy = RecoverLegacyMediaUpdateBackups(media);
+        var legacyVlc = RecoverLegacyVlcBackup(Path.Combine(root, "vlc"));
         return new ComponentRecoveryReport(
-            transactional.Restored + legacy.Restored,
-            transactional.Failed + legacy.Failed);
+            transactional.Restored + legacy.Restored + legacyVlc.Restored,
+            transactional.Failed + legacy.Failed + legacyVlc.Failed);
+    }
+
+    /// <summary>
+    /// The old VLC installer used the fixed sibling "vlc.backup", which is
+    /// not covered by GUID-based transactional recovery. Never delete it.
+    /// Restore only when the live folder is absent; conflicting folders
+    /// require manual review so neither copy can be lost.
+    /// </summary>
+    public static ComponentRecoveryReport RecoverLegacyVlcBackup(string vlcDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(vlcDirectory);
+        var live = Path.GetFullPath(vlcDirectory);
+        var backup = live + ".backup";
+
+        if (!Directory.Exists(backup) && !File.Exists(backup))
+            return new ComponentRecoveryReport(0, 0);
+
+        try
+        {
+            if (ManagedPathSafety.HasReparsePointOnPath(live) ||
+                ManagedPathSafety.HasReparsePointOnPath(backup) ||
+                !Directory.Exists(backup) ||
+                Directory.Exists(live) ||
+                File.Exists(live))
+            {
+                AppLogger.Warn($"Legacy VLC backup needs manual review; files preserved: {backup}");
+                return new ComponentRecoveryReport(0, 1);
+            }
+
+            Directory.Move(backup, live);
+            AppLogger.Warn($"Recovered old VLC runtime after interrupted installation: {live}");
+            return new ComponentRecoveryReport(1, 0);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Error($"Could not recover legacy VLC backup; files retained: {backup}", error);
+            return new ComponentRecoveryReport(0, 1);
+        }
     }
 
     /// <summary>
