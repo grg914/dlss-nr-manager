@@ -36,12 +36,19 @@ function Resolve-SeedAssets {
             $name = [string]$asset.name
             if ($seen.ContainsKey($name)) { continue }
 
+            if ($name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$' -or $name -eq '.' -or $name -eq '..') {
+                throw "Invalid manager-owned seed asset filename: $name"
+            }
+            if ([string]$asset.id -notmatch '^[0-9]+$') {
+                throw "Manager-owned seed asset '$name' has no valid numeric GitHub asset ID."
+            }
+
             $url = [string]$asset.browser_download_url
             $digest = [string]$asset.digest
             if ([string]::IsNullOrWhiteSpace($url) -or -not $url.StartsWith("https://github.com/$Repository/releases/download/", [StringComparison]::OrdinalIgnoreCase)) {
                 throw "Unexpected manager-owned asset URL for '$name': $url"
             }
-            if ([string]::IsNullOrWhiteSpace($digest) -or -not $digest.StartsWith("sha256:", [StringComparison]::OrdinalIgnoreCase)) {
+            if ($digest -notmatch '^(?i:sha256):[0-9a-fA-F]{64}$') {
                 throw "Manager-owned seed asset '$name' has no GitHub SHA-256 digest."
             }
 

@@ -1,3 +1,24 @@
+CHECKPOINT R082 (2026-10-09) - PR137 DOWNLOADER RESTORED FROM CLEAN MAIN
+- PR #137 head b9e582fc6d36c1354960009dbc9b69cecfe80acd: Build 37865258172 FAILED in Validate self-contained tooling; CodeQL was in progress at investigation time. Build log: Unexpected token ')' in tools/download-runtime-seed.ps1.
+- Root cause: malformed prior patch left multiple duplicated downloader blocks after the legitimate file ending (805 lines versus 164 clean main lines). Earlier R081 parser repair did not remove trailing corruption.
+- Restored whole downloader from clean main at 4d3fd6dfab4c070c238fe36cbfb43ccd325123c1, then reintroduced only safe filename, numeric asset ID, and exact SHA-256 digest guards. New downloader: 171 lines, git diff only 7 additions and 1 replacement, commit db52898d3e968ba2154091a3854488291e5a6505.
+- Prior checkpoint claims of corrected PowerShell syntax were premature; this restores the pristine source first and requires fresh CI for proof. PR #137 stays unmerged until Build AND CodeQL pass on latest head. #123 immutable publication work remains outstanding. No v4.0 release authorized.
+NEXT: verify CI of final head and do not remove retained progress history.
+
+CHECKPOINT R081 (2026-10-09) - PR137 CI FAILURE ANALYSIS AND POWERSHELL PARSER REPAIR
+- PR #137 previous head 52c49524489d19137dd089a63ae2a73ffb7b1627: Build 37865008798 FAILURE at Validate self-contained tooling; CodeQL 37865008838 FAILURE at Prepare manager-owned offline NuGet feed.
+- Build log confirms PowerShell syntax error in tools/download-runtime-seed.ps1, caused by truncated replacement lines in asset filename and digest regex validation. Both failures are consequences of that malformed script, NOT a confirmed dependency-feed outage.
+- Repaired the complete PowerShell validation block in commit e23433a3dcc39af299ca1619a5248580f0fecd39: filename single-component regex, numeric GitHub asset ID, HTTPS release URL and SHA-256 64-hex digest. Reviewed resulting source text.
+- PR must remain unmerged until Windows Build, regression tests and CodeQL succeed on the FINAL branch HEAD after this journal update. Issue #123 immutable publishing remains unresolved; no v4 release authorized.
+NEXT: inspect new CI checks; continue immutable publisher + consumer work separately after verified merge.
+
+CHECKPOINT R080 (2026-10-09) - PR136 MERGED / RUNTIME SEED METADATA PREFLIGHT
+- PR #136 Build and CodeQL SUCCESS on c8ce9ce04bdcf0d1a41e212b8effa01544fabc4d; squash merged main 4d3fd6dfab4c070c238fe36cbfb43ccd325123c1.
+- Issue #123 audit: current download-runtime-seed.ps1 already retries inconsistent snapshots and verifies downloaded SHA-256 plus GitHub asset ID and digest against a second release read. This does not make --clobber publishers atomic.
+- This branch strengthens download metadata validation before disk writes: restrict asset filename to a single safe basename, require numeric GitHub asset ID and an exactly formatted 64-hex SHA-256 digest.
+- All changes require final Windows Build + CodeQL and regression verification before merge. Physical Windows/NVIDIA, immutable publish+manifest promotion, #79 redistribution provenance, #82 ruleset, #111 updates, #124 branches remain outstanding. No v4.0 release.
+NEXT: validate branch CI; implement immutable publisher/consumer rollout without deleting assets needed by in-flight builds.
+
 CHECKPOINT R075 (2026-10-09) - PR135 VALIDEE ET FUSIONNEE
 - PR #135 head 2d18fae0557f7d9d6eaa58995834547c32036121: CodeQL run 37862717930 SUCCESS, Build run 37862717923 SUCCESS, regression tests SUCCESS, Windows x64 publish, executable/icon verification and deterministic packaging SUCCESS.
 - PR #135 marked ready for review only after CI success, then squash merged to main f71133dd355784a8c012102b498f61c2923f3ff8 with expected head SHA lease.
