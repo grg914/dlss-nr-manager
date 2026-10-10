@@ -29,10 +29,9 @@ public sealed class MinecraftPerformancePackConsistencyTests
         var rootPath = root!.FullName;
         using var runtimeLock = JsonDocument.Parse(File.ReadAllText(
             Path.Combine(rootPath, "third_party", "minecraft", "RUNTIME.lock.json")));
-        Assert.True(runtimeLock.RootElement
-            .GetProperty("excluded_components")
-            .EnumerateArray()
-            .Any(entry => entry.GetProperty("name").GetString() == "C2ME"));
+        Assert.Contains(
+            runtimeLock.RootElement.GetProperty("excluded_components").EnumerateArray(),
+            entry => entry.GetProperty("name").GetString() == "C2ME");
 
         var installer = File.ReadAllText(Path.Combine(rootPath, "Services", "MinecraftIntegrationService.cs"));
         var oneClick = File.ReadAllText(Path.Combine(rootPath, "Services", "MinecraftOneClickService.cs"));
