@@ -2,6 +2,13 @@
 
 All notable release changes should be recorded here. This file distinguishes **merged code** from **unreleased plans**. Source version and latest published GitHub release are separate facts.
 
+### 2026-10-10 — V4 source audit and integration gates
+- Integrated through protected signed PR #422: optional self-contained V4 **local developer test** builder for a PC without an installed Manager; not a distributable release artifact.
+- Integrated through protected signed PR #424: read-only local Microsoft VC++ x64 detection with FR/EN UI, no third-party installer/binary distribution; old #340/#341 superseded.
+- Final audit candidate: broaden central log levels to TRACE/DEBUG/INFO/WARNING/ERROR/CRITICAL, redact common credentials, add missing FR/EN labels, structured fatal dispatcher diagnostics and xUnit checks. This line describes an **unmerged candidate** until required CI and signed squash are verified.
+- Checked 25 pinned upstream GitHub source commits and 10 model source pages; binary/LFS availability, model hashes, hardware GPU and licensing remain unverified. Five old Real-ESRGAN .param mismatch #411 and optional update expansion #111 remain explicit blockers.
+- New audit and cleanup candidate inventory under docs/, plus retrospective AI_PROJECT_PROGRESS3.txt; no destructive branch/file cleanup and no v4 release.
+
 ## [Unreleased] — 4.0 readiness (not shipped)
 
 
