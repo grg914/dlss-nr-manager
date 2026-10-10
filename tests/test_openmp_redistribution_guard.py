@@ -28,6 +28,10 @@ class RealEsrganNoOpenMpPolicyTests(unittest.TestCase):
         self.assertIn("DLSSNR_REALESRGAN_RUNTIME_APPROVED", self.workflow)
         self.assertIn("audit-realesrgan-package-openmp.ps1", self.workflow)
         self.assertIn("audit-realesrgan-package-openmp.ps1", self.qualifier)
+        release = (ROOT / ".github/workflows/release.yml").read_text("utf-8")
+        self.assertIn("Enforce OpenMP-free Real-ESRGAN archive before V4 release", release)
+        self.assertIn("audit-realesrgan-package-openmp.ps1", release)
+        self.assertIn("Promote a verified OpenMP-free immutable asset first", release)
         self.assertIn("Get-ChildItem -LiteralPath $packageDir -File -Recurse", self.workflow)
         self.assertIn("NO_SHIPPED_PE_OPENMP_IMPORT_FOUND", self.qualifier)
 
