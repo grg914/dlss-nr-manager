@@ -1954,6 +1954,11 @@
                           Content="Supprimer"
                           IsEnabled="False"
                           Click="RemoveDownloadCenter_Click"/>
+                  <Button x:Name="DownloadCenterManageInModuleButton"
+                          Content="Gérer dans le module correspondant"
+                          Visibility="Collapsed"
+                          Margin="0,8,0,0"
+                          Click="ManageDownloadCenterInModule_Click"/>
 
                   <Button x:Name="DownloadCenterCancelButton"
                           Content="Annuler le téléchargement"
@@ -1971,13 +1976,14 @@
                   <Border BorderBrush="#1E2C3A"
                           BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,14,0,0">
                     <StackPanel>
-                      <TextBlock Text="Versions officielles des outils" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                      <TextBlock Text="Comparer les dépôts officiels aux sources suivies (sans installation automatique)."
+                      <TextBlock Text="Version officielle du composant sélectionné" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                      <TextBlock Text="Vérifie seulement la source officielle du composant sélectionné, sans analyser les autres dépôts et sans installation automatique."
                                  Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                       <Button x:Name="CheckOfficialUpstreamUpdatesButton"
-                              Content="Vérifier versions officielles"
+                              Content="Vérifier la version officielle de la sélection"
+                              IsEnabled="False"
                               Click="CheckOfficialUpstreamUpdates_Click" Margin="0,0,0,8"/>
-                      <ListBox x:Name="OfficialUpdateList" Height="160"
+                      <ListBox x:Name="OfficialUpdateList" Height="76"
                                SelectionChanged="OfficialUpdateList_SelectionChanged"/>
                       <TextBlock x:Name="OfficialUpdateDetailsText"
                                  Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,8"/>
