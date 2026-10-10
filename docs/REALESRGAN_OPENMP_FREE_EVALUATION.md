@@ -1,18 +1,18 @@
-# Real-ESRGAN OpenMP-free evaluation (NOT for production)
+# Real-ESRGAN / NCNN: OpenMP disabled by default (V4)
 
-Issue [#79](https://github.com/grg914/dlss-nr-manager/issues/79) records a **historical** production workflow that copied `vcomp140.dll` from Windows System32. Current `main` no longer uses that untracked copy: the Real-ESRGAN packaging workflow requires an explicit legal-approval gate and `tools/package-approved-openmp.ps1` validates licensed Visual Studio REDIST provenance, Authenticode and SHA-256. **This experimental OpenMP-free build is not adopted for production and must not be published until independently validated.** The operator opt-in does not itself establish redistribution rights.
+Decision (2026-10-10): the V4 build policy permanently disables both vendored ncnn OpenMP (`NCNN_OPENMP=OFF`) and root CMake OpenMP discovery (`CMAKE_DISABLE_FIND_PACKAGE_OpenMP=TRUE`). The Vulkan GPU path remains enabled. This setting applies **only** to the Real-ESRGAN native executable, not Windows, NVIDIA drivers, WPF, VLC, OptiScaler, AI Studio or other executables.
 
-The vendored root Real-ESRGAN CMake enables `find_package(OpenMP)`, while its vendored ncnn also enables `NCNN_OPENMP` by default. Both must be disabled to evaluate a build that does not link OpenMP.
+The historical OpenMP/Visual Studio REDIST branch is retired from the packaging workflow. No `vcomp140.dll` is copied from `System32` or `VC/Redist`, and the new package contains only the compiled executable and its upstream license notices. The Windows PE import audit fails closed if a direct OpenMP DLL import is present in any shipped EXE or DLL.
 
-From a Windows x64 Visual Studio Developer PowerShell with pinned Vulkan SDK / vendored sources:
+From Windows x64 with build prerequisites installed:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan-no-openmp -Clean -DisableOpenMp
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan-no-openmp -Clean
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\audit-realesrgan-openmp.ps1 -ExecutablePath .\build-realesrgan-no-openmp\Release\realesrgan-ncnn-vulkan.exe
+
+# The full packaged EXE/DLL audit is executed in the qualification and runtime-refresh workflows.
 ```
 
-The PE import audit deliberately fails if it cannot locate `dumpbin.exe`, parse dependencies or sees a direct `vcomp140.dll`, `libomp.dll`, `libgomp.dll` or `libiomp*.dll` import. **It checks direct imports only**; transitives, signatures and every shipped DLL must still be audited.
+The CI workflow `.github/workflows/realesrgan-openmp-free-qualification.yml` produces a Windows build and a direct PE import audit; it does **not** publish a release asset or validate actual NVIDIA/RTX GPU execution. Direct import inspection does not exclude dynamically loaded or transitive dependencies.
 
-Before proposing promotion, compare the current build and the experimental one on the **same Windows/NVIDIA PC** with x2/x4 models, representative images/video, Vulkan GPU selection, peak VRAM/RAM, throughput, quality and overnight stability. Record the exact NVIDIA driver, Windows build, GPU, SDK, commit, compiler, artifact hashes and performance. If the no-OpenMP version is inadequate, resolve the dependency by sourcing a properly licensed Microsoft Visual C++ Redistributable with documented provenance rather than copying a random System32 DLL.
-
-**No code in this experiment changes production release defaults, runtime manifest, license notices or published assets.** #79 remains open until complete checks and explicit adoption.
+**Important:** existing published `v3.2.0` / `runtime-seed-v1` binaries are immutable historical assets and are not silently rewritten. The production runtime-refresh job requires `DLSSNR_REALESRGAN_RUNTIME_APPROVED=1` after actual Windows Vulkan/RTX acceptance before staging a new immutable package. The approved SHA-256 package must be promoted separately through reviewed consumer metadata; no automatic overwrite of the canonical runtime asset. Issues #79 (no-OpenMP proof), #95 (physical Windows validation) remain open until those checks pass.

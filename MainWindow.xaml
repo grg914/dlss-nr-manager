@@ -793,7 +793,7 @@
 
                     <WrapPanel Margin="0,8,0,0">
                       <CheckBox x:Name="MinecraftPerformancePackCheck"
-                                Content="Performance pack without renderer replacement (Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS)"
+                                Content="Performance pack without renderer replacement (Lithium + FerriteCore + Krypton + BadOptimizations + Dynamic FPS)"
                                 IsChecked="True"
                                 Margin="0,0,18,6" ToolTip="Include compatible Minecraft performance mods without replacing the Caustica renderer."/>
                       <CheckBox x:Name="MinecraftSpbrCheck"

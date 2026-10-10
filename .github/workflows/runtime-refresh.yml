@@ -43,8 +43,9 @@ concurrency:
 
 env:
   RUNTIME_SEED_TAG: runtime-seed-v1
-  # Only an authorized operator may opt in after validating Visual Studio rights.
-  DLSSNR_OPENMP_REDIST_APPROVED: ${{ vars.DLSSNR_OPENMP_REDIST_APPROVED || '0' }}
+  # OpenMP is disabled in Real-ESRGAN; runtime replacement requires on-device
+  # Vulkan acceptance and explicit approval (no REDIST DLL is bundled).
+  DLSSNR_REALESRGAN_RUNTIME_APPROVED: ${{ vars.DLSSNR_REALESRGAN_RUNTIME_APPROVED || '0' }}
 
 jobs:
   seed-release:
@@ -181,13 +182,13 @@ jobs:
           lfs: true
 
       - name: Explain withheld Real-ESRGAN publication
-        if: (needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')) && env.DLSSNR_OPENMP_REDIST_APPROVED != '1'
+        if: (needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')) && env.DLSSNR_REALESRGAN_RUNTIME_APPROVED != '1'
         shell: pwsh
         run: |
-          Write-Warning "Skipping Real-ESRGAN publication: Microsoft OpenMP REDIST rights are not attested (issue #79). Existing asset preserved."
+          Write-Warning "Skipping new Real-ESRGAN runtime publication: OpenMP is removed from the build; Windows Vulkan/RTX acceptance and explicit release approval are pending (#79/#95). Existing immutable asset is preserved."
 
-      - name: Build and package Real-ESRGAN
-        if: (needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')) && env.DLSSNR_OPENMP_REDIST_APPROVED == '1'
+      - name: Build and package Real-ESRGAN without OpenMP
+        if: (needs.seed-release.outputs.changed_ids == 'all' || contains(needs.seed-release.outputs.changed_ids, 'realesrgan')) && env.DLSSNR_REALESRGAN_RUNTIME_APPROVED == '1'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -202,14 +203,14 @@ jobs:
           Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/LICENSE" (Join-Path $packageDir "LICENSE-Real-ESRGAN.txt") -Force
           Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt" (Join-Path $packageDir "LICENSE-ncnn.txt") -Force
           Copy-Item "third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING" (Join-Path $packageDir "LICENSE-libwebp.txt") -Force
-          # Never copy an untracked System32 OpenMP DLL into a public release.
-          # The producer must opt in only after a licensed REDIST/legal review.
-          $approved = $env:DLSSNR_OPENMP_REDIST_APPROVED -eq '1'
-          if (-not $approved) { throw "Real-ESRGAN release blocked: Microsoft OpenMP redistribution approval is missing (issue #79)." }
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\package-approved-openmp.ps1 -PackageDirectory $packageDir -VisualStudioRoot $env:VSINSTALLDIR -ApprovedForRedistribution
-          if ($LASTEXITCODE -ne 0) { throw "Real-ESRGAN Microsoft OpenMP REDIST provenance check failed." }
+          # No Microsoft OpenMP DLL is permitted in the new native package.
+          $forbidden = @(Get-ChildItem -LiteralPath $packageDir -File -Recurse |
+            Where-Object { $_.Name -match '(?i)^(vcomp|libomp|libgomp|libiomp)' })
+          if ($forbidden.Count -gt 0) { throw 'A forbidden OpenMP DLL was placed in the Real-ESRGAN package.' }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\audit-realesrgan-package-openmp.ps1 -PackageDirectory $packageDir -ReportPath "build-local/realesrgan-openmp-free-imports.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Real-ESRGAN native imports are not OpenMP-free; refusing publication.' }
           Compress-Archive -Path (Join-Path $packageDir '*') -DestinationPath $zip -Force
-          # Validated licensed OpenMP gate above must succeed before staging this ZIP.
+          # Stage immutable package only after full native import audit and approval.
           & ./tools/publish-append-only-runtime-seed.ps1 -Path $zip -Repository "${{ github.repository }}" -ReleaseTag $env:RUNTIME_SEED_TAG -OnChanged StageImmutable
           if ($LASTEXITCODE -ne 0) { throw "Unable to publish Real-ESRGAN runtime seed." }
 

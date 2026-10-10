@@ -694,37 +694,19 @@ int main(int argc, char** argv)
     //     return -1;
     // }
 
+    // Build native-width paths without printf varargs or a 256-character buffer.
+    // Passing std::string through Windows swprintf("%s") was undefined behavior
+    // and could corrupt the animevideov3 -x2/-x3/-x4 model lookup.
 #if _WIN32
-    wchar_t parampath[256];
-    wchar_t modelpath[256];
-
-    if (modelname == PATHSTR("realesr-animevideov3"))
-    {
-        swprintf(parampath, 256, L"%s/%s-x%s.param", model.c_str(), modelname.c_str(), std::to_string(scale));
-        swprintf(modelpath, 256, L"%s/%s-x%s.bin", model.c_str(), modelname.c_str(), std::to_string(scale));
-    }
-    else{
-        swprintf(parampath, 256, L"%s/%s.param", model.c_str(), modelname.c_str());
-        swprintf(modelpath, 256, L"%s/%s.bin", model.c_str(), modelname.c_str());
-    }
-
+    const path_t scale_suffix = modelname == PATHSTR("realesr-animevideov3")
+        ? PATHSTR("-x") + std::to_wstring(scale) : path_t();
 #else
-    char parampath[256];
-    char modelpath[256];
-
-    if (modelname == PATHSTR("realesr-animevideov3"))
-    {
-        sprintf(parampath, "%s/%s-x%s.param", model.c_str(), modelname.c_str(), std::to_string(scale).c_str());
-        sprintf(modelpath, "%s/%s-x%s.bin", model.c_str(), modelname.c_str(), std::to_string(scale).c_str());
-    }
-    else{
-        sprintf(parampath, "%s/%s.param", model.c_str(), modelname.c_str());
-        sprintf(modelpath, "%s/%s.bin", model.c_str(), modelname.c_str());
-    }
+    const path_t scale_suffix = modelname == PATHSTR("realesr-animevideov3")
+        ? PATHSTR("-x") + std::to_string(scale) : path_t();
 #endif
-
-    path_t paramfullpath = sanitize_filepath(parampath);
-    path_t modelfullpath = sanitize_filepath(modelpath);
+    const path_t model_prefix = model + PATHSTR("/") + modelname + scale_suffix;
+    const path_t paramfullpath = sanitize_filepath(model_prefix + PATHSTR(".param"));
+    const path_t modelfullpath = sanitize_filepath(model_prefix + PATHSTR(".bin"));
 
 #if _WIN32
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
