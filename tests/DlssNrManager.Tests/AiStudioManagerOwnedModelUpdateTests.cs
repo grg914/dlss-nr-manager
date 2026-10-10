@@ -39,6 +39,39 @@ public sealed class AiStudioManagerOwnedModelUpdateTests
             AiStudioPackageService.EvaluateModelUpdate(Local("2.0.0"), Remote(), true, true));
     }
 
+    [Theory]
+    [InlineData("1.0", "1.0.0")]
+    [InlineData("1.0.0", "1.0.0.0")]
+    [InlineData("v1.0", "V1.0.0.0")]
+    [InlineData("1.0.0.0", "1.0")]
+    public void Equivalent_stable_version_forms_never_offer_a_false_model_update(
+        string localVersion, string remoteVersion)
+    {
+        Assert.Equal(MediaUpdateAvailability.UpToDate,
+            AiStudioPackageService.EvaluateModelUpdate(
+                Local(localVersion), Remote(remoteVersion), true, true));
+        Assert.Throws<InvalidOperationException>(() =>
+            AiStudioPackageService.RequireConfirmedModelUpgrade(
+                Local(localVersion), Remote(remoteVersion),
+                installed: true, automaticRedistributionAllowed: true));
+    }
+
+    [Fact]
+    public void Later_stable_version_remains_a_valid_update_after_normalization()
+    {
+        Assert.Equal(MediaUpdateAvailability.UpdateAvailable,
+            AiStudioPackageService.EvaluateModelUpdate(
+                Local("v1.0"), Remote("1.0.1"), true, true));
+    }
+
+    [Fact]
+    public void Repeated_v_prefix_is_not_a_valid_stable_version()
+    {
+        Assert.Equal(MediaUpdateAvailability.UnknownRemoteVersion,
+            AiStudioPackageService.EvaluateModelUpdate(
+                Local(), Remote("vv2.0.0"), true, true));
+    }
+
     [Fact]
     public void Matching_digest_is_not_new_version() =>
         Assert.Equal(MediaUpdateAvailability.UpToDate,
