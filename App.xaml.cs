@@ -96,8 +96,28 @@ public partial class App : Application
 
         try { ExternalProcessTracker.KillAll(); } catch { }
 
-        // Keep the default crash behavior. The log is diagnostic, not a
-        // mechanism for hiding potentially corrupted application state.
+        try
+        {
+            var language = AppPreferencesService.Load().Language;
+            MessageBox.Show(
+                ApplicationFailureReport.Format(
+                    e.Exception,
+                    "WPF / DLSS NR Manager",
+                    language,
+                    AppLogger.LogPath),
+                UiLocalizationService.NormalizeLanguage(language) == "fr"
+                    ? "DLSS NR Manager — erreur critique"
+                    : "DLSS NR Manager — critical error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        catch (Exception dialogError)
+        {
+            AppLogger.Error("Fatal error dialog could not be shown.", dialogError);
+        }
+
+        // Never continue after an unhandled exception when internal state
+        // may have been corrupted. Windows Job Object owns all helper exits.
         e.Handled = false;
     }
 

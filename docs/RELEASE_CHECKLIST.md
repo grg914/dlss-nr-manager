@@ -49,6 +49,18 @@ Use this checklist before promoting a production release.
 - [ ] Every eligible installed manager-owned component offers Update only for a **validated newer** package; offline/unknown/older/restricted cases remain safe (#111).
 - [ ] During actual close/force-kill, inspect owned process trees, local ports, downloads, file handles, RAM/VRAM and terminal diagnostic logs (#95).
 
+## Final V4 general audit gates (2026-10-10)
+
+- [ ] FR/EN WPF visual and dialog checks on the actual app, including dynamic Download Center options, fatal errors and offline/unsupported-GPU scenarios; static translation lookup is not sufficient.
+- [ ] Run complete tests/DlssNrManager.Tests xUnit and CrashProbe regression matrix on the exact candidate, plus no test/third-party/source leakage into application ZIP.
+- [ ] For each managed package, record installed version and trusted newer official upstream version **separately** from manager-owned approved release asset ID, exact SHA256, license, install-time recheck, fail-closed offline case, rollback and optional Update button. Restricted external updates require manual approval (#111).
+- [ ] Recheck all 12 pinned Real-ESRGAN candidate model raw bytes in a **new immutable** release receipt; historically wrong five .param assets cannot be silently replaced in v3.2.0 (#411).
+- [ ] Validate each model chunk/LFS actual bytes, gated license and executable source signature independently. An accessible official model landing page does not prove weight download availability.
+- [ ] Validate six log levels, credential redaction and diagnostics export with representative token-bearing errors; preserve no secrets or unnecessary private paths.
+- [ ] Complete START→RUN→MONITOR→STOP→CLEANUP for every app-owned helper, normal/forced crash, local sockets, GPU VRAM/RAM, staged files, cancellation and interrupted rollback on Windows RTX (#95). Preserve detached user-owned processes.
+- [ ] Review cleanup candidate inventory before any file/branch deletion: docs/V4_CLEANUP_CANDIDATES_2026-10-10.md.
+- [ ] Decide and qualify .NET 10 LTS before publishing a release requiring support after 2026-11-10; source is still net8.0-windows (#408).
+
 ## Final publication
 
 - [ ] Release target commit is the exact validated source SHA.

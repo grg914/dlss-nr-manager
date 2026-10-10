@@ -42,14 +42,57 @@ public static class AppLogger
         }
     }
 
+    public static void Trace(string message)
+        => Write("TRACE", message, null);
+
+    public static void Debug(string message)
+        => Write("DEBUG", message, null);
+
     public static void Info(string message)
         => Write("INFO", message, null);
 
     public static void Warn(string message)
-        => Write("WARN", message, null);
+        => Write("WARNING", message, null);
+
+    public static void Warning(string message)
+        => Warn(message);
 
     public static void Error(string message, Exception? exception = null)
         => Write("ERROR", message, exception);
+
+    public static void Critical(string message, Exception? exception = null)
+        => Write("CRITICAL", message, exception);
+
+    // Never include raw tokens/passwords in a diagnostic export. Redaction
+    // covers common structured headers, query parameters and GitHub PATs.
+    public static string RedactSensitiveData(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var options = System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                      System.Text.RegularExpressions.RegexOptions.CultureInvariant;
+        var timeout = TimeSpan.FromMilliseconds(250);
+        try
+        {
+            value = System.Text.RegularExpressions.Regex.Replace(
+                value,
+                @"(\bAuthorization\s*[:=]\s*Bearer\s+)[^\s,;]+",
+                "$1[REDACTED]", options, timeout);
+            value = System.Text.RegularExpressions.Regex.Replace(
+                value,
+                @"(\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token)\b\s*[:=]\s*)(?:""[^""]*""|'[^']*'|[^\s&,;]+)",
+                "$1[REDACTED]", options, timeout);
+            value = System.Text.RegularExpressions.Regex.Replace(
+                value,
+                @"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b",
+                "[REDACTED]", options, timeout);
+            return value;
+        }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            // A maliciously expensive error string must never go to disk.
+            return "[REDACTED: log message exceeded safe inspection budget]";
+        }
+    }
 
     public static IDisposable Scope(string operation)
     {
@@ -165,7 +208,7 @@ public static class AppLogger
             // Sanitization is best-effort.
         }
 
-        return value;
+        return RedactSensitiveData(value);
     }
 
     private static void RotateIfNeeded()
