@@ -52,6 +52,7 @@ public partial class MainWindow : Window
     private ReleaseInfo? _release;
     private IReadOnlyList<ReleaseInfo> _recentReleases = [];
     private bool _updatingOptiScalerBuildChoices;
+    private int _optiscalerReleaseRefreshVersion;
     private string? _runtimePath;
     private ManagerReleaseInfo? _managerRelease;
     private DetectedGame? _selectedGame;
@@ -409,11 +410,14 @@ public partial class MainWindow : Window
 
     private async Task RefreshReleaseAsync()
     {
+        // Two channel requests may complete out-of-order; only the latest
+        // response may replace the selected native archive or its UI label.
+        var revision = ++_optiscalerReleaseRefreshVersion;
+        var channelPrerelease = IsPrereleaseSelected();
         try
         {
             AvailableVersionText.Text = "Checking GitHub…";
 
-            var channelPrerelease = IsPrereleaseSelected();
             var selectedUrlBeforeRefresh = _release?.ZipUrl;
 
             // The stable V4 route requires the exact v3.2.0 package receipt.
@@ -433,6 +437,10 @@ public partial class MainWindow : Window
                         existing.ZipUrl.Equals(item.ZipUrl,
                             StringComparison.OrdinalIgnoreCase))));
             }
+
+            if (revision != _optiscalerReleaseRefreshVersion ||
+                channelPrerelease != IsPrereleaseSelected())
+                return;
 
             _recentReleases = compatible;
             _release = compatible.FirstOrDefault(item =>
@@ -467,6 +475,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            if (revision != _optiscalerReleaseRefreshVersion)
+                return;
+
             // Fail closed: a network error when switching Stable/Prerelease
             // must NEVER leave a stale previously-selected preview DLL ready
             // for installation while the UI shows a failed source check.
