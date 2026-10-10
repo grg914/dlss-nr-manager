@@ -74,6 +74,8 @@ public sealed class DownloadCenterUpdateProbeShutdownTests
             Assert.Contains("_downloadCenterCts = null;", operation);
             Assert.Contains("if (!_isClosed)", operation);
             Assert.Contains("await RefreshDownloadCenterSelectionAsync();", operation);
+            Assert.Contains("if (!_isClosed)", operation);
+            Assert.Contains("AppLogger.Error(", operation);
         }
     }
 
