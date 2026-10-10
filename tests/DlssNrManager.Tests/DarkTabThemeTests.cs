@@ -6,8 +6,6 @@ namespace DlssNrManager.Tests;
 /// <summary>Protects all V4 pages against WPF's default light tab templates.</summary>
 public sealed class DarkTabThemeTests
 {
-    private static readonly XNamespace Wpf =
-        "http://schemas.microsoft.com/winfx/2006/xaml/2006/presentation";
     private static readonly XNamespace Xaml =
         "http://schemas.microsoft.com/winfx/2006/xaml";
 
@@ -32,7 +30,7 @@ public sealed class DarkTabThemeTests
     {
         var main = Load("MainWindow.markup.xml");
         var all = main.Descendants(Presentation + "TabControl").ToArray();
-        Assert.Equal(4, all.Length); // outer sidebar navigation, 2 nested pages, and remaining structure
+        Assert.Equal(3, all.Length); // one sidebar-driven control + VSR-HDR and AI Studio
         var nested = all.Where(tab => tab.Ancestors(Presentation + "TabControl").Any()).ToArray();
         Assert.Equal(2, nested.Length);
         var headings = nested.SelectMany(tab => tab.Elements(Presentation + "TabItem"))
@@ -80,8 +78,7 @@ public sealed class DarkTabThemeTests
         var header = Assert.Single(template.Descendants(Presentation + "ContentPresenter"));
         Assert.Equal("Header", (string?)header.Attribute("ContentSource"));
         Assert.Equal("{TemplateBinding Foreground}",
-            (string?)header.Attribute(
-                XName.Get("Foreground", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")));
+            (string?)header.Attribute(Presentation + "Foreground"));
         var triggers = template.Descendants(Presentation + "Trigger").ToArray();
         foreach (var pair in new[]
         {
