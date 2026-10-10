@@ -231,7 +231,7 @@
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalOptions>/w34996 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/Brepro /w34996 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -242,7 +242,7 @@
       <AdditionalDependencies>winhttp.lib;WindowsApp.lib;Dbghelp.lib;dxgi.lib;d3d11.lib;d3d12.lib;vulkan-1.lib;dxguid.lib;freetype.lib;ffx_fsr2_api_x64.lib;ffx_fsr2_api_dx11_x64.lib;ffx_fsr2_api_dx12_x64.lib;ffx_fsr2_api_vk_x64.lib;ffx_fsr2_212_api_dx12_x64.lib;ffx_fsr2_212_api_vk_x64.lib;ffx_fsr2_212_api_x64.lib;d3dcompiler.lib;ffx_backend_dx11_x64.lib;ffx_fsr3_x64.lib;ffx_frameinterpolation_x64.lib;ffx_fsr3upscaler_x64.lib;ffx_opticalflow_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>Source.def</ModuleDefinitionFile>
       <DelayLoadDLLs>vulkan-1.dll;dxgi.dll;d3d12.dll;D3DCOMPILER_47.dll</DelayLoadDLLs>
-      <AdditionalOptions>/ignore:4099</AdditionalOptions>
+      <AdditionalOptions>/Brepro /ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
       <Command>md $(SolutionDir)x64\Release\a\
@@ -269,7 +269,9 @@ copy "$(SolutionDir)external\directx_agility_sdk\LICENSE.txt" $(SolutionDir)x64\
 copy NUL "$(SolutionDir)x64\Release\a\!! EXTRACT ALL FILES TO GAME FOLDER !!" /Y</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>powershell -NoProfile -Command "Start-Sleep -Milliseconds 1500; $date = Get-Date -Format 'yyyyMMdd_HHmmss'; $commit = (git rev-parse --short HEAD 2&gt;$null); if (-not $commit) { $commit = 'unknown' }; Set-Content -Path '$(ProjectDir)resource_build_date.h' -Value ('#define VER_BUILD_DATE \"' + $date + '\"') -Force; Set-Content -Path '$(ProjectDir)resource_build_commit.h' -Value ('#define VER_BUILD_COMMIT \"' + $commit + '\"') -Force;"</Command>
+      <Command>powershell -NoProfile -Command "Start-Sleep -Milliseconds 1500; $date = Get-Date -Format 'yyyyMMdd_HHmmss'; if ($env:DLSSNR_OPTISCALER_BUILD_DATE) { if ($env:DLSSNR_OPTISCALER_BUILD_DATE -notmatch '^[0-9]{8}_[0-9]{6} $commit = (git rev-parse --short HEAD 2&gt;$null); if (-not $commit) { $commit = 'unknown' }; Set-Content -Path '$(ProjectDir)resource_build_date.h' -Value ('#define VER_BUILD_DATE \"' + $date + '\"') -Force; Set-Content -Path '$(ProjectDir)resource_build_commit.h' -Value ('#define VER_BUILD_COMMIT \"' + $commit + '\"') -Force;"</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>) { throw 'Invalid pinned OptiScaler build date' }; $date = $env:DLSSNR_OPTISCALER_BUILD_DATE }; $commit = (git rev-parse --short HEAD 2&gt;$null); if (-not $commit) { $commit = 'unknown' }; Set-Content -Path '$(ProjectDir)resource_build_date.h' -Value ('#define VER_BUILD_DATE \"' + $date + '\"') -Force; Set-Content -Path '$(ProjectDir)resource_build_commit.h' -Value ('#define VER_BUILD_COMMIT \"' + $commit + '\"') -Force;"</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDebug|x64'">
