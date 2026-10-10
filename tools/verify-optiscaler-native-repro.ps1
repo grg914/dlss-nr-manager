@@ -112,7 +112,8 @@ if ($first.ZipName -cne $second.ZipName -or
 }
 Write-Host "PASS: OptiScaler native inputs and final ZIP are identical across two clean rebuilds."
 
-# Windows PowerShell GitHub Actions propagates a stale native $LASTEXITCODE
-# from successful robocopy (1 = files copied) even after this full audit
-# reports PASS. Explicitly return success only after every hash comparison.
-exit 0
+# In GitHub Actions, Windows PowerShell propagates a stale native
+# LASTEXITCODE from successful robocopy (1 = files copied), even after PASS.
+# Set the command status to success only after ALL hash comparisons, without
+# terminating an operator's interactive PowerShell session.
+$global:LASTEXITCODE = 0
