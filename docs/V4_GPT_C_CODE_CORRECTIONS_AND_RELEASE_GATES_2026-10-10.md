@@ -22,7 +22,7 @@ PROBLEMS REMAINING: staging PR #440 HEAD is not GitHub Verified-signed. Protecte
 
 ## PHASE: OptiScaler #161 — reproducibility, publisher immutability, compiler ABI
 
-STATUS: package reproducibility proven within two local CI rebuilds; equality with previously published native seed **not** proven.
+STATUS: OptiScaler native reproducibility is **intermittent across exact-head CI runs**: multiple two-build comparisons have succeeded, but the latest exact-head audit FAILED on differing compiled DLL bytes; equality with the previously published runtime seed is also unproven.
 
 PROBLEM FOUND: original runtime refresh detected a same-version OptiScaler ZIP conflict and correctly rejected it; that is not license to overwrite an asset. The previous `Compress-Archive` hypothesis became stale because main already uses `create-deterministic-flat-zip.ps1`. On PR #441, an earlier native CI job printed `PASS: OptiScaler native inputs and final ZIP are identical across two clean rebuilds` but ended with exit status 1, consistent with stale PowerShell `$LASTEXITCODE=1` after successful `robocopy` (exit codes 0–7 can indicate success).
 
@@ -43,7 +43,7 @@ RELEASE BLOCKERS (remain OPEN unless hard evidence resolves them):
 - [#79](https://github.com/grg914/dlss-nr-manager/issues/79): real RTX Vulkan Real-ESRGAN x2/x4 output and complete transitive native dependencies; OpenMP PE direct-import CI is not enough.
 - [#95](https://github.com/grg914/dlss-nr-manager/issues/95): physical Windows install/redownload/kill/restart/rollback, user output preservation, process descendants, GPU VRAM/CPU/RAM/network cleanup, FR/EN dialogs.
 - [#111](https://github.com/grg914/dlss-nr-manager/issues/111): optional Update only for newly approved immutable version+hash+receipt (no unsupported manual/restricted model updates); offline/cancellation/rollback matrix.
-- [#161](https://github.com/grg914/dlss-nr-manager/issues/161): old and new OptiScaler runtime seed SHA mismatch, remaining C4744 ABI investigation, no silent overwritten release.
+- [#161](https://github.com/grg914/dlss-nr-manager/issues/161): intermittent per-build OptiScaler.dll binary drift, prior canonical seed SHA mismatch, separate linker LNK4098/CRT investigation and on-device ABI validation; no silent overwritten release.
 - [#411](https://github.com/grg914/dlss-nr-manager/issues/411): verify full bytes of 12 Real-ESRGAN model assets, legitimate v3.2.0 LF/CRLF repair, RTX real model load, model quality and cache/repair validation.
 - [#408](https://github.com/grg914/dlss-nr-manager/issues/408): .NET 8 end of support 2026-11-10; decide/qualify .NET 10 LTS or explicit limited support plan with offline .NET feed and native ONNX/WPF acceptance.
 - [#124](https://github.com/grg914/dlss-nr-manager/issues/124): unique-history branch cleanup only after audit, no automatic deletion.
@@ -53,3 +53,22 @@ ACCEPTANCE METHOD: use existing `docs/V4_FUNCTIONAL_ACCEPTANCE_MATRIX_2026-10-10
 ## Change and review discipline
 
 After EACH functional code change: record before/after SHA and modified files; run exact-head Windows build/xUnit, CodeQL, and relevant native/seed safety workflow; inspect warning/error logs (not only workflow `success`); compare provenance locks and historical assets; update the relevant open issue and this document. Never infer device-level performance from GitHub-hosted CI. This document describes traceable evidence, not a promise of a clean release.
+
+## PHASE: 2026-10-10 update — PR #441 intermittent native drift confirmed
+
+**Latest exact-head PR #441:** `55f3a2d4630a3d7d19e29f7e6573eb272cdecec6`; [native run 38036340741](https://github.com/grg914/dlss-nr-manager/actions/runs/38036340741) **FAILED correctly** after comparing two complete MSVC builds. The run did not fail due to the PowerShell `robocopy` return code and did not report `C4744`. Its actual problem was **OptiScaler.dll binary differences**:
+
+| Result | Native pass 1 | Native pass 2 |
+| --- | --- | --- |
+| OptiScaler.dll SHA-256 | `0821b8025b3411bb3147f471f363a53a049aebd0b7b67d8293e547d9c37c5b50` | `d2d6409355991bb17b5df0bf9e88d37873f150c5f9b4fb5d2df9d571cf9ba15b` |
+| PE COFF TimeDateStamp | `0xec1b5bd6` | `0x7cc61ca4` |
+| OptiScaler ZIP SHA-256 | `3bb1742f6c8ce608ff26f67a7f49c20df6c0982e3b9d002e4b13897aebae7dba` | `500eb05c3b29293499f91cca8a20f57fae9cae67c3f923873d377559c17248fc` |
+| ZIP size | 130,614,073 bytes | 130,614,073 bytes |
+
+The diagnostic found only `OptiScaler.dll` differing among staged package files. The forwarder `nvngx.dll_dlssnr.dll` retained COFF stamp `0xf90516c4` in both builds. The compiled DLL COFF stamps differing **does not prove** a clock is embedded; with `/Brepro` it can reflect differences elsewhere in the image. There is insufficient evidence yet to attribute this to `Tee-Object`, timestamps, MSBuild parallelism or a particular source file. Do not remove the strict comparison to force green CI.
+
+By contrast, the immediately preceding [native run 38035859361](https://github.com/grg914/dlss-nr-manager/actions/runs/38035859361) and [run 38035737520](https://github.com/grg914/dlss-nr-manager/actions/runs/38035737520) each succeeded across two builds and contained no C4744. This confirms **intermittent reproducibility**, not a permanently fixed binary generator. Cross-commit archive digests are not expected to match because vendored build resources embed a commit identifier, so compare first and second rebuilds at the *same exact commit*.
+
+**Other exact-head checks:** Build [38036340723](https://github.com/grg914/dlss-nr-manager/actions/runs/38036340723) SUCCESS, Windows xUnit **317 passed / 0 failed / 0 skipped** and application package A/B SHA-256 `445003ccccf6416631531b9a3aa31fa6bc0f66e1a07ca5c9dc0d68cf02ec3a25`; deterministic package safety [38036340725](https://github.com/grg914/dlss-nr-manager/actions/runs/38036340725) SUCCESS; CodeQL [38036340795](https://github.com/grg914/dlss-nr-manager/actions/runs/38036340795) still IN PROGRESS when this update was authored.
+
+**Required diagnosis:** compare detailed native inputs/object/resource header hashes between both passes, identify the differing PE section(s) or generated symbol inputs, confirm compiler and linker versions/options and CRT library consistency (MSVC also emitted `LNK4098`), then make a narrowly scoped reproducibility correction and rerun the strict two-build native CI. **Never override immutable published assets**, and do not claim GPU compatibility before physical RTX testing.
