@@ -8,7 +8,9 @@ From Windows x64 with build prerequisites installed:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan-no-openmp -Clean
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\audit-realesrgan-package-openmp.ps1 -PackageDirectory .\build-local\realesrgan-no-openmp-candidate
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\audit-realesrgan-openmp.ps1 -ExecutablePath .\build-realesrgan-no-openmp\Release\realesrgan-ncnn-vulkan.exe
+
+# The full packaged EXE/DLL audit is executed in the qualification and runtime-refresh workflows.
 ```
 
 The CI workflow `.github/workflows/realesrgan-openmp-free-qualification.yml` produces a Windows build and a direct PE import audit; it does **not** publish a release asset or validate actual NVIDIA/RTX GPU execution. Direct import inspection does not exclude dynamically loaded or transitive dependencies.
