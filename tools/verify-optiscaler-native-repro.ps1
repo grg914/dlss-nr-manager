@@ -111,3 +111,8 @@ if ($first.ZipName -cne $second.ZipName -or
     throw "OptiScaler package files match but ZIP bytes differ. Investigate archive ordering/timestamps/compression."
 }
 Write-Host "PASS: OptiScaler native inputs and final ZIP are identical across two clean rebuilds."
+
+# Windows PowerShell GitHub Actions propagates a stale native $LASTEXITCODE
+# from successful robocopy (1 = files copied) even after this full audit
+# reports PASS. Explicitly return success only after every hash comparison.
+exit 0
