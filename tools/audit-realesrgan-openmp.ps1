@@ -3,41 +3,17 @@ param(
     [string]$ExecutablePath
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
 $exe = [IO.Path]::GetFullPath($ExecutablePath)
 if (!(Test-Path -LiteralPath $exe -PathType Leaf)) {
     throw "Real-ESRGAN executable does not exist: $exe"
 }
-
-$dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
-if ($null -eq $dumpbin) {
-    throw "dumpbin.exe is not available. Run in a Visual Studio Developer PowerShell with the x64 native toolchain."
+if ([IO.Path]::GetExtension($exe) -ne '.exe') {
+    throw 'Expected a Real-ESRGAN Windows executable for PE import audit.'
 }
 
-$output = @(& $dumpbin.Source /DEPENDENTS $exe 2>&1)
-if ($LASTEXITCODE -ne 0) {
-    throw "dumpbin /DEPENDENTS failed for $exe"
-}
-
-$dependencies = @(
-    $output | ForEach-Object {
-        if ($_ -match '(?i)^\s*([A-Z0-9_.-]+\.dll)\s*$') {
-            $Matches[1]
-        }
-    }
-)
-
-if ($dependencies.Count -eq 0) {
-    throw "No PE DLL imports were identified. Refusing to assume the audit succeeded."
-}
-
-Write-Host "Direct PE imports for ${exe}:"
-$dependencies | ForEach-Object { Write-Host "  $_" }
-
-$openMp = @($dependencies | Where-Object { $_ -match '(?i)^(vcomp[0-9a-z_-]*|libomp[0-9a-z_.-]*|libgomp[0-9a-z_.-]*|libiomp[0-9a-z_.-]*)\.dll$' })
-if ($openMp.Count -gt 0) {
-    throw "OpenMP runtime import remains: $($openMp -join ', '). Do not ship the experimental binary without a licensed runtime."
-}
-
-Write-Host "PASS: no direct OpenMP runtime DLL import found. This does not audit transitive dependencies, GPU performance, or licensing."
+# Keep the documented standalone audit in sync with the audited package path.
+# It also finds the Visual Studio x64 dumpbin outside the Developer Shell.
+$script = Join-Path $PSScriptRoot 'audit-realesrgan-package-openmp.ps1'
+& $script -PackageDirectory (Split-Path -Parent $exe)
