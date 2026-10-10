@@ -205,10 +205,9 @@ public partial class MainWindow : Window
             try { _aiOriginCts?.Cancel(); } catch { }
             try { _downloadCenterCts?.Cancel(); } catch { }
             try { ExternalProcessTracker.Shutdown(); } catch { }
-            _mediaOperationCts?.Dispose();
-            _permanentVideoCts?.Dispose();
-            _aiOriginCts?.Dispose();
-            _downloadCenterCts?.Dispose();
+            // Async operation owners dispose their cancellation sources in finally.
+            // Disposing here while an awaited download/worker is still unwinding
+            // can race its cancellation registration and trigger ObjectDisposedException.
             _aiOrigin.Dispose();
         };
     }
@@ -4618,9 +4617,10 @@ public partial class MainWindow : Window
             _mediaUpdateStatus = MediaUpdateAvailability.UnknownRemoteVersion;
             _modelUpdateStatus = MediaUpdateAvailability.UnknownRemoteVersion;
             AppLogger.Warn("Download Center update check unavailable: " + ex.Message);
-            DownloadCenterStatusText.Text = L(
-                "Update check unavailable. Installed components were not changed.",
-                "Vérification des mises à jour indisponible. Aucun composant installé n'a été modifié.");
+            if (!_isClosed)
+                DownloadCenterStatusText.Text = L(
+                    "Update check unavailable. Installed components were not changed.",
+                    "Vérification des mises à jour indisponible. Aucun composant installé n'a été modifié.");
         }
         finally
         {
@@ -4722,9 +4722,10 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             AppLogger.Warn("Official source check unavailable: " + ex.Message);
-            OfficialUpdateStatusText.Text = L(
-                "Source lookup unavailable. Installed components were not changed.",
-                "Sources indisponibles. Aucun composant installé n'a été modifié.");
+            if (!_isClosed)
+                OfficialUpdateStatusText.Text = L(
+                    "Source lookup unavailable. Installed components were not changed.",
+                    "Sources indisponibles. Aucun composant installé n'a été modifié.");
         }
         finally
         {
@@ -5097,11 +5098,12 @@ public partial class MainWindow : Window
                 _modelUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
                 _modelUpdateEntryId = null;
             }
-            DownloadCenterCancelButton.Visibility =
-                Visibility.Collapsed;
-
-            RefreshDownloadCenter();
-            await RefreshDownloadCenterSelectionAsync();
+            if (!_isClosed)
+            {
+                DownloadCenterCancelButton.Visibility = Visibility.Collapsed;
+                RefreshDownloadCenter();
+                await RefreshDownloadCenterSelectionAsync();
+            }
         }
     }
 
@@ -5212,11 +5214,12 @@ public partial class MainWindow : Window
         {
             _downloadCenterCts.Dispose();
             _downloadCenterCts = null;
-            DownloadCenterCancelButton.Visibility =
-                Visibility.Collapsed;
-
-            RefreshDownloadCenter();
-            await RefreshDownloadCenterSelectionAsync();
+            if (!_isClosed)
+            {
+                DownloadCenterCancelButton.Visibility = Visibility.Collapsed;
+                RefreshDownloadCenter();
+                await RefreshDownloadCenterSelectionAsync();
+            }
         }
     }
 
