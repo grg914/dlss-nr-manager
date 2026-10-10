@@ -3217,9 +3217,11 @@ public partial class MainWindow : Window
                     cancellationToken);
             }
 
-            if (!_isClosed)
-                PermanentVideoStatusText.Text =
-                    L($"Permanent enhancement complete • {result}", $"Amélioration permanente terminée • {result}");
+            if (_isClosed)
+                return;
+
+            PermanentVideoStatusText.Text =
+                L($"Permanent enhancement complete • {result}", $"Amélioration permanente terminée • {result}");
         }
         catch (OperationCanceledException)
         {
