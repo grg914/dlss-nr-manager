@@ -16,6 +16,10 @@ Current application source version: **v3.2.0** (as declared in `DlssNrManager.cs
 
 The [independent general re-audit](docs/V4_GENERAL_REAUDIT_2026-10-10.md) verifies signed public main, 25/25 public locked source SHA references, xUnit and package policies. It identified an additional diagnostics ZIP privacy boundary risk: external game logs and INI content need credential redaction when exported. The correction and ZIP-level regression test are being reviewed separately; a passed CI result will not substitute for on-device RTX/process, model, licensing or update acceptance. A V4 public release is still blocked by #411, #79, #95 and #111.
 
+## Real-ESRGAN v3.2.0 historical model repair (V4 candidate)
+
+[Cryptographic proof and targeted repair procedure](docs/V4_REALESRGAN_411_VERIFIED_RUNTIME_REPAIR_2026-10-10.md). Five legacy NCNN `.param` assets were CRLF-converted during Windows publication; their published SHA-256 values have been reproduced exactly from source LF files. The reviewed V4 correction pins all 12 published model assets to the explicit `v3.2.0` tag, verifies each published SHA-256, restores LF only for the five known exact-byte CRLF files in a temporary stage, then validates the original source Git blob SHA-1 before use. It does **not** replace `v3.2.0` assets or waive #79 OpenMP, #95 RTX hardware, or #111 optional updater gates. This branch is a candidate until Build/CodeQL and protected merge succeed.
+
 ## V4 final audit — 2026-10-10 (unreleased)
 
 Final source/FR-EN/lifecycle/update/packaging and official-source review: [audit report](docs/V4_FINAL_INDEPENDENT_AUDIT_2026-10-10.md), [non-destructive cleanup candidates](docs/V4_CLEANUP_CANDIDATES_2026-10-10.md), [retrospective journal](AI_PROJECT_PROGRESS3.txt). Protected signed #422 integrated the manual V4 portable local test builder and #424 integrated read-only VC++ x64 host detection. This does **not** install Manager on the user's PC. The separate tests/DlssNrManager.Tests xUnit project is kept in source/CI, not the end-user EXE/ZIP.
