@@ -3653,6 +3653,9 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message =>
                 {
+                    if (_isClosed)
+                        return;
+
                     MediaStatusText.Text = message;
                     if (mode is 1 or 2)
                         AiUpscaleStatusText.Text = message;
