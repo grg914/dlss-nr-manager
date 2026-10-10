@@ -38,6 +38,8 @@
     <!-- Source-only review metadata. Never bundle the vendored source tree or SDK binaries. -->
     <EmbeddedResource Include="third_party\UPSTREAMS.json" LogicalName="DlssNrManager.OfficialUpstreams" />
     <EmbeddedResource Include="third_party\DEPENDENCIES.lock.json" LogicalName="DlssNrManager.LockedDependencies" />
+    <!-- Couple the reviewed original OptiScaler identity to compiled binaries. -->
+    <EmbeddedResource Include="manifests\optiscaler-v4-legacy-candidate.json" LogicalName="DlssNrManager.OptiScalerLegacyCandidate" />
   </ItemGroup>
   <ItemGroup>
     <!-- Documentation prototypes must never be compiled as WPF Pages. -->
