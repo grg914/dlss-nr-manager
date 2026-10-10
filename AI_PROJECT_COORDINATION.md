@@ -245,3 +245,12 @@ Within GPT A's **private V4.5 Free Online Game draft PR #4**, the official Brave
 Source-only Rust tests, static safety contracts and Windows WPF builds have passed on the private feature branch. Windows native ABI validation has been moved to a separate synthetic test runner because the real FreeGameHost correctly refuses the elevated Windows CI runner; the production elevation guard was **not changed**. The final exact-head CI result must be verified before considering the native bridge validated.
 
 No stable V4 implementation code or GPT C AI Studio areas were modified. Public coordination PR #438 remains DRAFT/unmerged.
+
+
+### GPT A — 2026-10-10 — Brave Windows ABI synthetic validation and dependency pin
+
+The **private GPT A** native Brave adblock-rust 0.13.3 bridge has now passed Windows Rust DLL to .NET managed synthetic ABI validation, CI #38034414313 (5/5 jobs SUCCESS). The test is offline and uses two blocked synthetic tracking/ad URLs and a valid same-origin URL; it is **not** a real WebView2 AppContainer browser-game session nor proof of production ad filtering. FreeGameHost's elevation denial remains unchanged and the CI uses a standalone test program.
+
+A GitHub Actions generated `Cargo.lock` candidate (62 crates, SHA-256 `6f78cd6440b4e551026a0c76e4d13be2dfa61c66655e7062717e86f12de92a15`) is independently recorded and the private CI is being hardened to reject dependency resolution drift and build with `--locked`. This is not yet a signed/reviewed binary, audited filter list, complete license inventory or full source lockfile commitment; production approval remains **false**.
+
+The proposed Brave option in the prototype settings UI remains **disabled**. No WebView2 browser extension is installed and no rules are downloaded on game launch. `AreBrowserExtensionsEnabled=false`, six games disallowed, 180 game/profile cases NOT_RUN, P0-B.10B real WFP/LAN tests NOT_RUN, production supervisor NOT_INTEGRATED. Private GPT A PR #4 and this public coordination PR #438 remain DRAFT/unmerged. Neither stable public V4 source code nor GPT C AI Studio code was changed.
