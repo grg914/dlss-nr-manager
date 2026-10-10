@@ -67,6 +67,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _mediaOperationCts;
     private CancellationTokenSource? _permanentVideoCts;
     private CancellationTokenSource? _aiOriginCts;
+    private bool _aiOriginAnalysisRunning;
     private CancellationTokenSource? _downloadCenterCts;
     private CancellationTokenSource? _downloadUpdateCheckCts;
     private CancellationTokenSource? _officialUpdateCheckCts;
@@ -210,7 +211,11 @@ public partial class MainWindow : Window
             // Async operation owners dispose their cancellation sources in finally.
             // Disposing here while an awaited download/worker is still unwinding
             // can race its cancellation registration and trigger ObjectDisposedException.
-            _aiOrigin.Dispose();
+            // Native ONNX sessions and HTTP resources cannot be disposed
+            // while AnalyzeAsync may still be using them. Its finally owns
+            // deferred disposal after cancellation has completed.
+            if (!_aiOriginAnalysisRunning)
+                _aiOrigin.Dispose();
         };
     }
 
@@ -3382,10 +3387,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_isClosed || _aiOriginAnalysisRunning)
+            return;
+
+        _aiOriginAnalysisRunning = true;
         try
         {
-            _aiOriginCts?.Cancel();
-            _aiOriginCts?.Dispose();
             _aiOriginCts = new CancellationTokenSource();
 
             AiOriginAnalyzeButton.IsEnabled = false;
@@ -3393,7 +3400,11 @@ public partial class MainWindow : Window
             MediaProcessButton.IsEnabled = false;
 
             var progress = new Progress<string>(
-                message => AiOriginStatusText.Text = message);
+                message =>
+                {
+                    if (!_isClosed)
+                        AiOriginStatusText.Text = message;
+                });
 
             var mode = AiOriginModeBox.SelectedIndex switch
             {
@@ -3407,6 +3418,9 @@ public partial class MainWindow : Window
                 progress,
                 _aiOriginCts.Token,
                 mode);
+
+            if (_isClosed)
+                return;
 
             _lastAiOriginResult = result;
             _lastAiOriginSource = source;
@@ -3444,26 +3458,39 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            AiOriginStatusText.Text = "AI origin analysis cancelled.";
+            if (!_isClosed)
+                AiOriginStatusText.Text = "AI origin analysis cancelled.";
         }
         catch (Exception ex)
         {
-            AiOriginStatusText.Text =
-                $"AI origin analysis failed: {ex.Message}";
+            AppLogger.Error("AI origin analysis failed.", ex);
+            if (!_isClosed)
+            {
+                AiOriginStatusText.Text =
+                    $"AI origin analysis failed: {ex.Message}";
 
-            MessageBox.Show(
-                ex.Message,
-                "AI origin analysis failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                MessageBox.Show(
+                    ex.Message,
+                    "AI origin analysis failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
         finally
         {
-            AiOriginAnalyzeButton.IsEnabled = true;
-            AiOriginCancelButton.IsEnabled = false;
-            MediaProcessButton.IsEnabled = true;
             _aiOriginCts?.Dispose();
             _aiOriginCts = null;
+            _aiOriginAnalysisRunning = false;
+            if (_isClosed)
+            {
+                _aiOrigin.Dispose();
+            }
+            else
+            {
+                AiOriginAnalyzeButton.IsEnabled = true;
+                AiOriginCancelButton.IsEnabled = false;
+                MediaProcessButton.IsEnabled = true;
+            }
         }
     }
 
