@@ -16,7 +16,7 @@ A Windows 2025 GitHub Actions workflow retrieves and verifies the original ZIP a
 
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify-optiscaler-legacy-asset.ps1
 
-No published asset is deleted, overwritten or republished. Candidate selection is NOT promoted to the application automatically; compatibility testing is required first. A prior release being available does not prove it works in a new V4 runtime.
+No published asset is deleted, overwritten or republished. The Stable channel offers the precisely pinned original asset as a manually confirmed TRIAL only; the application never auto-installs it. Physical RTX/game compatibility and rollback testing are required before V4 publication.
 
 ## Acceptance before V4 use
 
