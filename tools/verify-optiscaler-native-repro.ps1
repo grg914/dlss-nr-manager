@@ -70,14 +70,22 @@ function Get-PackageEvidence {
 }
 
 $evidence = @()
+New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 for ($run = 1; $run -le 2; $run++) {
     $directory = Join-Path $OutputDirectory "build-$run"
+    $buildLog = Join-Path $OutputDirectory "native-compiler-pass-$run.log"
     Write-Host "OptiScaler native reproduction pass $run (fresh MSBuild Rebuild)"
     if ([string]::IsNullOrWhiteSpace($SourcePath)) {
-        & $builder -OutputDirectory $directory -Clean | Out-Host
+        & $builder -OutputDirectory $directory -Clean | Tee-Object -FilePath $buildLog | Out-Host
     }
     else {
-        & $builder -SourcePath $SourcePath -OutputDirectory $directory -Clean | Out-Host
+        & $builder -SourcePath $SourcePath -OutputDirectory $directory -Clean | Tee-Object -FilePath $buildLog | Out-Host
+    }
+    # Reproducible bytes alone do not prove ABI correctness. In /GL builds
+    # MSVC C4744 identifies mismatched external type metadata across files.
+    # Reject this warning rather than hiding it via warning suppression.
+    if (Select-String -LiteralPath $buildLog -Pattern 'warning C4744:' -Quiet) {
+        throw "OptiScaler native ABI type-layout warning C4744 found in build $run; do not ship."
     }
     $result = Get-PackageEvidence -BuildDirectory $directory
     Write-Host "Pass $run ZIP $($result.ZipName) SHA256=$($result.ZipHash) size=$($result.ZipSize)"
