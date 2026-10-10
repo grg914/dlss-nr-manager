@@ -1,0 +1,72 @@
+# Non-publishing Windows qualification for issue #79.
+# This workflow produces only a CI verdict and local hashes; no release asset.
+name: Qualify Real-ESRGAN without OpenMP
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/realesrgan-openmp-free-qualification.yml'
+      - 'tools/build-realesrgan.ps1'
+      - 'tools/audit-realesrgan-openmp.ps1'
+      - 'tools/audit-realesrgan-package-openmp.ps1'
+      - 'third_party/Real-ESRGAN-ncnn-vulkan/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  openmp-free-candidate:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout locked vendored sources (no credentials retained)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          lfs: true
+
+      - name: Build NCNN Vulkan with OpenMP unconditionally disabled
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan-no-openmp -Clean
+          if ($LASTEXITCODE -ne 0) { throw 'OpenMP-free Real-ESRGAN build failed.' }
+          $cache = Get-Content -LiteralPath 'build-realesrgan-no-openmp/CMakeCache.txt'
+          if (-not @($cache | Where-Object { $_ -match '^NCNN_OPENMP:[^=]+=(OFF|FALSE|0)$' }).Count) {
+            throw 'Vendored ncnn OpenMP was not demonstrably disabled in CMake cache.'
+          }
+          if (-not @($cache | Where-Object { $_ -match '^CMAKE_DISABLE_FIND_PACKAGE_OpenMP:[^=]+=(TRUE|ON|1)$' }).Count) {
+            throw 'Root CMake OpenMP package discovery was not demonstrably disabled.'
+          }
+
+      - name: Audit imports of all shipped PE files; record candidate hash
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = 'build-local/realesrgan-no-openmp-candidate'
+          New-Item -ItemType Directory -Path $package -Force | Out-Null
+          $exe = 'build-realesrgan-no-openmp/Release/realesrgan-ncnn-vulkan.exe'
+          Copy-Item -LiteralPath $exe -Destination $package -Force
+          Copy-Item -LiteralPath 'third_party/Real-ESRGAN-ncnn-vulkan/LICENSE' -Destination (Join-Path $package 'LICENSE-Real-ESRGAN.txt')
+          Copy-Item -LiteralPath 'third_party/Real-ESRGAN-ncnn-vulkan/src/ncnn/LICENSE.txt' -Destination (Join-Path $package 'LICENSE-ncnn.txt')
+          Copy-Item -LiteralPath 'third_party/Real-ESRGAN-ncnn-vulkan/src/libwebp/COPYING' -Destination (Join-Path $package 'LICENSE-libwebp.txt')
+
+          $report = 'build-local/realesrgan-no-openmp-imports.json'
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\audit-realesrgan-package-openmp.ps1 -PackageDirectory $package -ReportPath $report
+          if ($LASTEXITCODE -ne 0) { throw 'Shipped PE dependency audit failed.' }
+          $audit = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if ($audit.result -ne 'NO_SHIPPED_PE_OPENMP_IMPORT_FOUND') { throw 'Expected a clean no-OpenMP audit receipt.' }
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $bytes = (Get-Item -LiteralPath $exe).Length
+          $rows = @(
+            '## Real-ESRGAN #79: OpenMP-free Windows build'
+            "- Commit: $env:GITHUB_SHA"
+            "- Real-ESRGAN EXE size: $bytes bytes"
+            "- Real-ESRGAN EXE SHA-256: $hash"
+            "- Shipped PE imports audited: $($audit.scanned_pe_count)"
+            '- Direct OpenMP imports: none in this candidate package'
+            '- NOT a published asset or GPU/RTX acceptance'
+            '- Still required before runtime promotion: transitive dependency resolution, Vulkan image x2/x4, quality, RAM/VRAM and owner acceptance'
+          )
+          $rows | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY

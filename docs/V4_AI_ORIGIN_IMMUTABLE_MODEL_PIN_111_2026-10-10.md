@@ -1,0 +1,7 @@
+# V4 #111 — AI-origin detector immutable model pin
+
+Date: 2026-10-10. Status: candidate pending exact-head Windows Build, xUnit, CodeQL and protected signing/merge.
+
+The two manager-owned AI-origin ONNX URLs previously used the moving `/releases/latest/download` alias while the code required fixed SHA-256 values. This creates a predictable failure when a future latest release changes/omits the models. Official manager-owned `v3.2.0` GitHub release metadata identifies `ai-origin-primary-int8.onnx` (87,333,629 bytes, SHA-256 `08b349f1b535f2f0cc2a8610bbf57c27593a0364e78b6c91205c0ff2bf29d714`) and `ai-origin-secondary-int8.onnx` (15,258,532 bytes, SHA-256 `7273cb9cd81e17eae04771010d2199ba6ae34ea2a75a275518c0bc4a2c26ffd2`); both match the existing hardcoded content hashes. The candidate therefore pins both URLs to their approved v3.2.0 release path and tests that their hashes and immutable URLs remain unchanged. No model bytes were republished or downloaded in this source-only patch.
+
+This is **supply-chain hardening, not completion of optional updates**: future detector-model updates require approved manager-owned versioned asset/manifest metadata, verified local installed receipt, explicit optional Update/Mettre à jour in Download Center only when newer, transactional revalidation, cancellation and rollback, bilingual diagnostics, and RTX/offline testing. The existing pin must not be rewritten by unreviewed newest-release discovery. Keep #111 and #95 open; v3.2.0 remains immutable.

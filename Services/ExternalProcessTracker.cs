@@ -123,6 +123,16 @@ public static class ExternalProcessTracker
         // legitimately run its own FFmpeg, VLC, Python or Real-ESRGAN.
     }
 
+    /// <summary>
+    /// Rejects new owned launches while existing jobs can finish cancellation.
+    /// Call before canceling UI work; Shutdown then terminates remaining jobs.
+    /// </summary>
+    public static void BeginShutdown()
+    {
+        lock (JobLock)
+            _shuttingDown = true;
+    }
+
     public static void Shutdown()
     {
         lock (JobLock)

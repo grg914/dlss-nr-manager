@@ -220,7 +220,6 @@ public sealed class MinecraftOneClickService
                     "Lithium",
                     "FerriteCore",
                     "Krypton",
-                    "C2ME",
                     "BadOptimizations",
                     "Dynamic FPS"
                 };

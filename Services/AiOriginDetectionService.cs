@@ -45,13 +45,13 @@ public sealed class AiOriginDetectionService : IDisposable
     private const long MaxModelDownloadBytes = 256L * 1024 * 1024;
     private const string PrimaryModelName = "CapCheck ViT AI-vs-Real";
     private const string PrimaryModelUrl =
-        "https://github.com/grg914/dlss-nr-manager/releases/latest/download/ai-origin-primary-int8.onnx";
+        "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/ai-origin-primary-int8.onnx";
     private const string PrimaryModelSha256 =
         "08B349F1B535F2F0CC2A8610BBF57C27593A0364E78B6C91205C0FF2BF29D714";
 
     private const string SecondaryModelName = "AI Image Detect Distilled ViT";
     private const string SecondaryModelUrl =
-        "https://github.com/grg914/dlss-nr-manager/releases/latest/download/ai-origin-secondary-int8.onnx";
+        "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/ai-origin-secondary-int8.onnx";
     private const string SecondaryModelSha256 =
         "7273CB9CD81E17EAE04771010D2199BA6AE34EA2A75A275518C0BC4A2C26FFD2";
 
