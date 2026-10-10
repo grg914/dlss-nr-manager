@@ -74,6 +74,12 @@ class RuntimeSeedWriterPolicyTests(unittest.TestCase):
         self.assertIn("-OnChanged Reject", (ROOT / "tools/publish-vlc-runtime.ps1").read_text(encoding="utf-8"))
         self.assertIn("-OnChanged StageImmutable", (ROOT / "tools/publish-temurin25-runtime.ps1").read_text(encoding="utf-8"))
 
+    def test_openmp_package_auditor_rejects_shipped_runtime_dll_even_without_imports(self):
+        auditor = (ROOT / "tools/audit-realesrgan-package-openmp.ps1").read_text(encoding="utf-8")
+        self.assertIn("Forbidden OpenMP runtime DLL in package", auditor)
+        self.assertIn("$forbiddenShipped.Count -gt 0", auditor)
+        self.assertIn("if ($LASTEXITCODE -ne 0)", auditor)
+
     def test_realesrgan_publishes_only_approved_openmp_free_runtime(self):
         self.assertIn("env.DLSSNR_REALESRGAN_RUNTIME_APPROVED == '1'", self.refresh)
         self.assertIn("Skipping new Real-ESRGAN runtime publication", self.refresh)
