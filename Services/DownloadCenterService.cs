@@ -6,7 +6,8 @@ public enum DownloadCenterKind
     VlcRuntime,
     AiUpscale,
     AiStudioModel,
-    AiOriginDetector
+    AiOriginDetector,
+    ExternalManaged
 }
 
 public sealed record DownloadCenterEntry(
@@ -124,6 +125,47 @@ public sealed class DownloadCenterService
                     true,
                     T("Local two-model ONNX ensemble used by the AI Detection page."))
             };
+
+        // One catalog for discoverability, including game/Minecraft components.
+        // Each item retains its original validated owner: their installation
+        // requires selecting a game/instance and must not be guessed here.
+        void AddManaged(string id, string name, string category, string license,
+            string size, string details)
+        {
+            entries.Add(new DownloadCenterEntry(
+                id, name, T(category), DownloadCenterKind.ExternalManaged,
+                T("Managed in the specialist module; local installation not verified"),
+                license, size, false, false, T(details)));
+        }
+
+        AddManaged("minecraft-caustica", "Caustica RTX Minecraft 26.2",
+            "Minecraft RTX", "Project-specific / bundled release terms",
+            "Caustica-RTX-Minecraft-26.2-build-46.jar",
+            "Official v3.2.0 release asset. Installation belongs to the Minecraft RTX one-click service, with instance detection, version compatibility, backups and checksums.");
+        AddManaged("minecraft-runtime", "Minecraft RTX runtime 26.2",
+            "Minecraft RTX", "Fabric/Java components; upstream licenses apply",
+            "minecraft-runtime-26.2.zip",
+            "Official v3.2.0 release asset. Managed only by Minecraft RTX setup for a selected Minecraft instance.");
+        AddManaged("minecraft-spbrscandi", "SPBRScandi LabPBR",
+            "Minecraft RTX", "Resource pack: verify its distribution terms",
+            "SPBRScandi.zip",
+            "Official v3.2.0 release asset. Optional resource pack installed by the validated Minecraft RTX workflow.");
+        AddManaged("minecraft-temurin", "Java Temurin 25 (Minecraft)",
+            "Minecraft RTX", "Eclipse Temurin / GPL-2.0 with Classpath Exception",
+            "temurin-25-jre-win-x64.zip",
+            "Manager-owned Java runtime is installed as required by Minecraft RTX. Do not install Java system-wide.");
+        AddManaged("games-streamline", "NVIDIA Streamline runtime 2.14.1",
+            "Games and DLSS", "NVIDIA Streamline redistribution terms",
+            "streamline-runtime-v2.14.1-win-x64.zip",
+            "Official v3.2.0 package, managed by the game installer; game-specific installation and compatibility checks are mandatory.");
+        AddManaged("games-reshade", "ReShade add-on support 6.8.0",
+            "Games and DLSS", "ReShade / third-party add-on terms",
+            "ReShade-Setup-v6.8.0-dev-18deaa52-vendored.zip",
+            "Official v3.2.0 release asset. Requires a chosen game, anti-cheat warning and explicit user consent.");
+        AddManaged("games-optiscaler", "OptiScaler / DLSS NR",
+            "Games and DLSS", "Project-specific and NVIDIA upstream licenses",
+            "OptiScaler package from approved release assets",
+            "Managed by Jeux & DLSS / OptiScaler avancé. Do not apply the Minecraft RTX pipeline or claim it is locally installed.");
 
         foreach (var model in
                  LocalAiStudioService.Models)
