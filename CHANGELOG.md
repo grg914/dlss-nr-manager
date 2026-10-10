@@ -14,6 +14,11 @@ All notable release changes should be recorded here. This file distinguishes **m
 - Identified support ZIP export risk: untrusted OptiScaler.log/INI/JSON may contain sensitive credentials despite user-path masking. Separate **candidate** fixes central ZIP-entry redaction and expands xUnit external-log secrecy tests; final merge status is tracked in GitHub.
 - Preserved V4.5 experimental separation and the existing closed/active PR ledger; no mandatory update, no release tag, no license/RTX acceptance claim.
 
+### 2026-10-10 — Real-ESRGAN #411 exact-byte repair candidate
+- Verified 5/5 historic CRLF `.param` SHA-256 digests match a byte-exact LF→CRLF transform of the pinned official source, with no added model options or architecture changes.
+- Candidate pins all 12 model download URLs to immutable `v3.2.0` and their published SHA-256 and byte sizes, restores LF exclusively for these five recognized source models, and retains canonical Git blob checks and destination rollback on error.
+- Added direct xUnit repair, source/release integrity and tampering regression tests plus a reproducible provenance report; **not a published V4 release** and on-device Vulkan/RTX tests pending.
+
 ## [Unreleased] — 4.0 readiness (not shipped)
 
 
