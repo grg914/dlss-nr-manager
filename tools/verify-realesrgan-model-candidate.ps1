@@ -13,7 +13,7 @@ if (!(Test-Path -LiteralPath $directory -PathType Container)) { throw "Missing s
 # Read the same locked 12 model records consumed by AiUpscaleService.
 # Do not silently repin the application to a damaged public release.
 $sourceText = [IO.File]::ReadAllText($source)
-$pattern = '(?s)new\(\s*"(?<name>realesr[^"]+\.(?:param|bin))"\s*,\s*"(?<url>https://github\.com/grg914/dlss-nr-manager/releases/latest/download/[^"]+)"\s*,\s*(?<size>[0-9]+)\s*,\s*"(?<blob>[a-fA-F0-9]{40})"\s*\)'
+$pattern = '(?s)new\(\s*"(?<name>realesr[^"]+\.(?:param|bin))"\s*,\s*"(?<url>https://github\.com/grg914/dlss-nr-manager/releases/download/v3.2.0/[^"]+)"\s*,\s*(?<size>[0-9]+)\s*,\s*"(?<blob>[a-fA-F0-9]{40})"\s*\)'
 $models = [regex]::Matches($sourceText, $pattern)
 if ($models.Count -ne 12) {
     throw "Expected exactly 12 pinned Real-ESRGAN model records in AiUpscaleService; found $($models.Count)."
@@ -26,7 +26,7 @@ $verified = @(
         $expectedSize = [long]::Parse($record.Groups['size'].Value, [Globalization.CultureInfo]::InvariantCulture)
         $expectedBlob = $record.Groups['blob'].Value.ToLowerInvariant()
         if ($name -notmatch '^realesr[a-z0-9-]*\.(param|bin)$' -or
-            $url -cne ("https://github.com/grg914/dlss-nr-manager/releases/latest/download/" + $name) -or
+            $url -cne ("https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/" + $name) -or
             $seen.ContainsKey($name)) {
             throw "Invalid or duplicate source-pinned model name/URL: $name"
         }
