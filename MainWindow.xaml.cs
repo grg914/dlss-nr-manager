@@ -4938,6 +4938,18 @@ public partial class MainWindow : Window
         var entry =
             SelectedDownloadCenterEntry();
 
+        // The central catalog exposes the original specialized installer.
+        // Never route a Minecraft/game package through the generic installer.
+        var managementIndex = OfficialUpstreamSelectionPolicy.GetManagementMenuIndex(entry);
+        DownloadCenterManageInModuleButton.Visibility =
+            managementIndex >= 0 ? Visibility.Visible : Visibility.Collapsed;
+        DownloadCenterManageInModuleButton.IsEnabled =
+            managementIndex >= 0 && _downloadCenterCts is null && !_checkingDownloadCenterUpdates;
+        if (managementIndex >= 0)
+            DownloadCenterManageInModuleButton.Content = managementIndex == 1
+                ? L("Manage in Minecraft RTX", "Gérer dans Minecraft RTX")
+                : L("Manage in Games & DLSS", "Gérer dans Jeux & DLSS");
+
         if (entry == null)
         {
             DownloadCenterInstallButton.IsEnabled =
@@ -4981,6 +4993,15 @@ public partial class MainWindow : Window
             entry.IsInstalled &&
             (entry.CanInstallAutomatically ||
              entry.RequiresLicenseAcceptance);
+    }
+
+    private void ManageDownloadCenterInModule_Click(
+        object sender, RoutedEventArgs e)
+    {
+        var managementIndex = OfficialUpstreamSelectionPolicy.GetManagementMenuIndex(
+            SelectedDownloadCenterEntry());
+        if (managementIndex >= 0 && MainMenuList is not null)
+            MainMenuList.SelectedIndex = managementIndex;
     }
 
     private async void InstallDownloadCenter_Click(
