@@ -46,7 +46,9 @@ struct TimingData
 
 class InputCommon
 {
-    inline static std::atomic<std::shared_ptr<LowLatencyTech>> currently_active_tech;
+    // MSVC /GL must observe the same storage alignment in every translation
+    // unit; otherwise the linker reports C4744 for this inline static object.
+    alignas(16) inline static std::atomic<std::shared_ptr<LowLatencyTech>> currently_active_tech;
     inline static std::mutex create_tech_mutex {};
 
     inline static FrameReport frame_reports[FRAME_REPORTS_BUFFER_SIZE] {};
