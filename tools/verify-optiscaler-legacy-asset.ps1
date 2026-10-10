@@ -9,7 +9,7 @@ function Assert-Valid {
     param([bool]$Condition, [string]$Description)
     if (-not $Condition) { throw $Description }
 }
-Assert-Valid ($pin.schema -eq 1 -and $pin.usage -ceq "qualification_only_not_automatically_activated") "Invalid manifest schema/policy."
+Assert-Valid ($pin.schema -eq 1 -and $pin.usage -ceq "trial_requires_explicit_user_confirmation") "Invalid manifest schema/policy."
 Assert-Valid ($pin.source_release -ceq "v3.2.0" -and $pin.asset_name -ceq "OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip") "Unexpected release or asset."
 Assert-Valid ($pin.sha256 -cmatch '^[0-9a-f]{64}$' -and [long]$pin.size -gt 1024KB -and [long]$pin.size -lt 1GB) "Invalid SHA-256/size receipt."
 $expectedUrl = "https://github.com/grg914/dlss-nr-manager/releases/download/$($pin.source_release)/$($pin.asset_name)"
