@@ -700,7 +700,6 @@ public sealed class MinecraftIntegrationService
                     new MinecraftProject("Lithium", "lithium", "lithium", "lithium"),
                     new MinecraftProject("FerriteCore", "ferrite-core", "ferritecore", "ferritecore"),
                     new MinecraftProject("Krypton", "krypton", "krypton", "krypton"),
-                    new MinecraftProject("C2ME", "c2me-fabric", "c2me", "c2me"),
                     new MinecraftProject("BadOptimizations", "badoptimizations", "badoptimizations", "badoptimizations"),
                     new MinecraftProject("Dynamic FPS", "dynamic-fps", "dynamic-fps", "dynamic_fps")
                 })
