@@ -692,9 +692,8 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrWhiteSpace(preferredBuild) &&
             _recentReleases.FirstOrDefault(release =>
-                release.Tag.Equals(
-                    preferredBuild,
-                    StringComparison.OrdinalIgnoreCase)) is { } savedRelease)
+                GamePreferenceService.MatchesOptiScalerBuild(
+                    release, preferredBuild)) is { } savedRelease)
         {
             OptiScalerBuildBox.SelectedItem = savedRelease;
             _release = savedRelease;
@@ -1109,12 +1108,12 @@ public partial class MainWindow : Window
         {
             GamePreferenceService.WriteOptiScalerBuild(
                 gameDir,
-                release.Tag);
+                release.ZipUrl);
 
             GameHistoryService.Append(
                 gameDir,
                 "Build selection",
-                $"Selected OptiScaler {release.Tag}.");
+                $"Selected OptiScaler {release.Tag} • SHA-256 {release.ZipSha256 ?? "unknown"}.");
         }
 
         await Task.CompletedTask;
