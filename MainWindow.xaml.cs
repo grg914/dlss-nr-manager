@@ -467,6 +467,21 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            // Fail closed: a network error when switching Stable/Prerelease
+            // must NEVER leave a stale previously-selected preview DLL ready
+            // for installation while the UI shows a failed source check.
+            _release = null;
+            _recentReleases = [];
+            _updatingOptiScalerBuildChoices = true;
+            try
+            {
+                OptiScalerBuildBox.ItemsSource = _recentReleases;
+                OptiScalerBuildBox.SelectedItem = null;
+            }
+            finally
+            {
+                _updatingOptiScalerBuildChoices = false;
+            }
             AvailableVersionText.Text = $"Release check failed: {ex.Message}";
         }
     }
