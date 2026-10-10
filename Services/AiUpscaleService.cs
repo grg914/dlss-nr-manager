@@ -25,8 +25,8 @@ public sealed record AiUpscaleOptions(
 
 public sealed class AiUpscaleService
 {
-    private const string ManagerLatestReleaseApi =
-        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/latest";
+    private const string ManagerApprovedReleaseApi =
+        "https://api.github.com/repos/grg914/dlss-nr-manager/releases/tags/v3.2.0";
     private const string EngineAssetName =
         "realesrgan-ncnn-vulkan-windows-x64.zip";
 
@@ -55,62 +55,62 @@ public sealed class AiUpscaleService
         // Windows release intentionally does not bundle NCNN model files.
         new(
             "realesrgan-x4plus.param",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrgan-x4plus.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesrgan-x4plus.param",
             116029,
             "d14d62ebb815bdd522ed112e67695b3377f86ca0"),
         new(
             "realesrgan-x4plus.bin",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrgan-x4plus.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesrgan-x4plus.bin",
             33424520,
             "5cea94783710c25d6fffa9fe9b59999498aec3d4"),
         new(
             "realesrnet-x4plus.param",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrnet-x4plus.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesrnet-x4plus.param",
             116029,
             "d14d62ebb815bdd522ed112e67695b3377f86ca0"),
         new(
             "realesrnet-x4plus.bin",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrnet-x4plus.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesrnet-x4plus.bin",
             33424520,
             "4f5b87990354b39b744adf25e36f4857065584a6"),
         new(
             "realesrgan-x4plus-anime.param",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrgan-x4plus-anime.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesrgan-x4plus-anime.param",
             30290,
             "6c98f9a1932603688683a6f0108cbdfcd6b3e680"),
         new(
             "realesrgan-x4plus-anime.bin",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesrgan-x4plus-anime.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesrgan-x4plus-anime.bin",
             8943500,
             "95201b7beeefaa2de45bc80f77f879f51d2fc534"),
         new(
             "realesr-animevideov3-x2.param",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x2.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesr-animevideov3-x2.param",
             3173,
             "42e774841c35c8bf0ffeb215bb40c61d4868be16"),
         new(
             "realesr-animevideov3-x2.bin",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x2.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesr-animevideov3-x2.bin",
             1247368,
             "20691050e279557160fbef5fa3f45fafeeac5402"),
         new(
             "realesr-animevideov3-x3.param",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x3.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesr-animevideov3-x3.param",
             3173,
             "bf4718580cc40eac9ff34f730ca64053feaf7bf4"),
         new(
             "realesr-animevideov3-x3.bin",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x3.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesr-animevideov3-x3.bin",
             1247368,
             "20691050e279557160fbef5fa3f45fafeeac5402"),
         new(
             "realesr-animevideov3-x4.param",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x4.param",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesr-animevideov3-x4.param",
             3077,
             "5b922cc388374b1152e01fa633bcab80b2448dae"),
         new(
             "realesr-animevideov3-x4.bin",
-            "https://github.com/grg914/dlss-nr-manager/releases/latest/download/realesr-animevideov3-x4.bin",
+            "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/realesr-animevideov3-x4.bin",
             1247368,
             "20691050e279557160fbef5fa3f45fafeeac5402")
     ];
@@ -160,7 +160,7 @@ public sealed class AiUpscaleService
                 "Checking manager-owned Real-ESRGAN runtime…");
 
             using var release = await GetJsonAsync(
-                ManagerLatestReleaseApi,
+                ManagerApprovedReleaseApi,
                 cancellationToken);
 
             var asset = FindWindowsAsset(release)
@@ -852,6 +852,10 @@ public sealed class AiUpscaleService
                 $"Unexpected Real-ESRGAN model URL: {asset.Url}");
         }
 
+        // Trusted publication metadata is pinned to the immutable v3.2.0
+        // package, not the mutable 'latest' release alias.
+        var publishedSize = RealEsrganPublishedModelRepair.PublishedSize(
+            asset.FileName, asset.ExpectedSize);
         var temp = destination + ".download";
 
         try
@@ -870,16 +874,16 @@ public sealed class AiUpscaleService
                     response.EnsureSuccessStatusCode();
 
                     if (response.Content.Headers.ContentLength is long contentLength &&
-                        contentLength != asset.ExpectedSize)
+                        contentLength != publishedSize)
                     {
                         throw new InvalidDataException(
-                            $"Real-ESRGAN model '{asset.FileName}' HTTP size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {contentLength:N0}.");
+                            $"Real-ESRGAN model '{asset.FileName}' HTTP size mismatch. Expected {publishedSize:N0} bytes, got {contentLength:N0}.");
                     }
 
                     using var transfer =
                         DownloadProgressHub.Begin(
                             asset.FileName,
-                            asset.ExpectedSize);
+                            publishedSize);
 
                     try
                     {
@@ -896,7 +900,7 @@ public sealed class AiUpscaleService
                             await CopyWithLimitAsync(
                                 input,
                                 output,
-                                asset.ExpectedSize,
+                                publishedSize,
                                 transfer,
                                 token);
                         }
@@ -910,11 +914,20 @@ public sealed class AiUpscaleService
                     }
 
                     var actualSize = new FileInfo(temp).Length;
-                    if (actualSize != asset.ExpectedSize)
+                    if (actualSize != publishedSize)
                     {
                         throw new InvalidDataException(
-                            $"Real-ESRGAN model '{asset.FileName}' size mismatch. Expected {asset.ExpectedSize:N0} bytes, got {actualSize:N0}.");
+                            $"Real-ESRGAN model '{asset.FileName}' size mismatch. Expected {publishedSize:N0} bytes, got {actualSize:N0}.");
                     }
+
+                    // Original release has five known LF→CRLF text transforms.
+                    // Require the public release SHA-256 BEFORE restoring LF,
+                    // then still require the original raw Git blob SHA-1.
+                    await RealEsrganPublishedModelRepair.VerifyAndRestoreAsync(
+                        asset.FileName, asset.ExpectedSize, temp, token);
+                    if (new FileInfo(temp).Length != asset.ExpectedSize)
+                        throw new InvalidDataException(
+                            $"Real-ESRGAN canonical model size mismatch: {asset.FileName}.");
 
                     var actualGitBlobSha1 =
                         await GitBlobSha1Async(temp, token);
