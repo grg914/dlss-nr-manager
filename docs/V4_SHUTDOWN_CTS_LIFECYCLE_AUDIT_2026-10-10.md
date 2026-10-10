@@ -12,6 +12,7 @@ MainWindow.Closed previously canceled, then immediately disposed, `_mediaOperati
 - Call `ExternalProcessTracker.BeginShutdown()` at window close to reject new app-owned process launches BEFORE cancellation; existing jobs stay alive until `Shutdown()` terminates leftovers and closes its Windows Job Object.
 - Preserve a real child-process regression in `tests/CrashProbe/Program.cs`: the early gate rejects late starts without eagerly killing the current helper, and final Shutdown terminates it.
 - The asynchronous operations retain ownership of their `CancellationTokenSource` and dispose them in their `finally` block. The close handler no longer races that ownership.
+- The ONNX AI Origin detector owns native `InferenceSession`, a setup semaphore and HTTP resources. If analysis is in progress at close, `MainWindow.Closed` now cancels it but defers detector disposal until the analysis handler's `finally`; otherwise it disposes immediately. Late inference progress, result dialogs and error dialogs are suppressed after close. Only one active inference handler is permitted.
 - Download Center async `finally` suppresses post-close list/selection UI refresh, and error branches for official/version probes avoid post-close UI writes.
 - Download Center progress callbacks skip updates when closed; operation/import failures are written to the existing redacting centralized logger.
 - Tests under `tests/DlssNrManager.Tests/DownloadCenterUpdateProbeShutdownTests.cs` assert cancellation, operation-owned disposal, guarded UI updates and error logging.
