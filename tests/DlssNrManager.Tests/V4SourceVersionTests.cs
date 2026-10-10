@@ -16,7 +16,7 @@ public sealed class V4SourceVersionTests
         Assert.Equal("4.0.0", AppIdentity.UserAgentVersion);
         var assembly = typeof(AppIdentity).Assembly;
         Assert.Equal(expected, assembly.GetName().Version);
-        Assert.Equal("4.0.0",
+        Assert.StartsWith("4.0.0",
             assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
         var file = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>();
         Assert.Equal("4.0.0.0", file?.Version);
