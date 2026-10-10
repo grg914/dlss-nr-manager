@@ -412,24 +412,41 @@ public partial class MainWindow : Window
         {
             AvailableVersionText.Text = "Checking GitHub…";
 
-            _recentReleases = await _releases.GetRecentAsync();
             var channelPrerelease = IsPrereleaseSelected();
+            var selectedUrlBeforeRefresh = _release?.ZipUrl;
 
-            var compatible = _recentReleases
-                .Where(release => channelPrerelease || !release.Prerelease)
-                .ToList();
+            // The stable V4 route requires the exact v3.2.0 package receipt.
+            // Same-version rebuilt releases are NOT a fallback if its
+            // GitHub digest, asset identity or source metadata changes.
+            var compatible = new List<ReleaseInfo>();
+            var original = await _releases.GetVerifiedLegacyOptiScalerAsync();
+            if (original != null)
+                compatible.Add(original);
 
-            _release = compatible.FirstOrDefault()
-                       ?? await _releases.GetLatestAsync(channelPrerelease);
+            // Other versions remain explicitly opt-in on the preview channel.
+            if (channelPrerelease)
+            {
+                var recent = await _releases.GetRecentAsync();
+                compatible.AddRange(recent.Where(item =>
+                    !compatible.Any(existing =>
+                        existing.ZipUrl.Equals(item.ZipUrl,
+                            StringComparison.OrdinalIgnoreCase))));
+            }
 
-            var selectedTag = _release?.Tag;
+            _recentReleases = compatible;
+            _release = compatible.FirstOrDefault(item =>
+                           item.ZipUrl.Equals(selectedUrlBeforeRefresh,
+                               StringComparison.OrdinalIgnoreCase))
+                       ?? compatible.FirstOrDefault();
+
+            var selectedUrl = _release?.ZipUrl;
             OptiScalerBuildBox.ItemsSource = compatible;
             if (_release != null)
             {
                 OptiScalerBuildBox.SelectedItem =
                     compatible.FirstOrDefault(item =>
-                        item.Tag.Equals(
-                            selectedTag,
+                        item.ZipUrl.Equals(
+                            selectedUrl,
                             StringComparison.OrdinalIgnoreCase))
                     ?? compatible.FirstOrDefault();
             }
@@ -937,6 +954,10 @@ public partial class MainWindow : Window
             ?? rendererPreview.Preferred?.Executable
             ?? InstallerService.FindMainExecutable(gameDir);
 
+        var trialNotice = OptiScalerLegacyReleasePolicy.IsPinnedCandidate(_release)
+            ? "\nOriginal v3.2.0 OptiScaler ZIP: SHA-256 verified, but gameplay on this GPU is not yet certified. Retain the transaction backup for rollback.\n"
+            : "";
+
         var comparison =
             $"BEFORE → AFTER\n" +
             $"OptiScaler: {currentState.Version ?? "not installed"} → {_release.Tag}\n" +
@@ -944,7 +965,9 @@ public partial class MainWindow : Window
             $"Renderer: {rendererPreview.Preferred?.Api ?? "unknown"}\n" +
             $"Executable: {(preferredExecutable == null ? "unknown" : Path.GetFileName(preferredExecutable))}\n" +
             $"NVIDIA runtime files: newer existing versions are preserved\n" +
-            $"Backup/transaction journal: enabled";
+            $"Backup/transaction journal: enabled" +
+            $"\nArchive SHA-256: {_release.ZipSha256 ?? "unknown"}" +
+            trialNotice;
 
         if (MessageBox.Show(
                 comparison + "\n\nApply these changes?",
