@@ -6,6 +6,8 @@ on:
     paths:
       - 'tools/verify-optiscaler-native-repro.ps1'
       - 'tools/build-optiscaler.ps1'
+      - 'tools/create-deterministic-flat-zip.ps1'
+      - 'third_party/OptiScaler/**'
       - '.github/workflows/optiscaler-native-repro.yml'
 
 permissions:
