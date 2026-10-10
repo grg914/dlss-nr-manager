@@ -14,7 +14,7 @@ if (!(Test-Path -LiteralPath $directory -PathType Container)) { throw "Missing s
 # Do not silently repin the application to a damaged public release.
 $sourceText = [IO.File]::ReadAllText($source)
 $pattern = '(?s)new\(\s*"(?<name>realesr[^"]+\.(?:param|bin))"\s*,\s*"(?<url>https://github\.com/grg914/dlss-nr-manager/releases/latest/download/[^"]+)"\s*,\s*(?<size>[0-9]+)\s*,\s*"(?<blob>[a-fA-F0-9]{40})"\s*\)'
-$models = @([regex]::Matches($sourceText, $pattern))
+$models = [regex]::Matches($sourceText, $pattern)
 if ($models.Count -ne 12) {
     throw "Expected exactly 12 pinned Real-ESRGAN model records in AiUpscaleService; found $($models.Count)."
 }
