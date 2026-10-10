@@ -188,6 +188,15 @@ public sealed class InstallerService
             var zip = Path.Combine(temp, "optiscaler.zip");
             await releases.DownloadAsync(release.ZipUrl, zip, release.ZipSha256);
 
+            // The original asset is immutable by ID, SHA-256 and byte size.
+            // Never install a different same-version rebuilt archive.
+            if (OptiScalerLegacyReleasePolicy.IsPinnedCandidate(release) &&
+                new FileInfo(zip).Length != OptiScalerLegacyReleasePolicy.ArchiveSize)
+            {
+                throw new InvalidDataException(
+                    "Verified original OptiScaler ZIP size differs from the pinned release.");
+            }
+
             var extract = Path.Combine(temp, "extract");
             ExtractSafe(zip, extract);
 
@@ -303,7 +312,9 @@ public sealed class InstallerService
                 DateTimeOffset.UtcNow,
                 managedFiles,
                 baselineBackup,
-                managedFileHashes);
+                managedFileHashes,
+                release.ZipUrl,
+                release.ZipSha256);
 
             journal.Stage("VERIFIED");
 
@@ -318,7 +329,7 @@ public sealed class InstallerService
             GameHistoryService.Append(
                 gameDir,
                 previousManifest == null ? "Install" : "Update",
-                $"OptiScaler {release.Tag} • proxy {proxy}",
+                $"OptiScaler {release.Tag} • proxy {proxy} • SHA-256 {release.ZipSha256 ?? "unknown"}",
                 Path.GetRelativePath(gameDir, backup));
 
             return backup;

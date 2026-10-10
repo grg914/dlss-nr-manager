@@ -51,6 +51,8 @@ public partial class MainWindow : Window
     private RtxCapabilities _gpuCapabilities = GpuCapabilityService.Evaluate(new("Unknown GPU", "Unknown", false));
     private ReleaseInfo? _release;
     private IReadOnlyList<ReleaseInfo> _recentReleases = [];
+    private bool _updatingOptiScalerBuildChoices;
+    private int _optiscalerReleaseRefreshVersion;
     private string? _runtimePath;
     private ManagerReleaseInfo? _managerRelease;
     private DetectedGame? _selectedGame;
@@ -414,30 +416,63 @@ public partial class MainWindow : Window
 
     private async Task RefreshReleaseAsync()
     {
+        // Two channel requests may complete out-of-order; only the latest
+        // response may replace the selected native archive or its UI label.
+        var revision = ++_optiscalerReleaseRefreshVersion;
+        var channelPrerelease = IsPrereleaseSelected();
         try
         {
             AvailableVersionText.Text = "Checking GitHub…";
 
-            _recentReleases = await _releases.GetRecentAsync();
-            var channelPrerelease = IsPrereleaseSelected();
+            var selectedUrlBeforeRefresh = _release?.ZipUrl;
 
-            var compatible = _recentReleases
-                .Where(release => channelPrerelease || !release.Prerelease)
-                .ToList();
+            // The stable V4 route requires the exact v3.2.0 package receipt.
+            // Same-version rebuilt releases are NOT a fallback if its
+            // GitHub digest, asset identity or source metadata changes.
+            var compatible = new List<ReleaseInfo>();
+            var original = await _releases.GetVerifiedLegacyOptiScalerAsync();
+            if (original != null)
+                compatible.Add(original);
 
-            _release = compatible.FirstOrDefault()
-                       ?? await _releases.GetLatestAsync(channelPrerelease);
-
-            var selectedTag = _release?.Tag;
-            OptiScalerBuildBox.ItemsSource = compatible;
-            if (_release != null)
+            // Other versions remain explicitly opt-in on the preview channel.
+            if (channelPrerelease)
             {
-                OptiScalerBuildBox.SelectedItem =
-                    compatible.FirstOrDefault(item =>
-                        item.Tag.Equals(
-                            selectedTag,
+                var recent = await _releases.GetRecentAsync();
+                compatible.AddRange(recent.Where(item =>
+                    !compatible.Any(existing =>
+                        existing.ZipUrl.Equals(item.ZipUrl,
+                            StringComparison.OrdinalIgnoreCase))));
+            }
+
+            if (revision != _optiscalerReleaseRefreshVersion ||
+                channelPrerelease != IsPrereleaseSelected())
+                return;
+
+            _recentReleases = compatible;
+            _release = compatible.FirstOrDefault(item =>
+                           item.ZipUrl.Equals(selectedUrlBeforeRefresh,
+                               StringComparison.OrdinalIgnoreCase))
+                       ?? compatible.FirstOrDefault();
+
+            var selectedUrl = _release?.ZipUrl;
+            // WPF SelectionChanged also fires when replacing ItemsSource.
+            // Refreshing available packages is NOT an operator selection and
+            // must not overwrite a game's persisted exact archive identity.
+            _updatingOptiScalerBuildChoices = true;
+            try
+            {
+                OptiScalerBuildBox.ItemsSource = compatible;
+                OptiScalerBuildBox.SelectedItem = _release == null
+                    ? null
+                    : compatible.FirstOrDefault(item =>
+                        item.ZipUrl.Equals(
+                            selectedUrl,
                             StringComparison.OrdinalIgnoreCase))
-                    ?? compatible.FirstOrDefault();
+                      ?? compatible.FirstOrDefault();
+            }
+            finally
+            {
+                _updatingOptiScalerBuildChoices = false;
             }
 
             AvailableVersionText.Text = _release == null
@@ -446,6 +481,24 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            if (revision != _optiscalerReleaseRefreshVersion)
+                return;
+
+            // Fail closed: a network error when switching Stable/Prerelease
+            // must NEVER leave a stale previously-selected preview DLL ready
+            // for installation while the UI shows a failed source check.
+            _release = null;
+            _recentReleases = [];
+            _updatingOptiScalerBuildChoices = true;
+            try
+            {
+                OptiScalerBuildBox.ItemsSource = _recentReleases;
+                OptiScalerBuildBox.SelectedItem = null;
+            }
+            finally
+            {
+                _updatingOptiScalerBuildChoices = false;
+            }
             AvailableVersionText.Text = $"Release check failed: {ex.Message}";
         }
     }
@@ -681,9 +734,8 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrWhiteSpace(preferredBuild) &&
             _recentReleases.FirstOrDefault(release =>
-                release.Tag.Equals(
-                    preferredBuild,
-                    StringComparison.OrdinalIgnoreCase)) is { } savedRelease)
+                GamePreferenceService.MatchesOptiScalerBuild(
+                    release, preferredBuild)) is { } savedRelease)
         {
             OptiScalerBuildBox.SelectedItem = savedRelease;
             _release = savedRelease;
@@ -943,6 +995,10 @@ public partial class MainWindow : Window
             ?? rendererPreview.Preferred?.Executable
             ?? InstallerService.FindMainExecutable(gameDir);
 
+        var trialNotice = OptiScalerLegacyReleasePolicy.IsPinnedCandidate(_release)
+            ? "\nOriginal v3.2.0 OptiScaler ZIP: SHA-256 verified, but gameplay on this GPU is not yet certified. Retain the transaction backup for rollback.\n"
+            : "";
+
         var comparison =
             $"BEFORE → AFTER\n" +
             $"OptiScaler: {currentState.Version ?? "not installed"} → {_release.Tag}\n" +
@@ -950,7 +1006,9 @@ public partial class MainWindow : Window
             $"Renderer: {rendererPreview.Preferred?.Api ?? "unknown"}\n" +
             $"Executable: {(preferredExecutable == null ? "unknown" : Path.GetFileName(preferredExecutable))}\n" +
             $"NVIDIA runtime files: newer existing versions are preserved\n" +
-            $"Backup/transaction journal: enabled";
+            $"Backup/transaction journal: enabled" +
+            $"\nArchive SHA-256: {_release.ZipSha256 ?? "unknown"}" +
+            trialNotice;
 
         if (MessageBox.Show(
                 comparison + "\n\nApply these changes?",
@@ -1080,7 +1138,8 @@ public partial class MainWindow : Window
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (OptiScalerBuildBox.SelectedItem is not ReleaseInfo release)
+        if (_updatingOptiScalerBuildChoices ||
+            OptiScalerBuildBox.SelectedItem is not ReleaseInfo release)
             return;
 
         _release = release;
@@ -1092,12 +1151,12 @@ public partial class MainWindow : Window
         {
             GamePreferenceService.WriteOptiScalerBuild(
                 gameDir,
-                release.Tag);
+                release.ZipUrl);
 
             GameHistoryService.Append(
                 gameDir,
                 "Build selection",
-                $"Selected OptiScaler {release.Tag}.");
+                $"Selected OptiScaler {release.Tag} • SHA-256 {release.ZipSha256 ?? "unknown"}.");
         }
 
         await Task.CompletedTask;

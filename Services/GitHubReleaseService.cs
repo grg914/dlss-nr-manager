@@ -31,6 +31,18 @@ public sealed class GitHubReleaseService
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
 
+    // Only the immutable, precisely identified v3.2.0 asset may be the
+    // default stable V4 candidate. Unlike generic release enumeration, this
+    // checks release and asset IDs, SHA-256, size and original download URL.
+    public async Task<ReleaseInfo?> GetVerifiedLegacyOptiScalerAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var doc = await GetJsonWithRetryAsync(
+            "https://api.github.com/repos/grg914/dlss-nr-manager/releases/tags/v3.2.0",
+            cancellationToken);
+        return OptiScalerLegacyReleasePolicy.TrySelect(doc.RootElement);
+    }
+
     public async Task<ReleaseInfo?> GetLatestAsync(
         bool includePrerelease)
     {

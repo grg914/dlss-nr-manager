@@ -1,0 +1,35 @@
+name: Qualify Original OptiScaler v3.2.0 Asset
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'manifests/optiscaler-v4-legacy-candidate.json'
+      - 'tools/verify-optiscaler-legacy-asset.ps1'
+      - '.github/workflows/qualify-optiscaler-legacy.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-original:
+    name: Verify original release ZIP and x64 DLLs
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          lfs: false
+      - name: Retrieve and verify original v3.2.0 package
+        shell: powershell
+        run: |
+          .\tools\verify-optiscaler-legacy-asset.ps1 -DestinationDirectory build-local/optiscaler-legacy-v3.2.0
+      - name: Save verified original ZIP for isolated V4 evaluation
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: verified-optiscaler-v3-2-0-original
+          path: build-local/optiscaler-legacy-v3.2.0/OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

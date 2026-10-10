@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, gpt-b/v4-combined-435-436-437-439-20261010 ]
   schedule:
     - cron: '23 5 * * 3'
   workflow_dispatch:
