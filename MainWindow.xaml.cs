@@ -3027,6 +3027,9 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
+        if (_isClosed || _permanentVideoCts != null)
+            return;
+
         var source =
             PermanentVideoSourceBox.Text;
 
@@ -3113,8 +3116,6 @@ public partial class MainWindow : Window
             _ => AiUpscaleModel.GeneralPhoto
         };
 
-        _permanentVideoCts?.Cancel();
-        _permanentVideoCts?.Dispose();
         _permanentVideoCts =
             new CancellationTokenSource();
 
@@ -3131,8 +3132,10 @@ public partial class MainWindow : Window
             var progress =
                 new Progress<string>(
                     message =>
-                        PermanentVideoStatusText.Text =
-                            message);
+                    {
+                        if (!_isClosed)
+                            PermanentVideoStatusText.Text = message;
+                    });
 
             if (!_media.IsReady)
             {
@@ -3214,24 +3217,29 @@ public partial class MainWindow : Window
                     cancellationToken);
             }
 
-            PermanentVideoStatusText.Text =
-                L($"Permanent enhancement complete • {result}", $"Amélioration permanente terminée • {result}");
+            if (!_isClosed)
+                PermanentVideoStatusText.Text =
+                    L($"Permanent enhancement complete • {result}", $"Amélioration permanente terminée • {result}");
         }
         catch (OperationCanceledException)
         {
-            PermanentVideoStatusText.Text =
-                L("Permanent video enhancement cancelled.", "Amélioration vidéo permanente annulée.");
+            if (!_isClosed)
+                PermanentVideoStatusText.Text =
+                    L("Permanent video enhancement cancelled.", "Amélioration vidéo permanente annulée.");
         }
         catch (Exception ex)
         {
-            PermanentVideoStatusText.Text =
-                L($"Permanent enhancement failed: {ex.Message}", $"Échec de l’amélioration permanente : {ex.Message}");
-
-            MessageBox.Show(
-                ex.Message,
-                L("Restore HD Video", "Restore HD Vidéo"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            AppLogger.Error("Permanent video enhancement failed.", ex);
+            if (!_isClosed)
+            {
+                PermanentVideoStatusText.Text =
+                    L($"Permanent enhancement failed: {ex.Message}", $"Échec de l’amélioration permanente : {ex.Message}");
+                MessageBox.Show(
+                    ex.Message,
+                    L("Restore HD Video", "Restore HD Vidéo"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
         finally
         {
@@ -3249,8 +3257,11 @@ public partial class MainWindow : Window
 
             _permanentVideoCts?.Dispose();
             _permanentVideoCts = null;
-            PermanentVideoEnhanceButton.IsEnabled = true;
-            PermanentVideoCancelButton.IsEnabled = false;
+            if (!_isClosed)
+            {
+                PermanentVideoEnhanceButton.IsEnabled = true;
+                PermanentVideoCancelButton.IsEnabled = false;
+            }
         }
     }
 
@@ -3598,6 +3609,9 @@ public partial class MainWindow : Window
 
     private async void ProcessMedia_Click(object sender, RoutedEventArgs e)
     {
+        if (_isClosed || _mediaOperationCts != null)
+            return;
+
         var source = MediaSourceBox.Text;
         if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
         {
@@ -3619,8 +3633,6 @@ public partial class MainWindow : Window
             MediaOutputBox.Text = output;
         }
 
-        _mediaOperationCts?.Cancel();
-        _mediaOperationCts?.Dispose();
         _mediaOperationCts = new CancellationTokenSource();
         var mediaCancellationToken = _mediaOperationCts.Token;
 
@@ -3695,6 +3707,9 @@ public partial class MainWindow : Window
                     mediaCancellationToken);
             }
 
+            if (_isClosed)
+                return;
+
             MediaStatusText.Text = $"Complete • {result}";
             if (mode is 1 or 2)
                 AiUpscaleStatusText.Text = $"Complete • {result}";
@@ -3715,25 +3730,32 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            MediaStatusText.Text = "Processing cancelled.";
-            AiUpscaleStatusText.Text = "Processing cancelled.";
+            if (!_isClosed)
+            {
+                MediaStatusText.Text = "Processing cancelled.";
+                AiUpscaleStatusText.Text = "Processing cancelled.";
+            }
         }
         catch (Exception ex)
         {
-            MediaStatusText.Text = $"Processing failed: {ex.Message}";
-            AiUpscaleStatusText.Text = $"Processing failed: {ex.Message}";
-
-            MessageBox.Show(
-                ex.Message,
-                "Media processing failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            AppLogger.Error("Media processing failed.", ex);
+            if (!_isClosed)
+            {
+                MediaStatusText.Text = $"Processing failed: {ex.Message}";
+                AiUpscaleStatusText.Text = $"Processing failed: {ex.Message}";
+                MessageBox.Show(
+                    ex.Message,
+                    "Media processing failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
         finally
         {
             _mediaOperationCts?.Dispose();
             _mediaOperationCts = null;
-            MediaProcessButton.IsEnabled = true;
+            if (!_isClosed)
+                MediaProcessButton.IsEnabled = true;
         }
     }
 
