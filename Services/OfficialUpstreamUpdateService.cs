@@ -121,6 +121,28 @@ public sealed class OfficialUpstreamUpdateService
         return _cached;
     }
 
+    /// <summary>
+    /// Inspect exactly one allowed tracked source. Unlike CheckAsync, this
+    /// never scans the other repositories or invents a version for an
+    /// unrelated download component.
+    /// </summary>
+    public async Task<OfficialUpstreamResult?> CheckSelectedAsync(
+        string? sourceId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId))
+            return null;
+
+        var source = GetCatalog().FirstOrDefault(
+            x => string.Equals(x.Id, sourceId, StringComparison.Ordinal));
+        if (source is null)
+            return null;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = await CheckOneAsync(source, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
+    }
+
     private async Task<OfficialUpstreamResult> CheckOneAsync(
         OfficialUpstreamSource source,
         CancellationToken cancellationToken)
