@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DlssNrManager.Services;
+using DlssNrManager.Models;
 using Xunit;
 
 namespace DlssNrManager.Tests;
@@ -102,4 +103,41 @@ public sealed class OptiScalerLegacyReleasePolicyTests
         Assert.Null(OptiScalerLegacyReleasePolicy.TrySelect(missing.RootElement));
         Assert.Null(OptiScalerLegacyReleasePolicy.TrySelect(empty.RootElement));
     }
+    [Fact]
+    public void Per_game_preference_uses_exact_package_url_not_ambiguous_tag()
+    {
+        var original = new ReleaseInfo(
+            OptiScalerLegacyReleasePolicy.Tag,
+            "Original",
+            false,
+            OptiScalerLegacyReleasePolicy.ArchiveUrl,
+            OptiScalerLegacyReleasePolicy.ArchiveSha256);
+        var sameVersionDifferentArchive = original with
+        {
+            ZipUrl = "https://github.com/grg914/dlss-nr-manager/releases/download/v3.1.1/OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip"
+        };
+
+        Assert.True(GamePreferenceService.MatchesOptiScalerBuild(
+            original, original.ZipUrl));
+        Assert.False(GamePreferenceService.MatchesOptiScalerBuild(
+            sameVersionDifferentArchive, original.ZipUrl));
+        Assert.True(GamePreferenceService.MatchesOptiScalerBuild(
+            original, original.Tag)); // backwards compatibility for older preferences
+        Assert.False(GamePreferenceService.MatchesOptiScalerBuild(
+            original, sameVersionDifferentArchive.ZipUrl));
+        Assert.False(GamePreferenceService.MatchesOptiScalerBuild(
+            original, null));
+    }
+
+    [Fact]
+    public void Historical_manifest_json_remains_readable_after_provenance_extension()
+    {
+        var existing = JsonSerializer.Deserialize<InstallManifest>(
+            "{\"Release\":\"v0.7.7-pre0\",\"Proxy\":\"dxgi.dll\",\"GameExecutable\":\"game.exe\"," +
+            "\"GameExecutableHash\":\"example\",\"RuntimeHash\":\"\",\"InstalledAt\":\"2026-10-08T12:00:00Z\"}");
+        Assert.NotNull(existing);
+        Assert.Null(existing!.SourceArchiveUrl);
+        Assert.Null(existing.SourceArchiveSha256);
+    }
+
 }
