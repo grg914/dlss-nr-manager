@@ -60,4 +60,6 @@ public sealed record InstallManifest(
     DateTimeOffset InstalledAt,
     IReadOnlyList<string>? ManagedFiles = null,
     string? BaselineBackup = null,
-    IReadOnlyDictionary<string, string>? ManagedFileHashes = null);
+    IReadOnlyDictionary<string, string>? ManagedFileHashes = null,
+    string? SourceArchiveUrl = null,
+    string? SourceArchiveSha256 = null);
