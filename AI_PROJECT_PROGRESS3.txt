@@ -81,3 +81,7 @@ PROCHAINE ÉTAPE : Regression → re-audit → protected signed merge only if ch
 
 === FINAL V4 RELEASE HOLD ===
 No v4.0 release, upgrade payload, binary/model download promotion, OpenMP library distribution or owner PC runtime test was completed by this source-only audit.
+
+=== 2026-10-10 AUDIT → CORRECTION → TEST → RE-AUDIT CYCLE 1 ===
+- Source CI #38015082264 on unsigned audit candidate bb4a2a0112ad17b211d492bcc81e37ffcf8ff2ff FAILED in Run regression tests during build: CS0103 HttpRequestException type unavailable in ApplicationFailureReport.cs (line 32). This was a compile-time missing namespace, NOT a GPU/RTX test or runtime behavior failure. No protected merge occurred.
+- Prepared smallest fix: explicit using System.Net.Http; in Services/ApplicationFailureReport.cs on gpt-b/v4-final-audit-cs0103-fix-source-20261010. Re-signed staging and new exact-head Windows Build/xUnit/CodeQL required before protected #426 can merge. Earlier signed candidate is invalid for merge while checks fail.
