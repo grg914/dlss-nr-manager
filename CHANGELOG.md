@@ -2,6 +2,13 @@
 
 All notable release changes should be recorded here. This file distinguishes **merged code** from **unreleased plans**. Source version and latest published GitHub release are separate facts.
 
+### 2026-10-10 — V4 pre-release DRAFT candidates (NOT MERGED)
+- PR #435: OpenMP disabled in Real-ESRGAN/NCNN only with Vulkan retained, fail-closed packaged DLL/import guard, robust Visual Studio x64 audit discovery, retired legacy REDIST tests. Prior exact-head candidate native CI and Build green; latest-head CI and signed protected staging still required, along with physical GPU acceptance.
+- PR #436: pin two AI-origin ONNX URLs to approved `v3.2.0` immutable release, weights unchanged. Draft unsigned; other optional version-aware update routes remain #111.
+- PR #437: prevent excluded C2ME from being requested or advertised by Minecraft 26.2, align FR/EN and add source regression tests. Draft unsigned.
+- Four coordination/progress journals append the checkpoint. No changes to V4.5, no destructive cleanup, no V4 release. P0 #79/#95/#111/#411 remain open.
+
+
 ### 2026-10-10 — V4 source audit and integration gates
 - Integrated through protected signed PR #422: optional self-contained V4 **local developer test** builder for a PC without an installed Manager; not a distributable release artifact.
 - Integrated through protected signed PR #424: read-only local Microsoft VC++ x64 detection with FR/EN UI, no third-party installer/binary distribution; old #340/#341 superseded.
