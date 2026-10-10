@@ -59,15 +59,25 @@ try {
         Assert-Valid ($null -ne $entry) "Missing native DLL: $dll"
         $stream = $entry.Open()
         try {
-            $reader = New-Object IO.BinaryReader($stream)
-            Assert-Valid ($reader.ReadUInt16() -eq 0x5A4D) "Not MZ/PE: $dll"
-            $stream.Position = 0x3c
-            $peOffset = $reader.ReadInt32()
-            Assert-Valid ($peOffset -ge 64 -and $peOffset -le 65536 -and $peOffset -lt $entry.Length - 8) "Invalid PE offset: $dll"
-            $stream.Position = $peOffset
-            Assert-Valid ($reader.ReadUInt32() -eq 0x4550) "Invalid PE: $dll"
-            Assert-Valid ($reader.ReadUInt16() -eq 0x8664) "Not Win64 PE: $dll"
-            Write-Host "Verified Win64 PE native: $dll ($($entry.Length) bytes)"
+            # ZIP entry decompression streams are forward-only. Read a small
+            # bounded header into memory, then seek in that memory buffer.
+            # Never extract or execute any DLL from the downloaded archive.
+            $sourceReader = [IO.BinaryReader]::new($stream)
+            $headerBytes = $sourceReader.ReadBytes([int][Math]::Min([long]$entry.Length, [long]65536))
+            Assert-Valid ($headerBytes.Length -ge 64) "Truncated Win64 PE header: $dll"
+            $header = [IO.MemoryStream]::new($headerBytes)
+            try {
+                $reader = [IO.BinaryReader]::new($header)
+                Assert-Valid ($reader.ReadUInt16() -eq 0x5A4D) "Not MZ/PE: $dll"
+                $header.Position = 0x3c
+                $peOffset = $reader.ReadInt32()
+                Assert-Valid ($peOffset -ge 64 -and $peOffset -le $headerBytes.Length - 6) "Invalid PE offset: $dll"
+                $header.Position = $peOffset
+                Assert-Valid ($reader.ReadUInt32() -eq 0x4550) "Invalid PE: $dll"
+                Assert-Valid ($reader.ReadUInt16() -eq 0x8664) "Not Win64 PE: $dll"
+                Write-Host "Verified Win64 PE native: $dll ($($entry.Length) bytes)"
+            }
+            finally { $header.Dispose() }
         }
         finally { $stream.Dispose() }
     }
