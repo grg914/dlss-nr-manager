@@ -317,6 +317,12 @@ jobs:
             }
           }
 
+      - name: Verify 12 source-pinned Real-ESRGAN models and create immutable digest receipt
+        shell: pwsh
+        run: |
+          & .\tools\verify-realesrgan-model-candidate.ps1 -AssetDirectory 'release-assets' -SourceFile 'Services/AiUpscaleService.cs' -ManifestPath 'release-assets/realesrgan-model-manifest.json'
+          if ($LASTEXITCODE -ne 0) { throw 'Real-ESRGAN model receipt verification failed.' }
+
       - name: Reuse manager-owned Caustica and Scandi assets
         id: optional
         shell: pwsh
@@ -423,6 +429,7 @@ jobs:
             "release-assets/vlc-3.0.24-provenance.json",
             "release-assets/ai-origin-primary-int8.onnx",
             "release-assets/ai-origin-secondary-int8.onnx",
+            "release-assets/realesrgan-model-manifest.json",
             "release-assets/realesrgan-x4plus.param",
             "release-assets/realesrgan-x4plus.bin",
             "release-assets/realesrnet-x4plus.param",
@@ -488,6 +495,7 @@ jobs:
             "release-assets/components-manifest.json",
             "release-assets/SBOM.spdx.json",
             "release-assets/release-provenance.json",
+            "release-assets/realesrgan-model-manifest.json",
             "release-assets/realesrgan-ncnn-vulkan-windows-x64.zip",
             "release-assets/ffmpeg-dlssnr-win-x64.zip",
             "release-assets/video2dlssnr_release.zip",
