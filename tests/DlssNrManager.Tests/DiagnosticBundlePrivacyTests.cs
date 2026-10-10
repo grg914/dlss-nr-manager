@@ -68,6 +68,19 @@ public sealed class DiagnosticBundlePrivacyTests
         }
     }
 
+    [Fact]
+    public void Redacted_json_credential_remains_valid_json()
+    {
+        const string original = "{\"api_key\":\"neverPersistSecret123\",\"mode\":\"offline\"}";
+        var redacted = AppLogger.RedactSensitiveData(original);
+        using var parsed = System.Text.Json.JsonDocument.Parse(redacted);
+        Assert.Equal("[REDACTED]",
+            parsed.RootElement.GetProperty("api_key").GetString());
+        Assert.Equal("offline",
+            parsed.RootElement.GetProperty("mode").GetString());
+        Assert.DoesNotContain("neverPersistSecret123", redacted, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("{\"access_token\": \"jsonValueSecret123\"}", "jsonValueSecret123")]
     [InlineData("Authorization: Basic encodedBasicSecret123", "encodedBasicSecret123")]
