@@ -128,7 +128,11 @@ if (Test-Path -LiteralPath $packageDestination) {
 }
 New-Item -ItemType Directory -Force -Path $packageDestination | Out-Null
 
-robocopy $packageSource $packageDestination /E /NFL /NDL /NJH /NJS /NP | Out-Null
+# Keep the native forwarder PDB in the build workspace for diagnostics,
+# but exclude it from the user runtime package. /Brepro stabilizes both DLLs;
+# MSVC's separate forwarder PDB still varies between fresh builds and is not
+# needed to run the released package.
+robocopy $packageSource $packageDestination /E /NFL /NDL /NJH /NJS /NP /XF nvngx.dll_dlssnr.pdb | Out-Null
 if ($LASTEXITCODE -ge 8) {
     throw "Failed to stage OptiScaler package. robocopy exit code: $LASTEXITCODE"
 }
