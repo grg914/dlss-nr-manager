@@ -9,7 +9,8 @@ MainWindow.Closed previously canceled, then immediately disposed, `_mediaOperati
 ## Correction
 
 - Keep `_isClosed = true` and cancellation of all active operations at window close.
-- Keep `ExternalProcessTracker.Shutdown()` and its Windows Job Object kill-on-close owner boundary.
+- Call `ExternalProcessTracker.BeginShutdown()` at window close to reject new app-owned process launches BEFORE cancellation; existing jobs stay alive until `Shutdown()` terminates leftovers and closes its Windows Job Object.
+- Preserve a real child-process regression in `tests/CrashProbe/Program.cs`: the early gate rejects late starts without eagerly killing the current helper, and final Shutdown terminates it.
 - The asynchronous operations retain ownership of their `CancellationTokenSource` and dispose them in their `finally` block. The close handler no longer races that ownership.
 - Download Center async `finally` suppresses post-close list/selection UI refresh, and error branches for official/version probes avoid post-close UI writes.
 - Download Center progress callbacks skip updates when closed; operation/import failures are written to the existing redacting centralized logger.
