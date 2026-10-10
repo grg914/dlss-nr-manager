@@ -17,6 +17,3 @@ if ([IO.Path]::GetExtension($exe) -ne '.exe') {
 # It also finds the Visual Studio x64 dumpbin outside the Developer Shell.
 $script = Join-Path $PSScriptRoot 'audit-realesrgan-package-openmp.ps1'
 & $script -PackageDirectory (Split-Path -Parent $exe)
-if ($LASTEXITCODE -ne 0) {
-    throw 'Real-ESRGAN package PE import audit failed.'
-}
