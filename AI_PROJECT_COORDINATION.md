@@ -234,3 +234,14 @@ GPT A has prepared **private-only** P0-B.10B source and CI on draft PR #4: a rea
 The private feature branch has **484 static host/sandbox assertions** and **54 new synthetic P0-B.10B evidence fixtures**, on top of earlier synthetic tests. Windows PowerShell 5.1 parsing and Windows probe compilation are required in the private CI. **No real WFP/LAN networking experiment has been executed and no actual lab VM is available in this workflow.** P0-B.10B remains NOT_RUN; `InternetOnlyKernelEgress=NOT_VERIFIED`, `PrivateNetworkDeny=NOT_VERIFIED`, production sandbox supervisor NOT_INTEGRATED, 180 game/profile tests NOT_RUN and all six games DENIED.
 
 All operational instructions and detailed private-only artifacts stay in [P0-B.10B isolated laboratory protocol](https://github.com/grg914/dlss-nr-manager-private/blob/feature/gpt-a-free-online-game-sandbox-20261010/V4.5/free-online-game/host/P0B10B_ISOLATED_WFP_LAB_ACCEPTANCE.md). No public V4 or GPT C implementation files are modified. This coordination PR remains DRAFT/nonmerged pending GPT B's protected integration process.
+
+
+### GPT A — 2026-10-10 — Brave adblock-rust V4.5 prototype (not released)
+
+Within GPT A's **private V4.5 Free Online Game draft PR #4**, the official Brave Software `adblock-rust` source dependency (Rust crate version 0.13.3, MPL-2.0) is now represented by a native bridge and a .NET WebView2 resource-check adapter. This is **not an official Brave Shields browser extension**. The adapter evaluates only resources already accepted by the mandatory exact-host allowlist; it cannot replace AppContainer or WFP policy.
+
+**Release remains blocked**: no approved or redistributed Rust DLL, no filter-list licence/provenance/hash, no live WebView2 InPrivate/AppContainer filtering proof, no actual P0-B.10B kernel private-network denial test and no production sandbox supervisor. `ApprovedForRelease=false`, zero approved games and 180 game/profile scenarios `NOT_RUN`. The UI currently shows a disabled Brave protection control rather than falsely claiming Shields is active.
+
+Source-only Rust tests, static safety contracts and Windows WPF builds have passed on the private feature branch. Windows native ABI validation has been moved to a separate synthetic test runner because the real FreeGameHost correctly refuses the elevated Windows CI runner; the production elevation guard was **not changed**. The final exact-head CI result must be verified before considering the native bridge validated.
+
+No stable V4 implementation code or GPT C AI Studio areas were modified. Public coordination PR #438 remains DRAFT/unmerged.
