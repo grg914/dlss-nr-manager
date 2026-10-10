@@ -103,6 +103,32 @@ public sealed class DownloadCenterUpdateProbeShutdownTests
     }
 
     [Fact]
+    public void Media_and_permanent_video_reject_duplicate_operations_and_quiet_late_callbacks()
+    {
+        var source = WindowSource();
+        var mediaStart = source.IndexOf("private async void ProcessMedia_Click(", StringComparison.Ordinal);
+        var mediaEnd = source.IndexOf("    private void MediaIntensitySlider_ValueChanged(", mediaStart, StringComparison.Ordinal);
+        var videoStart = source.IndexOf("private async void StartPermanentVideoEnhancement_Click(", StringComparison.Ordinal);
+        var videoEnd = source.IndexOf("    private void CancelPermanentVideoEnhancement_Click(", videoStart, StringComparison.Ordinal);
+        Assert.True(mediaStart >= 0 && mediaEnd > mediaStart &&
+                    videoStart >= 0 && videoEnd > videoStart);
+        var media = source[mediaStart..mediaEnd];
+        var video = source[videoStart..videoEnd];
+
+        Assert.Contains("if (_isClosed || _mediaOperationCts != null)", media);
+        Assert.Contains("if (_isClosed || _permanentVideoCts != null)", video);
+        Assert.DoesNotContain("_mediaOperationCts?.Dispose();\n        _mediaOperationCts = new", media);
+        Assert.DoesNotContain("_permanentVideoCts?.Dispose();\n        _permanentVideoCts =", video);
+
+        foreach (var code in new[] { media, video })
+        {
+            Assert.Contains("if (_isClosed)", code);
+            Assert.Contains("if (!_isClosed)", code);
+            Assert.Contains("AppLogger.Error(", code);
+        }
+    }
+
+    [Fact]
     public void Both_version_lookups_forward_their_cancellation_token()
     {
         var source = WindowSource();
