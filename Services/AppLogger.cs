@@ -75,11 +75,11 @@ public static class AppLogger
         {
             value = System.Text.RegularExpressions.Regex.Replace(
                 value,
-                @"(\bAuthorization\s*[:=]\s*Bearer\s+)[^\s,;]+",
+                @"(\bAuthorization\s*[:=]\s*(?:Bearer|Basic|Token)\s+)[^\s,;]+",
                 "$1[REDACTED]", options, timeout);
             value = System.Text.RegularExpressions.Regex.Replace(
                 value,
-                @"(\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token)\b\s*[:=]\s*)(?:""[^""]*""|'[^']*'|[^\s&,;]+)",
+                @"(\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token)\b""?\s*[:=]\s*)(?:""[^""]*""|'[^']*'|[^\s&,;}\]]+)",
                 "$1[REDACTED]", options, timeout);
             value = System.Text.RegularExpressions.Regex.Replace(
                 value,
