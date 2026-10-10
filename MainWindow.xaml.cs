@@ -5032,8 +5032,8 @@ public partial class MainWindow : Window
             new Progress<string>(
                 message =>
                 {
-                    DownloadCenterStatusText.Text =
-                        message;
+                    if (!_isClosed)
+                        DownloadCenterStatusText.Text = message;
                 });
 
         try
@@ -5084,8 +5084,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            DownloadCenterStatusText.Text =
-                L($"Failure: {ex.Message}", $"Échec : {ex.Message}");
+            AppLogger.Error("Download Center component operation failed: " + entry.Id, ex);
+            if (!_isClosed)
+                DownloadCenterStatusText.Text =
+                    L($"Failure: {ex.Message}", $"Échec : {ex.Message}");
         }
         finally
         {
@@ -5180,8 +5182,8 @@ public partial class MainWindow : Window
             new Progress<string>(
                 message =>
                 {
-                    DownloadCenterStatusText.Text =
-                        message;
+                    if (!_isClosed)
+                        DownloadCenterStatusText.Text = message;
                 });
 
         try
@@ -5207,8 +5209,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            DownloadCenterStatusText.Text =
-                L($"Import failed: {ex.Message}", $"Échec de l'import : {ex.Message}");
+            AppLogger.Error("Download Center manual model import failed: " + entry.Id, ex);
+            if (!_isClosed)
+                DownloadCenterStatusText.Text =
+                    L($"Import failed: {ex.Message}", $"Échec de l'import : {ex.Message}");
         }
         finally
         {
