@@ -1915,6 +1915,13 @@
                             Click="RefreshDownloadCenter_Click"/>
                   </Grid>
 
+                  <TextBlock x:Name="VcRedistX64StatusText"
+                             Text="Microsoft Visual C++ Redistributable x64: détection locale…"
+                             Foreground="{StaticResource Muted}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,12"/>
+
                   <ListBox x:Name="DownloadCenterList"
                            MinHeight="500"
                            SelectionChanged="DownloadCenterList_SelectionChanged"/>
