@@ -78,7 +78,7 @@ public sealed class DarkTabThemeTests
         var header = Assert.Single(template.Descendants(Presentation + "ContentPresenter"));
         Assert.Equal("Header", (string?)header.Attribute("ContentSource"));
         Assert.Equal("{TemplateBinding Foreground}",
-            (string?)header.Attribute(Presentation + "Foreground"));
+            (string?)header.Attribute("TextElement.Foreground"));
         var triggers = template.Descendants(Presentation + "Trigger").ToArray();
         foreach (var pair in new[]
         {
