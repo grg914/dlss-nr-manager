@@ -26,11 +26,11 @@ jobs:
           persist-credentials: false
           lfs: true
 
-      - name: Build NCNN Vulkan candidate with both OpenMP paths disabled
+      - name: Build NCNN Vulkan with OpenMP unconditionally disabled
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan-no-openmp -Clean -DisableOpenMp
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan-no-openmp -Clean
           if ($LASTEXITCODE -ne 0) { throw 'OpenMP-free Real-ESRGAN build failed.' }
           $cache = Get-Content -LiteralPath 'build-realesrgan-no-openmp/CMakeCache.txt'
           if (-not @($cache | Where-Object { $_ -match '^NCNN_OPENMP:[^=]+=(OFF|FALSE|0)$' }).Count) {
@@ -44,15 +44,6 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
-          if (-not (Test-Path -LiteralPath $vswhere)) { throw 'Visual Studio locator missing.' }
-          $vs = (& $vswhere -latest -products * -property installationPath | Select-Object -First 1)
-          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($vs)) { throw 'Visual Studio C++ toolchain missing.' }
-          $dumpbin = Get-ChildItem -Path (Join-Path $vs 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe') -File |
-            Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $dumpbin) { throw 'x64 dumpbin.exe missing; import audit cannot pass.' }
-          $env:PATH = "$($dumpbin.DirectoryName);$env:PATH"
-
           $package = 'build-local/realesrgan-no-openmp-candidate'
           New-Item -ItemType Directory -Path $package -Force | Out-Null
           $exe = 'build-realesrgan-no-openmp/Release/realesrgan-ncnn-vulkan.exe'
@@ -69,13 +60,13 @@ jobs:
           $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           $bytes = (Get-Item -LiteralPath $exe).Length
           $rows = @(
-            '## Real-ESRGAN #79: experimental Windows build'
+            '## Real-ESRGAN #79: OpenMP-free Windows build'
             "- Commit: $env:GITHUB_SHA"
             "- Real-ESRGAN EXE size: $bytes bytes"
             "- Real-ESRGAN EXE SHA-256: $hash"
             "- Shipped PE imports audited: $($audit.scanned_pe_count)"
             '- Direct OpenMP imports: none in this candidate package'
             '- NOT a published asset or GPU/RTX acceptance'
-            '- Still required: complete runtime native dependency resolution, Vulkan image x2/x4, quality, performance, RAM/VRAM and owner acceptance'
+            '- Still required before runtime promotion: transitive dependency resolution, Vulkan image x2/x4, quality, RAM/VRAM and owner acceptance'
           )
           $rows | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY

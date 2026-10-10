@@ -7,8 +7,32 @@ $ErrorActionPreference = 'Stop'
 if ($env:OS -ne 'Windows_NT') { throw 'Windows-only PE import audit; no check performed.' }
 $package = [IO.Path]::GetFullPath($PackageDirectory)
 if (!(Test-Path -LiteralPath $package -PathType Container)) { throw "Missing package: $package" }
+# GitHub-hosted Windows runners have Visual Studio but do not necessarily put
+# dumpbin.exe on PATH. Resolve it from the installed, native x64 toolchain.
 $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
-if (!$dumpbin) { throw 'dumpbin.exe required: use a Visual Studio x64 Developer PowerShell.' }
+$dumpbinPath = if ($dumpbin) { $dumpbin.Source } else { $null }
+if (-not $dumpbinPath) {
+    $roots = @()
+    if ($env:VSINSTALLDIR) { $roots += $env:VSINSTALLDIR }
+    $vswhere = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft Visual Studio\Installer\vswhere.exe'
+    if (Test-Path -LiteralPath $vswhere -PathType Leaf) {
+        $roots += @(& $vswhere -all -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)
+    }
+    foreach ($root in @($roots | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)) {
+        $found = @(Get-ChildItem -Path (Join-Path $root 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe') -File -ErrorAction SilentlyContinue | Sort-Object FullName -Descending)
+        if ($found.Count -gt 0) { $dumpbinPath = $found[0].FullName; break }
+    }
+    if (-not $dumpbinPath) {
+        foreach ($programFiles in @($env:ProgramFiles, [Environment]::GetFolderPath('ProgramFilesX86'))) {
+            if ([string]::IsNullOrWhiteSpace($programFiles)) { continue }
+            $pattern = Join-Path $programFiles 'Microsoft Visual Studio\*\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe'
+            $found = @(Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue | Sort-Object FullName -Descending)
+            if ($found.Count -gt 0) { $dumpbinPath = $found[0].FullName; break }
+        }
+    }
+}
+if (-not $dumpbinPath) { throw 'x64 dumpbin.exe required to audit Real-ESRGAN PE dependencies; fail closed.' }
+Write-Host "Auditing PE imports using: $dumpbinPath"
 $binaries = @(Get-ChildItem -LiteralPath $package -File -Recurse | Where-Object {
     $_.Extension -in '.exe', '.dll'
 })
@@ -17,7 +41,7 @@ if ($binaries.Count -lt 1) { throw 'No shipped PE .exe/.dll files found; cannot 
 $inspected = @()
 $openMpImports = @()
 foreach ($binary in $binaries) {
-    $output = @(& $dumpbin.Source /DEPENDENTS $binary.FullName 2>&1)
+    $output = @(& $dumpbinPath /DEPENDENTS $binary.FullName 2>&1)
     if ($LASTEXITCODE -ne 0) { throw "dumpbin failed for $($binary.Name)" }
     $dependencies = @(
         $output | ForEach-Object {
