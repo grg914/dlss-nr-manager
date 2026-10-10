@@ -19,17 +19,46 @@ internal static class OptiScalerLegacyReleasePolicy
         "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/" +
         ArchiveName;
 
-    internal static bool IsPinnedCandidate(ReleaseInfo release) =>
-        release.ZipUrl == ArchiveUrl &&
-        string.Equals(release.ZipSha256, ArchiveSha256,
-            StringComparison.OrdinalIgnoreCase);
+    private static readonly Lazy<bool> VerifiedReceipt = new(() =>
+    {
+        using var stream = typeof(OptiScalerLegacyReleasePolicy).Assembly
+            .GetManifestResourceStream("DlssNrManager.OptiScalerLegacyCandidate")
+            ?? throw new InvalidDataException("Reviewed original OptiScaler receipt was not embedded.");
+        using var document = JsonDocument.Parse(stream);
+        var receipt = document.RootElement;
+        if (receipt.ValueKind != JsonValueKind.Object ||
+            !MatchesLong(receipt, "schema", 1) ||
+            !MatchesText(receipt, "usage", "trial_requires_explicit_user_confirmation") ||
+            !MatchesText(receipt, "source_release", "v3.2.0") ||
+            !MatchesLong(receipt, "source_release_id", 406116106) ||
+            !MatchesLong(receipt, "asset_id", 620010799) ||
+            !MatchesText(receipt, "asset_name", ArchiveName) ||
+            !MatchesText(receipt, "sha256", ArchiveSha256) ||
+            !MatchesText(receipt, "url", ArchiveUrl) ||
+            !MatchesLong(receipt, "size", ArchiveSize))
+            throw new InvalidDataException(
+                "Bundled original OptiScaler receipt differs from the reviewed source pin.");
+        return true;
+    });
+
+    internal static void AssertReviewedReceipt() => _ = VerifiedReceipt.Value;
+
+    internal static bool IsPinnedCandidate(ReleaseInfo release)
+    {
+        AssertReviewedReceipt();
+        return release.ZipUrl == ArchiveUrl &&
+            string.Equals(release.ZipSha256, ArchiveSha256,
+                StringComparison.OrdinalIgnoreCase);
+    }
 
     internal static ReleaseInfo? TrySelect(JsonElement release)
     {
+        AssertReviewedReceipt();
         if (release.ValueKind != JsonValueKind.Object ||
             !MatchesLong(release, "id", 406116106) ||
             !MatchesText(release, "tag_name", "v3.2.0") ||
-            IsTrue(release, "draft") || IsTrue(release, "prerelease") ||
+            !IsExplicitFalse(release, "draft") ||
+            !IsExplicitFalse(release, "prerelease") ||
             !release.TryGetProperty("assets", out var assets) ||
             assets.ValueKind != JsonValueKind.Array)
             return null;
@@ -65,7 +94,7 @@ internal static class OptiScalerLegacyReleasePolicy
         value.ValueKind == JsonValueKind.Number &&
         value.TryGetInt64(out var actual) && actual == expected;
 
-    private static bool IsTrue(JsonElement obj, string name) =>
+    private static bool IsExplicitFalse(JsonElement obj, string name) =>
         obj.TryGetProperty(name, out var value) &&
-        value.ValueKind == JsonValueKind.True;
+        value.ValueKind == JsonValueKind.False;
 }
