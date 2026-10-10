@@ -51,6 +51,7 @@ public partial class MainWindow : Window
     private RtxCapabilities _gpuCapabilities = GpuCapabilityService.Evaluate(new("Unknown GPU", "Unknown", false));
     private ReleaseInfo? _release;
     private IReadOnlyList<ReleaseInfo> _recentReleases = [];
+    private bool _updatingOptiScalerBuildChoices;
     private string? _runtimePath;
     private ManagerReleaseInfo? _managerRelease;
     private DetectedGame? _selectedGame;
@@ -440,15 +441,24 @@ public partial class MainWindow : Window
                        ?? compatible.FirstOrDefault();
 
             var selectedUrl = _release?.ZipUrl;
-            OptiScalerBuildBox.ItemsSource = compatible;
-            if (_release != null)
+            // WPF SelectionChanged also fires when replacing ItemsSource.
+            // Refreshing available packages is NOT an operator selection and
+            // must not overwrite a game's persisted exact archive identity.
+            _updatingOptiScalerBuildChoices = true;
+            try
             {
-                OptiScalerBuildBox.SelectedItem =
-                    compatible.FirstOrDefault(item =>
+                OptiScalerBuildBox.ItemsSource = compatible;
+                OptiScalerBuildBox.SelectedItem = _release == null
+                    ? null
+                    : compatible.FirstOrDefault(item =>
                         item.ZipUrl.Equals(
                             selectedUrl,
                             StringComparison.OrdinalIgnoreCase))
-                    ?? compatible.FirstOrDefault();
+                      ?? compatible.FirstOrDefault();
+            }
+            finally
+            {
+                _updatingOptiScalerBuildChoices = false;
             }
 
             AvailableVersionText.Text = _release == null
@@ -1096,7 +1106,8 @@ public partial class MainWindow : Window
         object sender,
         SelectionChangedEventArgs e)
     {
-        if (OptiScalerBuildBox.SelectedItem is not ReleaseInfo release)
+        if (_updatingOptiScalerBuildChoices ||
+            OptiScalerBuildBox.SelectedItem is not ReleaseInfo release)
             return;
 
         _release = release;
