@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private readonly ComponentUpdateService _components = new();
     private readonly OfficialUpstreamUpdateService _officialUpdates = new();
     private bool _checkingOfficialUpdates;
+    private int _officialUpdateSelectionRevision;
     private readonly PcUpdateService _pcUpdates = new();
     private readonly MinecraftIntegrationService _minecraft = new();
     private readonly MinecraftPreflightService _minecraftPreflight = new();
@@ -4657,6 +4658,31 @@ public partial class MainWindow : Window
         return result.Source.Id + " — " + status + latest;
     }
 
+    private void ResetOfficialUpdateForSelection()
+    {
+        _officialUpdateSelectionRevision++;
+        _officialUpdateCheckCts?.Cancel();
+        if (OfficialUpdateList is null || CheckOfficialUpstreamUpdatesButton is null)
+            return;
+
+        OfficialUpdateList.ItemsSource = Array.Empty<OfficialUpdateDisplay>();
+        OfficialUpdateDetailsText.Text = "";
+        OpenOfficialUpstreamButton.IsEnabled = false;
+
+        var entry = SelectedDownloadCenterEntry();
+        var sourceId = OfficialUpstreamSelectionPolicy.GetTrackedSourceId(entry);
+        CheckOfficialUpstreamUpdatesButton.IsEnabled =
+            !_checkingOfficialUpdates && sourceId is not null;
+
+        OfficialUpdateStatusText.Text = entry is null
+            ? L("Select a component first.", "Sélectionnez d'abord un composant.")
+            : sourceId is null
+                ? L("No individually tracked official source for this component. Other repositories are not checked.",
+                    "Aucune source officielle suivie individuellement pour ce composant. Les autres dépôts ne sont pas vérifiés.")
+                : L($"Check the official version of {entry.DisplayName} on demand.",
+                    $"Vérifiez à la demande la version officielle de {entry.DisplayName}.");
+    }
+
     private void RelocalizeOfficialUpdateList()
     {
         // A language change must never trigger an upstream fetch.
@@ -4675,10 +4701,12 @@ public partial class MainWindow : Window
         OfficialUpdateList.SelectedItem = items.FirstOrDefault(
             item => item.Update.Source.Id == selectedId);
 
-        var count = results.Count(result => result.RequiresReview);
-        OfficialUpdateStatusText.Text = L(
-            $"{count} official changes to review out of {results.Length} tracked sources. Installing updates still requires validated manager-owned packages.",
-            $"{count} modifications officielles à examiner sur {results.Length} sources suivies. L'installation exige des packages validés par le Manager.");
+        if (results.Length == 1)
+            OfficialUpdateStatusText.Text = L(
+                "Official source checked for the selected component only. Installing updates requires validated packages.",
+                "Source officielle vérifiée pour le composant sélectionné uniquement. L'installation exige des packages validés.");
+        else
+            ResetOfficialUpdateForSelection();
     }
 
     private async void CheckOfficialUpstreamUpdates_Click(
@@ -4687,51 +4715,68 @@ public partial class MainWindow : Window
         if (_isClosed || _checkingOfficialUpdates)
             return;
 
+        var selectedEntry = SelectedDownloadCenterEntry();
+        var sourceId = OfficialUpstreamSelectionPolicy.GetTrackedSourceId(selectedEntry);
+        if (selectedEntry is null || sourceId is null)
+        {
+            ResetOfficialUpdateForSelection();
+            return;
+        }
+
+        var selectionRevision = _officialUpdateSelectionRevision;
         using var lookupCts = new CancellationTokenSource();
         _officialUpdateCheckCts = lookupCts;
         _checkingOfficialUpdates = true;
         CheckOfficialUpstreamUpdatesButton.IsEnabled = false;
         OfficialUpdateStatusText.Text = L(
-            "Checking official GitHub repositories (read-only)…",
-            "Vérification des dépôts GitHub officiels (lecture seule)…");
+            $"Checking the official source for {selectedEntry.DisplayName} (read-only)…",
+            $"Vérification de la source officielle de {selectedEntry.DisplayName} (lecture seule)…");
 
         try
         {
-            var results = await _officialUpdates.CheckAsync(lookupCts.Token);
+            var result = await _officialUpdates.CheckSelectedAsync(sourceId, lookupCts.Token);
             lookupCts.Token.ThrowIfCancellationRequested();
-            if (_isClosed) return;
-            var items = results.Select(result =>
-                new OfficialUpdateDisplay(result, FormatOfficialUpdateLabel(result)))
-                .OrderByDescending(x => x.Update.RequiresReview)
-              .ThenBy(x => x.Update.Source.Id, StringComparer.OrdinalIgnoreCase)
-              .ToArray();
+            if (_isClosed || selectionRevision != _officialUpdateSelectionRevision ||
+                SelectedDownloadCenterEntry()?.Id != selectedEntry.Id)
+                return;
 
-            OfficialUpdateList.ItemsSource = items;
-            var count = results.Count(x => x.RequiresReview);
+            if (result is null)
+            {
+                ResetOfficialUpdateForSelection();
+                return;
+            }
+
+            OfficialUpdateList.ItemsSource =
+                new[] { new OfficialUpdateDisplay(result, FormatOfficialUpdateLabel(result)) };
+            OfficialUpdateList.SelectedIndex = 0;
             OfficialUpdateStatusText.Text = L(
-                $"{count} official changes to review out of {results.Count} tracked sources. Installing updates still requires validated manager-owned packages.",
-                $"{count} modifications officielles à examiner sur {results.Count} sources suivies. L'installation exige des packages validés par le Manager.");
+                $"Checked {selectedEntry.DisplayName} only. No installation is authorized by an upstream check.",
+                $"Seul {selectedEntry.DisplayName} a été vérifié. Ce contrôle n'autorise aucune installation.");
         }
         catch (OperationCanceledException) when (lookupCts.IsCancellationRequested)
         {
-            if (!_isClosed)
+            if (!_isClosed && selectionRevision == _officialUpdateSelectionRevision)
                 OfficialUpdateStatusText.Text = L(
                     "Official source check cancelled.",
-                    "Vérification des sources officielles annulée.");
+                    "Vérification de la source officielle annulée.");
         }
         catch (Exception ex)
         {
-            AppLogger.Warn("Official source check unavailable: " + ex.Message);
-            OfficialUpdateStatusText.Text = L(
-                "Source lookup unavailable. Installed components were not changed.",
-                "Sources indisponibles. Aucun composant installé n'a été modifié.");
+            AppLogger.Warn("Selected official source check unavailable: " + ex.Message);
+            if (!_isClosed && selectionRevision == _officialUpdateSelectionRevision)
+                OfficialUpdateStatusText.Text = L(
+                    "Official source unavailable. The selected component was not modified.",
+                    "Source officielle indisponible. Le composant sélectionné n'a pas été modifié.");
         }
         finally
         {
-            _officialUpdateCheckCts = null;
+            if (ReferenceEquals(_officialUpdateCheckCts, lookupCts))
+                _officialUpdateCheckCts = null;
             _checkingOfficialUpdates = false;
             if (!_isClosed)
-                CheckOfficialUpstreamUpdatesButton.IsEnabled = true;
+                CheckOfficialUpstreamUpdatesButton.IsEnabled =
+                    OfficialUpstreamSelectionPolicy.GetTrackedSourceId(
+                        SelectedDownloadCenterEntry()) is not null;
         }
     }
 
@@ -4839,6 +4884,7 @@ public partial class MainWindow : Window
         object sender,
         SelectionChangedEventArgs e)
     {
+        ResetOfficialUpdateForSelection();
         await RefreshDownloadCenterSelectionAsync();
     }
 
