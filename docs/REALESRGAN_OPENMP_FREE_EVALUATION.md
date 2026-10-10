@@ -16,3 +16,5 @@ The PE import audit deliberately fails if it cannot locate `dumpbin.exe`, parse 
 Before proposing promotion, compare the current build and the experimental one on the **same Windows/NVIDIA PC** with x2/x4 models, representative images/video, Vulkan GPU selection, peak VRAM/RAM, throughput, quality and overnight stability. Record the exact NVIDIA driver, Windows build, GPU, SDK, commit, compiler, artifact hashes and performance. If the no-OpenMP version is inadequate, resolve the dependency by sourcing a properly licensed Microsoft Visual C++ Redistributable with documented provenance rather than copying a random System32 DLL.
 
 **No code in this experiment changes production release defaults, runtime manifest, license notices or published assets.** #79 remains open until complete checks and explicit adoption.
+
+CI qualification is tracked by draft PR #435. This is not production acceptance.
