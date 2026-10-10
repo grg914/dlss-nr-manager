@@ -326,6 +326,93 @@
       </Setter>
     </Style>
 
+    <!--
+      Nested WPF TabControls (VSR-HDR, AI Studio, and future pages) must
+      not fall back to the light Windows control template. The top-level
+      sidebar-driven TabControl retains its explicit SelectedContent template.
+    -->
+    <Style TargetType="TabControl">
+      <Setter Property="Background" Value="{StaticResource AppBackground}"/>
+      <Setter Property="Foreground" Value="{StaticResource Text}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type TabControl}">
+            <Grid KeyboardNavigation.TabNavigation="Local" SnapsToDevicePixels="True">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+              <TabPanel x:Name="HeaderPanel"
+                        Grid.Row="0"
+                        IsItemsHost="True"
+                        Background="{StaticResource Card}"
+                        KeyboardNavigation.TabIndex="1"
+                        Margin="0,0,0,0"/>
+              <Border Grid.Row="1"
+                      Background="{TemplateBinding Background}"
+                      BorderBrush="{TemplateBinding BorderBrush}"
+                      BorderThickness="{TemplateBinding BorderThickness}">
+                <ContentPresenter x:Name="PART_SelectedContentHost"
+                                  ContentSource="SelectedContent"
+                                  KeyboardNavigation.TabNavigation="Local"/>
+              </Border>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="TabItem">
+      <Setter Property="Background" Value="#111B27"/>
+      <Setter Property="Foreground" Value="#B7C8D9"/>
+      <Setter Property="BorderBrush" Value="#26384C"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="15,10"/>
+      <Setter Property="MinHeight" Value="39"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type TabItem}">
+            <Border x:Name="TabSurface"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="8,8,0,0"
+                    Padding="{TemplateBinding Padding}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter ContentSource="Header"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                RecognizesAccessKey="True"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="TabSurface" Property="Background" Value="#192B3B"/>
+                <Setter TargetName="TabSurface" Property="BorderBrush" Value="#315471"/>
+                <Setter Property="Foreground" Value="#F4F7FB"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Panel.ZIndex" Value="1"/>
+                <Setter TargetName="TabSurface" Property="Background" Value="#173325"/>
+                <Setter TargetName="TabSurface" Property="BorderBrush" Value="#2E8E4A"/>
+                <Setter Property="Foreground" Value="#EFFFF3"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="TabSurface" Property="Background" Value="#0D1218"/>
+                <Setter TargetName="TabSurface" Property="BorderBrush" Value="#1A2430"/>
+                <Setter Property="Foreground" Value="#687588"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <Style TargetType="CheckBox">
       <Setter Property="Foreground" Value="{StaticResource Text}"/>
       <Setter Property="FontSize" Value="13"/>

@@ -2,6 +2,11 @@
 
 All notable release changes should be recorded here. This file distinguishes **merged code** from **unreleased plans**. Source version and latest published GitHub release are separate facts.
 
+### 2026-10-10 — V4.0.0 source version and dark-theme regression fix (PUBLIC PR CANDIDATE)
+- Bumped `DlssNrManager.csproj` Version, AssemblyVersion, FileVersion and InformationalVersion coherently from `3.2.0` to `4.0.0` so the application's existing `AppIdentity.VersionString` and Windows file properties display V4 in **new builds**. Previously built portable EXEs retain their original embedded version until rebuilt.
+- Fixed nested WPF **VSR-HDR Vidéo** and **AI Studio local** bright-white default tab body/header by adding shared dark `TabControl` and `TabItem` templates, selected/hover/disabled states and regression tests. Outer navigation keeps its explicit `SelectedContent` template.
+- README and progress journal updated with exact source-versus-release distinction. **No GitHub v4.0.0 release published, no Authenticode certificate/signature added, and the Windows 11 screenshot issue still requires owner-side visual acceptance.** The last published binary release remains `v3.2.0`; immutable historical Real-ESRGAN v3.2.0 URLs are intentionally untouched.
+
 ### 2026-10-10 — V4 source audit and integration gates
 - Integrated through protected signed PR #422: optional self-contained V4 **local developer test** builder for a PC without an installed Manager; not a distributable release artifact.
 - Integrated through protected signed PR #424: read-only local Microsoft VC++ x64 detection with FR/EN UI, no third-party installer/binary distribution; old #340/#341 superseded.
