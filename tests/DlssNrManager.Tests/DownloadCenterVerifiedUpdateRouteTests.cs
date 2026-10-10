@@ -57,4 +57,23 @@ public sealed class DownloadCenterVerifiedUpdateRouteTests
             start, StringComparison.Ordinal);
         Assert.True(start >= 0 && guard > start && replacement > guard);
     }
+
+    [Fact]
+    public void Media_update_confirmation_preserves_original_intent()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null &&
+               !File.Exists(Path.Combine(directory.FullName, "DlssNrManager.csproj")))
+            directory = directory.Parent;
+        Assert.NotNull(directory);
+
+        var source = File.ReadAllText(Path.Combine(directory!.FullName, "MainWindow.xaml.cs"));
+        Assert.Contains("requireVerifiedMediaUpdate: isMediaUpdate", source);
+        Assert.Matches(
+            @"bool requireVerifiedUpdate = false,\s*bool requireVerifiedMediaUpdate = false",
+            source);
+        Assert.Matches(
+            @"entry\.Kind == DownloadCenterKind\.MediaEngine\s*&&\s*requireVerifiedMediaUpdate",
+            source);
+    }
 }
