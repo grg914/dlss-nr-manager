@@ -10,6 +10,12 @@ public static class UiLocalizationService
 
     private static readonly Entry[] Entries =
     [
+        // Final V4 audit: bilingual labels that were previously left untranslated.
+        new("AI Upscale / Real-ESRGAN", "Agrandissement IA / Real-ESRGAN"),
+        new("Anime / Illustration", "Animé / Illustration"),
+        new("SDR → HDR — NVIDIA TrueHDR", "SDR → HDR — NVIDIA TrueHDR"),
+        new("Microsoft Visual C++ Redistributable x64: détection locale…",
+            "Microsoft Visual C++ Redistributable x64 : détection locale…"),
         // v4: startup/runtime statuses must localize in both languages.
         new("Media engine ready.", "Moteur média prêt."),
         new("Media engine not installed • manage it from Downloads.", "Moteur média non installé • gérez-le depuis Téléchargements."),
