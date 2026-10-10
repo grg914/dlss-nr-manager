@@ -47,12 +47,18 @@ public sealed class OptiScalerLegacyReleasePolicyTests
         => OptiScalerLegacyReleasePolicy.AssertReviewedReceipt();
 
     [Theory]
-    [InlineData("{\"id\":406116106,\"tag_name\":\"v3.2.0\",\"draft\":false,\"assets\":[]}")]
-    [InlineData("{\"id\":406116106,\"tag_name\":\"v3.2.0\",\"prerelease\":false,\"assets\":[]}")]
-    public void Missing_release_boolean_metadata_is_rejected(string json)
+    [InlineData("draft")]
+    [InlineData("prerelease")]
+    public void Missing_release_boolean_metadata_is_rejected(string missingField)
     {
-        using var doc = JsonDocument.Parse(json);
-        Assert.Null(OptiScalerLegacyReleasePolicy.TrySelect(doc.RootElement));
+        // Keep the exact otherwise-valid asset metadata: the missing flag,
+        // not a missing asset, must be what causes the rejection.
+        using var original = Release();
+        var json = System.Text.Json.Nodes.JsonNode
+            .Parse(original.RootElement.GetRawText())!.AsObject();
+        Assert.True(json.Remove(missingField));
+        using var altered = JsonDocument.Parse(json.ToJsonString());
+        Assert.Null(OptiScalerLegacyReleasePolicy.TrySelect(altered.RootElement));
     }
 
     [Fact]
