@@ -28,6 +28,10 @@ The new collector is READ-ONLY: it never kills anything, enumerates exact descen
 
 Execute distinct on-device scenarios: connected install then offline startup; manual reconnect; download cancel; forced interruption in stage/swap; bad SHA, truncated ZIP, inaccessible destination/locked file; nested junction/reparse input; exhausted disk in a disposable volume; restart/recovery; rollback restored previous SHA; no mutation of licensed manually imported models, user jobs or outputs. Exercise VLC playback, FFmpeg/media, Real-ESRGAN Vulkan x2/x4 and AI-origin only after lawful trusted packages are present, plus game/Minecraft helpers if in V4 scope. Compare logs, processes, handles, GPU VRAM, TCP endpoints and file trees before/during/after. Mark each PASS/FAIL/BLOCKED and attach redacted evidence. Issue #95 remains OPEN until these are actually performed.
 
+## #79 — Real-ESRGAN OpenMP retirement (pending PR #435)
+
+**Update 2026-10-10, proposed in draft PR #435:** the owner selected the OpenMP-free route for Real-ESRGAN/NCNN only. The candidate build now unconditionally disables both CMake OpenMP paths and the native refresh package no longer copies vcomp140.dll. Microsoft REDIST licensing attestation is no longer part of this proposed build. It does **not** modify Windows or other workloads. Existing v3.2.0/seed assets remain immutable and still need verified no-OpenMP replacement after GPU/RTX and direct native imports acceptance. The legacy REDIST text below documents the previous main-state policy and will be superseded **only when PR #435 is merged**. #79 and #95 remain open.
+
 ## #79 — lawful Real-ESRGAN OpenMP release gate
 
 Already integrated: `runtime-refresh.yml` skips Real-ESRGAN publishing unless `DLSSNR_OPENMP_REDIST_APPROVED=1`; `tools/package-approved-openmp.ps1` permits only signed Microsoft x64 DLLs under the legitimate installed Visual Studio `VC/Redist/MSVC` release subtree and records digest/version. It excludes arbitrary System32 copies and debug/nonredist. The flag alone is **not evidence of a licensed redistributor**.
