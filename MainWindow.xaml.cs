@@ -196,6 +196,8 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _isClosed = true;
+            // Block new owned helpers before canceling active operations.
+            try { ExternalProcessTracker.BeginShutdown(); } catch { }
             try { _downloadUpdateCheckCts?.Cancel(); } catch { }
             try { _officialUpdateCheckCts?.Cancel(); } catch { }
             DownloadProgressHub.Changed -= OnDownloadProgressChanged;
