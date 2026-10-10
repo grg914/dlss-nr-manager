@@ -12,6 +12,12 @@ A native Windows manager for installing, diagnosing and maintaining the experime
 
 Current application source version: **v3.2.0** (as declared in `DlssNrManager.csproj`). This is not a claim that v4.0 is released.
 
+## V4 final audit — 2026-10-10 (unreleased)
+
+Final source/FR-EN/lifecycle/update/packaging and official-source review: [audit report](docs/V4_FINAL_INDEPENDENT_AUDIT_2026-10-10.md), [non-destructive cleanup candidates](docs/V4_CLEANUP_CANDIDATES_2026-10-10.md), [retrospective journal](AI_PROJECT_PROGRESS3.txt). Protected signed #422 integrated the manual V4 portable local test builder and #424 integrated read-only VC++ x64 host detection. This does **not** install Manager on the user's PC. The separate tests/DlssNrManager.Tests xUnit project is kept in source/CI, not the end-user EXE/ZIP.
+
+At source review: 25/25 official public locked GitHub commits reachable and 10/10 AI Studio official model cards visible; no weight-byte or real RTX execution certification. Update/Mettre à jour is an **optional** user-requested action only for manager-approved newer immutable component packages; source-only upstream detection is not installation approval. A V4 release still requires #411/#79/#95/#111 evidence and a .NET 10 support decision (#408). Experimental V4.5 remains private. The new bilingual error/logging hardening is under protected CI review, not a published application release.
+
 ## v4.0 acceptance status (unreleased; source audit 2026-10-09)
 
 The stable `main` contains protected signed fixes [#375](https://github.com/grg914/dlss-nr-manager/pull/375) (mandatory full SHA-256 and allowlisted manager update packages) and [#377](https://github.com/grg914/dlss-nr-manager/pull/377) (transactional VLC backup recovery). Exact-head Build/CodeQL passed **234/234 xUnit** at that milestone; these CI tests are **not** physical Windows/RTX validation. The application and the latest public release still identify as `v3.2.0`; no `v4.0` release has been published.

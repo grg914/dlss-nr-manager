@@ -1,0 +1,87 @@
+AI_PROJECT_PROGRESS3.txt — V4.0 FINAL QUALITY AUDIT / CONTINUITY
+Created: 2026-10-10 (GPT B)
+This is a new append-only progress journal. Existing coordination/progress history is authoritative and MUST NOT be rewritten or deleted.
+No claims of physical Windows/RTX execution, active model downloads, legal OpenMP authorization, or V4 public release.
+
+=== RETROSPECTIVE VERIFIED PROJECT CHECKPOINTS (not backdated activity) ===
+- Public Manager repository grg914/dlss-nr-manager has protected signed main; public latest published release is v3.2.0 and source csproj remains 3.2.0.
+- Prior signed protected V4 PR #416 merged main 143fd384e98fb691afb87e7dd1a6fae3c43f17cb (selected update vs repair and transaction guardrails).
+- Prior signed protected PR #420 merged main b2ba7cb509754ce4adc694ccacd33c477d96f104 (Real-ESRGAN candidate manifest verification, OpenMP package PE audit, read-only RTX preflight); all main source-only, no v4 release.
+- Signed protected PR #422 merged main ffcb9d78d1cd955389a2cb4807aef2f52c33170c (portable local EXE builder for owner PC with no installed Manager). xUnit/Build and Analyze C# succeeded exact PR head, postmerge checked. Owner device never remotely accessed.
+- Signed protected PR #424 merged main 518892a5d063aa05338c0de8d6313f86422758e6 (safe, read-only VC++ x64 host detection, bilingual Download Center and tests). Original PRs #340 and #341 were closed as superseded WITHOUT MERGE after exact old source blob parity; no Microsoft installer/DLL redistributed.
+- Seven non-merge CI mirror PRs #301 #327 #333 #343 #352 #366 #370 closed WITHOUT MERGE after verifying each identical original source HEAD. Private grg914/dlss-nr-manager-private/V4.5 already contains a 53-file transfer manifest, separate V4.5/V4.6 prototypes and restrictions. Protected public branch history preserved.
+- Backlog last observed: 23 still-open experimental/coordination PRs; 12 still-open issues. Issue #124 contains audit of divergent branches; seven unique historical journal PRs are not byte-for-byte integrated and must not be deleted.
+- Prior #161 evidence: two native OptiScaler builds of identical pinned source/scripts generated 21/24 identical archive files but differing OptiScaler.dll, nvngx.dll_dlssnr.dll, and PDB binary SHA; not just ZIP timestamps. Do not overwrite the canonical manager-owned seed.
+- Critical release gates #411 five old Real-ESRGAN CRLF-transformed .param assets, #79 Microsoft licensed OpenMP provenance, #95 physical Windows/RTX process+rollback acceptance, #111 selective approved immutable version receipts. Also .NET 10 lifecycle #408, ONNX 1.31 stale update candidate #183.
+- 2026-10-10 final independent source review verified 25/25 public pinned GitHub source SHAs reachable; all 10 official Hugging Face model CARD URLs reachable; current stable release has 29 and runtime-seed 30 non-empty SHA256-metadata assets. This does NOT certify bytes/weights, gated access or actual model/GPU inference.
+- V4 architecture: 13 manifest feature groups + Hardware & Profiles. Partial/inert V4.5 AI runtime cannot be described as V4 complete. Source app includes component-policy and feature-policy manifests; tests/DlssNrManager.Tests is WPF .NET 8 xUnit separate from published EXE and is not included in deterministic runtime ZIP.
+- Existing ExternalProcessTracker/JobObject and App.OnExit/MainWindow.Closed are the lifecycle shutdown controls, so do not introduce a second conflicting process owner. UI/Windows/RTX shutdown tests NOT_RUN.
+- FINAL QUALITY candidate branch gpt-b/v4-final-audit-privacy-localization-20261010 adds secrets redaction + six central log levels, French/English remaining labels, a bilingual cause/module/action/log fatal dispatcher dialog which still exits fail-closed, xUnit checks, full audit and cleanup inventory. CI and protected signed PR merge are NOT YET asserted at journal authoring time.
+
+=== PHASE GATES ===
+PHASE : 01 INVENTORY / FEATURES
+STATUT : SOURCE REVIEWED; HARDWARE NOT_RUN
+MODIFICATIONS : Catalogued production-only 13 feature groups plus Hardware & Profiles.
+TESTS : WPF control/test source inventory reviewed, no GUI interaction claims.
+PROBLÈMES TROUVÉS : AI Studio / Downloads partial; local runtime uncertainty.
+PROBLÈMES CORRIGÉS : Scope isolates experimental V4.5.
+PROBLÈMES RESTANTS : Physical functional acceptance.
+FICHIERS MODIFIÉS : docs/V4_FINAL_INDEPENDENT_AUDIT_2026-10-10.md
+PROCHAINE ÉTAPE : Complete exact-head CI before protected merge.
+
+PHASE : 02 LOCALISATION FR / EN
+STATUT : STATIC REVIEW + CANDIDATE FIX; WINDOWS GUI NOT_RUN
+MODIFICATIONS : Three residual bilingual labels + VC++ initial local detection string mappings.
+TESTS : tests/DlssNrManager.Tests/FinalV4LocalizationAndCrashTests.cs proposed.
+PROBLÈMES TROUVÉS : Missing static labels, fatal UI lacked localized diagnosis.
+PROBLÈMES CORRIGÉS : Candidate mappings and bilingual fatal crash report.
+PROBLÈMES RESTANTS : Runtime dialogs, driver and GPU error paths, DPI visual tests.
+FICHIERS MODIFIÉS : Services/UiLocalizationService.cs; Services/ApplicationFailureReport.cs; App.xaml.cs
+PROCHAINE ÉTAPE : xUnit + real Windows language screenshots.
+
+PHASE : 03 DEPENDENCIES / DOWNLOADS / UPDATE
+STATUT : OFFICIAL SOURCE/RELEASE METADATA VERIFIED; BINARY BYTES NOT_RUN
+MODIFICATIONS : Policy and update eligibility documented; no unreviewed upstream download added.
+TESTS : GitHub pinned SHA API 25/25; Hugging Face model cards 10/10; release asset listing.
+PROBLÈMES TROUVÉS : #411 five transformed .param assets; incomplete per-component approved update receipts #111.
+PROBLÈMES CORRIGÉS : No unsafe policy bypass attempted.
+PROBLÈMES RESTANTS : Exact download-byte SHA, licences, selective updater, rollback, model access.
+FICHIERS MODIFIÉS : docs/V4_FINAL_INDEPENDENT_AUDIT_2026-10-10.md
+PROCHAINE ÉTAPE : New immutable verified release candidate AFTER #411/#79/#95/#111.
+
+PHASE : 04 LIFECYCLE / SHUTDOWN
+STATUT : EXISTING JOB OBJECT CODE VERIFIED; PHYSICAL TEST NOT_RUN
+MODIFICATIONS : No duplicate shutdown/process manager introduced.
+TESTS : Normal/forced-exit xUnit code/CI exists; operator acceptance still required.
+PROBLÈMES TROUVÉS : Need real sockets/VRAM/RAM/ports/handles/restart evidence #95.
+PROBLÈMES CORRIGÉS : Preserved existing bounded process ownership.
+PROBLÈMES RESTANTS : Physical START-RUN-MONITOR-STOP-CLEANUP acceptance.
+FICHIERS MODIFIÉS : docs/V4_FINAL_INDEPENDENT_AUDIT_2026-10-10.md
+PROCHAINE ÉTAPE : RTX operator experiment on isolated PC with reversible sample data.
+
+PHASE : 05 LOGS / CRASH
+STATUT : IMPLEMENTATION CANDIDATE, TESTS PENDING
+MODIFICATIONS : TRACE DEBUG INFO WARNING ERROR CRITICAL; local secret redaction; structured bilingual fatal UI diagnostics.
+TESTS : AppLoggerSafetyTests and FinalV4LocalizationAndCrashTests candidate.
+PROBLÈMES TROUVÉS : Previous logger used INFO/WARN/ERROR only and substituted user paths but not bearer/API-token values.
+PROBLÈMES CORRIGÉS : Candidate log sanitizer and fail-closed error dialog.
+PROBLÈMES RESTANTS : Audit category coverage, fatal GPU native crashes and offline diagnostics on actual hardware.
+FICHIERS MODIFIÉS : Services/AppLogger.cs; App.xaml.cs; Services/ApplicationFailureReport.cs; tests/DlssNrManager.Tests/AppLoggerSafetyTests.cs
+PROCHAINE ÉTAPE : Exact-head Windows CI.
+
+PHASE : 06 CONFIG / CLEANUP / REGRESSION
+STATUT : SOURCE REVIEWED, NO DESTRUCTIVE CLEANUP
+MODIFICATIONS : Candidate inventory enumerated with risk/references/actions.
+TESTS : Source path/csproj and existing policy/test references.
+PROBLÈMES TROUVÉS : Stale ONNX branch #183, native OptiScaler nondeterminism #161, .NET 8 EOS 2026-11-10 #408.
+PROBLÈMES CORRIGÉS : No branch deletions, vendor overwrite or v4.5 integration.
+PROBLÈMES RESTANTS : ABI/license update review, Windows regression, release signature and artifacts.
+FICHIERS MODIFIÉS : docs/V4_CLEANUP_CANDIDATES_2026-10-10.md; docs/V4_FINAL_INDEPENDENT_AUDIT_2026-10-10.md
+PROCHAINE ÉTAPE : Regression → re-audit → protected signed merge only if checks pass.
+
+=== FINAL V4 RELEASE HOLD ===
+No v4.0 release, upgrade payload, binary/model download promotion, OpenMP library distribution or owner PC runtime test was completed by this source-only audit.
+
+=== 2026-10-10 AUDIT → CORRECTION → TEST → RE-AUDIT CYCLE 1 ===
+- Source CI #38015082264 on unsigned audit candidate bb4a2a0112ad17b211d492bcc81e37ffcf8ff2ff FAILED in Run regression tests during build: CS0103 HttpRequestException type unavailable in ApplicationFailureReport.cs (line 32). This was a compile-time missing namespace, NOT a GPU/RTX test or runtime behavior failure. No protected merge occurred.
+- Prepared smallest fix: explicit using System.Net.Http; in Services/ApplicationFailureReport.cs on gpt-b/v4-final-audit-cs0103-fix-source-20261010. Re-signed staging and new exact-head Windows Build/xUnit/CodeQL required before protected #426 can merge. Earlier signed candidate is invalid for merge while checks fail.
