@@ -75,12 +75,18 @@ public static class AppLogger
         {
             value = System.Text.RegularExpressions.Regex.Replace(
                 value,
-                @"(\bAuthorization\s*[:=]\s*Bearer\s+)[^\s,;]+",
+                @"(\bAuthorization\s*[:=]\s*(?:Bearer|Basic|Token)\s+)[^\s,;]+",
                 "$1[REDACTED]", options, timeout);
             value = System.Text.RegularExpressions.Regex.Replace(
                 value,
-                @"(\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token)\b\s*[:=]\s*)(?:""[^""]*""|'[^']*'|[^\s&,;]+)",
-                "$1[REDACTED]", options, timeout);
+                @"(\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|token)\b""?\s*[:=]\s*)(?:""[^""]*""|'[^']*'|[^\s&,;}\]]+)",
+                match => match.Groups[1].Value +
+                    // JSON text must stay machine-readable after redaction.
+                    // The closing quote of a JSON key is in group 1.
+                    (match.Groups[1].Value.Contains('"')
+                        ? "\"[REDACTED]\""
+                        : "[REDACTED]"),
+                options, timeout);
             value = System.Text.RegularExpressions.Regex.Replace(
                 value,
                 @"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b",

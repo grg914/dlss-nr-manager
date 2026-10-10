@@ -9,6 +9,11 @@ All notable release changes should be recorded here. This file distinguishes **m
 - Checked 25 pinned upstream GitHub source commits and 10 model source pages; binary/LFS availability, model hashes, hardware GPU and licensing remain unverified. Five old Real-ESRGAN .param mismatch #411 and optional update expansion #111 remain explicit blockers.
 - New audit and cleanup candidate inventory under docs/, plus retrospective AI_PROJECT_PROGRESS3.txt; no destructive branch/file cleanup and no v4 release.
 
+### 2026-10-10 — V4 general re-audit follow-up (not yet published)
+- Re-verified 25/25 pinned public upstream GitHub commit SHAs and reviewed FR/EN, startup/shutdown ownership, downloads, runtime package exclusions and safety gates.
+- Identified support ZIP export risk: untrusted OptiScaler.log/INI/JSON may contain sensitive credentials despite user-path masking. Separate **candidate** fixes central ZIP-entry redaction and expands xUnit external-log secrecy tests; final merge status is tracked in GitHub.
+- Preserved V4.5 experimental separation and the existing closed/active PR ledger; no mandatory update, no release tag, no license/RTX acceptance claim.
+
 ## [Unreleased] — 4.0 readiness (not shipped)
 
 
