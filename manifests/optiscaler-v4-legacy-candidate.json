@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "usage": "qualification_only_not_automatically_activated",
+  "source_release": "v3.2.0",
+  "source_release_id": 406116106,
+  "asset_id": 620010799,
+  "asset_name": "OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip",
+  "size": 131421020,
+  "sha256": "14aa35affd569579709b2705cfa3c2624971a3d9e8e238fe71139954e23e734b",
+  "url": "https://github.com/grg914/dlss-nr-manager/releases/download/v3.2.0/OptiScaler-NR-v0.7.7-pre0-vendored-win-x64.zip",
+  "expected_native_dlls": [
+    "OptiScaler.dll",
+    "nvngx.dll_dlssnr.dll"
+  ]
+}
