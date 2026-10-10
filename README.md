@@ -10,7 +10,13 @@
 
 A native Windows manager for installing, diagnosing and maintaining the experimental **OptiScaler DLSS Neural Rendering (DLSSNR)** stack, with PC update, cleanup, media AI and Minecraft RTX utilities.
 
-Current application source version: **v3.2.0** (as declared in `DlssNrManager.csproj`). This is not a claim that v4.0 is released.
+**V4 source version (candidate): `4.0.0`** — `DlssNrManager.csproj` now declares matching .NET/Windows assembly, file and informational versions. **This does not mean a signed v4.0.0 release exists.** The latest published GitHub release is still [v3.2.0](https://github.com/grg914/dlss-nr-manager/releases/tag/v3.2.0), and a locally built V4 `.exe` is not Authenticode-signed by this version change.
+
+## V4 UI visual correction — 2026-10-10 (candidate for public main)
+
+A Windows screenshot of the V4 portable test identified white **nested WPF TabControl panels** and almost invisible tab header text in **VSR-HDR Vidéo** and **AI Studio local**. The application-wide dark template and selected/hover/disabled tab header states in `App.xaml` now cover both groups and future nested tabs. The top-level 14-item sidebar remains unchanged and keeps its separate navigation template. The patch does not change VLC, model runtimes, generation pipelines or downloads. An xUnit XAML fixture checks both tab groups and the dark selected-content surface. A Windows visual retest by the owner remains necessary after CI.
+
+**The source version is 4.0.0 but V4 is not yet tagged, signed as a distributable Windows executable or published on GitHub Releases.** Historical v3.2.0 model repair URLs continue to point to the correct immutable v3.2.0 model assets; do not mass-replace historical upstream version numbers.
 
 ## Re-audit V4 — 2026-10-10 (source-only)
 
@@ -28,7 +34,7 @@ At source review: 25/25 official public locked GitHub commits reachable and 10/1
 
 ## v4.0 acceptance status (unreleased; source audit 2026-10-09)
 
-The stable `main` contains protected signed fixes [#375](https://github.com/grg914/dlss-nr-manager/pull/375) (mandatory full SHA-256 and allowlisted manager update packages) and [#377](https://github.com/grg914/dlss-nr-manager/pull/377) (transactional VLC backup recovery). Exact-head Build/CodeQL passed **234/234 xUnit** at that milestone; these CI tests are **not** physical Windows/RTX validation. The application and the latest public release still identify as `v3.2.0`; no `v4.0` release has been published.
+The stable `main` contains protected signed fixes [#375](https://github.com/grg914/dlss-nr-manager/pull/375) (mandatory full SHA-256 and allowlisted manager update packages) and [#377](https://github.com/grg914/dlss-nr-manager/pull/377) (transactional VLC backup recovery). Exact-head Build/CodeQL passed **234/234 xUnit** at that milestone; these CI tests are **not** physical Windows/RTX validation. At the **2026-10-09 audit checkpoint**, both the app source and the latest public release identified as `v3.2.0`. The present V4 version bump is a separate later source candidate; no `v4.0` release has been published.
 
 - **FR/EN:** WPF localization exists; the signed [#386](https://github.com/grg914/dlss-nr-manager/pull/386) **merged** the corrected FR/EN static labels and local rebinding of cached Download Center/official-source rows (244/244 xUnit, Build and CodeQL verified). Do not describe the entire UI as accepted without Windows visual and error-path checks.
 - **Downloads:** optional verified **Update / Mettre à jour** is supported for the media engine and eligible manager-owned AI Studio model packages. For the remaining eligible components, version receipts and verified promotion are still incomplete ([#111](https://github.com/grg914/dlss-nr-manager/issues/111), reopened). The official upstream checker is deliberately read-only. A newer GitHub tag is *not* authorization to install unreviewed binaries or restricted model weights.
