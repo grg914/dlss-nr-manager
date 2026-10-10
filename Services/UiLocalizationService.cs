@@ -309,7 +309,7 @@ public static class UiLocalizationService
         new("Checking tested Caustica RTX build…", "Vérification du build Caustica RTX testé…"),
         new("Fabric API (required)", "Fabric API (requis)"),
         new("Latest tested Caustica RTX 26.2 build", "Dernier build Caustica RTX 26.2 testé"),
-        new("Performance pack without renderer replacement (Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS)", "Pack de performances sans remplacement du renderer (Lithium + FerriteCore + Krypton + C2ME + BadOptimizations + Dynamic FPS)"),
+        new("Performance pack without renderer replacement (Lithium + FerriteCore + Krypton + BadOptimizations + Dynamic FPS)", "Pack de performances sans remplacement du moteur de rendu (Lithium + FerriteCore + Krypton + BadOptimizations + Dynamic FPS)"),
         new("SPBRScandi resource pack", "Pack de ressources SPBRScandi"),
         new("Install DLSS / RTX", "Installer DLSS / RTX"),
         new("Check & update managed files", "Vérifier et mettre à jour les fichiers gérés"),
