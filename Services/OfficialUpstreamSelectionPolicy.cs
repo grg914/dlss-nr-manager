@@ -8,6 +8,20 @@ namespace DlssNrManager.Services;
 /// </summary>
 public static class OfficialUpstreamSelectionPolicy
 {
+    // Specialized installers require their original game/Minecraft context.
+    // MainMenuList is the existing public V4 sidebar navigation.
+    public static int GetManagementMenuIndex(DownloadCenterEntry? selected)
+    {
+        if (selected?.Kind != DownloadCenterKind.ExternalManaged)
+            return -1;
+
+        if (selected.Id.StartsWith("minecraft-", StringComparison.Ordinal))
+            return 1; // Minecraft RTX
+        if (selected.Id is "games-streamline" or "games-reshade" or "games-optiscaler")
+            return 0; // Jeux & DLSS
+        return -1;
+    }
+
     public static string? GetTrackedSourceId(DownloadCenterEntry? selected)
     {
         if (selected is null)
