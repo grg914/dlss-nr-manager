@@ -12,6 +12,14 @@ A native Windows manager for installing, diagnosing and maintaining the experime
 
 Current application source version: **v3.2.0** (as declared in `DlssNrManager.csproj`). This is not a claim that v4.0 is released.
 
+## V4 qualification checkpoint — 2026-10-10 (NOT RELEASED)
+
+- [PR #435](https://github.com/grg914/dlss-nr-manager/pull/435) is a draft for Windows Real-ESRGAN/NCNN built without OpenMP (`NCNN_OPENMP=OFF`), Vulkan retained; PE imports and shipped OpenMP DLLs are blocked. Existing Windows `vcomp140.dll` and historical release assets are untouched. Latest-head Build/CodeQL/native CI, signed protected staging and physical RTX/VRAM/cleanup acceptance are still required (#79/#95).
+- [PR #436](https://github.com/grg914/dlss-nr-manager/pull/436) is a draft #111 immutable `v3.2.0` AI-origin ONNX URL fix. Download Center updates stay optional and require an approved newer immutable package. Remaining component updates and rollback still require evidence.
+- [PR #437](https://github.com/grg914/dlss-nr-manager/pull/437) removes Minecraft 26.2 excluded C2ME from advertised/requested performance mods and adds FR/EN regression coverage; also a draft.
+- Centralized six-level redacted logs, bilingual fatal diagnostics, existing Job Object process cleanup, source xUnit test project and V4.5 separation remain. No V4 release or physical Windows/RTX acceptance has occurred.
+
+
 ## Re-audit V4 — 2026-10-10 (source-only)
 
 The [independent general re-audit](docs/V4_GENERAL_REAUDIT_2026-10-10.md) verifies signed public main, 25/25 public locked source SHA references, xUnit and package policies. It identified an additional diagnostics ZIP privacy boundary risk: external game logs and INI content need credential redaction when exported. The correction and ZIP-level regression test are being reviewed separately; a passed CI result will not substitute for on-device RTX/process, model, licensing or update acceptance. A V4 public release is still blocked by #411, #79, #95 and #111.

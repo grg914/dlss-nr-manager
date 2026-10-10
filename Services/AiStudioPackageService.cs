@@ -311,11 +311,21 @@ public sealed class AiStudioPackageService
         parsed = new Version(0, 0);
         if (string.IsNullOrWhiteSpace(value))
             return false;
-        var text = value.Trim().TrimStart('v', 'V');
+        var text = value.Trim();
+        if (text.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            text = text[1..];
+
         if (!text.All(ch => char.IsAsciiDigit(ch) || ch == '.') ||
             !Version.TryParse(text, out var candidate) || candidate is null)
             return false;
-        parsed = candidate;
+
+        // System.Version compares unspecified Build/Revision (-1) as older.
+        // v1.0, v1.0.0 and v1.0.0.0 describe the same stable release.
+        parsed = new Version(
+            candidate.Major,
+            candidate.Minor,
+            Math.Max(0, candidate.Build),
+            Math.Max(0, candidate.Revision));
         return true;
     }
 

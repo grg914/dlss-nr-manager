@@ -37,9 +37,10 @@ try
         if (!File.Exists(signal))
             return 4;
 
-        ExternalProcessTracker.Shutdown();
+        // First close the launch gate without killing the running helper.
+        ExternalProcessTracker.BeginShutdown();
 
-        // Prove late tasks cannot spawn another helper after window close.
+        // Prove late tasks cannot spawn another helper during cancellation.
         try
         {
             using var unexpected = ExternalProcessTracker.Start(new ProcessStartInfo
@@ -55,6 +56,11 @@ try
         {
             File.WriteAllText(args[0] + ".blocked", "late-start-refused");
         }
+
+        // BeginShutdown is a launch gate, not an eager child termination.
+        if (helper.HasExited)
+            return 6;
+        ExternalProcessTracker.Shutdown();
         return 0;
     }
 

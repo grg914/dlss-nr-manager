@@ -10,7 +10,7 @@ The canonical machine-readable source provenance is:
 - per-component `SOURCE.json`, license and notice files inside vendored trees
 - manager-owned release manifests and SHA-256 files
 
-The list below is a navigation aid, not a legal certification. Exact obligations depend on each redistributed artifact, its actual license and its provenance. In particular, runtime redistributability and OpenMP provenance are unresolved in issue #79; do not infer permission from the presence of a cached DLL.
+The list below is a navigation aid, not a legal certification. Exact obligations depend on each redistributed artifact, its actual license and its provenance. For the V4 Real-ESRGAN/NCNN producer, OpenMP is disabled and its runtime DLL is not bundled. Issue #79 remains open for actual Windows/RTX dependency and runtime acceptance; pre-existing release assets are immutable.
 
 ## Major component families
 
@@ -22,7 +22,7 @@ The list below is a navigation aid, not a legal certification. Exact obligations
 | NVIDIA DLSS / NGX SDK | NVIDIA proprietary SDK terms | Local-only build input unless redistribution is explicitly cleared |
 | FFmpeg | LGPL-compatible configuration in this project | Build intentionally avoids `--enable-gpl` and `--enable-nonfree` |
 | Real-ESRGAN / ncnn / Vulkan support | Upstream open-source licenses | Preserve upstream licenses and model notices |
-| Microsoft Visual C++ / OpenMP runtime (when bundled) | Microsoft Visual Studio redistribution terms | Redistribute only through an allowed REDIST path with version/hash/provenance; audit tracked in issue #79 |
+| Microsoft Visual C++ runtimes used by unrelated applications | Microsoft Visual Studio redistribution terms | Keep unrelated dependencies independent; **no OpenMP runtime DLL is packaged for new V4 Real-ESRGAN builds** |
 | ONNX Runtime | MIT | Preserve upstream license |
 | AI-origin detector models | Model-specific Apache-2.0 / MIT metadata in vendored model repositories | Preserve model cards/licenses beside weights |
 | Minecraft Fabric/mod ecosystem | Per-project open-source licenses | Versions/hashes frozen in runtime lock; preserve bundled notices |
@@ -34,10 +34,10 @@ The list below is a navigation aid, not a legal certification. Exact obligations
 
 This summary is intentionally not a substitute for each upstream license. When a component is added or updated, its exact license files and required notices must remain with the redistributed source/runtime or be included in the release's corresponding notice/source package.
 
-## OpenMP redistribution release gate (R065)
+## Real-ESRGAN/NCNN without OpenMP — V4 decision (2026-10-10)
 
-Real-ESRGAN packaging must never obtain `vcomp140.dll` from Windows `System32`. The `runtime-refresh` workflow now fails closed unless the authorized release operator explicitly sets `DLSSNR_OPENMP_REDIST_APPROVED=1` after verifying the applicable Visual Studio license rights. The packaging helper accepts only an x64 DLL under an installed Visual Studio `VC/Redist/MSVC` tree, requires valid Microsoft Authenticode signature and records source-relative path, file version and SHA-256 in `MICROSOFT_OPENMP_PROVENANCE.json`. Debug/nonredistributable directories are excluded.
+The V4 Real-ESRGAN CMake producer always disables `NCNN_OPENMP` and package-level `find_package(OpenMP)`; the Vulkan GPU backend remains available. Its package must contain neither Microsoft `vcomp140.dll` nor any other OpenMP runtime. A fail-closed `dumpbin` audit rejects native OpenMP DLL imports before candidate promotion. No Microsoft OpenMP REDIST copy or licensing flag is used in this new producer.
 
-An environment opt-in **is an operator attestation, not an automatic legal finding**. Do not set this variable in generic CI or publish the Real-ESRGAN runtime until legal rights are independently confirmed and startup/functional tests have passed. Fallback is to install Microsoft's official VC Redistributable separately under an acceptable license, or rebuild to remove the dependency; neither fallback is silently assumed.
+The previously published assets remain immutable; they are not evidence of an approved no-OpenMP runtime. New candidate publication remains disabled until actual Windows Vulkan/RTX acceptance and explicit operator `DLSSNR_REALESRGAN_RUNTIME_APPROVED=1`, after which content-addressed staging and separately reviewed manifest/consumer promotion are still required. Third-party notices and other component licensing requirements continue to apply. Issue #79 remains open for this device-level evidence.
 
-Reference: https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution and https://learn.microsoft.com/en-us/cpp/windows/determining-which-dlls-to-redistribute
+The former Visual Studio OpenMP REDIST route (R065) is historical and remains traceable in Git history, not current packaging code.
