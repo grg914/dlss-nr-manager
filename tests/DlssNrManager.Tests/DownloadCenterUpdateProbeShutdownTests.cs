@@ -80,6 +80,29 @@ public sealed class DownloadCenterUpdateProbeShutdownTests
     }
 
     [Fact]
+    public void Closing_during_AI_origin_inference_defers_native_session_disposal()
+    {
+        var source = WindowSource();
+        var closedStart = source.IndexOf("Closed += (_, _) =>", StringComparison.Ordinal);
+        var closedEnd = source.IndexOf("    private async Task InitializeAsync()", closedStart, StringComparison.Ordinal);
+        var analysisStart = source.IndexOf("private async void AnalyzeAiOrigin_Click(", StringComparison.Ordinal);
+        var analysisEnd = source.IndexOf("    private void CancelAiOrigin_Click(", analysisStart, StringComparison.Ordinal);
+        Assert.True(closedStart >= 0 && closedEnd > closedStart &&
+                    analysisStart >= 0 && analysisEnd > analysisStart);
+
+        var close = source[closedStart..closedEnd];
+        var analyze = source[analysisStart..analysisEnd];
+        Assert.Contains("if (!_aiOriginAnalysisRunning)", close);
+        Assert.Contains("_aiOrigin.Dispose();", close);
+        Assert.Contains("if (_isClosed || _aiOriginAnalysisRunning)", analyze);
+        Assert.Contains("_aiOriginAnalysisRunning = true;", analyze);
+        Assert.Contains("if (_isClosed)", analyze);
+        Assert.Contains("_aiOriginAnalysisRunning = false;", analyze);
+        Assert.Contains("_aiOrigin.Dispose();", analyze);
+        Assert.Contains("AppLogger.Error(\"AI origin analysis failed.\"", analyze);
+    }
+
+    [Fact]
     public void Both_version_lookups_forward_their_cancellation_token()
     {
         var source = WindowSource();
