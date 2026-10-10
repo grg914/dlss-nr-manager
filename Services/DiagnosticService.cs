@@ -306,7 +306,10 @@ public sealed class DiagnosticService
             entry.Open(),
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
-        writer.Write(content);
+        // Every ZIP entry, including third-party logs, game history and INI,
+        // must pass the same privacy boundary before diagnostic export.
+        // Log sanitization alone cannot protect files we did not create.
+        writer.Write(AppLogger.RedactSensitiveData(SanitizeUserPaths(content)));
     }
 
     private static string SanitizeUserPaths(string value)
