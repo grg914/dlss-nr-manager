@@ -35,6 +35,49 @@ public sealed class DownloadCenterUpdateProbeShutdownTests
     }
 
     [Fact]
+    public void Window_close_cancels_but_does_not_dispose_tokens_owned_by_active_async_operations()
+    {
+        var source = WindowSource();
+        var begin = source.IndexOf("Closed += (_, _) =>", StringComparison.Ordinal);
+        var end = source.IndexOf("    private async Task InitializeAsync()", begin, StringComparison.Ordinal);
+        Assert.True(begin >= 0 && end > begin);
+        var cleanup = source[begin..end];
+        foreach (var name in new[]
+        {
+            "_mediaOperationCts",
+            "_permanentVideoCts",
+            "_aiOriginCts",
+            "_downloadCenterCts"
+        })
+        {
+            Assert.Contains(name + "?.Cancel();", cleanup);
+            Assert.DoesNotContain(name + "?.Dispose();", cleanup);
+        }
+    }
+
+    [Fact]
+    public void Download_operations_release_own_tokens_before_optional_closed_ui_refresh()
+    {
+        var source = WindowSource();
+        var standardBegin = source.IndexOf("private async Task RunDownloadCenterOperationAsync(", StringComparison.Ordinal);
+        var manualBegin = source.IndexOf("private async Task RunManualLicensedModelInstallAsync(", standardBegin, StringComparison.Ordinal);
+        var removeBegin = source.IndexOf("private void RemoveDownloadCenter_Click(", manualBegin, StringComparison.Ordinal);
+        Assert.True(standardBegin >= 0 && manualBegin > standardBegin && removeBegin > manualBegin);
+
+        foreach (var operation in new[]
+        {
+            source[standardBegin..manualBegin],
+            source[manualBegin..removeBegin]
+        })
+        {
+            Assert.Contains("_downloadCenterCts.Dispose();", operation);
+            Assert.Contains("_downloadCenterCts = null;", operation);
+            Assert.Contains("if (!_isClosed)", operation);
+            Assert.Contains("await RefreshDownloadCenterSelectionAsync();", operation);
+        }
+    }
+
+    [Fact]
     public void Both_version_lookups_forward_their_cancellation_token()
     {
         var source = WindowSource();
