@@ -12,6 +12,10 @@ A native Windows manager for installing, diagnosing and maintaining the experime
 
 Current application source version: **v3.2.0** (as declared in `DlssNrManager.csproj`). This is not a claim that v4.0 is released.
 
+## Re-audit V4 — 2026-10-10 (source-only)
+
+The [independent general re-audit](docs/V4_GENERAL_REAUDIT_2026-10-10.md) verifies signed public main, 25/25 public locked source SHA references, xUnit and package policies. It identified an additional diagnostics ZIP privacy boundary risk: external game logs and INI content need credential redaction when exported. The correction and ZIP-level regression test are being reviewed separately; a passed CI result will not substitute for on-device RTX/process, model, licensing or update acceptance. A V4 public release is still blocked by #411, #79, #95 and #111.
+
 ## V4 final audit — 2026-10-10 (unreleased)
 
 Final source/FR-EN/lifecycle/update/packaging and official-source review: [audit report](docs/V4_FINAL_INDEPENDENT_AUDIT_2026-10-10.md), [non-destructive cleanup candidates](docs/V4_CLEANUP_CANDIDATES_2026-10-10.md), [retrospective journal](AI_PROJECT_PROGRESS3.txt). Protected signed #422 integrated the manual V4 portable local test builder and #424 integrated read-only VC++ x64 host detection. This does **not** install Manager on the user's PC. The separate tests/DlssNrManager.Tests xUnit project is kept in source/CI, not the end-user EXE/ZIP.
