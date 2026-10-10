@@ -56,6 +56,20 @@ jobs:
           bash -n ./tools/dispatch-release-if-needed.sh
           bash -n ./tools/map-runtime-refresh-files.sh
 
+      - name: Validate Windows PowerShell 5.1 collector syntax
+        shell: powershell
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path -LiteralPath './tools/collect-v4-owned-process-evidence.ps1').Path,
+            [ref]$tokens,
+            [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_.ToString() }
+            throw 'Windows PowerShell 5.1 collector syntax invalid.'
+          }
+
       - name: Validate runtime refresh scope mapping
         shell: bash
         run: |

@@ -396,6 +396,7 @@ public sealed class DownloadCenterService
         bool requireVerifiedUpdate = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        RequireSupportedVerifiedUpdateRoute(entry.Kind, requireVerifiedUpdate);
 
         // AI Studio packages already stage, validate and atomically replace
         // the selected model. In particular, do not remove a licensed model.
@@ -442,6 +443,24 @@ public sealed class DownloadCenterService
                 _ => false
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// A confirmed Update cannot silently fall back to a repair/Redownload
+    /// for VLC, Real-ESRGAN or AI-origin until immutable per-component
+    /// version/asset receipts and an install-time recheck are implemented.
+    /// Media updates use ComponentUpdateService's dedicated verified path.
+    /// </summary>
+    public static void RequireSupportedVerifiedUpdateRoute(
+        DownloadCenterKind kind,
+        bool requireVerifiedUpdate)
+    {
+        if (requireVerifiedUpdate && kind != DownloadCenterKind.AiStudioModel)
+        {
+            throw new InvalidOperationException(
+                "A verified newer package is not approved for this component. " +
+                "Refresh Downloads and use the separate Repair action if intended.");
+        }
     }
 
     private static AiStudioModelDescriptor ResolveModel(

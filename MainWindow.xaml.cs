@@ -4973,13 +4973,15 @@ public partial class MainWindow : Window
         await RunDownloadCenterOperationAsync(
             entry,
             redownload: true,
-            requireVerifiedUpdate: isModelUpdate);
+            requireVerifiedUpdate: isModelUpdate,
+            requireVerifiedMediaUpdate: isMediaUpdate);
     }
 
     private async Task RunDownloadCenterOperationAsync(
         DownloadCenterEntry entry,
         bool redownload,
-        bool requireVerifiedUpdate = false)
+        bool requireVerifiedUpdate = false,
+        bool requireVerifiedMediaUpdate = false)
     {
         if (entry.RequiresLicenseAcceptance)
         {
@@ -5017,7 +5019,7 @@ public partial class MainWindow : Window
             if (redownload)
             {
                 if (entry.Kind == DownloadCenterKind.MediaEngine &&
-                    _mediaUpdateStatus == MediaUpdateAvailability.UpdateAvailable)
+                    requireVerifiedMediaUpdate)
                 {
                     // Uses MediaService's transactional updater and stores the
                     // validated release fingerprint only after success.
