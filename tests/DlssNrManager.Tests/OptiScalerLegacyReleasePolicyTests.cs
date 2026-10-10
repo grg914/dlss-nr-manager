@@ -43,6 +43,19 @@ public sealed class OptiScalerLegacyReleasePolicyTests
         }));
 
     [Fact]
+    public void Compiled_application_contains_exact_reviewed_original_asset_receipt()
+        => OptiScalerLegacyReleasePolicy.AssertReviewedReceipt();
+
+    [Theory]
+    [InlineData("{\"id\":406116106,\"tag_name\":\"v3.2.0\",\"draft\":false,\"assets\":[]}")]
+    [InlineData("{\"id\":406116106,\"tag_name\":\"v3.2.0\",\"prerelease\":false,\"assets\":[]}")]
+    public void Missing_release_boolean_metadata_is_rejected(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        Assert.Null(OptiScalerLegacyReleasePolicy.TrySelect(doc.RootElement));
+    }
+
+    [Fact]
     public void Original_v320_metadata_selects_exact_digest_pinned_trial()
     {
         using var doc = Release();
