@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "usage": "qualification_only_not_automatically_activated",
+  "usage": "trial_requires_explicit_user_confirmation",
   "source_release": "v3.2.0",
   "source_release_id": 406116106,
   "asset_id": 620010799,
