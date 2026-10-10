@@ -29,6 +29,7 @@ public sealed class DownloadCenterUpdateProbeShutdownTests
         Assert.True(begin >= 0 && end > begin);
         var cleanup = source[begin..end];
         Assert.Contains("_isClosed = true;", cleanup);
+        Assert.Contains("ExternalProcessTracker.BeginShutdown();", cleanup);
         Assert.Contains("_downloadUpdateCheckCts?.Cancel();", cleanup);
         Assert.Contains("_officialUpdateCheckCts?.Cancel();", cleanup);
         Assert.Contains("ExternalProcessTracker.Shutdown();", cleanup);
@@ -74,7 +75,6 @@ public sealed class DownloadCenterUpdateProbeShutdownTests
             Assert.Contains("_downloadCenterCts = null;", operation);
             Assert.Contains("if (!_isClosed)", operation);
             Assert.Contains("await RefreshDownloadCenterSelectionAsync();", operation);
-            Assert.Contains("if (!_isClosed)", operation);
             Assert.Contains("AppLogger.Error(", operation);
         }
     }
