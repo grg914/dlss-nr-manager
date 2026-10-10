@@ -51,10 +51,15 @@ function Get-PackageEvidence {
         $name = $file.FullName.Substring($folder.FullName.Length).TrimStart([char[]]@([char]92, [char]47)).Replace('\', '/')
         $files[$name] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     }
-    if ($files.Count -eq 0 -or -not $files.ContainsKey("OptiScaler.dll")) {
-        throw "Native OptiScaler package contents are missing."
+    if ($files.Count -eq 0 -or
+        -not $files.ContainsKey("OptiScaler.dll") -or
+        -not $files.ContainsKey("nvngx.dll_dlssnr.dll")) {
+        throw "Native OptiScaler DLL package contents are missing."
     }
-
+    if ($files.ContainsKey("nvngx.dll_dlssnr.pdb")) {
+        throw "Unstable native forwarder debug PDB must remain in the build tree, not the runtime ZIP."
+    }
+    # Only the staging package is scanned; do not remove native debug outputs.
     $zip = $archives[0]
     return [pscustomobject]@{
         ZipHash = (Get-FileHash -LiteralPath $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
