@@ -73,10 +73,34 @@ if ($missingForced.Count -gt 0) {
     throw "Vendored OptiScaler snapshot is incomplete. Missing upstream-tracked file(s): $($missingForced -join ', '). Re-import with tools/vendor-third-party.ps1 -Replace -StageImported."
 }
 
-Write-Host "Building vendored OptiScaler using the complete locked upstream snapshot..."
-& $msbuild $solution /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
-if ($LASTEXITCODE -ne 0) {
-    throw "Vendored OptiScaler build failed with exit code $LASTEXITCODE."
+# The upstream Release pre-build step otherwise embeds the current clock
+# in resource_build_date.h, so byte-identical sources yield different DLLs.
+# Pin the stamp to the imported immutable source receipt, not wall-clock time.
+$sourceReceipt = Join-Path $SourcePath "SOURCE.json"
+if (!(Test-Path -LiteralPath $sourceReceipt -PathType Leaf)) {
+    throw "OptiScaler source receipt missing; a reproducible native build requires SOURCE.json."
+}
+$receipt = Get-Content -LiteralPath $sourceReceipt -Raw | ConvertFrom-Json
+if ([string]::IsNullOrWhiteSpace([string]$receipt.ref) -or
+    [string]::IsNullOrWhiteSpace([string]$receipt.imported_at_utc)) {
+    throw "OptiScaler source receipt lacks immutable ref/import timestamp."
+}
+$imported = [DateTimeOffset]::Parse(
+    [string]$receipt.imported_at_utc,
+    [Globalization.CultureInfo]::InvariantCulture)
+$buildStamp = $imported.UtcDateTime.ToString(
+    "yyyyMMdd_HHmmss", [Globalization.CultureInfo]::InvariantCulture)
+$previousStamp = $env:DLSSNR_OPTISCALER_BUILD_DATE
+try {
+    $env:DLSSNR_OPTISCALER_BUILD_DATE = $buildStamp
+    Write-Host "Building locked OptiScaler ref $($receipt.ref) with pinned source stamp $buildStamp..."
+    & $msbuild $solution /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+    if ($LASTEXITCODE -ne 0) {
+        throw "Vendored OptiScaler build failed with exit code $LASTEXITCODE."
+    }
+}
+finally {
+    $env:DLSSNR_OPTISCALER_BUILD_DATE = $previousStamp
 }
 
 $packageSource = Join-Path $SourcePath "x64\Release\a"
@@ -104,7 +128,11 @@ if (Test-Path -LiteralPath $packageDestination) {
 }
 New-Item -ItemType Directory -Force -Path $packageDestination | Out-Null
 
-robocopy $packageSource $packageDestination /E /NFL /NDL /NJH /NJS /NP | Out-Null
+# Keep the native forwarder PDB in the build workspace for diagnostics,
+# but exclude it from the user runtime package. /Brepro stabilizes both DLLs;
+# MSVC's separate forwarder PDB still varies between fresh builds and is not
+# needed to run the released package.
+robocopy $packageSource $packageDestination /E /NFL /NDL /NJH /NJS /NP /XF nvngx.dll_dlssnr.pdb | Out-Null
 if ($LASTEXITCODE -ge 8) {
     throw "Failed to stage OptiScaler package. robocopy exit code: $LASTEXITCODE"
 }
