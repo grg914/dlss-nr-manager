@@ -5,7 +5,7 @@ All notable release changes should be recorded here. This file distinguishes **m
 ### 2026-10-10 — V4 source audit and integration gates
 - Integrated through protected signed PR #422: optional self-contained V4 **local developer test** builder for a PC without an installed Manager; not a distributable release artifact.
 - Integrated through protected signed PR #424: read-only local Microsoft VC++ x64 detection with FR/EN UI, no third-party installer/binary distribution; old #340/#341 superseded.
-- Final audit candidate: broaden central log levels to TRACE/DEBUG/INFO/WARNING/ERROR/CRITICAL, redact common credentials, add missing FR/EN labels, structured fatal dispatcher diagnostics and xUnit checks. This line describes an **unmerged candidate** until required CI and signed squash are verified.
+- Protected signed [#426](https://github.com/grg914/dlss-nr-manager/pull/426) **MERGED** into `83952a65d6bdbaa38951b23c8dba7e6df5ccb195`: central log levels TRACE/DEBUG/INFO/WARNING/ERROR/CRITICAL, common credential redaction, missing FR/EN labels, structured fatal dispatcher diagnostics and xUnit checks. Corrected initial CS0103 error and reran exact-head Build/CodeQL (303/303 xUnit PASS). Hardware/RTX and release gates remain open.
 - Checked 25 pinned upstream GitHub source commits and 10 model source pages; binary/LFS availability, model hashes, hardware GPU and licensing remain unverified. Five old Real-ESRGAN .param mismatch #411 and optional update expansion #111 remain explicit blockers.
 - New audit and cleanup candidate inventory under docs/, plus retrospective AI_PROJECT_PROGRESS3.txt; no destructive branch/file cleanup and no v4 release.
 
