@@ -74,9 +74,15 @@ class RuntimeSeedWriterPolicyTests(unittest.TestCase):
         self.assertIn("-OnChanged Reject", (ROOT / "tools/publish-vlc-runtime.ps1").read_text(encoding="utf-8"))
         self.assertIn("-OnChanged StageImmutable", (ROOT / "tools/publish-temurin25-runtime.ps1").read_text(encoding="utf-8"))
 
-    def test_openmp_publication_requires_license_attestation(self):
-        self.assertIn("env.DLSSNR_OPENMP_REDIST_APPROVED == '1'", self.refresh)
-        self.assertIn("Skipping Real-ESRGAN publication", self.refresh)
+    def test_realesrgan_publishes_only_approved_openmp_free_runtime(self):
+        self.assertIn("env.DLSSNR_REALESRGAN_RUNTIME_APPROVED == '1'", self.refresh)
+        self.assertIn("Skipping new Real-ESRGAN runtime publication", self.refresh)
+        self.assertNotIn("DLSSNR_OPENMP_REDIST_APPROVED", self.refresh)
+        self.assertNotIn("package-approved-openmp.ps1", self.refresh)
+        self.assertIn("audit-realesrgan-package-openmp.ps1", self.refresh)
+        builder = (ROOT / "tools/build-realesrgan.ps1").read_text("utf-8")
+        self.assertIn("-DNCNN_OPENMP=OFF", builder)
+        self.assertIn("-DCMAKE_DISABLE_FIND_PACKAGE_OpenMP=TRUE", builder)
 
 
 if __name__ == "__main__":
