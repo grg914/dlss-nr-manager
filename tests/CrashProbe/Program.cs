@@ -56,6 +56,11 @@ try
         {
             File.WriteAllText(args[0] + ".blocked", "late-start-refused");
         }
+
+        // BeginShutdown is a launch gate, not an eager child termination.
+        if (helper.HasExited)
+            return 6;
+        ExternalProcessTracker.Shutdown();
         return 0;
     }
 
