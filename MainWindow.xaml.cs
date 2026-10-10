@@ -67,6 +67,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _mediaOperationCts;
     private CancellationTokenSource? _permanentVideoCts;
     private CancellationTokenSource? _aiOriginCts;
+    private bool _aiOriginAnalysisRunning;
     private CancellationTokenSource? _downloadCenterCts;
     private CancellationTokenSource? _downloadUpdateCheckCts;
     private CancellationTokenSource? _officialUpdateCheckCts;
@@ -196,6 +197,8 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             _isClosed = true;
+            // Block new owned helpers before canceling active operations.
+            try { ExternalProcessTracker.BeginShutdown(); } catch { }
             try { _downloadUpdateCheckCts?.Cancel(); } catch { }
             try { _officialUpdateCheckCts?.Cancel(); } catch { }
             DownloadProgressHub.Changed -= OnDownloadProgressChanged;
@@ -205,11 +208,14 @@ public partial class MainWindow : Window
             try { _aiOriginCts?.Cancel(); } catch { }
             try { _downloadCenterCts?.Cancel(); } catch { }
             try { ExternalProcessTracker.Shutdown(); } catch { }
-            _mediaOperationCts?.Dispose();
-            _permanentVideoCts?.Dispose();
-            _aiOriginCts?.Dispose();
-            _downloadCenterCts?.Dispose();
-            _aiOrigin.Dispose();
+            // Async operation owners dispose their cancellation sources in finally.
+            // Disposing here while an awaited download/worker is still unwinding
+            // can race its cancellation registration and trigger ObjectDisposedException.
+            // Native ONNX sessions and HTTP resources cannot be disposed
+            // while AnalyzeAsync may still be using them. Its finally owns
+            // deferred disposal after cancellation has completed.
+            if (!_aiOriginAnalysisRunning)
+                _aiOrigin.Dispose();
         };
     }
 
@@ -3021,6 +3027,9 @@ public partial class MainWindow : Window
         object sender,
         RoutedEventArgs e)
     {
+        if (_isClosed || _permanentVideoCts != null)
+            return;
+
         var source =
             PermanentVideoSourceBox.Text;
 
@@ -3107,8 +3116,6 @@ public partial class MainWindow : Window
             _ => AiUpscaleModel.GeneralPhoto
         };
 
-        _permanentVideoCts?.Cancel();
-        _permanentVideoCts?.Dispose();
         _permanentVideoCts =
             new CancellationTokenSource();
 
@@ -3125,8 +3132,10 @@ public partial class MainWindow : Window
             var progress =
                 new Progress<string>(
                     message =>
-                        PermanentVideoStatusText.Text =
-                            message);
+                    {
+                        if (!_isClosed)
+                            PermanentVideoStatusText.Text = message;
+                    });
 
             if (!_media.IsReady)
             {
@@ -3208,24 +3217,31 @@ public partial class MainWindow : Window
                     cancellationToken);
             }
 
+            if (_isClosed)
+                return;
+
             PermanentVideoStatusText.Text =
                 L($"Permanent enhancement complete • {result}", $"Amélioration permanente terminée • {result}");
         }
         catch (OperationCanceledException)
         {
-            PermanentVideoStatusText.Text =
-                L("Permanent video enhancement cancelled.", "Amélioration vidéo permanente annulée.");
+            if (!_isClosed)
+                PermanentVideoStatusText.Text =
+                    L("Permanent video enhancement cancelled.", "Amélioration vidéo permanente annulée.");
         }
         catch (Exception ex)
         {
-            PermanentVideoStatusText.Text =
-                L($"Permanent enhancement failed: {ex.Message}", $"Échec de l’amélioration permanente : {ex.Message}");
-
-            MessageBox.Show(
-                ex.Message,
-                L("Restore HD Video", "Restore HD Vidéo"),
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            AppLogger.Error("Permanent video enhancement failed.", ex);
+            if (!_isClosed)
+            {
+                PermanentVideoStatusText.Text =
+                    L($"Permanent enhancement failed: {ex.Message}", $"Échec de l’amélioration permanente : {ex.Message}");
+                MessageBox.Show(
+                    ex.Message,
+                    L("Restore HD Video", "Restore HD Vidéo"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
         finally
         {
@@ -3243,8 +3259,11 @@ public partial class MainWindow : Window
 
             _permanentVideoCts?.Dispose();
             _permanentVideoCts = null;
-            PermanentVideoEnhanceButton.IsEnabled = true;
-            PermanentVideoCancelButton.IsEnabled = false;
+            if (!_isClosed)
+            {
+                PermanentVideoEnhanceButton.IsEnabled = true;
+                PermanentVideoCancelButton.IsEnabled = false;
+            }
         }
     }
 
@@ -3381,10 +3400,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (_isClosed || _aiOriginAnalysisRunning)
+            return;
+
+        _aiOriginAnalysisRunning = true;
         try
         {
-            _aiOriginCts?.Cancel();
-            _aiOriginCts?.Dispose();
             _aiOriginCts = new CancellationTokenSource();
 
             AiOriginAnalyzeButton.IsEnabled = false;
@@ -3392,7 +3413,11 @@ public partial class MainWindow : Window
             MediaProcessButton.IsEnabled = false;
 
             var progress = new Progress<string>(
-                message => AiOriginStatusText.Text = message);
+                message =>
+                {
+                    if (!_isClosed)
+                        AiOriginStatusText.Text = message;
+                });
 
             var mode = AiOriginModeBox.SelectedIndex switch
             {
@@ -3406,6 +3431,9 @@ public partial class MainWindow : Window
                 progress,
                 _aiOriginCts.Token,
                 mode);
+
+            if (_isClosed)
+                return;
 
             _lastAiOriginResult = result;
             _lastAiOriginSource = source;
@@ -3443,26 +3471,39 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            AiOriginStatusText.Text = "AI origin analysis cancelled.";
+            if (!_isClosed)
+                AiOriginStatusText.Text = "AI origin analysis cancelled.";
         }
         catch (Exception ex)
         {
-            AiOriginStatusText.Text =
-                $"AI origin analysis failed: {ex.Message}";
+            AppLogger.Error("AI origin analysis failed.", ex);
+            if (!_isClosed)
+            {
+                AiOriginStatusText.Text =
+                    $"AI origin analysis failed: {ex.Message}";
 
-            MessageBox.Show(
-                ex.Message,
-                "AI origin analysis failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+                MessageBox.Show(
+                    ex.Message,
+                    "AI origin analysis failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
         finally
         {
-            AiOriginAnalyzeButton.IsEnabled = true;
-            AiOriginCancelButton.IsEnabled = false;
-            MediaProcessButton.IsEnabled = true;
             _aiOriginCts?.Dispose();
             _aiOriginCts = null;
+            _aiOriginAnalysisRunning = false;
+            if (_isClosed)
+            {
+                _aiOrigin.Dispose();
+            }
+            else
+            {
+                AiOriginAnalyzeButton.IsEnabled = true;
+                AiOriginCancelButton.IsEnabled = false;
+                MediaProcessButton.IsEnabled = true;
+            }
         }
     }
 
@@ -3570,6 +3611,9 @@ public partial class MainWindow : Window
 
     private async void ProcessMedia_Click(object sender, RoutedEventArgs e)
     {
+        if (_isClosed || _mediaOperationCts != null)
+            return;
+
         var source = MediaSourceBox.Text;
         if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
         {
@@ -3591,8 +3635,6 @@ public partial class MainWindow : Window
             MediaOutputBox.Text = output;
         }
 
-        _mediaOperationCts?.Cancel();
-        _mediaOperationCts?.Dispose();
         _mediaOperationCts = new CancellationTokenSource();
         var mediaCancellationToken = _mediaOperationCts.Token;
 
@@ -3613,6 +3655,9 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(
                 message =>
                 {
+                    if (_isClosed)
+                        return;
+
                     MediaStatusText.Text = message;
                     if (mode is 1 or 2)
                         AiUpscaleStatusText.Text = message;
@@ -3667,6 +3712,9 @@ public partial class MainWindow : Window
                     mediaCancellationToken);
             }
 
+            if (_isClosed)
+                return;
+
             MediaStatusText.Text = $"Complete • {result}";
             if (mode is 1 or 2)
                 AiUpscaleStatusText.Text = $"Complete • {result}";
@@ -3687,25 +3735,32 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            MediaStatusText.Text = "Processing cancelled.";
-            AiUpscaleStatusText.Text = "Processing cancelled.";
+            if (!_isClosed)
+            {
+                MediaStatusText.Text = "Processing cancelled.";
+                AiUpscaleStatusText.Text = "Processing cancelled.";
+            }
         }
         catch (Exception ex)
         {
-            MediaStatusText.Text = $"Processing failed: {ex.Message}";
-            AiUpscaleStatusText.Text = $"Processing failed: {ex.Message}";
-
-            MessageBox.Show(
-                ex.Message,
-                "Media processing failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            AppLogger.Error("Media processing failed.", ex);
+            if (!_isClosed)
+            {
+                MediaStatusText.Text = $"Processing failed: {ex.Message}";
+                AiUpscaleStatusText.Text = $"Processing failed: {ex.Message}";
+                MessageBox.Show(
+                    ex.Message,
+                    "Media processing failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
         finally
         {
             _mediaOperationCts?.Dispose();
             _mediaOperationCts = null;
-            MediaProcessButton.IsEnabled = true;
+            if (!_isClosed)
+                MediaProcessButton.IsEnabled = true;
         }
     }
 
@@ -4618,9 +4673,10 @@ public partial class MainWindow : Window
             _mediaUpdateStatus = MediaUpdateAvailability.UnknownRemoteVersion;
             _modelUpdateStatus = MediaUpdateAvailability.UnknownRemoteVersion;
             AppLogger.Warn("Download Center update check unavailable: " + ex.Message);
-            DownloadCenterStatusText.Text = L(
-                "Update check unavailable. Installed components were not changed.",
-                "Vérification des mises à jour indisponible. Aucun composant installé n'a été modifié.");
+            if (!_isClosed)
+                DownloadCenterStatusText.Text = L(
+                    "Update check unavailable. Installed components were not changed.",
+                    "Vérification des mises à jour indisponible. Aucun composant installé n'a été modifié.");
         }
         finally
         {
@@ -4722,9 +4778,10 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             AppLogger.Warn("Official source check unavailable: " + ex.Message);
-            OfficialUpdateStatusText.Text = L(
-                "Source lookup unavailable. Installed components were not changed.",
-                "Sources indisponibles. Aucun composant installé n'a été modifié.");
+            if (!_isClosed)
+                OfficialUpdateStatusText.Text = L(
+                    "Source lookup unavailable. Installed components were not changed.",
+                    "Sources indisponibles. Aucun composant installé n'a été modifié.");
         }
         finally
         {
@@ -5031,8 +5088,8 @@ public partial class MainWindow : Window
             new Progress<string>(
                 message =>
                 {
-                    DownloadCenterStatusText.Text =
-                        message;
+                    if (!_isClosed)
+                        DownloadCenterStatusText.Text = message;
                 });
 
         try
@@ -5083,8 +5140,10 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            DownloadCenterStatusText.Text =
-                L($"Failure: {ex.Message}", $"Échec : {ex.Message}");
+            AppLogger.Error("Download Center component operation failed: " + entry.Id, ex);
+            if (!_isClosed)
+                DownloadCenterStatusText.Text =
+                    L($"Failure: {ex.Message}", $"Échec : {ex.Message}");
         }
         finally
         {
@@ -5097,11 +5156,12 @@ public partial class MainWindow : Window
                 _modelUpdateStatus = MediaUpdateAvailability.UnknownLocalVersion;
                 _modelUpdateEntryId = null;
             }
-            DownloadCenterCancelButton.Visibility =
-                Visibility.Collapsed;
-
-            RefreshDownloadCenter();
-            await RefreshDownloadCenterSelectionAsync();
+            if (!_isClosed)
+            {
+                DownloadCenterCancelButton.Visibility = Visibility.Collapsed;
+                RefreshDownloadCenter();
+                await RefreshDownloadCenterSelectionAsync();
+            }
         }
     }
 
@@ -5178,8 +5238,8 @@ public partial class MainWindow : Window
             new Progress<string>(
                 message =>
                 {
-                    DownloadCenterStatusText.Text =
-                        message;
+                    if (!_isClosed)
+                        DownloadCenterStatusText.Text = message;
                 });
 
         try
@@ -5205,18 +5265,21 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            DownloadCenterStatusText.Text =
-                L($"Import failed: {ex.Message}", $"Échec de l'import : {ex.Message}");
+            AppLogger.Error("Download Center manual model import failed: " + entry.Id, ex);
+            if (!_isClosed)
+                DownloadCenterStatusText.Text =
+                    L($"Import failed: {ex.Message}", $"Échec de l'import : {ex.Message}");
         }
         finally
         {
             _downloadCenterCts.Dispose();
             _downloadCenterCts = null;
-            DownloadCenterCancelButton.Visibility =
-                Visibility.Collapsed;
-
-            RefreshDownloadCenter();
-            await RefreshDownloadCenterSelectionAsync();
+            if (!_isClosed)
+            {
+                DownloadCenterCancelButton.Visibility = Visibility.Collapsed;
+                RefreshDownloadCenter();
+                await RefreshDownloadCenterSelectionAsync();
+            }
         }
     }
 
