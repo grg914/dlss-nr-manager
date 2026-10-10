@@ -15,6 +15,10 @@ public static class OfficialUpstreamSelectionPolicy
 
         return selected.Id switch
         {
+            "minecraft-caustica" => "caustica",
+            "games-streamline" => "streamline",
+            "games-reshade" => "reshade",
+            "games-optiscaler" => "optiscaler",
             "media-engine" => "video2dlssnr",
             "realesrgan" => "realesrgan",
             "ai-model:flux2-klein-4b" => "ai-studio-flux2-reference",
