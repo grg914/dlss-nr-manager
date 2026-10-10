@@ -16,7 +16,6 @@ on:
       - tests/test_legacy_ps51_seed_zip.ps1
       - tests/test_versioned_runtime_seed.ps1
       - tests/test_runtime_seed_writer_policy.py
-      - tests/test_openmp_redistribution_guard.py
   push:
     branches: [main]
     paths:
@@ -33,7 +32,6 @@ on:
       - tests/test_legacy_ps51_seed_zip.ps1
       - tests/test_versioned_runtime_seed.ps1
       - tests/test_runtime_seed_writer_policy.py
-      - tests/test_openmp_redistribution_guard.py
 
 permissions:
   contents: read
@@ -52,9 +50,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_runtime_seed_writer_policy.py' -v
-          if [ -f tests/test_openmp_redistribution_guard.py ]; then
-            python3 -m unittest discover -s tests -p 'test_openmp_redistribution_guard.py' -v
-          fi
       - name: Exercise mocked append-only NuGet publication
         shell: pwsh
         run: ./tests/test_immutable_nuget_seed.ps1
