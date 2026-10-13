@@ -23,7 +23,7 @@ jobs:
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-realesrgan.ps1 -BuildPath build-realesrgan -Clean
 
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Real-ESRGAN-vendored-win-x64
           path: build-realesrgan/Release/realesrgan-ncnn-vulkan.exe
@@ -41,7 +41,7 @@ jobs:
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-optiscaler.ps1 -OutputDirectory build-optiscaler -Clean
 
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: OptiScaler-vendored-win-x64
           path: build-optiscaler/OptiScaler-NR-*-vendored-win-x64.zip
@@ -60,7 +60,7 @@ jobs:
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\build-reshade.ps1 -OutputDirectory build-reshade -Clean
 
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ReShade-vendored-setup
           path: build-reshade/ReShade-Setup-*-vendored.zip
